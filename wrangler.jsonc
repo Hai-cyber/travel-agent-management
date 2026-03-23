@@ -1,0 +1,38 @@
+{
+  "name": "square-wind-2594",
+  "main": "src/index.js",
+  "workers_dev": true,
+  "preview_urls": true,
+  "compatibility_date": "2026-03-10",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "d4f609a9-0e4a-44bd-ac3b-74865bcfd6ba"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "id": "f73f49731e054d35985ee4d1326f6258",
+      "binding": "TOUR_PRESETS"
+    }
+  ]
+}
