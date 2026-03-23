@@ -1,0 +1,3522 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Tour Ops Shell</title>
+		<link rel="stylesheet" href="https://unpkg.com/grapesjs/dist/css/grapes.min.css" />
+		<style>
+			/* Ẩn toàn bộ panel theo tab cha */
+			[data-panel] {
+				display: none;
+			}
+
+			[data-panel].is-active {
+				display: block;
+			}
+
+			/* Ẩn toàn bộ sub-panel trong Tour Studio */
+			[data-tour-studio-panel] {
+				display: none;
+			}
+
+			[data-tour-studio-panel].is-active {
+				display: block;
+			}
+			:root {
+				--bg: #f4efe6;
+				--bg-soft: rgba(255, 250, 243, 0.72);
+				--panel: rgba(255, 252, 247, 0.88);
+				--panel-strong: #fff8ef;
+				--ink: #1e1b16;
+				--muted: #655b4f;
+				--line: rgba(52, 37, 20, 0.12);
+				--accent: #bf5a36;
+				--accent-deep: #7f2f18;
+				--accent-soft: rgba(191, 90, 54, 0.12);
+				--success: #1f7a52;
+				--shadow: 0 4px 24px rgba(58, 38, 12, 0.08);
+				--radius-xl: 28px;
+				--radius-lg: 22px;
+				--radius-md: 16px;
+				--radius-sm: 10px;
+				--toolbar-h: 44px;
+			}
+
+			/* === RESET === */
+			*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				font-size: 14px;
+				line-height: 1.5;
+				color: var(--ink);
+				background: var(--bg);
+			}
+
+			/* === TOOLBAR 1 – thanh tren cung: ten tour, trang thai, Save/Preview === */
+			.toolbar-1 {
+				position: sticky;
+				top: 0;
+				z-index: 50;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				height: var(--toolbar-h);
+				padding: 0 16px;
+				background: var(--panel-strong);
+				border-bottom: 1px solid var(--line);
+				backdrop-filter: blur(12px);
+			}
+			.toolbar-1 .t1-title {
+				font-weight: 700;
+				font-size: 0.92rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				min-width: 0;
+			}
+			.toolbar-1 .t1-status {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-left: 8px;
+			}
+			.toolbar-1 .t1-spacer { flex: 1; }
+			.toolbar-1 .t1-actions {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-shrink: 0;
+			}
+
+			/* === TOOLBAR 2 – chuyen che do: Tour Studio / Site Studio / Ops === */
+			.toolbar-2 {
+				position: sticky;
+				top: var(--toolbar-h);
+				z-index: 49;
+				display: flex;
+				align-items: center;
+				gap: 2px;
+				height: 38px;
+				padding: 0 16px;
+				background: rgba(255, 252, 247, 0.95);
+				border-bottom: 1px solid var(--line);
+				backdrop-filter: blur(10px);
+			}
+
+			/* === TOOLBAR 3 – sub-mode va meta inline === */
+			.toolbar-3 {
+				position: sticky;
+				top: calc(var(--toolbar-h) + 38px);
+				z-index: 48;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-height: 36px;
+				padding: 4px 16px;
+				background: rgba(244, 239, 230, 0.92);
+				border-bottom: 1px solid var(--line);
+				backdrop-filter: blur(8px);
+			}
+			.toolbar-3 .t3-tabs {
+				display: flex;
+				gap: 2px;
+				flex-shrink: 0;
+			}
+			.toolbar-3 .t3-separator {
+				width: 1px;
+				height: 20px;
+				background: var(--line);
+				flex-shrink: 0;
+				margin: 0 6px;
+			}
+			/* Meta inline row: giu tat ca cac control tren 1 hang ngang */
+			.toolbar-3 .meta-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex: 1;
+				min-width: 0;
+				overflow-x: auto;
+				scrollbar-width: thin;
+			}
+			.meta-row .meta-field {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				flex-shrink: 0;
+			}
+			.meta-row .meta-field label {
+				font-size: 0.65rem;
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--muted);
+				white-space: nowrap;
+			}
+			.meta-row select,
+			.meta-row input {
+				width: auto;
+				min-width: 72px;
+				padding: 4px 8px;
+				font-size: 0.8rem;
+				border-radius: 6px;
+				border: 1px solid var(--line);
+				background: #fff;
+			}
+			.meta-row #global-admin-lang { min-width: 80px; }
+			.meta-row #global-admin-date-format { min-width: 110px; }
+			.meta-row #global-price-currency-mode { min-width: 60px; }
+			.meta-row #global-price-base-currency { min-width: 60px; }
+			.meta-row #global-usd-vnd-rate { min-width: 72px; }
+
+			/* === SHARED TAB/BUTTON STYLES === */
+			.tab-button, .tour-studio-button {
+				appearance: none;
+				border: 0;
+				border-radius: 6px;
+				padding: 6px 14px;
+				background: transparent;
+				font: inherit;
+				font-size: 0.82rem;
+				font-weight: 600;
+				color: var(--muted);
+				cursor: pointer;
+				text-decoration: none;
+				transition: background-color 120ms ease, color 120ms ease;
+			}
+			.tab-button:hover, .tour-studio-button:hover {
+				background: rgba(191, 90, 54, 0.06);
+			}
+			.tab-button.is-active {
+				background: var(--accent);
+				color: #fff;
+			}
+			.tour-studio-button.is-active {
+				background: rgba(31, 122, 82, 0.12);
+				color: var(--success);
+			}
+
+			/* === WORKSPACE – toan bo noi dung chinh duoi toolbar === */
+			.workspace {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(380px, 0.48fr);
+				gap: 16px;
+				padding: 12px 16px 32px;
+				min-height: calc(100vh - var(--toolbar-h) - 38px - 36px);
+			}
+			.workspace.is-single-column {
+				grid-template-columns: 1fr;
+			}
+			.workspace.is-single-column .preview-stack {
+				display: none;
+			}
+
+			/* === BUTTONS === */
+			button {
+				appearance: none;
+				border: 0;
+				border-radius: 6px;
+				padding: 7px 14px;
+				font: inherit;
+				font-size: 0.82rem;
+				font-weight: 700;
+				cursor: pointer;
+				transition: opacity 100ms ease;
+			}
+			button:disabled { opacity: 0.4; cursor: not-allowed; }
+			.button-primary {
+				background: var(--accent);
+				color: #fff;
+			}
+			.button-secondary {
+				background: #fff;
+				color: var(--ink);
+				border: 1px solid var(--line);
+			}
+			.button-ghost {
+				background: transparent;
+				color: var(--accent-deep);
+				border: 1px dashed rgba(127, 47, 24, 0.25);
+			}
+			.button-sm {
+				padding: 4px 10px;
+				font-size: 0.78rem;
+			}
+			.icon-delete {
+				border: 1px solid var(--line);
+				background: rgba(191, 90, 54, 0.08);
+				color: var(--accent-deep);
+				border-radius: 6px;
+				padding: 5px 8px;
+				cursor: pointer;
+				font-size: 0.82rem;
+			}
+
+			/* === TAB PANELS === */
+			.tab-panel { display: none; }
+			.tab-panel.is-active { display: block; }
+			.tour-studio-panel { display: none; }
+			.tour-studio-panel.is-active { display: block; }
+
+			/* === FIELDS === */
+			.field { display: grid; gap: 4px; }
+			.field label {
+				font-size: 0.72rem;
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+			input, textarea, select {
+				width: 100%;
+				font: inherit;
+				font-size: 0.88rem;
+				padding: 8px 10px;
+				border-radius: var(--radius-sm);
+				border: 1px solid var(--line);
+				background: #fff;
+				color: var(--ink);
+			}
+			input:focus, textarea:focus, select:focus {
+				outline: none;
+				border-color: rgba(191, 90, 54, 0.45);
+				box-shadow: 0 0 0 2px rgba(191, 90, 54, 0.1);
+			}
+			textarea { min-height: 80px; resize: vertical; }
+
+			/* === GRIDS === */
+			.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+			.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+			/* === ACTIONS === */
+			.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+			/* === CALLOUT === */
+			.inline-callout {
+				padding: 8px 12px;
+				border-radius: 8px;
+				background: var(--accent-soft);
+				border: 1px solid rgba(191, 90, 54, 0.12);
+				color: var(--accent-deep);
+				font-size: 0.82rem;
+			}
+
+			/* === STATUS === */
+			.status-pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 3px 8px;
+				border-radius: 999px;
+				background: rgba(31, 122, 82, 0.1);
+				color: var(--success);
+				font-size: 0.72rem;
+				font-weight: 700;
+			}
+			.status-pill.is-warning {
+				background: rgba(191, 90, 54, 0.1);
+				color: var(--accent-deep);
+			}
+			.kicker {
+				display: inline-flex;
+				padding: 3px 8px;
+				border-radius: 999px;
+				background: var(--accent-soft);
+				color: var(--accent-deep);
+				font-size: 0.65rem;
+				font-weight: 800;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+			.tiny-mono {
+				font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+				font-size: 0.72rem;
+				color: var(--muted);
+			}
+
+			/* === CARD BLOCK – the chung cho moi muc content === */
+			.studio-card-block {
+				display: grid;
+				gap: 8px;
+				padding: 12px 14px;
+				border-radius: 12px;
+				background: #fff;
+				border: 1px solid var(--line);
+			}
+			.studio-card-block + .studio-card-block { margin-top: 24px; }
+
+			.card-head { display: grid; gap: 2px; }
+			.card-head h2 { font-size: 1rem; margin: 0; }
+			.card-head h3 { font-size: 0.92rem; margin: 0; font-weight: 700; letter-spacing: 0.01em; }
+			.card-head p { margin: 0; }
+
+			/* === DESTINATION STAGING – khu vuc dich chinh === */
+			.destination-list { display: grid; gap: 8px; }
+			.destination-shell {
+				display: grid;
+				gap: 8px;
+				padding: 10px 12px;
+				border-radius: 10px;
+				background: rgba(255, 255, 255, 0.92);
+				border: 1px solid var(--line);
+			}
+			.destination-shell.drag-over {
+				outline: 2px dashed rgba(191,90,54,0.5);
+				outline-offset: 2px;
+			}
+			.destination-header {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				align-items: flex-start;
+			}
+			.destination-title-block { display: grid; gap: 2px; }
+			.destination-shell textarea { min-height: 60px; }
+			.drag-handle {
+				border: 1px solid var(--line);
+				background: #fff;
+				border-radius: 6px;
+				padding: 4px 8px;
+				cursor: grab;
+				font-size: 0.82rem;
+			}
+
+			/* === SERVICE CHIPS === */
+			.svc-chip-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+			.svc-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 3px 10px;
+				border-radius: 999px;
+				border: 1px solid var(--line);
+				background: rgba(255,255,255,0.7);
+				font-size: 0.74rem;
+				cursor: pointer;
+				white-space: nowrap;
+			}
+			.svc-chip-wrap { display: inline-flex; align-items: center; gap: 3px; }
+			.svc-chip.is-on {
+				background: rgba(31,122,82,0.1);
+				border-color: rgba(31,122,82,0.35);
+				color: #1f7a52;
+			}
+			.svc-chip-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+			.svc-chip select { margin-left: 3px; font-size: 0.72rem; border: none; background: transparent; cursor: pointer; }
+
+			/* === PREVIEW STACK === */
+			.preview-stack { display: grid; gap: 12px; align-content: start; }
+			.preview-card, .pricing-card {
+				padding: 16px;
+				border-radius: 12px;
+				background: #fff;
+				border: 1px solid var(--line);
+			}
+			.preview-card { min-height: 320px; }
+			.pricing-card { min-height: 200px; }
+			.preview-hero {
+				display: grid;
+				gap: 10px;
+			}
+			.preview-hero h2 { font-size: 1.3rem; line-height: 1.1; margin: 0; }
+			.preview-itinerary { display: grid; gap: 8px; margin-top: 8px; }
+			.preview-itinerary-day {
+				padding: 8px 10px;
+				border-radius: 8px;
+				background: rgba(244, 239, 230, 0.6);
+				border: 1px solid rgba(52, 37, 20, 0.06);
+			}
+			.preview-itinerary-day strong { display: block; font-size: 0.88rem; margin-bottom: 2px; }
+			.preview-itinerary-day p { margin: 0; font-size: 0.82rem; color: var(--muted); }
+			.badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+			.badge {
+				padding: 4px 10px;
+				border-radius: 999px;
+				background: rgba(244, 239, 230, 0.8);
+				border: 1px solid var(--line);
+				font-size: 0.78rem;
+			}
+
+			/* === PRICING === */
+			.price-list { display: grid; gap: 8px; }
+			.price-item {
+				display: grid;
+				grid-template-columns: 1fr auto auto auto auto;
+				gap: 10px;
+				align-items: center;
+				padding: 8px 10px;
+				border-radius: 8px;
+				background: rgba(244, 239, 230, 0.5);
+				border: 1px solid rgba(52, 37, 20, 0.06);
+				font-size: 0.84rem;
+			}
+			#right-price-preview-list .price-item {
+				grid-template-columns: 1fr auto;
+				gap: 10px;
+			}
+			.pricing-detail-grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 6px;
+				margin-top: 6px;
+			}
+			.pricing-detail-grid div {
+				padding: 6px 8px;
+				border-radius: 6px;
+				background: rgba(244, 239, 230, 0.5);
+				border: 1px solid rgba(52, 37, 20, 0.04);
+			}
+			.pricing-detail-grid strong { display: block; font-size: 0.84rem; }
+			.pricing-meta-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+			/* === BOOKING === */
+			.booking-list { display: grid; gap: 8px; }
+
+			/* === MOBILE OPS === */
+			.mobile-task-list { display: grid; gap: 8px; }
+			.mobile-task-card {
+				display: grid;
+				gap: 8px;
+				padding: 10px 12px;
+				border-radius: 10px;
+				background: #fff;
+				border: 1px solid var(--line);
+			}
+			.mobile-task-head {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				align-items: flex-start;
+			}
+			.mobile-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+			.quick-link {
+				display: inline-flex;
+				padding: 5px 10px;
+				border-radius: 999px;
+				text-decoration: none;
+				background: #fff;
+				border: 1px solid var(--line);
+				color: var(--ink);
+				font-size: 0.78rem;
+				font-weight: 600;
+			}
+			.quick-link.is-disabled { opacity: 0.4; pointer-events: none; }
+			.quick-note-grid, .quick-status-grid {
+				display: grid;
+				grid-template-columns: 1fr auto;
+				gap: 8px;
+			}
+
+			/* === SITE STUDIO === */
+			.site-editor-shell { display: grid; gap: 10px; }
+			.site-editor-frame {
+				border-radius: 10px;
+				overflow: hidden;
+				border: 1px solid var(--line);
+				background: #fff;
+			}
+			#site-layout-editor { min-height: 700px; }
+			.site-editor-meta {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				align-items: center;
+			}
+			.site-editor-pill {
+				display: inline-flex;
+				gap: 4px;
+				padding: 4px 8px;
+				border-radius: 999px;
+				background: rgba(244, 239, 230, 0.8);
+				border: 1px solid var(--line);
+				font-size: 0.74rem;
+				color: var(--muted);
+			}
+
+			/* === STUDIO LAYOUT EDITOR === */
+			.studio-shell {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 12px;
+			}
+			.studio-column { display: grid; gap: 8px; align-content: start; }
+			.studio-list { display: grid; gap: 6px; }
+			.studio-row {
+				display: grid;
+				grid-template-columns: auto 1fr auto auto;
+				gap: 6px;
+				align-items: center;
+				padding: 6px 10px;
+				border-radius: 8px;
+				background: #fff;
+				border: 1px solid var(--line);
+			}
+			.studio-row.is-selected { outline: 2px solid rgba(191, 90, 54, 0.3); outline-offset: 1px; }
+			.studio-row.is-hidden { opacity: 0.5; background: rgba(244, 239, 230, 0.6); }
+			.studio-drag {
+				border: 1px solid var(--line);
+				background: #fff;
+				border-radius: 6px;
+				padding: 4px 7px;
+				cursor: grab;
+				font-size: 0.8rem;
+			}
+			.studio-chip {
+				display: inline-flex;
+				padding: 3px 8px;
+				border-radius: 999px;
+				background: var(--accent-soft);
+				color: var(--accent-deep);
+				font-size: 0.7rem;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+			}
+			.studio-card-note {
+				padding: 8px 10px;
+				border-radius: 8px;
+				background: rgba(244, 239, 230, 0.6);
+				border: 1px dashed var(--line);
+				color: var(--muted);
+				font-size: 0.82rem;
+			}
+
+			/* === HIDDEN HELPERS === */
+			.compact-admin-line { display: none; }
+			.compact-chip { display: none; }
+			.admin-shell-copy { display: none; }
+			.hero-card { display: none; }
+			.hero { display: none; }
+			.demo-banner { display: none; }
+			.panel-intro h2 { display: none; }
+			.panel-intro p { display: none; }
+			.workspace-meta-note { display: none; }
+			.panel { padding: 0; }
+
+			/* === SERVICE ITEMS === */
+			.service-card {
+				display: grid;
+				gap: 8px;
+				padding: 10px;
+				border-radius: 10px;
+				background: #fff;
+				border: 1px solid var(--line);
+			}
+			.service-card--wide { grid-column: 1 / -1; }
+			.service-card-header {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				align-items: center;
+			}
+			.service-card-header strong { font-size: 0.88rem; }
+			.service-count {
+				min-width: 24px;
+				height: 24px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 999px;
+				background: var(--accent-soft);
+				color: var(--accent-deep);
+				font-weight: 700;
+				font-size: 0.78rem;
+			}
+			.service-items { display: grid; gap: 4px; }
+			.service-entry {
+				padding: 6px 8px;
+				border-radius: 8px;
+				background: rgba(244, 239, 230, 0.5);
+				border: 1px solid rgba(52, 37, 20, 0.04);
+				font-size: 0.84rem;
+			}
+			.service-entry strong { display: block; font-size: 0.84rem; margin-bottom: 2px; }
+			.service-empty { font-size: 0.78rem; color: var(--muted); padding: 4px 0; }
+
+			/* === BUILDER (legacy / compat) === */
+			.builder-template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+			.builder-template-card, .builder-block-card {
+				padding: 10px;
+				border-radius: 10px;
+				background: #fff;
+				border: 1px solid var(--line);
+				cursor: pointer;
+			}
+			.builder-template-card:hover, .builder-block-card:hover { border-color: rgba(191, 90, 54, 0.3); }
+			.builder-template-card.is-active, .builder-block-card.is-active { border-color: rgba(191, 90, 54, 0.5); box-shadow: 0 0 0 2px rgba(191, 90, 54, 0.1); }
+			.builder-template-card strong, .builder-block-card strong { display: block; margin-bottom: 4px; font-size: 0.88rem; }
+			.builder-template-card p, .builder-block-card p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+			.builder-template-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+			.builder-template-meta span { font-size: 0.7rem; padding: 4px 8px; border-radius: 999px; background: rgba(244,239,230,0.9); border: 1px solid var(--line); }
+			.builder-library-shell { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
+			.builder-block-grid { display: grid; gap: 6px; margin-top: 6px; }
+			.builder-block-card.is-muted { opacity: 0.6; background: rgba(244,239,230,0.6); }
+			.builder-block-toggle { display: inline-flex; gap: 4px; margin-top: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-deep); }
+			.builder-meta-band { display: grid; gap: 6px; margin-top: 8px; }
+			.builder-website-sections { display: grid; gap: 8px; margin-top: 10px; }
+			.builder-preview-section { padding: 10px; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
+			.builder-preview-section strong { display: block; margin-bottom: 4px; }
+			.builder-preview-section p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+			.builder-preview-section.is-highlight { background: linear-gradient(135deg, #fff, rgba(247,231,211,0.5)); }
+			.builder-content-stack { display: grid; gap: 8px; }
+			.builder-content-card { padding: 10px; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
+			.builder-content-card h4 { margin: 0 0 6px; font-size: 0.92rem; }
+			.builder-content-card p { margin: 0 0 8px; font-size: 0.78rem; color: var(--muted); }
+
+			/* === EMPTY STATE === */
+			.empty-state {
+				padding: 12px;
+				border-radius: 8px;
+				border: 1px dashed var(--line);
+				color: var(--muted);
+				background: rgba(255, 255, 255, 0.5);
+				font-size: 0.84rem;
+			}
+
+			/* === COMPOSER (destination add) === */
+			.destination-composer { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+			.composer-header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+			.composer-grid { display: grid; grid-template-columns: 1.1fr 1.2fr 1.2fr auto; gap: 8px; align-items: end; }
+			.composer-grid button { white-space: nowrap; }
+			.destination-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+			.meta-chip {
+				display: inline-flex;
+				gap: 4px;
+				padding: 4px 8px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.7);
+				border: 1px solid var(--line);
+				font-size: 0.74rem;
+				color: var(--muted);
+			}
+
+			/* === FORM SUBSECTION === */
+			.form-subsection { padding-top: 10px; border-top: 1px solid var(--line); }
+
+			/* === FOOTER === */
+			footer {
+				padding: 12px 16px;
+				font-size: 0.78rem;
+				color: var(--muted);
+			}
+			.footer-shell { display: grid; gap: 8px; }
+			.footer-meta { display: none; }
+			.ops-links { display: flex; flex-wrap: wrap; gap: 6px; }
+			.ops-link-group {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 8px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.7);
+				border: 1px solid var(--line);
+			}
+			.ops-link-group strong {
+				font-size: 0.65rem;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+			.ops-link-group a {
+				padding: 2px 6px;
+				border-radius: 999px;
+				background: #fff;
+				border: 1px solid var(--line);
+				font-size: 0.7rem;
+				font-weight: 600;
+				text-decoration: none;
+				color: var(--ink);
+			}
+
+			/* === RESPONSIVE === */
+			@media (max-width: 1080px) {
+				.workspace { grid-template-columns: 1fr; }
+				.toolbar-3 { flex-wrap: wrap; }
+				.toolbar-3 .meta-row { width: 100%; }
+			}
+			@media (max-width: 760px) {
+				.toolbar-1, .toolbar-2, .toolbar-3 { padding: 0 10px; }
+				.workspace { padding: 8px 10px 24px; }
+				.grid-2, .grid-3, .pricing-detail-grid, .builder-template-grid, .builder-library-shell,
+				.studio-shell, .composer-grid { grid-template-columns: 1fr; }
+				.destination-header { flex-direction: column; }
+				.meta-row { flex-wrap: wrap; }
+			}
+
+			/* === ANIMATION === */
+			@keyframes fade-up {
+				from { opacity: 0; transform: translateY(4px); }
+				to { opacity: 1; transform: translateY(0); }
+			}
+			.tab-panel.is-active { animation: fade-up 150ms ease; }
+		</style>
+	</head>
+	<body>
+		<!-- === TOOLBAR 1 – thanh tren cung: ten tour + trang thai + Save/Preview === -->
+		<header class="toolbar-1">
+			<span class="t1-title" id="tour-preview-title-toolbar">Saigon to Sapa Signature</span>
+			<div class="t1-status">
+				<span class="status-pill is-warning" id="tour-status-pill">Draft</span>
+				<span class="tiny-mono" id="tour-id-output">not-created</span>
+			</div>
+			<span class="t1-spacer"></span>
+			<div class="t1-actions">
+				<button class="button-secondary button-sm" id="save-psych-draft-top-button" type="button">Save</button>
+				<a class="button-secondary button-sm" href="#tour-preview-card" style="text-decoration:none;">Preview</a>
+			</div>
+		</header>
+
+		<!-- === TOOLBAR 2 – chuyen che do chinh === -->
+		<nav class="toolbar-2 tab-strip" aria-label="Mode switch">
+			<a class="tab-button is-active" data-tab="tour-studio" href="#tour-config" aria-current="page">Tour Studio</a>
+			<a class="tab-button" data-tab="site-studio" href="#site-studio">Site Studio</a>
+			<a class="tab-button" data-tab="ops" href="#ops">Ops</a>
+		</nav>
+
+		<!-- === TOOLBAR 3 – sub-tabs + meta inline === -->
+		<div class="toolbar-3">
+			<div class="t3-tabs tour-studio-strip" aria-label="Tour Studio views">
+				<a class="tour-studio-button is-active" data-tour-studio-tab="tour-config" href="#tour-config" aria-current="page">Tour Config</a>
+				<a class="tour-studio-button" data-tour-studio-tab="pricing" href="#pricing">Pricing</a>
+			</div>
+			<div class="t3-separator"></div>
+			<!-- Meta ngang hang: khong dung form doc, giu tren 1 dong === -->
+			<div class="meta-row">
+				<div class="meta-field">
+					<label for="global-admin-lang">Lang</label>
+					<select id="global-admin-lang">
+						<option value="en">EN</option>
+						<option value="vi">VI</option>
+					</select>
+				</div>
+				<div class="meta-field">
+					<label for="global-admin-date-format">Date</label>
+					<select id="global-admin-date-format">
+						<option value="yyyy-mm-dd hh:mm" selected>yyyy-mm-dd</option>
+						<option value="dd.mm.yyyy hh:mm">dd.mm.yyyy</option>
+						<option value="mm/dd/yyyy hh:mm">mm/dd/yyyy</option>
+					</select>
+				</div>
+				<div class="meta-field">
+					<label for="global-price-currency-mode">Traveler</label>
+					<select id="global-price-currency-mode">
+						<option value="auto">Auto</option>
+						<option value="USD">USD</option>
+						<option value="VND">VND</option>
+					</select>
+				</div>
+				<div class="meta-field">
+					<label for="global-price-base-currency">Tier</label>
+					<select id="global-price-base-currency">
+						<option value="USD" selected>USD</option>
+						<option value="VND">VND</option>
+					</select>
+				</div>
+				<div class="meta-field">
+					<label for="global-usd-vnd-rate">FX</label>
+					<input id="global-usd-vnd-rate" type="number" min="1" value="25000" style="width:80px;" />
+				</div>
+				<button class="button-secondary button-sm" id="save-global-admin-settings-button" type="button">Save</button>
+			</div>
+		</div>
+
+		<!-- Hidden elements giu cho JS selector khong bi hu -->
+		<div style="display:none;">
+			<span id="hero-destination-count">0</span>
+			<span id="hero-price-count">0</span>
+			<span id="tour-status-copy"></span>
+			<span id="visual-style-copy"></span>
+			<span id="visual-style-pill"></span>
+		</div>
+
+		<main>
+			<!-- Workspace toan man hinh: panel chinh + preview aside -->
+			<section class="workspace shell">
+				<div class="panel">
+					<!-- TOUR STUDIO -->
+					<section class="tab-panel is-active" data-panel="tour-studio">
+
+						<!-- Tour Config -->
+						<section class="tour-studio-panel is-active" data-tour-studio-panel="tour-config">
+							<section class="studio-card-block" data-card-id="tour-basics">
+								<div class="card-head"><h3>Tour Setup</h3></div>
+								<div class="grid-2">
+									<div class="field">
+										<label for="tour-title">Title</label>
+										<input id="tour-title" placeholder="Tour title" value="Saigon to Sapa Signature" />
+									</div>
+									<div class="field">
+										<label for="tour-duration">Duration</label>
+										<input id="tour-duration" placeholder="6D5N" value="6D5N" />
+									</div>
+								</div>
+								<div class="field">
+									<label for="tour-intro">Intro</label>
+									<textarea id="tour-intro" placeholder="Short description"></textarea>
+								</div>
+								<div class="actions">
+									<button class="button-primary" id="save-tour-button" type="button">Create Draft</button>
+									<button class="button-secondary" id="reset-tour-button" type="button">Reset</button>
+								</div>
+								<div class="inline-callout" id="tour-feedback">No draft created yet.</div>
+							</section>
+
+							<section class="studio-card-block" data-card-id="tour-destinations">
+								<div class="card-head"><h3>Destinations</h3></div>
+								<div class="destination-list" id="destination-list">
+									<div class="empty-state">No destinations staged yet.</div>
+								</div>
+								<div class="grid-2">
+									<div class="field">
+										<label for="dest-name">Destination</label>
+										<input id="dest-name" placeholder="Saigon" value="Saigon" />
+									</div>
+									<div class="field">
+										<label for="dest-nights">Nights</label>
+										<input id="dest-nights" type="number" min="0" value="2" />
+									</div>
+								</div>
+								<div class="actions">
+									<button class="button-primary" id="add-destination-button" type="button">Add</button>
+									<button class="button-ghost" id="seed-route-button" type="button">Seed</button>
+									<button class="button-secondary" id="save-psych-draft-bottom-button" type="button">Save Draft</button>
+								</div>
+							</section>
+						</section>
+
+						<!-- Pricing -->
+						<section class="tour-studio-panel" data-tour-studio-panel="pricing">
+							<section class="studio-card-block" data-card-id="pricing-tiers">
+								<div class="card-head"><h3>Tier Composer</h3></div>
+								<!-- Mua gia theo thang-ngay, lap lai hang nam, khong phu thuoc nam cu the -->
+									<div class="grid-3" style="grid-template-columns:1fr auto auto auto;">
+									<div class="field">
+										<label for="price-season">Season</label>
+										<input id="price-season" placeholder="Peak Summer" value="Peak Summer" />
+									</div>
+									<div class="field">
+										<label for="price-season-start" id="price-season-start-label">Start</label>
+										<input id="price-season-start" placeholder="" value="" />
+									</div>
+									<div class="field">
+										<label for="price-season-end" id="price-season-end-label">End</label>
+										<input id="price-season-end" placeholder="" value="" />
+									</div>
+									<div class="field">
+										<label for="price-season-priority">Priority</label>
+										<input id="price-season-priority" type="number" min="0" value="0" style="width:60px;" />
+									</div>
+								</div>
+								<div class="grid-3">
+									<div class="field">
+										<label for="price-pax">Pax band</label>
+										<input id="price-pax" placeholder="2-6 pax" value="2-6 pax" />
+									</div>
+									<div class="field">
+										<label for="price-title">Class</label>
+										<select id="price-title"></select>
+									</div>
+									<div class="field"></div>
+								</div>
+								<div class="grid-3">
+									<div class="field">
+										<label for="price-adult-shared" id="price-adult-shared-label">Adult (shared room)</label>
+										<input id="price-adult-shared" type="number" min="0" value="450" step="0.01" />
+									</div>
+									<div class="field">
+										<label for="price-adult-single" id="price-adult-single-label">Adult (single room)</label>
+										<input id="price-adult-single" type="number" min="0" value="590" step="0.01" />
+									</div>
+									<div class="field">
+										<label for="price-child-shared" id="price-child-shared-label">Child (shared room with parents)</label>
+										<input id="price-child-shared" type="number" min="0" value="280" step="0.01" />
+									</div>
+								</div>
+								<div class="actions">
+									<button class="button-primary" id="add-price-button" type="button">Add Tier</button>
+									<button class="button-secondary" id="save-pricing-tiers-button" type="button">Save Tiers</button>
+									<button class="button-ghost" id="load-price-template-button" type="button">Load Sample</button>
+								</div>
+								<div class="inline-callout" id="pricing-feedback">Local until saved.</div>
+								<div class="price-list" id="price-list">
+									<div class="empty-state">No price bands yet.</div>
+								</div>
+							</section>
+
+							<!-- Tour Classes: phan loai thuong mai cua tour, khong phai hang doi van hanh -->
+							<section class="studio-card-block" data-card-id="pricing-presets">
+								<div class="card-head"><h3>Tour Classes</h3></div>
+								<div id="booking-settings-shell" class="destination-list"></div>
+								<div class="actions">
+									<button class="button-secondary" id="save-booking-settings-button" type="button">Save Classes</button>
+								</div>
+							</section>
+						</section>
+					</section>
+
+					<!-- SITE STUDIO -->
+					<section class="tab-panel" data-panel="site-studio">
+						<section class="studio-card-block" data-card-id="site-layout-editor-card">
+							<div class="site-editor-shell">
+								<div class="actions">
+									<button class="button-secondary" id="load-site-layout-button" type="button">Load</button>
+									<button class="button-ghost" id="reset-site-layout-template-button" type="button">Seed Template</button>
+									<button class="button-primary" id="save-site-layout-button" type="button">Save Draft</button>
+									<button class="button-primary" id="publish-site-layout-button" type="button">Publish</button>
+								</div>
+								<div class="site-editor-meta">
+									<span class="site-editor-pill">Engine: <strong id="site-layout-engine-output">grapesjs</strong></span>
+									<span class="site-editor-pill">Status: <strong id="site-layout-status-output">draft</strong></span>
+								</div>
+								<div class="inline-callout" id="site-layout-feedback">Initializing editor...</div>
+								<div class="site-editor-frame">
+									<div id="site-layout-editor"></div>
+								</div>
+							</div>
+						</section>
+
+						<section class="studio-card-block" data-card-id="site-placeholder-reference-card">
+							<div class="card-head"><h3>Placeholders</h3></div>
+							<div class="destination-list">
+								<div class="studio-row"><div><strong>{{TOUR_LIST}}</strong></div><span class="studio-chip">Tours</span></div>
+								<div class="studio-row"><div><strong>{{SITE_TITLE}}</strong></div><span class="studio-chip">Site</span></div>
+								<div class="studio-row"><div><strong>{{SITE_FOOTER}}</strong></div><span class="studio-chip">Site</span></div>
+								<div class="studio-row"><div><strong>{{PRIMARY_COLOR}}</strong></div><span class="studio-chip">Theme</span></div>
+								<div class="studio-row"><div><strong>{{CONTACT_EMAIL}}</strong></div><span class="studio-chip">Contact</span></div>
+								<div class="studio-row"><div><strong>{{CONTACT_PHONE}}</strong></div><span class="studio-chip">Contact</span></div>
+								<div class="studio-row"><div><strong>{{WHATSAPP_URL}}</strong></div><span class="studio-chip">Contact</span></div>
+								<div class="studio-row"><div><strong>{{DOMAIN_NAME}}</strong></div><span class="studio-chip">Domain</span></div>
+							</div>
+						</section>
+
+						<section class="studio-card-block" data-card-id="builder-layout">
+							<div class="card-head"><h3>Shell Layout</h3></div>
+							<div class="studio-shell">
+								<div class="studio-column">
+									<div class="actions">
+										<button class="button-secondary" id="studio-reset-layout-button" type="button">Reset Layout</button>
+									</div>
+									<div class="studio-list" id="studio-tabs-list"></div>
+								</div>
+								<div class="studio-column">
+									<div class="studio-card-note" id="studio-selected-tab-note">Select a tab to manage its cards.</div>
+									<div class="studio-list" id="studio-cards-list"></div>
+								</div>
+							</div>
+						</section>
+					</section>
+
+					<!-- OPS -->
+					<section class="tab-panel" data-panel="ops">
+						<section class="studio-card-block" data-card-id="ops-bookings">
+							<div class="card-head"><h3>Booking Requests</h3></div>
+							<div class="actions">
+								<button class="button-primary" id="refresh-bookings-button" type="button">Refresh</button>
+								<a class="button-secondary" href="/book.html" target="_blank" rel="noopener" style="text-decoration:none;">Traveler Page &#8599;</a>
+							</div>
+							<div class="inline-callout" id="bookings-feedback">Click Refresh to load bookings.</div>
+							<div class="booking-list" id="booking-list">
+								<div class="empty-state">No bookings yet.</div>
+							</div>
+						</section>
+						<section class="studio-card-block" data-card-id="mobile-actions">
+							<div class="actions">
+								<button class="button-primary" id="refresh-mobile-tasks-button" type="button">Refresh Tasks</button>
+							</div>
+							<div class="inline-callout" id="mobile-feedback">Load tasks to see contact actions.</div>
+						</section>
+						<section class="studio-card-block" data-card-id="mobile-feed">
+							<div class="mobile-task-list" id="mobile-task-list">
+								<div class="empty-state">No tasks loaded yet.</div>
+							</div>
+						</section>
+					</section>
+				</div>
+
+				<!-- Preview aside – chi hien khi Tour Studio active -->
+				<aside class="preview-stack">
+					<section class="preview-card" id="tour-preview-card">
+						<div class="preview-hero">
+							<h2 id="tour-preview-title">Saigon to Sapa Signature</h2>
+							<div class="badge-row" id="tour-preview-badges">
+								<span class="badge">6D5N</span>
+								<span class="badge">0 destinations</span>
+							</div>
+							<div class="preview-itinerary" id="tour-preview-itinerary">
+								<div class="empty-state">Add destinations to preview.</div>
+							</div>
+						</div>
+					</section>
+					<section class="pricing-card" id="pricing-preview-card" style="display:none;">
+						<div class="card-head"><h3>Pricing Preview</h3></div>
+						<div class="price-list" id="right-price-preview-list">
+							<div class="empty-state">No pricing tiers.</div>
+						</div>
+					</section>
+					<div id="studio-preview-content" style="display:none;"></div>
+				</aside>
+			</section>
+
+			<footer>
+				<div class="footer-shell">
+					<div class="footer-meta"></div>
+					<div class="ops-links footer-links">
+						<div class="ops-link-group">
+							<strong>Test</strong>
+							<a href="/?stage=test&amp;app=saas-admin" target="_blank" rel="noopener">saas-admin</a>
+							<a href="/?stage=test&amp;app=agent-admin" target="_blank" rel="noopener">agent-admin</a>
+							<a href="/book.html?stage=test&amp;app=saas-frontend" target="_blank" rel="noopener">saas-front</a>
+							<a href="/book.html?stage=test&amp;app=traveler-frontend" target="_blank" rel="noopener">traveler</a>
+						</div>
+						<div class="ops-link-group">
+							<strong>Preview</strong>
+							<a href="/?stage=preview&amp;app=admin" target="_blank" rel="noopener">admin</a>
+							<a href="/book.html?stage=preview&amp;app=traveler" target="_blank" rel="noopener">traveler</a>
+						</div>
+						<div class="ops-link-group">
+							<strong>Live</strong>
+							<a href="/?stage=live&amp;app=admin" target="_blank" rel="noopener">admin</a>
+							<a href="/book.html?stage=live&amp;app=traveler" target="_blank" rel="noopener">traveler</a>
+						</div>
+					</div>
+				</div>
+			</footer>
+		</main>
+
+		<script src="https://unpkg.com/grapesjs"></script>
+		<script>
+			const state = {
+				activeTab: 'tour-studio',
+				activeTourStudioTab: 'tour-config',
+				serviceItemCount: 0,
+				tourId: null,
+				bookings: [],
+				tourTitle: 'Saigon to Sapa Signature',
+				tourIntro: '',
+				lang: 'en',
+				durationText: '6D5N',
+				destinations: [],
+				prices: [],
+				visual: {
+					theme: 'editorial',
+					fontTone: 'editorial',
+					accent: '#bf5a36',
+				},
+				siteLayout: {
+					template_engine: 'grapesjs',
+					status: 'draft',
+					html: '',
+					css: '',
+					project_data: null,
+					updated_at: null,
+					published_at: null,
+				},
+				grapesEditor: null,
+				bookingSettings: {
+					auto_confirm_min_days: 30,
+					auto_confirm_max_pax: 16,
+					date_time_format: 'yyyy-mm-dd hh:mm',
+					pricing_currency_mode: 'auto',
+					pricing_base_currency: 'USD',
+					usd_to_vnd_rate: 25000,
+					// Tour Class: phan loai thuong mai khach hang thay khi chon tour
+					class_presets: [
+						{ id: 'class_standard', label: 'Standard', base_price: 100, single_room_supplement: 35, description: 'Practical comfort with well-located 3-star hotels, local restaurants, and shared group touring in a comfortable vehicle.' },
+						{ id: 'class_boutique', label: 'Boutique', base_price: 180, single_room_supplement: 55, description: 'Boutique 4-star hotels, smaller groups of 4–7, private vehicle, curated restaurants, and a more personal, discreet travel experience.' },
+						{ id: 'class_luxury', label: 'Luxury', base_price: 320, single_room_supplement: 95, description: 'Premium 5-star hotels, fully private touring, elevated dining, and dedicated concierge-level service throughout.' },
+					],
+					child_discount_pct: 0.5,
+				},
+				mobileTasks: [],
+				priceComposerCurrency: 'USD',
+				studio: null,
+				studioEditorTabId: 'tour',
+			};
+
+			const SERVICE_GROUPS = [
+				{ key: 'accommodations', label: 'Accommodation', shortLabel: 'Stay' },
+				{ key: 'meals', label: 'Meals', shortLabel: 'Meals' },
+				{ key: 'guides', label: 'Guide', shortLabel: 'Guide' },
+				{ key: 'local_transports', label: 'Local Transport', shortLabel: 'Local Transport' },
+				{ key: 'intercity_legs', label: 'Intercity Leg', shortLabel: 'Intercity' },
+			];
+
+			// v2: layout structure changed — sub_panels for tour-studio; invalidates v1 localStorage
+			const STUDIO_STORAGE_KEY = 'tour_ops_shell_layout_v2';
+			const TAB_HASHES = new Set(['tour-studio', 'site-studio', 'ops']);
+			const TOUR_STUDIO_HASHES = new Set(['tour-config', 'pricing']);
+
+			const STUDIO_DEFAULT_LAYOUT = {
+				tabs: [
+					// Tour Studio co 2 sub-panel: tour-config va pricing, moi sub-panel co cards rieng
+					{ id: 'tour-studio', label: 'Tour Studio', visible: true, sub_panels: [
+						{ id: 'tour-config', cards: [
+							{ id: 'tour-basics', label: 'Tour Basics', visible: true },
+							{ id: 'tour-destinations', label: 'Destination Staging', visible: true },
+						] },
+						{ id: 'pricing', cards: [
+							{ id: 'pricing-tiers', label: 'Pricing Tiers', visible: true },
+							{ id: 'pricing-presets', label: 'Tour Classes', visible: true },
+						] },
+					] },
+					{ id: 'site-studio', label: 'Site Studio', visible: true, cards: [
+						{ id: 'site-layout-editor-card', label: 'GrapesJS Site Studio', visible: true },
+						{ id: 'site-placeholder-reference-card', label: 'Placeholder Reference', visible: true },
+						{ id: 'builder-layout', label: 'Shell Layout Studio', visible: true },
+					] },
+					{ id: 'ops', label: 'Ops', visible: true, cards: [
+						{ id: 'ops-bookings', label: 'Booking Requests', visible: true },
+						{ id: 'mobile-actions', label: 'Mobile Actions', visible: true },
+						{ id: 'mobile-feed', label: 'Mobile Feed', visible: true },
+					] },
+				],
+			};
+
+			const els = {
+				shell: document.querySelector('.shell'),
+				previewStack: document.querySelector('.preview-stack'),
+				tabStrip: document.querySelector('.tab-strip'),
+				mainPanel: document.querySelector('.panel'),
+				tabButtons: Array.from(document.querySelectorAll('.tab-button')),
+				tabPanels: Array.from(document.querySelectorAll('.tab-panel')),
+				tourTitle: document.getElementById('tour-title'),
+				tourIntro: document.getElementById('tour-intro'),
+				tourLang: document.getElementById('global-admin-lang'),
+				adminDateFormat: document.getElementById('global-admin-date-format'),
+				saveGlobalAdminSettingsButton: document.getElementById('save-global-admin-settings-button'),
+				tourDuration: document.getElementById('tour-duration'),
+				saveTourButton: document.getElementById('save-tour-button'),
+				resetTourButton: document.getElementById('reset-tour-button'),
+				savePsychDraftTopButton: document.getElementById('save-psych-draft-top-button'),
+				savePsychDraftBottomButton: document.getElementById('save-psych-draft-bottom-button'),
+				tourFeedback: document.getElementById('tour-feedback'),
+				tourStatusCopy: document.getElementById('tour-status-copy'),
+				tourStatusPill: document.getElementById('tour-status-pill'),
+				tourIdOutput: document.getElementById('tour-id-output'),
+				destName: document.getElementById('dest-name'),
+				destNights: document.getElementById('dest-nights'),
+				addDestinationButton: document.getElementById('add-destination-button'),
+				seedRouteButton: document.getElementById('seed-route-button'),
+				destinationList: document.getElementById('destination-list'),
+				addPriceButton: document.getElementById('add-price-button'),
+				loadPriceTemplateButton: document.getElementById('load-price-template-button'),
+				savePricingTiersButton: document.getElementById('save-pricing-tiers-button'),
+				pricingFeedback: document.getElementById('pricing-feedback'),
+				priceSeason: document.getElementById('price-season'),
+				priceCurrencyMode: document.getElementById('global-price-currency-mode'),
+				priceBaseCurrency: document.getElementById('global-price-base-currency'),
+				priceUsdVndRate: document.getElementById('global-usd-vnd-rate'),
+				priceSeasonStart: document.getElementById('price-season-start'),
+				priceSeasonEnd: document.getElementById('price-season-end'),
+				priceSeasonPriority: document.getElementById('price-season-priority'),
+				pricePax: document.getElementById('price-pax'),
+				priceTitle: document.getElementById('price-title'),
+				priceAdultShared: document.getElementById('price-adult-shared'),
+				priceAdultSharedLabel: document.getElementById('price-adult-shared-label'),
+				priceAdultSingle: document.getElementById('price-adult-single'),
+				priceAdultSingleLabel: document.getElementById('price-adult-single-label'),
+				priceChildShared: document.getElementById('price-child-shared'),
+				priceChildSharedLabel: document.getElementById('price-child-shared-label'),
+				priceList: document.getElementById('price-list'),
+				pricingPreviewCard: document.getElementById('pricing-preview-card'),
+				siteLayoutEditor: document.getElementById('site-layout-editor'),
+				loadSiteLayoutButton: document.getElementById('load-site-layout-button'),
+				resetSiteLayoutTemplateButton: document.getElementById('reset-site-layout-template-button'),
+				saveSiteLayoutButton: document.getElementById('save-site-layout-button'),
+				publishSiteLayoutButton: document.getElementById('publish-site-layout-button'),
+				siteLayoutFeedback: document.getElementById('site-layout-feedback'),
+				siteLayoutEngineOutput: document.getElementById('site-layout-engine-output'),
+				siteLayoutStatusOutput: document.getElementById('site-layout-status-output'),
+				rightPricePreviewList: document.getElementById('right-price-preview-list'),
+				visualStyleCopy: document.getElementById('visual-style-copy'),
+				visualStylePill: document.getElementById('visual-style-pill'),
+				heroDestinationCount: document.getElementById('hero-destination-count'),
+				heroPriceCount: document.getElementById('hero-price-count'),
+				refreshMobileTasksButton: document.getElementById('refresh-mobile-tasks-button'),
+				mobileFeedback: document.getElementById('mobile-feedback'),
+				mobileTaskList: document.getElementById('mobile-task-list'),
+				refreshBookingsButton: document.getElementById('refresh-bookings-button'),
+				bookingsFeedback: document.getElementById('bookings-feedback'),
+				bookingList: document.getElementById('booking-list'),
+				bookingSettingsShell: document.getElementById('booking-settings-shell'),
+				saveBookingSettingsButton: document.getElementById('save-booking-settings-button'),
+				tourPreviewCard: document.getElementById('tour-preview-card'),
+				tourPreviewTitle: document.getElementById('tour-preview-title'),
+				tourPreviewBadges: document.getElementById('tour-preview-badges'),
+				tourPreviewItinerary: document.getElementById('tour-preview-itinerary'),
+				studioTabsList: document.getElementById('studio-tabs-list'),
+				studioCardsList: document.getElementById('studio-cards-list'),
+				studioSelectedTabNote: document.getElementById('studio-selected-tab-note'),
+				studioResetLayoutButton: document.getElementById('studio-reset-layout-button'),
+				studioPreviewContent: document.getElementById('studio-preview-content'),
+				tourStudioTabButtons: Array.from(document.querySelectorAll('[data-tour-studio-tab]')),
+				tourStudioPanels: Array.from(document.querySelectorAll('[data-tour-studio-panel]')),
+			};
+
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', init);
+			} else {
+				init();
+			}
+
+			function init() {
+				state.studio = loadStudioLayout();
+				state.studioEditorTabId = state.studio.tabs[0]?.id || 'tour-studio';
+				state.priceComposerCurrency = els.priceBaseCurrency.value || state.bookingSettings.pricing_base_currency || 'VND';
+
+				els.tabButtons.forEach((button) => {
+					button.addEventListener('click', (event) => {
+						event.preventDefault();
+						setActiveTab(button.dataset.tab);
+					});
+				});
+				els.tourStudioTabButtons.forEach((button) => {
+					button.addEventListener('click', (event) => {
+						event.preventDefault();
+						setActiveTourStudioTab(button.dataset.tourStudioTab);
+					});
+				});
+				window.addEventListener('hashchange', applyHashNavigation);
+
+				els.saveTourButton.addEventListener('click', saveTourDraft);
+				els.saveGlobalAdminSettingsButton.addEventListener('click', saveGlobalAdminSettings);
+				els.loadSiteLayoutButton.addEventListener('click', fetchSiteLayout);
+				els.resetSiteLayoutTemplateButton.addEventListener('click', resetSiteLayoutTemplate);
+				els.saveSiteLayoutButton.addEventListener('click', () => saveSiteLayout('draft'));
+				els.publishSiteLayoutButton.addEventListener('click', () => saveSiteLayout('published'));
+				els.resetTourButton.addEventListener('click', resetTourDraft);
+				els.savePsychDraftTopButton.addEventListener('click', savePsychDraft);
+				els.savePsychDraftBottomButton.addEventListener('click', savePsychDraft);
+				els.addDestinationButton.addEventListener('click', addDestination);
+				els.seedRouteButton.addEventListener('click', seedSampleRoute);
+				els.destinationList.addEventListener('click', handleDestinationListClick);
+				els.destinationList.addEventListener('input', handleDestinationListInput);
+				els.addPriceButton.addEventListener('click', addPriceBand);
+				els.savePricingTiersButton.addEventListener('click', savePricingTiers);
+				els.loadPriceTemplateButton.addEventListener('click', loadPriceTemplate);
+				els.priceList.addEventListener('click', handlePriceListClick);
+				els.rightPricePreviewList.addEventListener('click', handlePriceListClick);
+				els.refreshMobileTasksButton.addEventListener('click', fetchMobileTasks);
+				els.mobileTaskList.addEventListener('click', handleMobileTaskListClick);
+				els.refreshBookingsButton.addEventListener('click', fetchBookings);
+				els.bookingList.addEventListener('click', handleBookingListClick);
+				els.saveBookingSettingsButton.addEventListener('click', saveBookingSettings);
+				els.bookingSettingsShell.addEventListener('click', handleBookingSettingsClick);
+				els.bookingSettingsShell.addEventListener('input', handleBookingSettingsInput);
+				els.studioTabsList.addEventListener('click', handleStudioClick);
+				els.studioCardsList.addEventListener('click', handleStudioClick);
+				els.studioTabsList.addEventListener('input', handleStudioInput);
+				els.studioCardsList.addEventListener('input', handleStudioInput);
+				els.studioTabsList.addEventListener('dragstart', handleStudioDragStart);
+				els.studioTabsList.addEventListener('dragover', handleStudioDragOver);
+				els.studioTabsList.addEventListener('drop', handleStudioDrop);
+				els.studioCardsList.addEventListener('dragstart', handleStudioDragStart);
+				els.studioCardsList.addEventListener('dragover', handleStudioDragOver);
+				els.studioCardsList.addEventListener('drop', handleStudioDrop);
+				els.studioResetLayoutButton.addEventListener('click', resetStudioLayout);
+
+				bindInput(els.tourTitle, (value) => {
+					state.tourTitle = value;
+					updatePreview();
+				});
+				bindInput(els.tourIntro, (value) => {
+					state.tourIntro = value;
+					updatePreview();
+				});
+				bindInput(els.tourLang, (value) => {
+					state.lang = value;
+					updatePreview();
+				});
+				bindInput(els.adminDateFormat, () => {
+					renderBookings();
+					renderMobileTasks();
+					syncSeasonFieldFormat();
+					renderPrices();
+				});
+				bindInput(els.tourDuration, (value) => {
+					state.durationText = value;
+					updatePreview();
+				});
+
+				bindInput(els.priceBaseCurrency, () => {
+					syncPriceComposerCurrency(els.priceBaseCurrency.value);
+					renderPrices();
+				});
+				bindInput(els.priceCurrencyMode, () => {
+					renderPrices();
+				});
+				bindInput(els.priceUsdVndRate, () => {
+					renderPrices();
+				});
+
+				try { applyStudioLayout(); } catch (e) { console.error('applyStudioLayout error:', e); }
+				applyHashNavigation();
+				setActiveTourStudioTab(state.activeTourStudioTab, { syncHash: false });
+				initSiteLayoutEditor();
+				syncPriceComposerCurrency(state.priceComposerCurrency, false);
+				try { renderStudioEditor(); } catch (e) { console.error('renderStudioEditor error:', e); }
+				updatePreview();
+				renderDestinations();
+				renderPrices();
+				renderMobileTasks();
+				refreshBookingSettingsUI();
+				syncSeasonFieldFormat();
+				fetchBookingSettings();
+				fetchSiteLayout();
+				fetchSiteConfig();
+			}
+
+			function bindInput(element, handler) {
+				element.addEventListener('input', (event) => handler(event.target.value));
+				element.addEventListener('change', (event) => handler(event.target.value));
+			}
+
+			function setActiveTab(tab, options = {}) {
+				const { syncHash = true } = options;
+				state.activeTab = tab;
+				const isTourSplitMode = tab === 'tour-studio';
+				els.shell.classList.toggle('is-single-column', !isTourSplitMode);
+				els.tabButtons.forEach((button) => {
+					const isActive = button.dataset.tab === tab;
+					button.classList.toggle('is-active', isActive);
+					button.toggleAttribute('aria-current', isActive);
+				});
+				els.tabPanels.forEach((panel) => {
+					panel.classList.toggle('is-active', panel.dataset.panel === tab);
+				});
+				els.tourPreviewCard.style.display = tab === 'tour-studio' && state.activeTourStudioTab === 'tour-config' ? '' : 'none';
+				els.pricingPreviewCard.style.display = tab === 'tour-studio' && state.activeTourStudioTab === 'pricing' ? '' : 'none';
+				els.previewStack.style.display = isTourSplitMode ? '' : 'none';
+				if (syncHash) {
+					setShellHash(tab === 'tour-studio' ? state.activeTourStudioTab : tab);
+				}
+			}
+
+			function setActiveTourStudioTab(tab, options = {}) {
+				const { syncHash = true } = options;
+				state.activeTourStudioTab = tab;
+				els.tourStudioTabButtons.forEach((button) => {
+					const isActive = button.dataset.tourStudioTab === tab;
+					button.classList.toggle('is-active', isActive);
+					button.toggleAttribute('aria-current', isActive);
+				});
+				els.tourStudioPanels.forEach((panel) => {
+					panel.classList.toggle('is-active', panel.dataset.tourStudioPanel === tab);
+				});
+				// Re-render Tour Classes khi chuyen sang Pricing — dam bao UI luon dong bo sau applyStudioLayout
+				if (tab === 'pricing' && els.bookingSettingsShell && !els.bookingSettingsShell.children.length) {
+					refreshBookingSettingsUI();
+				}
+				if (state.activeTab === 'tour-studio') {
+					setActiveTab('tour-studio', { syncHash: false });
+				}
+				if (syncHash) {
+					setShellHash(tab);
+				}
+			}
+
+			function applyHashNavigation() {
+				const hash = window.location.hash.replace('#', '');
+				if (TOUR_STUDIO_HASHES.has(hash)) {
+					setActiveTab('tour-studio', { syncHash: false });
+					setActiveTourStudioTab(hash, { syncHash: false });
+					return;
+				}
+				if (TAB_HASHES.has(hash)) {
+					setActiveTab(hash, { syncHash: false });
+					return;
+				}
+				setActiveTab(state.activeTab, { syncHash: false });
+			}
+
+			function setShellHash(value) {
+				if (!value) {
+					return;
+				}
+				if (window.location.hash === `#${value}`) {
+					return;
+				}
+				history.replaceState(null, '', `#${value}`);
+			}
+
+			async function saveTourDraft() {
+				const payload = {
+					title: state.tourTitle,
+					duration_text: state.durationText,
+					lang: state.lang,
+				};
+
+				els.saveTourButton.disabled = true;
+				setTourFeedback('Saving tour draft to Worker API...', true);
+
+				try {
+					const response = await fetch('/api/tours', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					});
+					const data = await safeJson(response);
+
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not create tour');
+					}
+
+					state.tourId = data.id;
+					els.tourIdOutput.textContent = state.tourId;
+					els.tourStatusCopy.textContent = 'Worker draft active. Destination API writes are unlocked.';
+					els.tourStatusPill.textContent = 'Live draft';
+					els.tourStatusPill.classList.remove('is-warning');
+					setTourFeedback(`Tour draft created: ${data.id}`, false);
+				} catch (error) {
+					state.tourId = null;
+					els.tourIdOutput.textContent = 'not-created';
+					els.tourStatusCopy.textContent = 'Shell still usable locally, but the Worker draft did not save.';
+					els.tourStatusPill.textContent = 'Needs retry';
+					els.tourStatusPill.classList.add('is-warning');
+					setTourFeedback(error.message, true);
+				} finally {
+					els.saveTourButton.disabled = false;
+					renderTourPreview();
+				}
+			}
+
+			async function saveGlobalAdminSettings() {
+				const payload = {
+					...state.bookingSettings,
+					pricing_tiers: state.prices,
+					date_time_format: els.adminDateFormat.value,
+					pricing_currency_mode: els.priceCurrencyMode.value,
+					pricing_base_currency: els.priceBaseCurrency.value,
+					usd_to_vnd_rate: Number(els.priceUsdVndRate.value),
+					class_presets: state.bookingSettings.class_presets,
+					child_discount_pct: state.bookingSettings.child_discount_pct,
+					auto_confirm_min_days: state.bookingSettings.auto_confirm_min_days,
+					auto_confirm_max_pax: state.bookingSettings.auto_confirm_max_pax,
+				};
+				try {
+					els.saveGlobalAdminSettingsButton.disabled = true;
+					const response = await fetch('/api/booking-settings', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not save global settings');
+					}
+					state.bookingSettings = { ...state.bookingSettings, ...data };
+					els.adminDateFormat.value = data.date_time_format || state.bookingSettings.date_time_format || 'yyyy-mm-dd hh:mm';
+					state.priceComposerCurrency = data.pricing_base_currency || state.bookingSettings.pricing_base_currency || 'USD';
+					syncPriceComposerCurrency(state.priceComposerCurrency, false);
+					renderBookings();
+					renderMobileTasks();
+					setTourFeedback('Global agent-admin settings saved.', false);
+				} catch (error) {
+					setTourFeedback(error.message, true);
+				} finally {
+					els.saveGlobalAdminSettingsButton.disabled = false;
+				}
+			}
+
+			function setSiteLayoutFeedback(message, isWarning) {
+				els.siteLayoutFeedback.textContent = message;
+				els.siteLayoutFeedback.style.background = isWarning ? 'rgba(191, 90, 54, 0.16)' : 'rgba(31, 122, 82, 0.12)';
+				els.siteLayoutFeedback.style.color = isWarning ? 'var(--accent-deep)' : 'var(--success)';
+				els.visualStyleCopy.textContent = isWarning ? 'Hosted layout needs attention.' : `Hosted layout ${state.siteLayout.status || 'draft'} ready in GrapesJS.`;
+				els.visualStylePill.textContent = isWarning ? 'Check' : (state.siteLayout.status || 'draft').replace(/^./, (letter) => letter.toUpperCase());
+				els.visualStylePill.classList.toggle('is-warning', Boolean(isWarning));
+			}
+
+			function syncSiteLayoutMeta() {
+				els.siteLayoutEngineOutput.textContent = state.siteLayout.template_engine || 'grapesjs';
+				els.siteLayoutStatusOutput.textContent = state.siteLayout.status || 'draft';
+			}
+
+			function initSiteLayoutEditor() {
+				if (state.grapesEditor || !els.siteLayoutEditor) {
+					return;
+				}
+				if (typeof window.grapesjs === 'undefined') {
+					setSiteLayoutFeedback('GrapesJS failed to load from CDN.', true);
+					return;
+				}
+
+				state.grapesEditor = window.grapesjs.init({
+					container: '#site-layout-editor',
+					height: '780px',
+					storageManager: false,
+					fromElement: false,
+					noticeOnUnload: false,
+					selectorManager: { componentFirst: true },
+					canvas: {
+						styles: [
+							'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;600;700;800&display=swap',
+						],
+					},
+					blockManager: {
+						appendTo: null,
+					},
+				});
+
+				state.grapesEditor.BlockManager.add('tour-placeholder', {
+					label: 'Tour List Placeholder',
+					content: '<section class="tour-placeholder-zone">{{TOUR_LIST}}</section>',
+					category: 'Travel SaaS',
+				});
+				state.grapesEditor.BlockManager.add('hero-shell', {
+					label: 'Travel Hero',
+					content: '<section class="hero-shell"><p class="eyebrow">Signature Departure</p><h1>{{SITE_TITLE}}</h1><p>Replace this copy inside GrapesJS while keeping placeholders for SaaS-driven data injection.</p><a class="hero-button" href="/book.html">Plan This Journey</a></section>',
+					category: 'Travel SaaS',
+				});
+
+				setSiteLayoutFeedback('GrapesJS editor ready. Load a saved layout or seed the travel template.', false);
+				syncSiteLayoutMeta();
+			}
+
+			async function fetchSiteLayout() {
+				try {
+					setSiteLayoutFeedback('Loading hosted layout...', false);
+					const response = await fetch('/api/site/layout');
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not load site layout');
+					}
+					state.siteLayout = {
+						template_engine: data.template_engine || 'grapesjs',
+						status: data.status || 'draft',
+						html: data.html || '',
+						css: data.css || '',
+						project_data: data.project_data || null,
+						updated_at: data.updated_at || null,
+						published_at: data.published_at || null,
+					};
+					applySiteLayoutToEditor(data.updated_at ? state.siteLayout : createSeedSiteLayout());
+					syncSiteLayoutMeta();
+					setSiteLayoutFeedback(data.updated_at ? 'Hosted layout loaded from tenant storage.' : 'No saved hosted layout yet. Seeded the travel starter template locally.', false);
+				} catch (error) {
+					setSiteLayoutFeedback(error.message, true);
+				}
+			}
+
+			function applySiteLayoutToEditor(layout) {
+				initSiteLayoutEditor();
+				if (!state.grapesEditor) {
+					return;
+				}
+				const editor = state.grapesEditor;
+				if (layout.project_data) {
+					editor.loadProjectData(layout.project_data);
+				} else {
+					editor.setComponents(layout.html || createSeedSiteLayout().html);
+					editor.setStyle(layout.css || createSeedSiteLayout().css);
+				}
+				state.siteLayout = {
+					...state.siteLayout,
+					...layout,
+				};
+				syncSiteLayoutMeta();
+			}
+
+			async function saveSiteLayout(status) {
+				try {
+					initSiteLayoutEditor();
+					if (!state.grapesEditor) {
+						throw new Error('GrapesJS editor is not ready');
+					}
+					els.saveSiteLayoutButton.disabled = true;
+					els.publishSiteLayoutButton.disabled = true;
+					setSiteLayoutFeedback(status === 'published' ? 'Publishing hosted layout...' : 'Saving hosted layout draft...', false);
+					const payload = {
+						template_engine: 'grapesjs',
+						status,
+						html: state.grapesEditor.getHtml(),
+						css: state.grapesEditor.getCss(),
+						project_data: state.grapesEditor.getProjectData(),
+					};
+					const response = await fetch('/api/site/layout', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not save site layout');
+					}
+					state.siteLayout = {
+						template_engine: data.template_engine || 'grapesjs',
+						status: data.status || status,
+						html: data.html || payload.html,
+						css: data.css || payload.css,
+						project_data: data.project_data || payload.project_data,
+						updated_at: data.updated_at || null,
+						published_at: data.published_at || null,
+					};
+					syncSiteLayoutMeta();
+					setSiteLayoutFeedback(status === 'published' ? 'Hosted layout published for verified custom domains.' : 'Hosted layout draft saved.', false);
+				} catch (error) {
+					setSiteLayoutFeedback(error.message, true);
+				} finally {
+					els.saveSiteLayoutButton.disabled = false;
+					els.publishSiteLayoutButton.disabled = false;
+				}
+			}
+
+			function resetSiteLayoutTemplate() {
+				const layout = createSeedSiteLayout();
+				applySiteLayoutToEditor(layout);
+				setSiteLayoutFeedback('Travel starter template loaded into GrapesJS. Save when ready.', false);
+			}
+
+			function createSeedSiteLayout() {
+				return {
+					template_engine: 'grapesjs',
+					status: 'draft',
+					html: `
+						<section class="travel-hero">
+							<div class="travel-shell">
+								<p class="travel-kicker">Curated departure</p>
+								<h1>{{SITE_TITLE}}</h1>
+								<p class="travel-copy">Craft a modern tour landing page in GrapesJS while keeping live SaaS placeholders like {{TOUR_LIST}} connected to your Worker rendering layer.</p>
+								<div class="travel-actions">
+									<a class="travel-button" href="/book.html">Plan this route</a>
+									<a class="travel-link" href="{{WHATSAPP_URL}}">WhatsApp</a>
+								</div>
+							</div>
+						</section>
+						<section class="travel-editorial-band">
+							<div>
+								<p class="travel-kicker">Featured collection</p>
+								<h2>Live tour lineup</h2>
+							</div>
+							<div>{{TOUR_LIST}}</div>
+						</section>
+						<section class="travel-footer-band">
+							<div>
+								<strong>Direct contact</strong>
+								<p>{{CONTACT_EMAIL}} {{CONTACT_PHONE}}</p>
+							</div>
+							<p>{{SITE_FOOTER}}</p>
+						</section>
+					`,
+					css: `
+						body { margin: 0; font-family: 'Manrope', sans-serif; color: #1d1713; background: linear-gradient(180deg, #f6efe7 0%, #fbf7f0 100%); }
+						.travel-hero { padding: 88px 24px 56px; background: radial-gradient(circle at top left, rgba(191, 90, 54, 0.22), transparent 26%), linear-gradient(135deg, #fffaf3, #f4e7d8); }
+						.travel-shell { max-width: 1100px; margin: 0 auto; display: grid; gap: 18px; }
+						.travel-kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: {{PRIMARY_COLOR}}; font-weight: 800; }
+						h1, h2 { margin: 0; font-family: 'Instrument Serif', serif; line-height: 0.95; }
+						h1 { font-size: clamp(3rem, 8vw, 6rem); max-width: 10ch; }
+						h2 { font-size: clamp(2rem, 5vw, 3.4rem); }
+						.travel-copy { max-width: 58ch; line-height: 1.7; font-size: 1rem; }
+						.travel-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+						.travel-button, .travel-link { display: inline-flex; align-items: center; justify-content: center; padding: 14px 18px; border-radius: 999px; text-decoration: none; font-weight: 800; }
+						.travel-button { background: {{PRIMARY_COLOR}}; color: white; }
+						.travel-link { color: #1d1713; border: 1px solid rgba(29, 23, 19, 0.12); background: rgba(255,255,255,0.74); }
+						.travel-editorial-band, .travel-footer-band { max-width: 1100px; margin: 0 auto; padding: 32px 24px 56px; }
+						.travel-footer-band { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; color: rgba(29,23,19,.78); }
+					`,
+					project_data: null,
+					updated_at: null,
+					published_at: null,
+				};
+			}
+
+			async function fetchSiteConfig() {
+				try {
+					const response = await fetch('/api/site/config');
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not load site config');
+					}
+					if (data.theme) {
+						state.visual.theme = data.theme;
+					}
+					if (data.primary_color) {
+						state.visual.accent = data.primary_color;
+					}
+					updatePreview();
+				} catch (error) {
+					setSiteLayoutFeedback(error.message, true);
+				}
+			}
+
+			function savePsychDraft() {
+				const payload = {
+					tourTitle: state.tourTitle,
+					tourIntro: state.tourIntro,
+					durationText: state.durationText,
+					lang: state.lang,
+					siteLayout: {
+						status: state.siteLayout.status,
+						updated_at: state.siteLayout.updated_at,
+						published_at: state.siteLayout.published_at,
+					},
+					destinations: state.destinations,
+					updatedAt: Date.now(),
+				};
+				localStorage.setItem('agent_psych_draft_v1', JSON.stringify(payload));
+				setTourFeedback('Draft saved locally.', false);
+			}
+
+			function resetTourDraft() {
+				state.tourId = null;
+				state.destinations = [];
+				state.prices = [];
+				state.tourTitle = 'Saigon to Sapa Signature';
+				state.tourIntro = '';
+				state.lang = 'en';
+				state.durationText = '6D5N';
+				state.mobileTasks = [];
+				els.tourTitle.value = state.tourTitle;
+				els.tourIntro.value = state.tourIntro;
+				els.tourLang.value = state.lang;
+				els.tourDuration.value = state.durationText;
+				els.tourIdOutput.textContent = 'not-created';
+				els.tourStatusCopy.textContent = 'No API draft created yet.';
+				els.tourStatusPill.textContent = 'Drafting';
+				els.tourStatusPill.classList.add('is-warning');
+				setTourFeedback('Draft reset locally. Create a fresh Worker draft when ready.', false);
+				renderDestinations();
+				renderPrices();
+				renderMobileTasks();
+				updatePreview();
+			}
+
+			async function fetchMobileTasks() {
+				els.refreshMobileTasksButton.disabled = true;
+				setMobileFeedback('Loading mobile task snapshot...', false);
+				try {
+					const response = await fetch('/api/mobile/tasks?limit=20');
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not load mobile tasks');
+					}
+					state.mobileTasks = data.tasks || [];
+					renderMobileTasks();
+					setMobileFeedback(`Loaded ${state.mobileTasks.length} mobile task${state.mobileTasks.length === 1 ? '' : 's'}.`, false);
+				} catch (error) {
+					setMobileFeedback(error.message, true);
+				} finally {
+					els.refreshMobileTasksButton.disabled = false;
+				}
+			}
+
+			function handleMobileTaskListClick(event) {
+				const noteButton = event.target.closest('[data-mobile-action="add-note"]');
+				if (noteButton) {
+					const taskId = noteButton.dataset.taskId;
+					const input = document.querySelector(`[data-mobile-note-input="${taskId}"]`);
+					if (!input) {
+						return;
+					}
+					const noteText = input.value.trim();
+					if (!noteText) {
+						setMobileFeedback('Enter a quick note before sending.', true);
+						return;
+					}
+
+					submitMobileTaskNote(taskId, noteText, input, noteButton);
+					return;
+				}
+
+				const statusButton = event.target.closest('[data-mobile-action="update-status"]');
+				if (!statusButton) {
+					return;
+				}
+
+				const taskId = statusButton.dataset.taskId;
+				const select = document.querySelector(`[data-mobile-status-select="${taskId}"]`);
+				if (!select) {
+					return;
+				}
+				submitMobileTaskStatus(taskId, select.value, select, statusButton);
+			}
+
+			async function submitMobileTaskNote(taskId, noteText, input, button) {
+				button.disabled = true;
+				try {
+					const response = await fetch(`/api/mobile/tasks/${taskId}/note`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ body: noteText, channel: 'note' }),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not add note');
+					}
+					input.value = '';
+					setMobileFeedback(`Note added to thread ${data.thread_id}.`, false);
+				} catch (error) {
+					setMobileFeedback(error.message, true);
+				} finally {
+					button.disabled = false;
+				}
+			}
+
+			async function submitMobileTaskStatus(taskId, status, select, button) {
+				button.disabled = true;
+				select.disabled = true;
+				try {
+					const response = await fetch(`/api/mobile/tasks/${taskId}/status`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ status }),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not update status');
+					}
+					state.mobileTasks = state.mobileTasks.map((task) => (task.id === taskId ? { ...task, status } : task));
+					renderMobileTasks();
+					setMobileFeedback(`Task status updated to ${status}.`, false);
+				} catch (error) {
+					setMobileFeedback(error.message, true);
+				} finally {
+					button.disabled = false;
+					select.disabled = false;
+				}
+			}
+
+			async function addDestination() {
+				const destination = {
+					name: els.destName.value.trim(),
+					nights: Number(els.destNights.value),
+					position: state.destinations.length + 1,
+					description: '',
+					mealPlan: 'B/L/D',
+				};
+
+				if (!destination.name || Number.isNaN(destination.nights)) {
+					setTourFeedback('Destination name and nights are required.', true);
+					return;
+				}
+
+				if (state.tourId) {
+					try {
+						const response = await fetch(`/api/tours/${state.tourId}/destinations`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(destination),
+						});
+						const data = await safeJson(response);
+						if (!response.ok) {
+							throw new Error(data?.error?.message || 'Could not add destination');
+						}
+						state.destinations.push(normalizeDestination(data));
+						setTourFeedback(`Destination saved to Worker: ${data.name}`, false);
+					} catch (error) {
+						setTourFeedback(error.message, true);
+						return;
+					}
+				} else {
+					state.destinations.push(normalizeDestination({
+						id: `local-${crypto.randomUUID()}`,
+						...destination,
+					}));
+					setTourFeedback('Destination staged locally. Save the tour draft to enable API writes.', false);
+				}
+
+				els.destName.value = '';
+				els.destNights.value = '1';
+				renderDestinations();
+			}
+
+			function seedSampleRoute() {
+				state.destinations = [
+					normalizeDestination({ id: 'seed-sgn', name: 'Saigon', nights: 2, position: 1, description: 'Urban arrival with food streets and colonial landmarks.', mealPlan: 'B/L/D' }),
+					normalizeDestination({ id: 'seed-han', name: 'Hanoi', nights: 2, position: 2, description: 'Old quarter walks, coffee alleys, and cultural highlights.', mealPlan: 'B/L/D' }),
+					normalizeDestination({ id: 'seed-sapa', name: 'Sapa', nights: 1, position: 3, description: 'Mountain edge scenery and village pathways.', mealPlan: 'B/L/D' }),
+				];
+				state.destinations[0].serviceBlueprint.accommodations = true;
+				state.destinations[1].serviceBlueprint.guides = true;
+				state.destinations[2].serviceBlueprint.intercity_legs = true;
+				renderDestinations();
+				setTourFeedback('Seeded SGN / HAN / SAPA route locally.', false);
+			}
+
+			function handleDestinationListClick(event) {
+				if (event.target.closest('[data-action="intercity-mode"]')) {
+					return;
+				}
+
+				const editBtn = event.target.closest('[data-action="edit-destination"]');
+				if (editBtn) {
+					const destinationId = editBtn.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+
+					const nextName = prompt('Destination name', destination.name);
+					if (nextName === null) return;
+					const nextNightsRaw = prompt('Nights', String(destination.nights ?? 0));
+					if (nextNightsRaw === null) return;
+					const nextNights = Number(nextNightsRaw);
+					if (!nextName.trim() || Number.isNaN(nextNights) || nextNights < 0) {
+						setTourFeedback('Invalid destination name or nights.', true);
+						return;
+					}
+
+					destination.name = nextName.trim();
+					destination.nights = nextNights;
+					renderDestinations();
+					updatePreview();
+
+					if (!String(destinationId).startsWith('local-') && state.tourId) {
+						fetch(`/api/destinations/${destinationId}`, {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ name: destination.name, nights: destination.nights }),
+						}).catch(() => {});
+					}
+					setTourFeedback(`${destination.name} updated.`, false);
+					return;
+				}
+
+				const deleteBtn = event.target.closest('[data-action="delete-destination"]');
+				if (deleteBtn) {
+					const destinationId = deleteBtn.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+
+					if (!String(destinationId).startsWith('local-') && state.tourId) {
+						fetch(`/api/destinations/${destinationId}`, { method: 'DELETE' })
+							.catch(() => {});
+					}
+					state.destinations = state.destinations.filter((item) => item.id !== destinationId);
+					state.destinations.forEach((d, i) => { d.position = i + 1; });
+					renderDestinations();
+					updatePreview();
+					setTourFeedback(`${destination.name} removed.`, false);
+					return;
+				}
+
+				const button = event.target.closest('[data-action="toggle-service"]');
+				if (!button) {
+					return;
+				}
+
+				const destinationId = button.dataset.destinationId;
+				const destination = state.destinations.find((item) => item.id === destinationId);
+				if (!destination) {
+					return;
+				}
+
+				const groupKey = button.dataset.groupKey;
+				const groupDefinition = SERVICE_GROUPS.find((group) => group.key === groupKey);
+
+				if (!groupDefinition) {
+					setTourFeedback('Invalid service group.', true);
+					return;
+				}
+
+				destination.serviceBlueprint[groupKey] = !destination.serviceBlueprint[groupKey];
+				renderDestinations();
+
+				persistDestinationServiceBlueprint(destination).then((ok) => {
+					if (ok) {
+						setTourFeedback(`${groupDefinition.shortLabel} ${destination.serviceBlueprint[groupKey] ? 'enabled' : 'disabled'} for ${destination.name}.`, false);
+					}
+				});
+			}
+
+			function handleDestinationListInput(event) {
+				const intercityMode = event.target.closest('[data-action="intercity-mode"]');
+				if (intercityMode) {
+					const destinationId = intercityMode.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+					destination.serviceBlueprint.intercity_mode = intercityMode.value;
+					persistDestinationServiceBlueprint(destination);
+					return;
+				}
+
+				const textArea = event.target.closest('[data-action="destination-description"]');
+				if (textArea) {
+					const destinationId = textArea.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+					destination.description = textArea.value;
+					updatePreview();
+					return;
+				}
+
+				const mealInput = event.target.closest('[data-action="destination-meals"]');
+				if (mealInput) {
+					const destinationId = mealInput.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+					destination.mealPlan = mealInput.value || 'B/L/D';
+					updatePreview();
+				}
+			}
+
+			function handleVisualDestinationInput(event) {
+				const textArea = event.target.closest('[data-action="visual-destination-description"]');
+				if (textArea) {
+					const destinationId = textArea.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+					destination.description = textArea.value;
+					updatePreview();
+					renderDestinations();
+					return;
+				}
+
+				const mealInput = event.target.closest('[data-action="visual-destination-meals"]');
+				if (mealInput) {
+					const destinationId = mealInput.dataset.destinationId;
+					const destination = state.destinations.find((item) => item.id === destinationId);
+					if (!destination) return;
+					destination.mealPlan = mealInput.value || 'B/L/D';
+					updatePreview();
+					renderDestinations();
+				}
+			}
+
+			function addPriceBand() {
+				const season = els.priceSeason.value.trim();
+				// Parse locale input -> canonical MM-DD cho recurring season
+				const seasonStart = parseMonthDayInput(els.priceSeasonStart.value);
+				const seasonEnd = parseMonthDayInput(els.priceSeasonEnd.value);
+				const seasonPriority = Number(els.priceSeasonPriority?.value || 0);
+				const pax = els.pricePax.value.trim();
+				const selectedPreset = (state.bookingSettings.class_presets || []).find((preset) => preset.id === els.priceTitle.value);
+				const title = selectedPreset?.label || '';
+				const classId = selectedPreset?.id || '';
+				const adultSharedPrice = Number(els.priceAdultShared.value);
+				const adultSinglePrice = Number(els.priceAdultSingle.value);
+				const childSharedPrice = Number(els.priceChildShared.value);
+				const paxParsed = parsePaxBand(pax);
+				if (!season || !pax || !title || !classId || !seasonStart || !seasonEnd || !paxParsed || Number.isNaN(adultSharedPrice) || Number.isNaN(adultSinglePrice) || Number.isNaN(childSharedPrice)) {
+					const fmt = getGlobalMonthDayFormat().toUpperCase();
+					setPricingFeedback(`Please fill season, start/end (${fmt}), pax band, class title and all prices.`, true);
+					return;
+				}
+
+				state.prices.push({
+					id: crypto.randomUUID(),
+					class_id: classId,
+					season,
+					season_start: seasonStart,
+					season_end: seasonEnd,
+					season_priority: seasonPriority,
+					pax_band: pax,
+					min_pax: paxParsed.min,
+					max_pax: paxParsed.max,
+					title,
+					adult_shared_price: adultSharedPrice,
+					adult_single_price: adultSinglePrice,
+					child_shared_price: childSharedPrice,
+				});
+				setPricingFeedback('Price tier added locally. Save Price Tiers to apply to traveler quotes.', false);
+				renderPrices();
+			}
+
+			function loadPriceTemplate() {
+				const baseCurrency = getAdminBaseCurrency();
+				const presets = state.bookingSettings.class_presets || [];
+				const standardPreset = presets[0] || { id: 'class_standard', label: 'Standard' };
+				const boutiquePreset = presets[1] || { id: 'class_boutique', label: 'Boutique' };
+				const luxuryPreset = presets[2] || boutiquePreset;
+				// Gia mau thuc te cho tour VN 6 ngay, tinh theo USD/nguoi/ngay
+				const templateRows = [
+					{ id: 'price-1', class_id: standardPreset.id, season: 'Peak Summer', season_start: '06-01', season_end: '08-31', season_priority: 0, pax_band: '2-6', min_pax: 2, max_pax: 6, title: standardPreset.label, adult_shared_price: 890, adult_single_price: 1090, child_shared_price: 590 },
+					{ id: 'price-2', class_id: boutiquePreset.id, season: 'Shoulder', season_start: '09-01', season_end: '11-30', season_priority: 0, pax_band: '7-12', min_pax: 7, max_pax: 12, title: boutiquePreset.label, adult_shared_price: 750, adult_single_price: 950, child_shared_price: 480 },
+					{ id: 'price-3', class_id: luxuryPreset.id, season: 'Festive', season_start: '12-01', season_end: '01-31', season_priority: 10, pax_band: '2-6', min_pax: 2, max_pax: 6, title: luxuryPreset.label, adult_shared_price: 1450, adult_single_price: 1780, child_shared_price: 890 },
+				];
+				state.prices = templateRows.map((row) => ({
+					...row,
+					adult_shared_price: convertAdminCurrency(row.adult_shared_price, 'USD', baseCurrency),
+					adult_single_price: convertAdminCurrency(row.adult_single_price, 'USD', baseCurrency),
+					child_shared_price: convertAdminCurrency(row.child_shared_price, 'USD', baseCurrency),
+				}));
+				setPricingFeedback('Sample pricing ladder loaded (USD base).', false);
+				renderPrices();
+			}
+
+			function handlePriceListClick(event) {
+				const btn = event.target.closest('[data-action="delete-price-tier"]');
+				if (!btn) return;
+				const id = btn.dataset.priceId;
+				state.prices = state.prices.filter((item) => item.id !== id);
+				renderPrices();
+			}
+
+			function renderRightPricingPreview() {
+				if (!state.prices.length) {
+					els.rightPricePreviewList.innerHTML = '<div class="empty-state">No pricing tiers configured.</div>';
+					return;
+				}
+				const baseCurrency = getAdminBaseCurrency();
+				const travelerCurrencyMode = els.priceCurrencyMode.value || state.bookingSettings.pricing_currency_mode || 'auto';
+				els.rightPricePreviewList.innerHTML = state.prices
+					.map((price) => `
+						<div class="price-item">
+							<div>
+								<strong>${escapeHtml(price.title)} - ${escapeHtml(price.season)}</strong>
+								<small>${escapeHtml(price.pax_band || '')} \u2022 ${escapeHtml(formatMonthDay(price.season_start))} to ${escapeHtml(formatMonthDay(price.season_end))}${price.season_priority ? ` \u2022 P${price.season_priority}` : ''}</small>
+								<div class="pricing-meta-row">
+									<span class="badge">Base ${escapeHtml(baseCurrency)}</span>
+									<span class="badge">Traveler ${escapeHtml(travelerCurrencyMode)}</span>
+								</div>
+								<div class="pricing-detail-grid">
+									<div>
+										<strong>${formatCurrency(Number(price.adult_shared_price || 0), baseCurrency)}</strong>
+										<small>adult (shared)</small>
+									</div>
+									<div>
+										<strong>${formatCurrency(Number(price.adult_single_price || 0), baseCurrency)}</strong>
+										<small>adult (single)</small>
+									</div>
+									<div>
+										<strong>${formatCurrency(Number(price.child_shared_price || 0), baseCurrency)}</strong>
+										<small>child (shared)</small>
+									</div>
+								</div>
+							</div>
+							<div style="display:grid;gap:8px;justify-items:end;">
+								<strong>${formatCurrency(Number(price.adult_shared_price || 0), baseCurrency)}</strong>
+								<small>lead preview</small>
+								<button class="icon-delete" data-action="delete-price-tier" data-price-id="${escapeHtml(price.id)}" type="button" title="Delete tier">🗑</button>
+							</div>
+						</div>
+					`)
+					.join('');
+			}
+
+			function setPricingFeedback(message, isError) {
+				els.pricingFeedback.textContent = message;
+				els.pricingFeedback.style.color = isError ? 'var(--accent-deep)' : 'var(--ink)';
+			}
+
+			function renderPriceTitleOptions() {
+				const current = els.priceTitle.value;
+				els.priceTitle.innerHTML = (state.bookingSettings.class_presets || [])
+					.map((preset) => `<option value="${escapeHtml(preset.id)}" ${current === preset.id ? 'selected' : ''}>${escapeHtml(preset.label)}</option>`)
+					.join('');
+				if (!els.priceTitle.value && state.bookingSettings.class_presets?.length) {
+					els.priceTitle.value = state.bookingSettings.class_presets[0].id;
+				}
+			}
+
+			// Chap nhan canonical MM-DD, locale input (dd.mm, mm/dd), va ISO full date
+			function normalizeMmdd(value) {
+				return parseMonthDayInput(value);
+			}
+
+			function seasonInputToMmdd(value) {
+				return parseMonthDayInput(value);
+			}
+
+			function mmddToSeasonInput(value) {
+				return formatMonthDay(value);
+			}
+
+			// === Recurring month-day helpers ===
+			// Canonical format la MM-DD (string), dung cho storage va pricing engine.
+			// Display format tuy thuoc vao global settings: dd.mm / mm/dd / mm-dd.
+
+			// Lay format thang-ngay tu global date format
+			function getGlobalMonthDayFormat() {
+				const full = els.adminDateFormat?.value || state.bookingSettings.date_time_format || 'yyyy-mm-dd hh:mm';
+				if (full.startsWith('dd.mm')) return 'dd.mm';
+				if (full.startsWith('mm/dd')) return 'mm/dd';
+				return 'mm-dd'; // ISO-derived default
+			}
+
+			// Canonical MM-DD -> display string theo global settings
+			function formatMonthDay(canonicalMmdd) {
+				const match = String(canonicalMmdd || '').match(/^(\d{2})-(\d{2})$/);
+				if (!match) return canonicalMmdd || '--';
+				const mm = match[1];
+				const dd = match[2];
+				const fmt = getGlobalMonthDayFormat();
+				if (fmt === 'dd.mm') return `${dd}.${mm}`;
+				if (fmt === 'mm/dd') return `${mm}/${dd}`;
+				return `${mm}-${dd}`;
+			}
+
+			// Parse user input (locale-aware) -> canonical MM-DD
+			// Chap nhan: dd.mm, mm/dd, mm-dd, MM-DD, yyyy-mm-dd
+			function parseMonthDayInput(value) {
+				const s = String(value || '').trim();
+				// ISO full date: yyyy-mm-dd
+				const isoMatch = s.match(/^\d{4}-(\d{2})-(\d{2})/);
+				if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`;
+				// Detect format from separator
+				const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})$/);
+				if (dotMatch) {
+					// dd.mm format (European)
+					const dd = dotMatch[1].padStart(2, '0');
+					const mm = dotMatch[2].padStart(2, '0');
+					return `${mm}-${dd}`;
+				}
+				const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+				if (slashMatch) {
+					// mm/dd format (US)
+					const mm = slashMatch[1].padStart(2, '0');
+					const dd = slashMatch[2].padStart(2, '0');
+					return `${mm}-${dd}`;
+				}
+				const dashMatch = s.match(/^(\d{1,2})-(\d{1,2})$/);
+				if (dashMatch) {
+					// mm-dd canonical
+					const mm = dashMatch[1].padStart(2, '0');
+					const dd = dashMatch[2].padStart(2, '0');
+					return `${mm}-${dd}`;
+				}
+				return '';
+			}
+
+			// Placeholder example cho season input theo global format
+			function getMonthDayPlaceholder(exampleMmdd) {
+				return formatMonthDay(exampleMmdd);
+			}
+
+			// Cap nhat label, placeholder, value cua season inputs theo global format
+			function syncSeasonFieldFormat() {
+				const fmt = getGlobalMonthDayFormat();
+				const fmtLabel = fmt.toUpperCase().replace('DD', 'DD').replace('MM', 'MM');
+				const startLabel = document.getElementById('price-season-start-label');
+				const endLabel = document.getElementById('price-season-end-label');
+				if (startLabel) startLabel.textContent = `Start (${fmtLabel})`;
+				if (endLabel) endLabel.textContent = `End (${fmtLabel})`;
+				// Update placeholders
+				if (els.priceSeasonStart) {
+					els.priceSeasonStart.placeholder = getMonthDayPlaceholder('06-01');
+					// Convert current value to new display format if it has a valid value
+					const currentCanonical = parseMonthDayInput(els.priceSeasonStart.value);
+					if (currentCanonical) els.priceSeasonStart.value = formatMonthDay(currentCanonical);
+				}
+				if (els.priceSeasonEnd) {
+					els.priceSeasonEnd.placeholder = getMonthDayPlaceholder('08-31');
+					const currentCanonical = parseMonthDayInput(els.priceSeasonEnd.value);
+					if (currentCanonical) els.priceSeasonEnd.value = formatMonthDay(currentCanonical);
+				}
+			}
+
+			// Kiem tra ngay (month, day) co nam trong recurring season range hay khong
+			// Ho tro season bang qua cuoi nam (vd: 11-15 -> 02-20)
+			function isInRecurringSeasonRange(targetMonth, targetDay, startMonth, startDay, endMonth, endDay) {
+				const target = targetMonth * 100 + targetDay;
+				const start = startMonth * 100 + startDay;
+				const end = endMonth * 100 + endDay;
+				if (start <= end) {
+					return target >= start && target <= end;
+				}
+				// Cross-year range: vd Nov 15 -> Feb 20
+				return target >= start || target <= end;
+			}
+
+			// Parse canonical MM-DD thanh { month, day } so
+			function parseCanonicalMmdd(mmdd) {
+				const match = String(mmdd || '').match(/^(\d{2})-(\d{2})$/);
+				if (!match) return null;
+				return { month: Number(match[1]), day: Number(match[2]) };
+			}
+			return value;
+			}
+
+			function parsePaxBand(value) {
+				const m = String(value || '').match(/(\d+)\s*-\s*(\d+)/);
+				if (!m) return null;
+				const min = Number(m[1]);
+				const max = Number(m[2]);
+				if (Number.isNaN(min) || Number.isNaN(max) || min < 1 || max < min) return null;
+				return { min, max };
+			}
+
+			async function savePricingTiers() {
+				if (!state.prices.length) {
+					setPricingFeedback('Add at least one tier before saving.', true);
+					return;
+				}
+				els.savePricingTiersButton.disabled = true;
+				setPricingFeedback('Saving pricing tiers...', false);
+				try {
+					const payload = {
+						...state.bookingSettings,
+						pricing_tiers: state.prices,
+						pricing_currency_mode: els.priceCurrencyMode.value,
+						pricing_base_currency: els.priceBaseCurrency.value,
+						usd_to_vnd_rate: Number(els.priceUsdVndRate.value),
+					};
+					const response = await fetch('/api/booking-settings', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not save pricing tiers');
+					}
+					state.bookingSettings = { ...state.bookingSettings, ...data };
+					state.prices = Array.isArray(data.pricing_tiers) ? data.pricing_tiers : state.prices;
+					els.priceCurrencyMode.value = data.pricing_currency_mode || state.bookingSettings.pricing_currency_mode || 'auto';
+					els.priceBaseCurrency.value = data.pricing_base_currency || state.bookingSettings.pricing_base_currency || 'VND';
+					els.priceUsdVndRate.value = String(data.usd_to_vnd_rate || state.bookingSettings.usd_to_vnd_rate || 25000);
+					state.priceComposerCurrency = els.priceBaseCurrency.value;
+					syncPriceComposerCurrency(state.priceComposerCurrency, false);
+					setPricingFeedback('Pricing tiers saved. Traveler quotes now auto-match by season+pax.', false);
+					renderPrices();
+				} catch (error) {
+					setPricingFeedback(error.message, true);
+				} finally {
+					els.savePricingTiersButton.disabled = false;
+				}
+			}
+
+			function renderDestinations() {
+				renderTourPreview();
+				els.heroDestinationCount.textContent = String(state.destinations.length);
+				if (!state.destinations.length) {
+					els.destinationList.innerHTML = '<div class="empty-state">No destinations staged yet.</div>';
+					return;
+				}
+
+				els.destinationList.innerHTML = state.destinations
+					.slice()
+					.sort((left, right) => left.position - right.position)
+					.map((destination) => `
+						<div class="destination-shell" data-destination-id="${escapeHtml(destination.id)}">
+							<div class="destination-header">
+								<div class="destination-title-block">
+									<strong>${escapeHtml(destination.position + '. ' + destination.name)}</strong>
+									<small>${destination.nights} night${destination.nights === 1 ? '' : 's'} &bull; ${countServices(destination)} service${countServices(destination) === 1 ? '' : 's'} on</small>
+								</div>
+								<div style="display:flex;gap:6px;align-items:center;">
+									<button class="drag-handle" type="button" draggable="true" data-action="drag-handle" data-destination-id="${escapeHtml(destination.id)}" title="Drag to reorder">☰</button>
+									<button class="button-ghost" type="button" data-action="edit-destination" data-destination-id="${escapeHtml(destination.id)}" title="Edit destination">Edit</button>
+									<button class="icon-delete" type="button" data-action="delete-destination" data-destination-id="${escapeHtml(destination.id)}" title="Delete destination">🗑</button>
+								</div>
+							</div>
+							<div class="svc-chip-row">
+								${SERVICE_GROUPS.map((group) => renderServiceChip(destination, group)).join('')}
+							</div>
+							<div class="grid-2">
+								<div class="field">
+									<label>Meals</label>
+									<input data-action="destination-meals" data-destination-id="${escapeHtml(destination.id)}" value="${escapeHtml(destination.mealPlan || 'B/L/D')}" placeholder="B/L/D" />
+								</div>
+							</div>
+							<div class="field">
+								<label>Description</label>
+								<textarea data-action="destination-description" data-destination-id="${escapeHtml(destination.id)}" placeholder="Destination narrative for itinerary preview">${escapeHtml(destination.description || '')}</textarea>
+							</div>
+						</div>
+					`)
+					.join('');
+
+				state.serviceItemCount = state.destinations.reduce((sum, destination) => sum + countServices(destination), 0);
+				initDragDrop();
+			}
+
+			function renderPrices() {
+				els.heroPriceCount.textContent = String(state.prices.length);
+				if (!state.prices.length) {
+					els.priceList.innerHTML = '<div class="empty-state">No price bands yet. Draft one or load a sample ladder.</div>';
+					renderRightPricingPreview();
+					renderStudioPreview();
+					return;
+				}
+
+				els.priceList.innerHTML = state.prices
+					.map((price) => `
+						<div class="price-item">
+							<div>
+								<strong>${escapeHtml(price.title)} - ${escapeHtml(price.season)}</strong>
+								<small>${escapeHtml(price.pax_band || price.pax || '')} \u2022 ${escapeHtml(formatMonthDay(price.season_start))} to ${escapeHtml(formatMonthDay(price.season_end))}${price.season_priority ? ` \u2022 P${price.season_priority}` : ''}</small>
+							</div>
+							<div>
+								<strong>${formatCurrency(Number(price.adult_shared_price || 0), getAdminBaseCurrency())}</strong>
+								<small>adult (shared)</small>
+							</div>
+							<div>
+								<strong>${formatCurrency(Number(price.adult_single_price || 0), getAdminBaseCurrency())}</strong>
+								<small>adult (single)</small>
+							</div>
+							<div>
+								<strong>${formatCurrency(Number(price.child_shared_price || 0), getAdminBaseCurrency())}</strong>
+								<small>child (shared)</small>
+							</div>
+							<button class="icon-delete" data-action="delete-price-tier" data-price-id="${escapeHtml(price.id)}" type="button" title="Delete tier">🗑</button>
+						</div>
+					`)
+					.join('');
+
+				const lowest = Math.min(...state.prices.map((price) => Number(price.adult_shared_price || 0)));
+				void lowest;
+				renderRightPricingPreview();
+				renderStudioPreview();
+			}
+
+			function renderMobileTasks() {
+				if (!state.mobileTasks.length) {
+					els.mobileTaskList.innerHTML = '<div class="empty-state">No mobile tasks loaded. Tap refresh to fetch from API.</div>';
+					return;
+				}
+
+				els.mobileTaskList.innerHTML = state.mobileTasks
+					.map((task) => `
+						<article class="mobile-task-card">
+							<div class="mobile-task-head">
+								<div>
+									<strong>${escapeHtml(task.title)}</strong>
+									<small>${escapeHtml(task.service_entity_type || 'task')} • ${escapeHtml(task.status || 'pending')}${task.due_at ? ` • ${escapeHtml(formatAdminDateTime(task.due_at))}` : ''}</small>
+								</div>
+								<span class="tiny-mono">${escapeHtml(task.thread_id || 'thread-pending')}</span>
+							</div>
+							${task.latest_message ? `
+								<div class="inline-callout">
+									<strong>Latest thread update</strong>
+									<small>${escapeHtml(task.latest_message.channel || 'note')}${task.latest_message.created_at ? ` • ${escapeHtml(formatAdminDateTime(task.latest_message.created_at))}` : ''} • ${escapeHtml(task.latest_message.body || '')}</small>
+								</div>
+							` : ''}
+							<div class="mobile-actions">
+								${renderQuickActionLink('Call', task.quick_actions?.call)}
+								${renderQuickActionLink('SMS', task.quick_actions?.sms)}
+								${renderQuickActionLink('Email', task.quick_actions?.email)}
+								${renderQuickActionLink('WhatsApp', task.quick_actions?.whatsapp)}
+								${renderQuickActionLink('Zalo', task.quick_actions?.zalo)}
+								${renderQuickActionLink('Thread', task.quick_actions?.thread_messages_url)}
+							</div>
+							<div class="quick-status-grid">
+								<select data-mobile-status-select="${escapeHtml(task.id)}">
+									${['pending', 'confirmed', 'completed', 'canceled']
+										.map((status) => `<option value="${status}" ${task.status === status ? 'selected' : ''}>${status}</option>`)
+										.join('')}
+								</select>
+								<button class="button-secondary" data-mobile-action="update-status" data-task-id="${escapeHtml(task.id)}" type="button">Update Status</button>
+							</div>
+							<div class="quick-note-grid">
+								<input data-mobile-note-input="${escapeHtml(task.id)}" placeholder="Quick note to related thread" />
+								<button class="button-secondary" data-mobile-action="add-note" data-task-id="${escapeHtml(task.id)}" type="button">Add Note</button>
+							</div>
+						</article>
+					`)
+					.join('');
+				renderStudioPreview();
+			}
+
+			function updatePreview() {
+				if (!state.siteLayout.updated_at && !state.siteLayout.published_at) {
+					els.visualStyleCopy.textContent = 'Hosted layout draft loaded in GrapesJS.';
+					els.visualStylePill.textContent = 'Draft';
+					els.visualStylePill.classList.remove('is-warning');
+				}
+				renderTourPreview();
+				renderStudioPreview();
+			}
+
+			async function fetchBookings() {
+				els.refreshBookingsButton.disabled = true;
+				setBookingsFeedback('Loading bookings...', false);
+				try {
+					const response = await fetch('/api/bookings');
+					const data = await safeJson(response);
+					if (!response.ok) throw new Error(data?.error?.message || 'Could not load bookings');
+					state.bookings = data.bookings || [];
+					renderBookings();
+					setBookingsFeedback(`${state.bookings.length} booking${state.bookings.length === 1 ? '' : 's'} loaded.`, false);
+				} catch (error) {
+					setBookingsFeedback(error.message, true);
+				} finally {
+					els.refreshBookingsButton.disabled = false;
+				}
+			}
+
+			function renderBookings() {
+				if (!state.bookings.length) {
+					els.bookingList.innerHTML = '<div class="empty-state">No bookings yet. Share the traveler booking page to start collecting requests.</div>';
+					renderStudioPreview();
+					return;
+				}
+				els.bookingList.innerHTML = state.bookings.map((b) => {
+					const isPending = b.status === 'pending';
+					const isPaid = b.payment_status === 'paid';
+					const statusColor = b.status === 'confirmed' ? 'var(--success)' : b.status === 'rejected' ? 'var(--accent-deep)' : 'inherit';
+					return `
+						<article class="mobile-task-card" data-booking-id="${escapeHtml(b.id)}">
+							<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+								<div>
+									<strong>${escapeHtml(b.traveler_name)}</strong> &mdash; ${escapeHtml(String(b.pax))} pax
+									<div class="muted" style="font-size:0.82rem;margin-top:4px;">${escapeHtml(b.tour_title || b.tour_id)}</div>
+									${b.desired_departure_date ? `<div class="muted" style="font-size:0.78rem;margin-top:4px;">Departure ${escapeHtml(formatAdminDateTime(b.desired_departure_date))}</div>` : ''}
+									${b.created_at ? `<div class="muted" style="font-size:0.78rem;margin-top:4px;">Booked ${escapeHtml(formatAdminDateTime(b.created_at))}</div>` : ''}
+								</div>
+								<div style="text-align:right;flex-shrink:0;">
+									<span class="status-pill ${isPending ? 'is-warning' : ''}" style="color:${statusColor};">${escapeHtml(b.status)}</span>
+									<div class="muted" style="font-size:0.78rem;margin-top:6px;">${isPaid ? '✓ Paid' : '⏳ Unpaid'}</div>
+								</div>
+							</div>
+							${b.traveler_email ? `<div class="muted" style="font-size:0.82rem;">${escapeHtml(b.traveler_email)}</div>` : ''}
+							${b.message ? `<div style="font-size:0.85rem;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,0.04);">${escapeHtml(b.message)}</div>` : ''}
+							${isPending ? `
+							<div class="actions" style="gap:8px;">
+								<button class="button-primary" style="font-size:0.82rem;padding:10px 16px;" data-booking-action="confirm" data-booking-id="${escapeHtml(b.id)}" type="button">Confirm + Generate Tasks</button>
+								<button class="button-secondary" style="font-size:0.82rem;padding:10px 16px;" data-booking-action="reject" data-booking-id="${escapeHtml(b.id)}" type="button">Reject</button>
+							</div>` : ''}
+						</article>`;
+				}).join('');
+				renderStudioPreview();
+			}
+
+			function handleBookingListClick(event) {
+				const btn = event.target.closest('[data-booking-action]');
+				if (!btn) return;
+				const bookingId = btn.dataset.bookingId;
+				const action = btn.dataset.bookingAction;
+				if (action === 'confirm') updateBookingStatus(bookingId, 'confirmed', btn);
+				if (action === 'reject') updateBookingStatus(bookingId, 'rejected', btn);
+			}
+
+			async function updateBookingStatus(bookingId, status, btn) {
+				if (btn) btn.disabled = true;
+				try {
+					const response = await fetch(`/api/bookings/${bookingId}`, {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ status }),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) throw new Error(data?.error?.message || 'Could not update booking');
+					const taskMsg = data.generated_task_count > 0 ? ` (${data.generated_task_count} tasks generated)` : '';
+					setBookingsFeedback(`Booking ${status}${taskMsg}.`, false);
+					await fetchBookings();
+				} catch (error) {
+					setBookingsFeedback(error.message, true);
+					if (btn) btn.disabled = false;
+				}
+			}
+
+			function setBookingsFeedback(message, isWarning) {
+				els.bookingsFeedback.textContent = message;
+				els.bookingsFeedback.style.background = isWarning ? 'rgba(191, 90, 54, 0.16)' : 'rgba(31, 122, 82, 0.12)';
+				els.bookingsFeedback.style.color = isWarning ? 'var(--accent-deep)' : 'var(--success)';
+			}
+
+			async function checkWorkerHealth() {
+				if (!els.workerHealthDetail || !els.workerHealthPill) {
+					return;
+				}
+				try {
+					const response = await fetch('/message');
+					const text = await response.text();
+					if (!response.ok) {
+						throw new Error('Worker did not return a healthy message');
+					}
+					els.workerHealthDetail.textContent = text;
+					els.workerHealthPill.textContent = 'Online';
+					els.workerHealthPill.classList.remove('is-warning');
+				} catch (error) {
+					els.workerHealthDetail.textContent = error.message;
+					els.workerHealthPill.textContent = 'Offline';
+					els.workerHealthPill.classList.add('is-warning');
+				}
+			}
+
+			function setTourFeedback(message, isWarning) {
+				els.tourFeedback.textContent = message;
+				els.tourFeedback.style.background = isWarning ? 'rgba(191, 90, 54, 0.16)' : 'rgba(31, 122, 82, 0.12)';
+				els.tourFeedback.style.color = isWarning ? 'var(--accent-deep)' : 'var(--success)';
+			}
+
+			function setMobileFeedback(message, isWarning) {
+				els.mobileFeedback.textContent = message;
+				els.mobileFeedback.style.background = isWarning ? 'rgba(191, 90, 54, 0.16)' : 'rgba(31, 122, 82, 0.12)';
+				els.mobileFeedback.style.color = isWarning ? 'var(--accent-deep)' : 'var(--success)';
+			}
+
+			function getAdminBaseCurrency() {
+				return els.priceBaseCurrency?.value || state.bookingSettings.pricing_base_currency || 'VND';
+			}
+
+			// Dinh dang ngay theo cau hinh toan cuc cua admin, khong hardcode mot format
+			function formatAdminDateTime(value) {
+				const numericValue = value instanceof Date ? value.getTime() : Number(value);
+				const date = new Date(numericValue);
+				if (Number.isNaN(date.getTime())) {
+					return '—';
+				}
+				const format = els.adminDateFormat?.value || state.bookingSettings.date_time_format || 'yyyy-mm-dd hh:mm';
+				const day = String(date.getDate()).padStart(2, '0');
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const year = date.getFullYear();
+				const hours = String(date.getHours()).padStart(2, '0');
+				const minutes = String(date.getMinutes()).padStart(2, '0');
+				const timeStr = `${hours}:${minutes}`;
+				if (format.startsWith('mm/dd/yyyy')) {
+					return `${month}/${day}/${year} ${timeStr}`;
+				}
+				if (format.startsWith('yyyy-mm-dd')) {
+					return `${year}-${month}-${day} ${timeStr}`;
+				}
+				return `${day}.${month}.${year} ${timeStr}`;
+			}
+
+			function convertAdminCurrency(amount, fromCurrency, toCurrency) {
+				if (!Number.isFinite(amount) || fromCurrency === toCurrency) {
+					return amount;
+				}
+				const rate = Number(els.priceUsdVndRate?.value || state.bookingSettings.usd_to_vnd_rate || 25000);
+				if (!Number.isFinite(rate) || rate <= 0) {
+					return amount;
+				}
+				if (fromCurrency === 'USD' && toCurrency === 'VND') {
+					return Math.round(amount * rate);
+				}
+				if (fromCurrency === 'VND' && toCurrency === 'USD') {
+					return Number((amount / rate).toFixed(2));
+				}
+				return amount;
+			}
+
+			function syncPriceComposerCurrency(nextCurrency, shouldConvert = true) {
+				const previousCurrency = state.priceComposerCurrency || nextCurrency;
+				const targetCurrency = nextCurrency || 'VND';
+				const fields = [els.priceAdultShared, els.priceAdultSingle, els.priceChildShared];
+				const labels = [
+					{ element: els.priceAdultSharedLabel, text: 'Adult (shared room)' },
+					{ element: els.priceAdultSingleLabel, text: 'Adult (single room)' },
+					{ element: els.priceChildSharedLabel, text: 'Child (shared room with parents)' },
+				];
+
+				if (shouldConvert && previousCurrency !== targetCurrency) {
+					fields.forEach((field) => {
+						const currentValue = Number(field.value || 0);
+						if (Number.isFinite(currentValue) && currentValue > 0) {
+							field.value = String(convertAdminCurrency(currentValue, previousCurrency, targetCurrency));
+						}
+					});
+				}
+
+				labels.forEach(({ element, text }) => {
+					element.textContent = `${text} (${targetCurrency})`;
+				});
+
+				fields.forEach((field) => {
+					field.step = targetCurrency === 'USD' ? '0.01' : '1';
+				});
+
+				state.priceComposerCurrency = targetCurrency;
+			}
+
+			function formatCurrency(value, currency = getAdminBaseCurrency()) {
+				const locale = currency === 'USD' ? 'en-US' : 'vi-VN';
+				return new Intl.NumberFormat(locale, {
+					style: 'currency',
+					currency,
+					maximumFractionDigits: currency === 'VND' ? 0 : 2,
+				}).format(value);
+			}
+
+			async function safeJson(response) {
+				const text = await response.text();
+				if (!text) {
+					return null;
+				}
+				try {
+					return JSON.parse(text);
+				} catch {
+					return null;
+				}
+			}
+
+			function renderTourPreview() {
+				const displayTitle = state.tourTitle || 'Untitled tour';
+				els.tourPreviewTitle.textContent = displayTitle;
+				// Dong bo ten tour len toolbar-1 de khong bi lech voi preview
+				const toolbarTitle = document.getElementById('tour-preview-title-toolbar');
+				if (toolbarTitle) toolbarTitle.textContent = displayTitle;
+
+				// Preview badges: chi hien thong tin khach hang thay, khong hien dem service noi bo
+				els.tourPreviewBadges.innerHTML = `
+					<span class="badge">${escapeHtml(state.durationText || 'Duration pending')}</span>
+					<span class="badge">${state.destinations.length} destination${state.destinations.length === 1 ? '' : 's'}</span>
+					${state.tourId ? '<span class="badge" style="background:rgba(31,122,82,0.12);color:var(--success);">API draft active</span>' : '<span class="badge" style="background:rgba(191,90,54,0.12);color:var(--accent-deep);">Local only</span>'}
+				`;
+
+				// Intro hien thi truoc danh sach destination trong preview
+				const introBlock = state.tourIntro
+					? `<div class="preview-itinerary-day" style="border-left:3px solid var(--accent);">
+						<p>${escapeHtml(state.tourIntro)}</p>
+					</div>`
+					: '';
+
+				const sorted = state.destinations.slice().sort((a, b) => a.position - b.position);
+				if (!sorted.length) {
+					els.tourPreviewItinerary.innerHTML = introBlock || '<div class="empty-state">Add destinations to preview the itinerary structure.</div>';
+					return;
+				}
+				let dayCursor = 1;
+				// Preview la noi dung khach hang thay — khong hien service noi bo (Stay, Guide, v.v.)
+				els.tourPreviewItinerary.innerHTML = introBlock + sorted.map((dest) => {
+					const nights = Math.max(0, Number(dest.nights || 0));
+					const span = Math.max(1, nights);
+					const dayStart = dayCursor;
+					const dayEnd = dayCursor + span - 1;
+					dayCursor += span;
+					const dayLabel = dayStart === dayEnd ? `Day ${dayStart}` : `Day ${dayStart}-${dayEnd}`;
+					const mealCode = dest.mealPlan ? dest.mealPlan.trim() : '';
+					const subtitle = `${nights} night${nights === 1 ? '' : 's'}${mealCode ? ` (${escapeHtml(mealCode)})` : ''}`;
+					return `<div class="preview-itinerary-day">
+						<strong>${escapeHtml(dayLabel)}: ${escapeHtml(dest.name)}</strong>
+						<p>${subtitle}</p>
+						${dest.description ? `<p style="margin-top:4px;">${escapeHtml(dest.description)}</p>` : ''}
+					</div>`;
+				}).join('');
+			}
+
+			function renderStudioPreview() {
+				if (!state.studio) {
+					return;
+				}
+				const visibleTabs = state.studio.tabs.filter((tab) => tab.visible);
+				const visibleCardCount = state.studio.tabs.reduce((sum, tab) => sum + tab.cards.filter((card) => card.visible).length, 0);
+				els.studioPreviewContent.innerHTML = `
+					<div style="display:grid;gap:12px;margin-top:12px;">
+						<div class="badge-row">
+							<span class="badge"><strong>${visibleTabs.length}</strong> visible tab${visibleTabs.length === 1 ? '' : 's'}</span>
+							<span class="badge"><strong>${visibleCardCount}</strong> visible card${visibleCardCount === 1 ? '' : 's'}</span>
+						</div>
+						${visibleTabs.map((tab) => `
+							<div class="status-item">
+								<div>
+									<strong>${escapeHtml(tab.label)}</strong>
+									<small>${tab.cards.filter((card) => card.visible).length} visible card${tab.cards.filter((card) => card.visible).length === 1 ? '' : 's'}</small>
+								</div>
+								<span class="studio-chip">${escapeHtml(tab.id)}</span>
+							</div>
+						`).join('')}
+					</div>
+				`;
+			}
+
+			// Helper: lay tat ca cards cua 1 tab (bao gom sub_panels neu co)
+			function getAllTabCards(tab) {
+				if (tab.sub_panels) {
+					return tab.sub_panels.flatMap((sp) => sp.cards || []);
+				}
+				return tab.cards || [];
+			}
+
+			// Helper: tim 1 card theo id trong tab (ke ca trong sub_panels)
+			function findTabCard(tab, cardId) {
+				if (tab.sub_panels) {
+					for (const sp of tab.sub_panels) {
+						const card = (sp.cards || []).find((c) => c.id === cardId);
+						if (card) return card;
+					}
+					return null;
+				}
+				return (tab.cards || []).find((c) => c.id === cardId);
+			}
+
+			function renderStudioEditor() {
+				if (!state.studio) {
+					return;
+				}
+
+				els.studioTabsList.innerHTML = state.studio.tabs.map((tab) => `
+					<div class="studio-row ${tab.id === state.studioEditorTabId ? 'is-selected' : ''} ${tab.visible ? '' : 'is-hidden'}" data-studio-row="tab" data-tab-id="${escapeHtml(tab.id)}">
+						<button class="studio-drag" type="button" draggable="true" data-studio-drag="tab" data-tab-id="${escapeHtml(tab.id)}">☰</button>
+						<input data-studio-input="tab-label" data-tab-id="${escapeHtml(tab.id)}" value="${escapeHtml(tab.label)}" />
+						<button class="button-secondary" type="button" data-studio-action="select-tab" data-tab-id="${escapeHtml(tab.id)}">Cards</button>
+						<button class="button-ghost" type="button" data-studio-action="toggle-tab" data-tab-id="${escapeHtml(tab.id)}" ${tab.id === 'site-studio' ? 'disabled' : ''}>${tab.id === 'site-studio' ? 'Locked' : tab.visible ? 'Hide' : 'Restore'}</button>
+					</div>
+				`).join('');
+
+				const selectedTab = state.studio.tabs.find((tab) => tab.id === state.studioEditorTabId) || state.studio.tabs[0];
+				state.studioEditorTabId = selectedTab?.id || 'tour-studio';
+				els.studioSelectedTabNote.textContent = selectedTab
+					? `${selectedTab.label} cards can be renamed, re-ordered, hidden, and restored here.`
+					: 'Select a tab to manage its cards.';
+
+				const allCards = selectedTab ? getAllTabCards(selectedTab) : [];
+				els.studioCardsList.innerHTML = allCards.length
+					? allCards.map((card) => `
+						<div class="studio-row ${card.visible ? '' : 'is-hidden'}" data-studio-row="card" data-tab-id="${escapeHtml(selectedTab.id)}" data-card-id="${escapeHtml(card.id)}">
+							<button class="studio-drag" type="button" draggable="true" data-studio-drag="card" data-tab-id="${escapeHtml(selectedTab.id)}" data-card-id="${escapeHtml(card.id)}">☰</button>
+							<input data-studio-input="card-label" data-tab-id="${escapeHtml(selectedTab.id)}" data-card-id="${escapeHtml(card.id)}" value="${escapeHtml(card.label)}" />
+							<span class="studio-chip">${escapeHtml(card.id)}</span>
+							<button class="button-ghost" type="button" data-studio-action="toggle-card" data-tab-id="${escapeHtml(selectedTab.id)}" data-card-id="${escapeHtml(card.id)}">${card.visible ? 'Hide' : 'Restore'}</button>
+						</div>
+					`).join('')
+					: '<div class="empty-state">No cards available for this tab.</div>';
+			}
+
+			function handleStudioClick(event) {
+				const action = event.target.closest('[data-studio-action]');
+				if (!action) {
+					return;
+				}
+
+				const tabId = action.dataset.tabId;
+				const cardId = action.dataset.cardId;
+				const tab = state.studio.tabs.find((item) => item.id === tabId);
+				if (!tab) {
+					return;
+				}
+
+				if (action.dataset.studioAction === 'select-tab') {
+					state.studioEditorTabId = tabId;
+					renderStudioEditor();
+					return;
+				}
+
+				if (action.dataset.studioAction === 'toggle-tab') {
+					if (tabId === 'site-studio') {
+						return;
+					}
+					tab.visible = !tab.visible;
+					saveStudioLayout();
+					applyStudioLayout();
+					renderStudioEditor();
+					return;
+				}
+
+				if (action.dataset.studioAction === 'toggle-card') {
+					const card = findTabCard(tab, cardId);
+					if (!card) {
+						return;
+					}
+					card.visible = !card.visible;
+					saveStudioLayout();
+					applyStudioLayout();
+					renderStudioEditor();
+				}
+			}
+
+			function handleStudioInput(event) {
+				const input = event.target.closest('[data-studio-input]');
+				if (!input) {
+					return;
+				}
+
+				if (input.dataset.studioInput === 'tab-label') {
+					const tab = state.studio.tabs.find((item) => item.id === input.dataset.tabId);
+					if (!tab) {
+						return;
+					}
+					tab.label = input.value.trim() || defaultStudioTabLabel(tab.id);
+				}
+
+				if (input.dataset.studioInput === 'card-label') {
+					const tab = state.studio.tabs.find((item) => item.id === input.dataset.tabId);
+					const card = tab ? findTabCard(tab, input.dataset.cardId) : null;
+					if (!card) {
+						return;
+					}
+					card.label = input.value.trim() || defaultStudioCardLabel(input.dataset.cardId);
+				}
+
+				saveStudioLayout();
+				applyStudioLayout();
+				renderStudioEditor();
+			}
+
+			function handleStudioDragStart(event) {
+				const handle = event.target.closest('[data-studio-drag]');
+				if (!handle) {
+					return;
+				}
+				event.dataTransfer.effectAllowed = 'move';
+				event.dataTransfer.setData('text/plain', JSON.stringify({
+					kind: handle.dataset.studioDrag,
+					tabId: handle.dataset.tabId,
+					cardId: handle.dataset.cardId || null,
+				}));
+			}
+
+			function handleStudioDragOver(event) {
+				if (event.target.closest('[data-studio-row]')) {
+					event.preventDefault();
+				}
+			}
+
+			function handleStudioDrop(event) {
+				const row = event.target.closest('[data-studio-row]');
+				if (!row) {
+					return;
+				}
+				event.preventDefault();
+				let payload = null;
+				try {
+					payload = JSON.parse(event.dataTransfer.getData('text/plain'));
+				} catch {
+					return;
+				}
+
+				if (payload.kind === 'tab' && row.dataset.studioRow === 'tab') {
+					reorderStudioItems(state.studio.tabs, payload.tabId, row.dataset.tabId);
+				}
+
+				if (payload.kind === 'card' && row.dataset.studioRow === 'card' && payload.tabId === row.dataset.tabId) {
+					const tab = state.studio.tabs.find((item) => item.id === payload.tabId);
+					if (!tab) {
+						return;
+					}
+					// Reorder within same sub_panel only (cards stay in their sub-panel)
+					if (tab.sub_panels) {
+						for (const sp of tab.sub_panels) {
+							if ((sp.cards || []).some((c) => c.id === payload.cardId)) {
+								reorderStudioItems(sp.cards, payload.cardId, row.dataset.cardId);
+								break;
+							}
+						}
+					} else {
+						reorderStudioItems(tab.cards, payload.cardId, row.dataset.cardId);
+					}
+				}
+
+				saveStudioLayout();
+				applyStudioLayout();
+				renderStudioEditor();
+			}
+
+			function reorderStudioItems(items, sourceId, targetId) {
+				const sourceIndex = items.findIndex((item) => item.id === sourceId);
+				const targetIndex = items.findIndex((item) => item.id === targetId);
+				if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+					return;
+				}
+				const [moved] = items.splice(sourceIndex, 1);
+				const nextTargetIndex = items.findIndex((item) => item.id === targetId);
+				items.splice(nextTargetIndex, 0, moved);
+			}
+
+			function applyStudioLayout() {
+				if (!state.studio) {
+					return;
+				}
+
+				state.studio.tabs.forEach((tabConfig) => {
+					const button = els.tabButtons.find((item) => item.dataset.tab === tabConfig.id);
+					const panel = els.tabPanels.find((item) => item.dataset.panel === tabConfig.id);
+					if (!button || !panel) {
+						return;
+					}
+
+					button.textContent = tabConfig.label;
+					button.style.display = tabConfig.visible ? '' : 'none';
+					els.tabStrip.appendChild(button);
+					els.mainPanel.appendChild(panel);
+
+					// Tour Studio co sub-panels (tour-config, pricing) — card phai nam trong dung sub-panel
+					if (tabConfig.sub_panels) {
+						tabConfig.sub_panels.forEach((subPanelConfig) => {
+							const subPanel = panel.querySelector(`[data-tour-studio-panel="${subPanelConfig.id}"]`);
+							if (!subPanel) return;
+							const subCardNodes = Array.from(subPanel.querySelectorAll('[data-card-id]'));
+							// Also check panel-level orphans that may have been reparented previously
+							const panelOrphans = Array.from(panel.querySelectorAll(':scope > [data-card-id]'));
+							const allNodes = [...subCardNodes, ...panelOrphans];
+							(subPanelConfig.cards || []).forEach((cardConfig) => {
+								const node = allNodes.find((item) => item.dataset.cardId === cardConfig.id);
+								if (!node) return;
+								node.style.display = cardConfig.visible ? '' : 'none';
+								subPanel.appendChild(node);
+							});
+						});
+					} else {
+						const cardNodes = Array.from(panel.querySelectorAll('[data-card-id]'));
+						(tabConfig.cards || []).forEach((cardConfig) => {
+							const node = cardNodes.find((item) => item.dataset.cardId === cardConfig.id);
+							if (!node) {
+								return;
+							}
+							node.style.display = cardConfig.visible ? '' : 'none';
+							panel.appendChild(node);
+						});
+					}
+				});
+
+				const siteStudioButton = els.tabButtons.find((item) => item.dataset.tab === 'site-studio');
+				const siteStudioPanel = els.tabPanels.find((item) => item.dataset.panel === 'site-studio');
+				if (siteStudioButton) {
+					siteStudioButton.style.display = '';
+					els.tabStrip.appendChild(siteStudioButton);
+				}
+				if (siteStudioPanel) {
+					els.mainPanel.appendChild(siteStudioPanel);
+				}
+
+				const firstVisible = state.studio.tabs.find((tab) => tab.visible)?.id || 'site-studio';
+				if (state.activeTab !== 'site-studio' && !state.studio.tabs.some((tab) => tab.id === state.activeTab && tab.visible)) {
+					state.activeTab = firstVisible;
+				}
+
+				setActiveTab(state.activeTab);
+				renderStudioPreview();
+			}
+
+			function resetStudioLayout() {
+				state.studio = cloneStudioLayout(STUDIO_DEFAULT_LAYOUT);
+				state.studioEditorTabId = state.studio.tabs[0]?.id || 'tour-studio';
+				saveStudioLayout();
+				applyStudioLayout();
+				renderStudioEditor();
+			}
+
+			function loadStudioLayout() {
+				try {
+					const raw = localStorage.getItem(STUDIO_STORAGE_KEY);
+					if (!raw) {
+						return cloneStudioLayout(STUDIO_DEFAULT_LAYOUT);
+					}
+					return normalizeStudioLayout(JSON.parse(raw));
+				} catch {
+					return cloneStudioLayout(STUDIO_DEFAULT_LAYOUT);
+				}
+			}
+
+			function saveStudioLayout() {
+				localStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify(state.studio));
+			}
+
+			function normalizeStudioLayout(layout) {
+				const normalized = cloneStudioLayout(STUDIO_DEFAULT_LAYOUT);
+				if (!layout || !Array.isArray(layout.tabs)) {
+					return normalized;
+				}
+
+				normalized.tabs = normalized.tabs.map((defaultTab) => {
+					const savedTab = layout.tabs.find((item) => item.id === defaultTab.id);
+					if (!savedTab) {
+						return defaultTab;
+					}
+
+					// Tab co sub_panels (tour-studio): merge tung sub_panel.cards rieng
+					if (defaultTab.sub_panels) {
+						const savedSubPanels = savedTab.sub_panels || [];
+						// Legacy migration: old layout had flat cards on tour-studio
+						// and a separate top-level 'pricing' tab
+						const legacyCards = Array.isArray(savedTab.cards) ? savedTab.cards : [];
+						const mergedSubPanels = defaultTab.sub_panels.map((defaultSp) => {
+							const savedSp = savedSubPanels.find((sp) => sp.id === defaultSp.id);
+							// Also check if old layout had this sub-panel as a top-level tab
+							const legacyTab = !savedSp ? layout.tabs.find((t) => t.id === defaultSp.id) : null;
+							const savedSpCards = savedSp ? (savedSp.cards || [])
+								: legacyTab && Array.isArray(legacyTab.cards) ? legacyTab.cards
+								: legacyCards;
+							const mergedCards = (defaultSp.cards || []).map((defaultCard) => {
+								const savedCard = savedSpCards.find((c) => c.id === defaultCard.id);
+								return {
+									...defaultCard,
+									label: savedCard?.label || defaultCard.label,
+									visible: typeof savedCard?.visible === 'boolean' ? savedCard.visible : defaultCard.visible,
+								};
+							});
+							if (savedSpCards.length) {
+								mergedCards.sort((a, b) => savedSpCards.findIndex((c) => c.id === a.id) - savedSpCards.findIndex((c) => c.id === b.id));
+							}
+							return { ...defaultSp, cards: mergedCards };
+						});
+						return {
+							...defaultTab,
+							label: savedTab.label || defaultTab.label,
+							visible: typeof savedTab.visible === 'boolean' ? savedTab.visible : defaultTab.visible,
+							sub_panels: mergedSubPanels,
+						};
+					}
+
+					// Regular tab with flat cards
+					const mergedCards = (defaultTab.cards || []).map((defaultCard) => {
+						const savedCard = Array.isArray(savedTab.cards) ? savedTab.cards.find((item) => item.id === defaultCard.id) : null;
+						return {
+							...defaultCard,
+							label: savedCard?.label || defaultCard.label,
+							visible: typeof savedCard?.visible === 'boolean' ? savedCard.visible : defaultCard.visible,
+						};
+					});
+
+					if (Array.isArray(savedTab.cards)) {
+						mergedCards.sort((left, right) => savedTab.cards.findIndex((item) => item.id === left.id) - savedTab.cards.findIndex((item) => item.id === right.id));
+					}
+
+					return {
+						...defaultTab,
+						label: savedTab.label || defaultTab.label,
+						visible: typeof savedTab.visible === 'boolean' ? savedTab.visible : defaultTab.visible,
+						cards: mergedCards,
+					};
+				});
+
+				normalized.tabs.sort((left, right) => layout.tabs.findIndex((item) => item.id === left.id) - layout.tabs.findIndex((item) => item.id === right.id));
+				return normalized;
+			}
+
+			function cloneStudioLayout(layout) {
+				return JSON.parse(JSON.stringify(layout));
+			}
+
+			function defaultStudioTabLabel(tabId) {
+				return STUDIO_DEFAULT_LAYOUT.tabs.find((tab) => tab.id === tabId)?.label || tabId;
+			}
+
+			function defaultStudioCardLabel(cardId) {
+				for (const tab of STUDIO_DEFAULT_LAYOUT.tabs) {
+					const allCards = getAllTabCards(tab);
+					const card = allCards.find((item) => item.id === cardId);
+					if (card) {
+						return card.label;
+					}
+				}
+				return cardId;
+			}
+
+			function escapeHtml(value) {
+				return String(value)
+					.replaceAll('&', '&amp;')
+					.replaceAll('<', '&lt;')
+					.replaceAll('>', '&gt;')
+					.replaceAll('"', '&quot;')
+					.replaceAll("'", '&#39;');
+			}
+
+			function normalizeDestination(destination) {
+				let blueprint = defaultServiceBlueprint();
+				if (destination.service_blueprint_json) {
+					try {
+						const parsed = JSON.parse(destination.service_blueprint_json);
+						blueprint = {
+							...blueprint,
+							accommodations: Boolean(parsed.accommodations),
+							meals: Boolean(parsed.meals),
+							guides: Boolean(parsed.guides),
+							local_transports: Boolean(parsed.local_transports),
+							intercity_legs: Boolean(parsed.intercity_legs),
+							intercity_mode: parsed.intercity_mode || 'train',
+						};
+					} catch {
+						// ignore malformed blueprint
+					}
+				}
+
+				return {
+					...destination,
+					description: destination.description || '',
+					mealPlan: destination.mealPlan || 'B/L/D',
+					serviceBlueprint: {
+						...blueprint,
+						intercity_mode: blueprint.intercity_mode || 'train',
+					},
+				};
+			}
+
+			function defaultServiceBlueprint() {
+				return {
+					accommodations: false,
+					meals: false,
+					guides: false,
+					local_transports: false,
+					intercity_legs: false,
+					intercity_mode: 'train',
+				};
+			}
+
+			function makeServiceItem(label, detail) {
+				return {
+					id: crypto.randomUUID(),
+					label,
+					detail,
+				};
+			}
+
+			function countServices(destination) {
+				return SERVICE_GROUPS.reduce((sum, group) => sum + (destination.serviceBlueprint[group.key] ? 1 : 0), 0);
+			}
+
+			// Re-render Tour Classes UI and Class select — safe to call any time
+			function refreshBookingSettingsUI() {
+				if (!els.bookingSettingsShell) return;
+				renderBookingSettings();
+				renderPriceTitleOptions();
+			}
+
+			// Tour Classes: phan loai thuong mai, moi class la 1 goi san pham khac nhau
+			function renderBookingSettings() {
+				const s = state.bookingSettings;
+				const cards = (s.class_presets || []).map((preset, index) => `
+					<div class="destination-shell" data-class-id="${escapeHtml(preset.id)}">
+						<div class="destination-header">
+							<strong>Tour Class ${index + 1}</strong>
+							<button class="button-ghost" type="button" data-action="remove-class" data-class-id="${escapeHtml(preset.id)}">Delete</button>
+						</div>
+						<div class="grid-2">
+							<div class="field">
+								<label>Class name (customer-facing)</label>
+								<input data-action="class-field" data-field="label" data-class-id="${escapeHtml(preset.id)}" placeholder="e.g. Standard, Boutique, Luxury" value="${escapeHtml(String(preset.label || ''))}" />
+							</div>
+							<div class="field">
+								<label>Class key (internal)</label>
+								<input data-action="class-field" data-field="id" data-class-id="${escapeHtml(preset.id)}" placeholder="e.g. class_standard" value="${escapeHtml(String(preset.id || ''))}" />
+							</div>
+							<div class="field" style="grid-column:1 / -1;">
+								<label>Customer-facing description (shown in quotes and booking page)</label>
+								<textarea data-action="class-field" data-field="description" data-class-id="${escapeHtml(preset.id)}" placeholder="Describe hotel tier, group size, vehicle type, meal style, and service level for this class.">${escapeHtml(String(preset.description || ''))}</textarea>
+							</div>
+						</div>
+					</div>
+				`).join('');
+				els.bookingSettingsShell.innerHTML = `
+					<div class="grid-2">
+						<div class="field">
+							<label>Auto-confirm minimum days before departure</label>
+							<input id="cfg-auto-confirm-days" type="number" min="0" value="${escapeHtml(String(s.auto_confirm_min_days))}" />
+						</div>
+						<div class="field">
+							<label>Auto-confirm max pax (strictly less than)</label>
+							<input id="cfg-auto-confirm-max-pax" type="number" min="1" value="${escapeHtml(String(s.auto_confirm_max_pax))}" />
+						</div>
+						<div class="field">
+							<label>Child discount (0-1)</label>
+							<input id="cfg-child-discount" type="number" step="0.05" min="0" max="1" value="${escapeHtml(String(s.child_discount_pct))}" />
+						</div>
+						<div class="field">
+							<button class="button-secondary" type="button" data-action="add-class">+ Add Tour Class</button>
+						</div>
+					</div>
+					${cards}
+				`;
+				renderPriceTitleOptions();
+			}
+
+			function handleBookingSettingsInput(event) {
+				const input = event.target.closest('[data-action="class-field"]');
+				if (!input) return;
+				const classId = input.dataset.classId;
+				const field = input.dataset.field;
+				const preset = state.bookingSettings.class_presets.find((item) => item.id === classId);
+				if (!preset) return;
+				preset[field] = input.value;
+				if (field === 'id') {
+					renderBookingSettings();
+					return;
+				}
+				if (field === 'label') {
+					renderPriceTitleOptions();
+				}
+			}
+
+			function handleBookingSettingsClick(event) {
+				const add = event.target.closest('[data-action="add-class"]');
+				if (add) {
+					state.bookingSettings.class_presets.push({
+						id: `class_${crypto.randomUUID().slice(0, 8)}`,
+						label: 'New Tour Class',
+						description: '',
+						base_price: 0,
+						single_room_supplement: 0,
+					});
+					renderBookingSettings();
+					return;
+				}
+
+				const remove = event.target.closest('[data-action="remove-class"]');
+				if (remove) {
+					if (state.bookingSettings.class_presets.length <= 1) {
+						setBookingsFeedback('At least one tour class is required.', true);
+						return;
+					}
+					state.bookingSettings.class_presets = state.bookingSettings.class_presets.filter((item) => item.id !== remove.dataset.classId);
+					renderBookingSettings();
+				}
+			}
+
+			async function fetchBookingSettings() {
+				try {
+					const response = await fetch('/api/booking-settings');
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not load booking settings');
+					}
+					state.bookingSettings = {
+						...state.bookingSettings,
+						...data,
+						class_presets: Array.isArray(data.class_presets) && data.class_presets.length ? data.class_presets : state.bookingSettings.class_presets,
+					};
+					els.adminDateFormat.value = data.date_time_format || state.bookingSettings.date_time_format || 'yyyy-mm-dd hh:mm';
+					els.priceCurrencyMode.value = data.pricing_currency_mode || state.bookingSettings.pricing_currency_mode || 'auto';
+					els.priceBaseCurrency.value = data.pricing_base_currency || state.bookingSettings.pricing_base_currency || 'USD';
+					els.priceUsdVndRate.value = String(data.usd_to_vnd_rate || state.bookingSettings.usd_to_vnd_rate || 25000);
+					state.priceComposerCurrency = els.priceBaseCurrency.value;
+					syncPriceComposerCurrency(state.priceComposerCurrency, false);
+					if (Array.isArray(data.pricing_tiers)) {
+						state.prices = data.pricing_tiers;
+						renderPrices();
+					}
+					refreshBookingSettingsUI();
+				} catch (error) {
+					setBookingsFeedback(error.message, true);
+				}
+			}
+
+			async function saveBookingSettings() {
+				// Inputs created by renderBookingSettings — re-render if missing
+				const cfgDaysEl = document.getElementById('cfg-auto-confirm-days');
+				const cfgPaxEl = document.getElementById('cfg-auto-confirm-max-pax');
+				const cfgDiscountEl = document.getElementById('cfg-child-discount');
+				if (!cfgDaysEl || !cfgPaxEl || !cfgDiscountEl) {
+					refreshBookingSettingsUI();
+					setBookingsFeedback('UI was not ready. Please try saving again.', true);
+					return;
+				}
+				const payload = {
+					auto_confirm_min_days: Number(cfgDaysEl.value),
+					auto_confirm_max_pax: Number(cfgPaxEl.value),
+					class_presets: state.bookingSettings.class_presets,
+					pricing_tiers: state.prices,
+					date_time_format: els.adminDateFormat.value,
+					pricing_currency_mode: els.priceCurrencyMode.value,
+					pricing_base_currency: els.priceBaseCurrency.value,
+					usd_to_vnd_rate: Number(els.priceUsdVndRate.value),
+					child_discount_pct: Number(cfgDiscountEl.value),
+				};
+
+				try {
+					els.saveBookingSettingsButton.disabled = true;
+					const response = await fetch('/api/booking-settings', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not save booking settings');
+					}
+					state.bookingSettings = {
+						...state.bookingSettings,
+						...data,
+						class_presets: Array.isArray(data.class_presets) && data.class_presets.length ? data.class_presets : state.bookingSettings.class_presets,
+					};
+					els.adminDateFormat.value = data.date_time_format || state.bookingSettings.date_time_format || 'yyyy-mm-dd hh:mm';
+					state.priceComposerCurrency = data.pricing_base_currency || state.bookingSettings.pricing_base_currency || els.priceBaseCurrency.value || 'USD';
+					syncPriceComposerCurrency(state.priceComposerCurrency, false);
+					if (Array.isArray(data.pricing_tiers)) {
+						state.prices = data.pricing_tiers;
+						renderPrices();
+					}
+					setBookingsFeedback('Booking preset saved.', false);
+					refreshBookingSettingsUI();
+				} catch (error) {
+					setBookingsFeedback(error.message, true);
+				} finally {
+					els.saveBookingSettingsButton.disabled = false;
+				}
+			}
+
+			async function persistDestinationServiceBlueprint(destination) {
+				if (!state.tourId || !destination.id || String(destination.id).startsWith('local-')) {
+					return true;
+				}
+				try {
+					const response = await fetch(`/api/destinations/${destination.id}/service-blueprint`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ service_blueprint: destination.serviceBlueprint }),
+					});
+					const data = await safeJson(response);
+					if (!response.ok) {
+						throw new Error(data?.error?.message || 'Could not save service blueprint');
+					}
+					return true;
+				} catch (error) {
+					setTourFeedback(error.message, true);
+					return false;
+				}
+			}
+
+			function renderServiceChip(destination, group) {
+				const enabled = Boolean(destination.serviceBlueprint[group.key]);
+				const intercityChoices = [
+					{ value: 'motorcycle', label: 'Motorcycle' },
+					{ value: 'private_car_4', label: 'Car 4' },
+					{ value: 'private_car_7', label: 'Car 7' },
+					{ value: 'bus', label: 'Bus' },
+					{ value: 'train', label: 'Train' },
+					{ value: 'flight', label: 'Flight' },
+				];
+				const modeSelect = group.key === 'intercity_legs' && enabled
+					? `<select data-action="intercity-mode" data-destination-id="${escapeHtml(destination.id)}">${intercityChoices
+						.map((opt) => `<option value="${opt.value}" ${destination.serviceBlueprint.intercity_mode === opt.value ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`)
+						.join('')}</select>`
+					: '';
+				return `<span class="svc-chip-wrap"><button class="svc-chip ${enabled ? 'is-on' : ''}" data-action="toggle-service" data-destination-id="${escapeHtml(destination.id)}" data-group-key="${escapeHtml(group.key)}" type="button"><span class="svc-chip-dot"></span>${escapeHtml(group.shortLabel)}</button>${modeSelect}</span>`;
+			}
+
+			function initDragDrop() {
+				const shells = els.destinationList.querySelectorAll('.destination-shell[data-destination-id]');
+				const handles = els.destinationList.querySelectorAll('[data-action="drag-handle"][data-destination-id]');
+				let dragSrcId = null;
+
+				handles.forEach((handle) => {
+					handle.addEventListener('dragstart', (e) => {
+						dragSrcId = handle.dataset.destinationId;
+						e.dataTransfer.effectAllowed = 'move';
+					});
+					handle.addEventListener('dragend', () => {
+						els.destinationList.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+					});
+				});
+
+				shells.forEach((shell) => {
+					shell.addEventListener('dragover', (e) => {
+						e.preventDefault();
+						e.dataTransfer.dropEffect = 'move';
+						shell.classList.add('drag-over');
+					});
+					shell.addEventListener('dragleave', () => {
+						shell.classList.remove('drag-over');
+					});
+					shell.addEventListener('drop', (e) => {
+						e.preventDefault();
+						shell.classList.remove('drag-over');
+						const targetId = shell.dataset.destinationId;
+						if (!dragSrcId || dragSrcId === targetId) return;
+
+						const srcIndex = state.destinations.findIndex((d) => d.id === dragSrcId);
+						const tgtIndex = state.destinations.findIndex((d) => d.id === targetId);
+						if (srcIndex === -1 || tgtIndex === -1) return;
+
+						// Splice src before target
+						const [moved] = state.destinations.splice(srcIndex, 1);
+						const insertAt = state.destinations.findIndex((d) => d.id === targetId);
+						state.destinations.splice(insertAt, 0, moved);
+
+						// Re-number positions
+						state.destinations.forEach((d, i) => { d.position = i + 1; });
+						renderDestinations();
+						updatePreview();
+
+						// Persist new positions if tour is saved
+						if (state.tourId) {
+							Promise.all(
+								state.destinations.map((d) => {
+									if (String(d.id).startsWith('local-')) return Promise.resolve();
+									return fetch(`/api/destinations/${d.id}`, {
+										method: 'PATCH',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ position: d.position }),
+									}).catch(() => {});
+								})
+							).then(() => setTourFeedback('Destination order saved.', false));
+						}
+					});
+				});
+			}
+
+			function renderServiceToggleCard(destination, group, isWide) {
+				return renderServiceChip(destination, group);
+			}
+
+			function renderQuickActionLink(label, href) {
+				if (!href) {
+					return `<span class="quick-link is-disabled">${escapeHtml(label)}</span>`;
+				}
+				return `<a class="quick-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+			}
+		</script>
+	</body>
+</html>

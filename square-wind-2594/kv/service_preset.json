@@ -1,0 +1,12 @@
+{
+  "groups": [
+    { "key": "accommodation", "label": "Accommodation", "default_fields": ["hotel_name","contact_name","phone","email","check_in","check_out","room_type","guests","notes"] },
+    { "key": "meals", "label": "Meals", "default_fields": ["meal_type","restaurant_name","contact_name","phone","email","meal_datetime","notes"] },
+    { "key": "guide", "label": "Guide", "default_fields": ["guide_name","phone","email","languages","time_from","time_to","notes"] },
+    { "key": "local", "label": "Local Transport", "default_fields": ["mode","supplier","driver_name","phone","email","pickup_time","pickup_place","dropoff_place","notes"] },
+    { "key": "intercity", "label": "Intercity Transport", "default_fields": ["mode","supplier","contact_name","phone","email","depart_time","depart_point","arrive_point","ticket_ref","notes"] }
+  ],
+  "meal_types": ["breakfast","lunch","dinner","snack"],
+  "transport_modes": ["car","van","bus","taxi","cyclo","walk","train","flight","coach","private"],
+  "guide_languages": ["vi","en","fr","de","ko","ja","zh"]
+}

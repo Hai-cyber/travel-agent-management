@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-vscode.vscode-typescript-next",
+    "esbenp.prettier-vscode",
+    "aaron-bond.better-comments",
+    "github.copilot",
+    "github.copilot-chat",
+    "cloudflare.cloudflare-vscode"
+  ]
+}
