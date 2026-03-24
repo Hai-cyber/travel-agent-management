@@ -1,0 +1,522 @@
+SYSTEM_PATCH_V1
+0. Patch intent
+
+This patch updates the old documentation set so AI agents do not rebuild the old itinerary mistake.
+
+Core correction
+
+Old docs implicitly model:
+
+Tour -> Destinations -> Service Items
+
+New rebuild must model:
+
+Tenant -> Tours -> TourStops -> Service Items
+                    \-> Destinations (catalog/reference, optional)
+Why
+
+The old structure was good enough to compose one tour, but too rigid for repeated / scalable tour creation. The new rebuild must separate:
+
+Destination = reusable location/catalog entity
+TourStop = actual itinerary segment inside a tour
+1. Canonical architecture change
+1.1 Keep
+
+Keep these modules as valid and reusable:
+
+multi-tenancy
+memberships
+suppliers
+service-item threads/messages
+tasks/reminders
+publish gate
+billing gate
+site studio
+growth/SEO
+mobile ops surface
+1.2 Replace
+
+Replace the old assumption:
+
+destination is a tour-owned itinerary block
+
+with:
+
+destination is reusable catalog/reference
+tour_stop is the itinerary block
+2. Required model changes
+2.1 New canonical entity: tour_stops
+
+Add a new canonical entity:
+
+TourStop
+- id
+- tenant_id
+- tour_id
+- destination_id (optional reference to catalog)
+- label
+- day_from
+- day_to
+- nights
+- meal_breakfast
+- meal_lunch
+- meal_dinner
+- description
+- sort_order
+- created_at
+Meaning
+
+Examples:
+
+Day 1: Hanoi Arrival
+Day 2-3: Hanoi City Tour
+
+These are not plain destinations.
+They are itinerary blocks.
+
+2.2 Redefine destinations
+
+Old meaning:
+
+destination row belongs directly to one tour
+carries nights/arrival/departure
+
+New meaning:
+
+reusable catalog/reference location
+can optionally power content defaults / labels / suggestions
+not the primary itinerary unit anymore
+New destination role
+Destination
+- id
+- tenant_id
+- code
+- name
+- is_active
+- created_at
+Notes
+destination_texts stays valid
+it now localizes catalog/reference content, not the stop itself
+2.3 Service items must move from destination_id to tour_stop_id
+
+Old docs and schema tie service items to destination.
+
+This must change.
+
+New rule
+
+All operational service items belong to tour stop, not destination catalog.
+
+Rename linkage:
+destination_id -> tour_stop_id
+
+For:
+
+accommodations
+meals
+guides
+local transports
+intercity legs
+Why
+
+“Hanoi Arrival” and “Hanoi City Tour” may refer to the same Hanoi destination but require different services.
+
+3. Pricing patch
+
+Old pricing model is too rigid:
+
+season TEXT
+direct pax ranges in tour_prices
+no tenant-defined segment system
+
+New pricing must support:
+
+tenant-defined seasons
+tenant-defined segments
+tenant-defined pax bands
+base currency input vs display currency output
+3.1 Add canonical pricing entities
+tenant_seasons
+- id
+- tenant_id
+- name
+- start_month
+- start_day
+- end_month
+- end_day
+- sort_order
+- is_active
+- notes
+pricing_segments
+- id
+- tenant_id
+- code
+- name
+- description
+- sort_order
+- is_active
+
+Examples:
+
+Standard
+Boutique
+Luxury
+pax_bands
+- id
+- tenant_id
+- name
+- min_pax
+- max_pax
+- sort_order
+- is_active
+tour_prices
+- id
+- tenant_id
+- tour_id
+- season_id
+- segment_id
+- pax_band_id
+- base_currency
+- adult_shared_room_price
+- adult_single_room_price
+- child_shared_with_parents_price
+- notes
+- is_active
+3.2 Currency rule
+
+Storage:
+
+store base amount numerically
+store base currency explicitly
+
+Presentation:
+
+admin input may default to USD
+public display currency may vary by market / locale
+conversion/display logic must be treated as presentation/runtime layer, not hard-coded into raw schema
+4. Date / locale / multilingual patch
+
+Your bilingual and multilingual docs are already strong.
+Patch only clarifies storage vs display.
+
+4.1 Date storage rule
+
+All stored dates must use canonical machine format:
+
+YYYY-MM-DD for plain dates
+UTC/ISO for datetimes
+4.2 Admin display rule
+
+Admin UI may display dates in tenant-preferred format, including:
+
+dd.mm.yyyy
+
+But that is display formatting only.
+
+4.3 Public display rule
+
+Public display must follow selected language / market locale.
+
+4.4 Language separation rule
+
+Keep this strict separation:
+
+code / schema / API = English
+admin UI = Vietnamese-first, English optional
+public content = localized content variants
+do not duplicate tours by language; localize content instead
+5. API patch
+5.1 Replace stop-related endpoints
+
+Old:
+
+POST /api/tours/:id/destinations
+PATCH /api/destinations/:id
+GET  /api/tours/:id/destinations
+
+New:
+
+POST /api/tours/:id/stops
+PATCH /api/stops/:id
+GET  /api/tours/:id/stops
+Stop payload
+{
+  "destination_id": 1,
+  "label": "Hanoi Arrival",
+  "day_from": 1,
+  "day_to": 1,
+  "nights": 1,
+  "meal_breakfast": false,
+  "meal_lunch": false,
+  "meal_dinner": true,
+  "description": "Arrival in Hanoi..."
+}
+5.2 Service endpoints
+
+Old:
+
+/api/destinations/:id/accommodations
+
+New:
+
+/api/stops/:id/accommodations
+/api/stops/:id/meals
+/api/stops/:id/guides
+/api/stops/:id/local-transports
+/api/stops/:id/intercity-legs
+5.3 Composer endpoint
+
+Old composer merges destinations + texts + services.
+
+New composer should merge:
+
+tour
+ordered stops
+optional destination catalog texts
+stop descriptions
+enabled services
+optional media
+6. Documentation patch list by file
+6.1 DATA_MODEL.sql
+Required edits
+remove tour_id, position, nights, arrival_date, departure_date from canonical meaning of destinations
+add tour_stops
+move service-item foreign linkage to tour_stop_id
+replace old pricing shape with tenant pricing config entities + updated tour_prices
+6.2 DOMAIN_MODEL.md
+Replace relationship section
+
+Old:
+
+Tenant 1—* Tour
+Tour 1—* Destination
+Destination 1—* ServiceItems
+
+New:
+
+Tenant 1—* Tour
+Tenant 1—* DestinationCatalog
+Tour 1—* TourStop
+TourStop *—1 DestinationCatalog (optional)
+TourStop 1—* ServiceItems
+Each ServiceItem 1—1 Thread 1—* Message
+Tour 1—* PriceRows
+6.3 API_SPEC.md
+Replace:
+destination CRUD under tour
+service-item routes under destination
+price assumptions with tenant-defined season/segment/pax structures
+Add:
+stop CRUD
+pricing config endpoints
+
+Suggested new pricing endpoints:
+
+GET  /api/pricing/seasons
+POST /api/pricing/seasons
+GET  /api/pricing/segments
+POST /api/pricing/segments
+GET  /api/pricing/pax-bands
+POST /api/pricing/pax-bands
+GET  /api/tours/:id/prices
+POST /api/tours/:id/prices
+PATCH /api/tour-prices/:id
+6.4 PROJECT_BRIEF.md
+Patch wording
+
+Current wording says:
+
+tour by destination / nights / 5 service groups / itinerary compose
+
+Update to:
+
+tour is composed from tour stops
+each stop may reference a destination catalog item
+services are attached to stops
+pricing is tenant-configurable by season / segment / pax band
+6.5 ARCHITECTURE.md
+Patch primary flow
+
+Old:
+
+create tour -> add destination -> auto arrival/departure
+add services per destination
+
+New:
+
+create tour
+add itinerary stops
+each stop may reference destination catalog
+enable service groups per stop
+create service records per stop
+booking -> tasks
+communications per service item
+6.6 SEED_DATA.md
+Patch seed strategy
+
+Do not seed only old destination-per-tour rows.
+
+New seed strategy should include:
+
+one tenant
+one tour
+one destination catalog row
+two tour stops referencing same destination:
+Hanoi Arrival
+Hanoi City Tour
+one sample accommodation item linked to stop 1
+one sample meal item linked to stop 2
+one season
+one pricing segment
+one pax band
+one tour price row
+
+This proves the new architecture solves the old limitation.
+
+6.7 TEST_PLAN.md
+
+Add acceptance tests for:
+
+same destination catalog reused across multiple stops in same tour
+same destination catalog reused across multiple tours in same tenant
+stop-specific meals and descriptions do not collide
+pricing rules selected by season + segment + pax band
+formatting layer does not alter stored canonical values
+6.8 06_PRODUCT_MODEL.md
+
+This file is already strong.
+Add explicit rule:
+
+Destination is reference/catalog.
+TourStop is the actual itinerary block in a tour.
+Service mini-cards belong to TourStop.
+6.9 01_CURRENT_STATE.md
+
+Must be rewritten for rescue reality.
+
+Replace old claim set
+
+Do not claim old CHK-201..405 are already done in the new repo if they are not.
+
+New current-state baseline
+
+Should say:
+
+Worker local shell works
+D1 local works
+current rebuilt schema includes:
+tours
+destinations
+tour_destinations
+destination_texts
+tour_stops
+tenants
+preview endpoints exist for current rebuilt slices
+old docs are reference only, not current runtime truth
+6.10 03_PROGRESS_LEDGER.md
+
+Reset or mark legacy checkpoint states as:
+
+legacy complete in old system
+not yet rebuilt in new rescue repo
+
+Do not let AI assume “done in docs = done in new codebase.”
+
+6.11 07_REALITY_CHECK.md
+
+Add hard rule:
+
+If a capability is only documented in old docs but not visibly implemented in the rescue repo, treat it as NOT BUILT.
+
+This is critical to stop hallucinated implementation assumptions.
+
+6.12 00_AI_INDEX.md and 20_AI_DISPATCH.md
+
+Keep both, but append a top-level migration note:
+
+old docs remain valid for business intent
+new rebuild canonical itinerary entity is tour_stop
+read SYSTEM_PATCH_V1 before acting on old docs
+6.13 08_MONETIZATION_LOGIC.md
+
+Patch to align with real pricing model:
+
+subscription = tenant SaaS fee
+commission tracking = separate business layer
+package pricing = tour pricing layer
+do not mix SaaS subscription money with end-customer tour prices
+6.14 12_COMMUNICATION_CHANNELS.md
+
+Keep almost fully unchanged. It aligns well with the new model.
+Only patch:
+
+thread attaches to service item linked to tour_stop
+6.15 23_SUPPLIER_SYSTEM.md
+
+Keep unchanged in concept.
+Patch note:
+
+suppliers are referenced by service items under stops, not destination catalog rows
+6.16 24_MOBILE_STRATEGY.md and 25_MOBILE_OPS_RULES.md
+
+Keep unchanged in principle.
+Only patch data origin:
+
+mobile actions act on tasks/service items generated from tour-stop-based operations
+6.17 15_TOUR_AND_SITE_STRUCTURE.md
+
+Keep overall separation.
+Add:
+
+Tour layer now contains:
+configuration
+itinerary stops
+service planning
+pricing
+public content
+Site remains presentation layer only
+7. New canonical checkpoint order
+
+Replace old build priority with this:
+
+CHK-A01 — Tenancy foundation
+tenants
+users
+memberships
+tenant settings baseline
+CHK-A02 — Tour core
+tours
+destinations catalog
+destination_texts
+tour_stops
+CHK-A03 — Stop service planning
+service types
+stop-level service toggles
+service item tables linked to stops
+CHK-A04 — Pricing foundation
+tenant_seasons
+pricing_segments
+pax_bands
+tour_prices
+CHK-A05 — Booking to ops
+bookings
+tasks
+reminders
+CHK-A06 — Communications
+threads
+messages
+quick logging rules
+CHK-A07 — Public/site
+site config
+pages
+public tour content
+publish gate
+domain onboarding
+CHK-A08 — Growth
+slugs
+SEO metadata
+leads/events
+CHK-A09 — Mobile ops
+task feed
+quick actions
+thread note logging

@@ -1,0 +1,63 @@
+CREATE TABLE IF NOT EXISTS tours (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  description TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS destinations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tour_destinations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tour_id INTEGER NOT NULL,
+  destination_id INTEGER NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tour_id) REFERENCES tours(id),
+  FOREIGN KEY (destination_id) REFERENCES destinations(id),
+  UNIQUE (tour_id, destination_id)
+);
+
+CREATE TABLE IF NOT EXISTS destination_texts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  destination_id INTEGER NOT NULL,
+  lang_code TEXT NOT NULL DEFAULT 'vi',
+  title TEXT,
+  summary TEXT,
+  content TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (destination_id) REFERENCES destinations(id),
+  UNIQUE (destination_id, lang_code)
+);
+
+CREATE TABLE IF NOT EXISTS tour_stops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT NOT NULL,
+  tour_id INTEGER NOT NULL,
+  destination_id INTEGER,
+  label TEXT NOT NULL,
+  day_from INTEGER NOT NULL,
+  day_to INTEGER NOT NULL,
+  nights INTEGER NOT NULL DEFAULT 0,
+  meal_breakfast INTEGER NOT NULL DEFAULT 0,
+  meal_lunch INTEGER NOT NULL DEFAULT 0,
+  meal_dinner INTEGER NOT NULL DEFAULT 0,
+  description TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tour_id) REFERENCES tours(id),
+  FOREIGN KEY (destination_id) REFERENCES destinations(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenants (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
