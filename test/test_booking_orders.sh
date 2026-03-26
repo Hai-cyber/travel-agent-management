@@ -141,8 +141,10 @@ if [ ! -f "$PROOF_FILE" ]; then
 fi
 info "Tạo file proof tạm: $PROOF_FILE (đã xác nhận tồn tại)"
 
-# curl -F with @file — keep on ONE line to avoid CRLF continuation issues on Windows
-PROOF_RES=$(curl -s -X POST "$API/api/bookings/order/$ORDER_ID/proof" -H "X-Tenant-ID: $TENANT" -F "proof=@$PROOF_FILE;type=image/jpeg") || PROOF_RES="{}"
+# curl on Windows/Git Bash cannot read POSIX /tmp/ paths via -F @path.
+# Convert to native Windows path using cygpath before passing to curl.
+PROOF_WIN=$(cygpath -w "$PROOF_FILE" 2>/dev/null || echo "$PROOF_FILE")
+PROOF_RES=$(curl -s -X POST "$API/api/bookings/order/$ORDER_ID/proof" -H "X-Tenant-ID: $TENANT" -F "proof=@$PROOF_WIN;type=image/jpeg") || PROOF_RES="{}"
 
 rm -f "$PROOF_FILE"
 info "POST /api/bookings/order/$ORDER_ID/proof → $PROOF_RES"
@@ -189,10 +191,13 @@ echo "$GET2" | grep -q '"confirm_receipt_available":true' \
   || fail "'confirm_receipt_available' không hiển thị → agent UI sẽ không có nút Confirm"
 
 # Upload lần 2 phải bị từ chối (409)
-PROOF2_RES=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST "$API/api/bookings/order/$ORDER_ID/proof" \
-  -H "X-Tenant-ID: $TENANT" \
-  -F "proof=@/dev/null;type=image/jpeg") || PROOF2_RES="000"
+# Dùng file tạm thứ 2 (không dùng /dev/null — curl trên Windows không đọc được \\.\NUL qua -F @)
+PROOF_FILE2="/tmp/test_proof2_$$.jpg"
+echo "FAKE2" > "$PROOF_FILE2"
+PROOF_WIN2=$(cygpath -w "$PROOF_FILE2" 2>/dev/null || echo "$PROOF_FILE2")
+PROOF2_FULL=$(curl -s -w "\n%{http_code}" -X POST "$API/api/bookings/order/$ORDER_ID/proof" -H "X-Tenant-ID: $TENANT" -F "proof=@$PROOF_WIN2;type=image/jpeg") || true
+PROOF2_RES=$(echo "$PROOF2_FULL" | tail -1)
+rm -f "$PROOF_FILE2"
 [ "$PROOF2_RES" = "409" ] \
   && pass "Upload lần 2 trả về 409 Conflict (đúng)" \
   || fail "Upload lần 2 mong đợi 409, thực tế HTTP $PROOF2_RES"
