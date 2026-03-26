@@ -40,6 +40,7 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R17 | Tenant Revenue Tracking Schema | done | total_revenue_tracked + commission_threshold on tenants; read-only in GET /settings | 2026-03-26 | migration 0015 |
 | CHK-R18 | Bank Transfer Order + Identity Lock | done | booking_orders table; 48h/72h weekend deadline; proof upload → identity unlock; confirm-receipt → revenue tracked; cron purge | 2026-03-26 | migration 0016, bookings.js order endpoints, scheduled purge |
 | CHK-R19 | Guest Portal + Booking Widget v1 | done | Audit confirmed identity/revenue logic correct; Migration 0017 (secure_token); GET+POST /api/bookings/public/:token; public/widget.js embed | 2026-03-26 | migration 0017, 2 public routes in bookings.js, public/widget.js |
+| CHK-R20 | Site Studio — Schema Foundation | done | subdomain + template_id + site_config on tenants; site_templates catalog; SITE_TEMPLATES R2 bucket | 2026-03-26 | migration 0018, wrangler.jsonc SITE_TEMPLATES binding |
 
 ## Legacy checkpoints from old system/docs
 The following old checkpoint families must be treated as historical/reference only unless rebuilt again in the current repo:

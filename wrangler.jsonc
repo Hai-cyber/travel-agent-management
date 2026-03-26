@@ -42,10 +42,13 @@
 			"binding": "TOUR_PAGES",
 			"bucket_name": "tour-pages"
 		},
-		
 		{
-			"bucket_name": "booking-proofs",
-			"binding": "BOOKING_PROOFS"
+			"binding": "BOOKING_PROOFS",
+			"bucket_name": "booking-proofs"
+		},
+		{
+			"binding": "SITE_TEMPLATES",
+			"bucket_name": "site-templates"
 		}
 	],
 	"triggers": {
