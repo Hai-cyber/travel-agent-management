@@ -171,6 +171,81 @@
     }
   }
 
+  // ── Feature: dynamic category filter on tour listing page ─────────────────
+  //
+  // Called only when [data-component="filter-container"] exists on the page.
+  // Injects an "All" button plus one button per active category fetched from
+  // GET /api/categories. Clicking a button shows/hides tour cards by
+  // matching [data-category-id] against the category's nanoid.
+  //
+  // Template contract
+  // ─────────────────
+  //  Filter hook : <div  data-component="filter-container"
+  //                      data-label-all="Tất cả">      ← optional label override
+  //  Tour card   : <article data-category-id="<nanoid>"> ← must match category.id
+  //
+  // Zero-code for agents: add a category in Dashboard → button appears
+  // automatically, no HTML edits required.
+  function buildCategoryFilter(categories, container) {
+    if (!categories || !categories.length) return;
+
+    // Inject minimal active-state styles once per page load.
+    // Templates may override .ssi-filter-btn freely via their own CSS.
+    if (!document.getElementById('ssi-filter-styles')) {
+      var style = document.createElement('style');
+      style.id = 'ssi-filter-styles';
+      style.textContent =
+        '.ssi-filter-btn{cursor:pointer;}' +
+        '.ssi-filter-btn.ssi-active{font-weight:700;text-decoration:underline;}';
+      document.head.appendChild(style);
+    }
+
+    // ── "All" button ──────────────────────────────────────────────────────────
+    // Label is overridable via the data-label-all attribute on the container.
+    var allLabel = container.getAttribute('data-label-all') || 'All';
+    var allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.textContent = allLabel;
+    allBtn.className = 'ssi-filter-btn ssi-active';
+    allBtn.setAttribute('data-filter-id', '__all__');
+    container.appendChild(allBtn);
+
+    // ── Category buttons ──────────────────────────────────────────────────────
+    categories.forEach(function (cat) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = cat.name;
+      btn.className = 'ssi-filter-btn';
+      btn.setAttribute('data-filter-id', cat.id);
+      btn.setAttribute('data-filter-slug', cat.slug);
+      container.appendChild(btn);
+    });
+
+    // ── Event delegation — single listener on container ───────────────────────
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ssi-filter-btn');
+      if (!btn) return;
+
+      // Update active class
+      container.querySelectorAll('.ssi-filter-btn').forEach(function (b) {
+        b.classList.remove('ssi-active');
+      });
+      btn.classList.add('ssi-active');
+
+      var filterId = btn.getAttribute('data-filter-id');
+      var isAll = filterId === '__all__';
+
+      // Show / hide tour cards by matching data-category-id
+      document.querySelectorAll('[data-category-id]').forEach(function (card) {
+        if (isAll || card.getAttribute('data-category-id') === filterId) {
+          card.style.removeProperty('display');
+        } else {
+          card.style.setProperty('display', 'none');
+        }
+      });
+    });
+  }
+
   // ── Bootstrap: fetch then apply ───────────────────────────────────────────
   // /api/tenant/config is same-origin → Host header is sent automatically.
   // No credentials needed — the API derives tenant identity from Host alone.
@@ -178,6 +253,11 @@
   // Error handling strategy: ALL errors are caught and suppressed.
   // A dead config endpoint must NEVER cause a JS error that breaks the site.
   function run() {
+    // Resolve whether this page has a category filter container up-front so
+    // we avoid the /api/categories network request on pages that don't need it.
+    var filterContainer = document.querySelector('[data-component="filter-container"]');
+
+    // ── tenant config (always) ──────────────────────────────────────────────
     fetch('/api/tenant/config', {
       method:      'GET',
       credentials: 'omit',   // no cookies needed
@@ -194,6 +274,26 @@
       .catch(function () {
         // Network error, JSON parse error, etc. — fail silently.
       });
+
+    // ── categories (only on listing pages with a filter container) ──────────
+    if (filterContainer) {
+      fetch('/api/categories', {
+        method:      'GET',
+        credentials: 'omit',
+        headers:     { 'Accept': 'application/json' },
+      })
+        .then(function (res) {
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data || !data.ok || !data.categories) return;
+          buildCategoryFilter(data.categories, filterContainer);
+        })
+        .catch(function () {
+          // Categories fetch error must never break the page.
+        });
+    }
   }
 
   // Run after DOM is interactive. If inject.js is already at end of <body>,

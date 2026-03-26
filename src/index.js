@@ -9,6 +9,7 @@ import registerTaskRoutes from "./routes/tasks.js";
 import registerTenantRoutes from './routes/tenants.js';
 import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js';
 import registerTourRoutes from './routes/tours.js';
+import registerCategoryRoutes from './routes/categories.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -108,6 +109,7 @@ registerPricingRoutes && registerPricingRoutes(app);
 registerTenantRoutes && registerTenantRoutes(app);
 registerBookingRoutes && registerBookingRoutes(app);
 registerTourRoutes && registerTourRoutes(app);
+registerCategoryRoutes && registerCategoryRoutes(app);
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
 const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];
