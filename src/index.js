@@ -10,7 +10,7 @@ import registerTenantRoutes from './routes/tenants.js';
 import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js';
 import registerTourRoutes from './routes/tours.js';
 import registerCategoryRoutes from './routes/categories.js';
-import registerPaymentRoutes from './routes/payments.js';
+import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -22,6 +22,34 @@ import registerPricingRoutes, {
   handleDeletePricing
 } from './routes/pricing.js';
 import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
+
+// ── Under Construction page (in-memory) ───────────────────────────────────────
+// Served when a tenant has not enabled an electronic payment gateway.
+// [UX] Minimal dark page — no template assets, loads instantly.
+const UNDER_CONSTRUCTION_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Website Under Construction</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;display:flex;align-items:center;
+         justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;}
+    .box{text-align:center;max-width:500px;padding:52px 36px;}
+    .icon{font-size:56px;margin-bottom:28px;}
+    h1{font-size:24px;font-weight:700;color:#e2e8f0;margin-bottom:16px;}
+    p{font-size:15px;line-height:1.7;}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">🚧</div>
+    <h1>Website Under Construction</h1>
+    <p>This agent is currently setting up professional payment methods.<br>Please come back later.</p>
+  </div>
+</body>
+</html>`;
 
 const app = new Hono();
 
@@ -196,6 +224,18 @@ export default {
       const tenant = await resolveTenantByHost(host, env.DB);
 
       if (tenant) {
+        // ── Electronic Gateway Mandate ─────────────────────────────────────
+        // Parse tenant's payment_methods and block site rendering if no
+        // electronic gateway (Stripe/PayPal/MoMo/ZaloPay/VNPay/GrabPay) is active.
+        let tenantMethods = [];
+        try { if (tenant.payment_methods) tenantMethods = JSON.parse(tenant.payment_methods); } catch {}
+        if (!checkTenantCompliance(tenantMethods)) {
+          return new Response(UNDER_CONSTRUCTION_HTML, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        }
+
         // ── Path 1: Site Studio — live template render ────────────────────
         if (tenant.template_id) {
           return serveSitePage(tenant, env);

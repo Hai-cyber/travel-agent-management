@@ -158,9 +158,49 @@
 
     /* ── Section note ── */
     .section-note { font-size: 12px; color: #94a3b8; margin-bottom: 16px; }
+
+    /* ── Electronic Gateway Mandate — compliance banner ── */
+    #gateway-banner {
+      display: none; align-items: flex-start; gap: 12px;
+      background: #fef2f2; border-bottom: 2px solid #ef4444;
+      padding: 13px 24px;
+    }
+    .gateway-banner-inner {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      font-size: 13px; font-weight: 600; color: #b91c1c; flex-wrap: wrap;
+    }
+    .gateway-banner-icon { font-size: 18px; flex-shrink: 0; }
+    .gateway-banner-text { flex: 1; line-height: 1.5; }
+    .gateway-banner-link {
+      color: #b91c1c; font-size: 12px; font-weight: 700;
+      background: #fee2e2; border: 1px solid #fca5a5;
+      border-radius: 5px; padding: 4px 12px; text-decoration: none;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .gateway-banner-link:hover { background: #fca5a5; }
+    /* Locked panels: translucent overlay blocks all interaction */
+    body.gateway-locked .panel { position: relative; }
+    body.gateway-locked .panel::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,0.55);
+      pointer-events: all; cursor: not-allowed; z-index: 20;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
+
+<!-- ── Electronic Gateway Mandate banner (hidden until compliance check runs) ── -->
+<div id="gateway-banner">
+  <div class="gateway-banner-inner">
+    <span class="gateway-banner-icon">🔴</span>
+    <span class="gateway-banner-text">
+      <strong>Cảnh báo: Website của bạn đang bị khóa (Under Construction).</strong>
+      Bạn cần kích hoạt ít nhất một phương thức thanh toán bằng thẻ tín dụng hoặc ví điện tử để bắt đầu kinh doanh!
+    </span>
+    <a href="/payment-settings.html" class="gateway-banner-link" id="go-payment-link">Thiết lập ngay →</a>
+  </div>
+</div>
 
 <!-- Top bar -->
 <header class="topbar">
@@ -282,6 +322,20 @@ function toSlug(name) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+// ── Electronic Gateway Mandate enforcement ───────────────────────────────────────────
+const ALLOWED_GATEWAY_IDS = new Set(['CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY']);
+
+function enforceCompliance(isCompliant) {
+  const banner = document.getElementById('gateway-banner');
+  if (isCompliant) {
+    banner.style.display = 'none';
+    document.body.classList.remove('gateway-locked');
+  } else {
+    banner.style.display = 'flex';
+    document.body.classList.add('gateway-locked');
+  }
+}
+
 // ── Data loading ─────────────────────────────────────────────────────────────
 async function loadAll() {
   if (!state.tenantId) return;
@@ -323,6 +377,11 @@ async function loadAll() {
   renderCategories();
   renderTours();
   renderSorter();
+
+  // Electronic Gateway Mandate: disable editing panels if no e-gateway is enabled
+  const methods = cfgData.status === 'fulfilled' ? (cfgData.value?.config?.payment_methods ?? []) : [];
+  const compliant = methods.some(m => m.enabled && ALLOWED_GATEWAY_IDS.has((m.id ?? '').toUpperCase()));
+  enforceCompliance(compliant);
 }
 
 // Also load all categories including inactive for the manager tab

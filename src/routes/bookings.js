@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 import { calculateTourPrice } from './pricing.js';
 import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { notifyAgent } from '../lib/notifications.js';
-import { isInstantProvider, ALL_PROVIDERS } from './payments.js';
+import { isInstantProvider, ALL_PROVIDERS, checkTenantCompliance } from './payments.js';
 
 const bookings = new Hono();
 
@@ -224,6 +224,19 @@ bookings.post('/order', async (c) => {
       error:       'Booking is only available to tenants with an active subscription. This tour is in preview mode.',
       code:        'SUBSCRIPTION_INACTIVE',
       upgrade_url: '/billing/upgrade',
+    }, 403);
+  }
+
+  // ── Electronic Gateway Mandate ──────────────────────────────────────────
+  // Bookings are blocked unless the tenant has at least one electronic gateway
+  // (Stripe/PayPal/MoMo/ZaloPay/VNPay/GrabPay) enabled in their payment_methods.
+  // Mirrors the site-rendering kill switch in index.js.
+  let tenantPaymentMethods = [];
+  try { if (tenantRow.payment_methods) tenantPaymentMethods = JSON.parse(tenantRow.payment_methods); } catch {}
+  if (!checkTenantCompliance(tenantPaymentMethods)) {
+    return c.json({
+      error: 'This tour operator has not activated any electronic payment gateway. Online bookings are currently unavailable.',
+      code:  'TENANT_NON_COMPLIANT',
     }, 403);
   }
 

@@ -55,6 +55,34 @@ const DEFAULT_PAYMENT_METHODS = [
 
 export { DEFAULT_PAYMENT_METHODS };
 
+// ── Electronic Gateway Mandate ────────────────────────────────────────────────
+// Defines which payment methods are considered "professional electronic gateways".
+// Tenants must enable at least one of these to have their site go live.
+//
+// Mapping from gateway name → internal payment method ID:
+//   stripe   → CREDIT_CARD
+//   paypal   → PAYPAL
+//   momo     → MOMO
+//   zalopay  → ZALOPAY
+//   vnpay    → VNPAY
+//   grabpay  → GRABPAY
+export const ALLOWED_E_GATEWAYS = ['stripe', 'paypal', 'momo', 'zalopay', 'vnpay', 'grabpay'];
+const E_GATEWAY_METHOD_IDS = new Set(['CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY']);
+
+/**
+ * Returns true if the tenant has at least one electronic gateway enabled.
+ * Called by the site-render kill switch (index.js) and booking gate (bookings.js).
+ *
+ * @param {Array} payment_methods — tenant's payment_methods JSON array
+ * @returns {boolean}
+ */
+export function checkTenantCompliance(payment_methods) {
+  if (!Array.isArray(payment_methods) || !payment_methods.length) return false;
+  return payment_methods.some(
+    m => m.enabled === true && E_GATEWAY_METHOD_IDS.has((m.id ?? '').toUpperCase())
+  );
+}
+
 // ── POST /api/payments/webhook/:provider ──────────────────────────────────────
 // External payment gateway calls this URL on transaction success/failure.
 // The order_id we store in the booking is passed by the agent to the provider
