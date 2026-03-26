@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visual Editor — Site Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    .layout { display: flex; height: 100vh; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 300px;
+      min-width: 300px;
+      background: #1e293b;
+      border-right: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #334155;
+      background: #0f172a;
+    }
+    .sidebar-header h1 { font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: -.01em; }
+    .sidebar-header p  { color: #475569; font-size: 11px; margin-top: 2px; }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: #6366f1; }
+    textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: background .15s, opacity .15s, border-color .15s;
+      font-family: inherit;
+    }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+
+    .btn-primary  { background: #6366f1; color: #fff; }
+    .btn-primary:hover:not(:disabled)  { background: #4f46e5; }
+
+    .btn-success  { background: #10b981; color: #fff; }
+    .btn-success:hover:not(:disabled)  { background: #059669; }
+
+    .btn-select   { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+    .btn-select:hover:not(:disabled)   { border-color: #6366f1; color: #818cf8; }
+    .btn-select.active { border-color: #f97316; color: #f97316; background: #f9731610; }
+
+    .btn-ghost    { background: transparent; border: 1px solid #ef444430; color: #f87171; }
+    .btn-ghost:hover:not(:disabled)    { background: #f8717110; }
+
+    .divider { border: none; border-top: 1px solid #1e293b; }
+
+    /* Mode badge */
+    .mode-row   { display: flex; align-items: center; justify-content: space-between; }
+    .mode-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      padding: 3px 9px; border-radius: 999px;
+    }
+    .mode-badge.idle   { background: #1e293b; color: #475569; border: 1px solid #334155; }
+    .mode-badge.active { background: #f9731612; color: #fb923c; border: 1px solid #f97316;
+                         animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* Selected panel */
+    .selected-panel {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .selector-code {
+      display: block;
+      font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+      font-size: 11px;
+      color: #34d399;
+      background: #020d0a;
+      border: 1px solid #14532d40;
+      border-radius: 4px;
+      padding: 7px 9px;
+      word-break: break-all;
+      max-height: 70px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    /* Status toast */
+    #status {
+      font-size: 12px;
+      border-radius: 6px;
+      padding: 8px 10px;
+      line-height: 1.5;
+      display: none;
+    }
+    #status.ok  { display: block; background: #052e16; color: #6ee7b7; border: 1px solid #10b98150; }
+    #status.err { display: block; background: #2d0707; color: #fca5a5; border: 1px solid #ef444450; }
+
+    .help-text { font-size: 11px; color: #475569; line-height: 1.6; }
+
+    /* ── Preview Pane ────────────────────────────────────────────────────── */
+    .preview-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .preview-toolbar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #475569;
+      flex-shrink: 0;
+    }
+
+    .preview-toolbar span { white-space: nowrap; }
+
+    .preview-url {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #64748b;
+      font-size: 11px;
+      font-family: 'Cascadia Code', 'Fira Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-toolbar {
+      background: transparent;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      color: #64748b;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn-toolbar:hover:not(:disabled) { border-color: #6366f1; color: #818cf8; }
+    .btn-toolbar:disabled { opacity: .38; cursor: not-allowed; }
+
+    #preview-frame {
+      flex: 1;
+      border: none;
+      background: #fff;
+    }
+
+    #empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #334155;
+    }
+    #empty-state svg { opacity: .3; }
+    #empty-state p   { font-size: 13px; color: #475569; text-align: center; max-width: 260px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>⬡ Visual Editor</h1>
+      <p>Site Studio — click to customise any element</p>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- Tenant ID ─────────────────────────────────── -->
+      <div>
+        <label class="field-label" for="tenant-id">Tenant ID</label>
+        <input type="text" id="tenant-id" placeholder="ten-demo-001"
+               autocomplete="off" spellcheck="false" />
+      </div>
+      <button class="btn btn-primary" id="load-btn">Load Preview</button>
+
+      <hr class="divider">
+
+      <!-- Select mode ────────────────────────────────── -->
+      <div class="mode-row">
+        <span class="field-label" style="margin:0">Selection Mode</span>
+        <span class="mode-badge idle" id="mode-badge">● Idle</span>
+      </div>
+
+      <button class="btn btn-select" id="select-btn" disabled>
+        ⊕ Click to Select Element
+      </button>
+
+      <p class="help-text" id="select-hint">
+        Load a preview first, then activate Selection Mode and click any element on the page.
+      </p>
+
+      <hr class="divider">
+
+      <!-- Selected element panel ──────────────────────── (hidden until selection) -->
+      <div id="selected-panel" hidden>
+        <div class="selected-panel">
+          <label class="field-label">CSS Selector</label>
+          <code class="selector-code" id="selector-display"></code>
+        </div>
+
+        <div>
+          <label class="field-label" for="new-value">
+            New Value <span id="value-hint" style="font-weight:400;text-transform:none;letter-spacing:0;color:#64748b">(text content)</span>
+          </label>
+          <textarea id="new-value" placeholder="Enter new text or image URL…"></textarea>
+        </div>
+
+        <button class="btn btn-success" id="save-btn">Save to Config</button>
+        <button class="btn btn-ghost" id="cancel-btn" style="margin-top:6px">
+          Cancel Selection
+        </button>
+      </div>
+
+      <div id="status"></div>
+
+    </div><!-- /sidebar-body -->
+  </aside>
+
+  <!-- ── Preview Pane ─────────────────────────────────────────────────────── -->
+  <div class="preview-pane">
+    <div class="preview-toolbar">
+      <span>Preview</span>
+      <span class="preview-url" id="preview-url-display">—</span>
+      <button class="btn-toolbar" id="reload-btn" disabled>↺ Reload</button>
+    </div>
+
+    <!-- Empty state (shown before first load) -->
+    <div id="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M9 21V9"/>
+      </svg>
+      <p>Enter a Tenant ID and click <strong>Load Preview</strong> to display the site template here.</p>
+    </div>
+
+    <iframe id="preview-frame" style="display:none"
+            sandbox="allow-scripts allow-same-origin allow-forms"
+            src="about:blank"></iframe>
+  </div>
+
+</div><!-- /layout -->
+
+<script>
+(function () {
+  'use strict';
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  var tenantInput      = document.getElementById('tenant-id');
+  var loadBtn          = document.getElementById('load-btn');
+  var selectBtn        = document.getElementById('select-btn');
+  var modeBadge        = document.getElementById('mode-badge');
+  var selectedPanel    = document.getElementById('selected-panel');
+  var selectorDisplay  = document.getElementById('selector-display');
+  var newValueInput    = document.getElementById('new-value');
+  var valueHint        = document.getElementById('value-hint');
+  var saveBtn          = document.getElementById('save-btn');
+  var cancelBtn        = document.getElementById('cancel-btn');
+  var statusEl         = document.getElementById('status');
+  var previewFrame     = document.getElementById('preview-frame');
+  var previewUrlDisplay = document.getElementById('preview-url-display');
+  var reloadBtn        = document.getElementById('reload-btn');
+  var emptyState       = document.getElementById('empty-state');
+
+  var tenantId   = '';
+  var selectMode = false;
+  var currentSel = null;
+  var frameReady = false;
+
+  // ── Status helpers ────────────────────────────────────────────────────────
+  var _statusTimer;
+  function showStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.className   = isError ? 'err' : 'ok';
+    clearTimeout(_statusTimer);
+    _statusTimer = setTimeout(function () { statusEl.className = ''; }, 5000);
+  }
+
+  // ── Load preview ──────────────────────────────────────────────────────────
+  loadBtn.addEventListener('click', function () {
+    tenantId = tenantInput.value.trim();
+    if (!tenantId) { showStatus('Enter a Tenant ID first.', true); return; }
+
+    var url = '/api/tenant/preview?tid=' + encodeURIComponent(tenantId);
+    previewUrlDisplay.textContent = url;
+    previewUrlDisplay.title       = url;
+
+    // Show iframe, hide empty state
+    emptyState.style.display    = 'none';
+    previewFrame.style.display  = '';
+    frameReady = false;
+
+    previewFrame.onload = function () {
+      frameReady = true;
+      // Re-send activate if select mode was on during reload
+      if (selectMode) sendToFrame('EDITOR_ACTIVATE');
+    };
+    previewFrame.src = url;
+
+    reloadBtn.disabled  = false;
+    selectBtn.disabled  = false;
+  });
+
+  reloadBtn.addEventListener('click', function () {
+    if (previewFrame.src === 'about:blank') return;
+    frameReady = false;
+    previewFrame.contentWindow.location.reload();
+  });
+
+  // ── Select mode toggle ────────────────────────────────────────────────────
+  selectBtn.addEventListener('click', function () {
+    if (selectMode) deactivateSelectMode();
+    else            activateSelectMode();
+  });
+
+  function activateSelectMode() {
+    selectMode = true;
+    selectBtn.textContent = '✕ Exit Select Mode';
+    selectBtn.classList.add('active');
+    modeBadge.className   = 'mode-badge active';
+    modeBadge.textContent = '● Selecting…';
+    if (frameReady) sendToFrame('EDITOR_ACTIVATE');
+  }
+
+  function deactivateSelectMode() {
+    selectMode = false;
+    selectBtn.textContent = '⊕ Click to Select Element';
+    selectBtn.classList.remove('active');
+    modeBadge.className   = 'mode-badge idle';
+    modeBadge.textContent = '● Idle';
+    if (frameReady) sendToFrame('EDITOR_DEACTIVATE');
+  }
+
+  function sendToFrame(msg) {
+    try {
+      previewFrame.contentWindow.postMessage(msg, window.location.origin);
+    } catch (_) {}
+  }
+
+  cancelBtn.addEventListener('click', function () {
+    deactivateSelectMode();
+    selectedPanel.hidden = true;
+    currentSel = null;
+  });
+
+  // ── Receive selection from iframe ─────────────────────────────────────────
+  window.addEventListener('message', function (e) {
+    // [SEC] Validate origin — only accept same-origin postMessages
+    if (e.origin !== window.location.origin) return;
+    if (!e.data || e.data.type !== 'ELEMENT_SELECTED') return;
+
+    var sel = e.data.selector;
+    var tag = e.data.tagName;
+    var val = e.data.currentValue || '';
+
+    currentSel = sel;
+    selectorDisplay.textContent = sel;
+    newValueInput.value         = val;
+
+    var isImg = tag === 'IMG';
+    newValueInput.placeholder = isImg
+      ? 'https://cdn.example.com/new-logo.png'
+      : 'Enter new text content…';
+    valueHint.textContent = isImg ? '(image URL)' : '(text content)';
+
+    selectedPanel.hidden = false;
+    deactivateSelectMode();
+    newValueInput.focus();
+    newValueInput.select();
+  });
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  saveBtn.addEventListener('click', async function () {
+    if (!currentSel) { showStatus('No element selected.', true); return; }
+    if (!tenantId)   { showStatus('No tenant loaded.',    true); return; }
+
+    var value = newValueInput.value;
+    saveBtn.disabled    = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      var res  = await fetch('/api/tenant/config', {
+        method:  'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tenant-ID':  tenantId,
+        },
+        body: JSON.stringify({ custom_selectors: { [currentSel]: value } }),
+      });
+      var data = await res.json();
+
+      if (res.ok && data.ok) {
+        showStatus('✓ Saved. Click ↺ Reload to see the change.', false);
+        selectedPanel.hidden = true;
+        currentSel = null;
+      } else {
+        showStatus('Error: ' + (data.error || 'Unknown error'), true);
+      }
+    } catch (err) {
+      showStatus('Network error: ' + err.message, true);
+    } finally {
+      saveBtn.disabled    = false;
+      saveBtn.textContent = 'Save to Config';
+    }
+  });
+
+  // Pre-fill Tenant ID from ?tenant= query param (handy deep-link from admin)
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('tenant')) {
+    tenantInput.value = qs.get('tenant');
+  }
+
+}());
+</script>
+</body>
+</html>

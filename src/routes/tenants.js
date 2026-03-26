@@ -2,7 +2,7 @@
 // Quản lý cài đặt Tenant: FX (tỉ giá), display currency, pricing policy
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { resolveTenantByHost } from '../lib/siteStudio.js';
+import { resolveTenantByHost, serveSitePage, SAFE_SELECTOR_RE } from '../lib/siteStudio.js';
 
 const tenants = new Hono();
 
@@ -329,8 +329,103 @@ publicConfig.get('/config', async (c) => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/tenant/config  (admin — X-Tenant-ID required)
+// ─────────────────────────────────────────────────────────────────────────────
+// Deep-merges a partial config object into the tenant's site_config JSON.
+// Called by the Visual Editor when an agent saves a selector override.
+//
+// Request body (all top-level keys are optional, unknown keys are ignored):
+//   { brand, content, features, custom_selectors }
+//
+// [SEC] custom_selectors keys are validated with SAFE_SELECTOR_RE.
+//       Only string values are accepted.
+publicConfig.patch('/config', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); }
+  catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
+
+  // [SEC] Read existing config, verify tenant exists (prevents phantom-tenant writes)
+  const row = await c.env.DB
+    .prepare('SELECT site_config FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!row) return c.json({ error: 'Tenant not found.' }, 404);
+
+  let cfg = {};
+  try { if (row.site_config) cfg = JSON.parse(row.site_config); } catch {}
+
+  // Merge each allowed section with shallow Object.assign.
+  // Sections not present in the request body are left untouched.
+  const ALLOWED_SECTIONS = ['brand', 'content', 'features', 'custom_selectors'];
+  for (const section of ALLOWED_SECTIONS) {
+    if (section in body && body[section] !== null && typeof body[section] === 'object') {
+      cfg[section] = Object.assign({}, cfg[section] ?? {}, body[section]);
+    }
+  }
+
+  // [SEC] Re-validate all custom_selectors keys after merge.
+  //       Remove any that fail the whitelist (could arrive from a crafted PUT body).
+  if (cfg.custom_selectors) {
+    cfg.custom_selectors = Object.fromEntries(
+      Object.entries(cfg.custom_selectors)
+        .filter(([k, v]) => SAFE_SELECTOR_RE.test(k) && typeof v === 'string')
+    );
+  }
+
+  await c.env.DB
+    .prepare('UPDATE tenants SET site_config = ? WHERE id = ?')
+    .bind(JSON.stringify(cfg), tenantId)
+    .run();
+
+  return c.json({ ok: true, site_config: cfg });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/tenant/preview  (admin — X-Tenant-ID header or ?tid= query param)
+// ─────────────────────────────────────────────────────────────────────────────
+// Renders the tenant's assigned template with editor-bridge.js injected
+// instead of inject.js so the Visual Editor can intercept element clicks.
+// Accepts tenant identity via X-Tenant-ID header (from admin pages) or via
+// ?tid= query param (from the iframe src set by visual-editor.html).
+publicConfig.get('/preview', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim() || c.req.query('tid')?.trim();
+  if (!tenantId) {
+    return c.json({ error: 'Tenant ID required: X-Tenant-ID header or ?tid= param.' }, 400);
+  }
+
+  let tenant = null;
+  try {
+    tenant = await c.env.DB
+      .prepare(
+        `SELECT id, subscription_status, template_id, site_config
+           FROM tenants WHERE id = ? AND subscription_status = 'ACTIVE'`
+      )
+      .bind(tenantId)
+      .first();
+  } catch (err) {
+    console.error('[TENANT_PREVIEW_ERROR]', err);
+    return new Response('Internal server error.', { status: 500 });
+  }
+
+  if (!tenant) {
+    return new Response(
+      `Tenant "${tenantId}" not found or subscription is not ACTIVE.\n` +
+      'Run: npx wrangler d1 execute travel_agent_db --local ' +
+      `--command="UPDATE tenants SET subscription_status='ACTIVE' WHERE id='${tenantId}';"`,
+      { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+    );
+  }
+
+  return serveSitePage(tenant, c.env, { injectScript: '/editor-bridge.js' });
+});
+
 export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
   // Public config endpoint — registered separately to keep URL path clean.
   app.route('/api/tenant', publicConfig);
 }
+

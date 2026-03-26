@@ -44,7 +44,9 @@ function escAttr(str) {
  * [SEC] Tenant-controlled keys are validated here before being passed to
  *       HTMLRewriter's .on() — prevents selector injection or engine panics.
  */
-const SAFE_SELECTOR_RE = /^[a-zA-Z0-9_\-#.[\]="': >+~^$*|()]+$/;
+// Exported so tenants.js PATCH handler can validate incoming selector keys
+// with the same rule used by the HTMLRewriter pipeline.
+export const SAFE_SELECTOR_RE = /^[a-zA-Z0-9_\-#.[\]="': >+~^$*|()]+$/;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tenant resolution
@@ -132,11 +134,16 @@ async function fetchTemplateResponse(templateId, r2Bucket) {
  *      • Appends <script src="/inject.js"></script> before </body>
  *      • Replaces inner text of any elements matching custom_selectors keys
  *
- * @param {object} tenant — row returned by resolveTenantByHost
- * @param {object} env    — Worker env bindings (must include SITE_TEMPLATES)
+ * @param {object} tenant          — row returned by resolveTenantByHost
+ * @param {object} env             — Worker env bindings (must include SITE_TEMPLATES)
+ * @param {object} [options={}]
+ * @param {string} [options.injectScript='/inject.js']
+ *   Override the script injected before </body>. Pass '/editor-bridge.js' to
+ *   activate the Visual Editor click-to-select bridge.
  * @returns {Response}
  */
-export async function serveSitePage(tenant, env) {
+export async function serveSitePage(tenant, env, options = {}) {
+  const injectScript = options.injectScript ?? '/inject.js';
   if (!env.SITE_TEMPLATES) {
     return new Response(
       'SITE_TEMPLATES R2 binding is not configured in wrangler.jsonc.',
@@ -217,7 +224,7 @@ export async function serveSitePage(tenant, env) {
     // Inject client-side customisation script just before </body>
     .on('body', {
       element(el) {
-        el.append('<script src="/inject.js"></script>', { html: true });
+        el.append(`<script src="${escAttr(injectScript)}"></script>`, { html: true });
       },
     });
 
