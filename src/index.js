@@ -19,6 +19,7 @@ import registerPricingRoutes, {
   // [FIX] handleDeletePricing được dùng trong patterns[] nhưng trước đây bị thiếu import
   handleDeletePricing
 } from './routes/pricing.js';
+import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
 
 const app = new Hono();
 
@@ -175,24 +176,34 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ── Custom domain routing ────────────────────────────────────────────────
-    // If the incoming Host header matches a tenant's custom_domain, serve the
-    // pre-rendered R2 page directly — bypassing all API routing.
-    // Only activates for hosts that are NOT the Workers or localhost origins.
-    const host = request.headers.get('host') ?? '';
-    if (host && !host.includes('workers.dev') && !host.includes('localhost')) {
-      const tenantByDomain = await env.DB
-        .prepare('SELECT id, subscription_status FROM tenants WHERE custom_domain = ?')
-        .bind(host)
-        .first();
+    // ── Domain-based tenant routing ──────────────────────────────────────────
+    // Handles requests arriving on a tenant's custom domain OR platform subdomain.
+    // API calls (/api/*) always bypass this block and route normally below.
+    //
+    // Priority:
+    //   1. Site Studio  — tenant.template_id set → live HTMLRewriter render
+    //                     from SITE_TEMPLATES R2 bucket
+    //   2. Legacy pages — pre-rendered HTML from TOUR_PAGES R2 bucket
+    //                     (backward-compatible for tenants without template_id)
+    const host      = request.headers.get('host') ?? '';
+    const isApiPath = url.pathname.startsWith('/api/');
 
-      if (tenantByDomain && tenantByDomain.subscription_status === 'ACTIVE') {
+    if (host && !isApiPath && !host.includes('workers.dev') && !host.includes('localhost')) {
+      const tenant = await resolveTenantByHost(host, env.DB);
+
+      if (tenant) {
+        // ── Path 1: Site Studio — live template render ────────────────────
+        if (tenant.template_id) {
+          return serveSitePage(tenant, env);
+        }
+
+        // ── Path 2: Legacy TOUR_PAGES — pre-rendered HTML ─────────────────
         // Map /  →  index.html,  /ha-long-3n2d  →  ha-long-3n2d.html
-        const rawSlug = url.pathname.replace(/^\/+/, '').replace(/\.html$/, '') || 'index';
+        const rawSlug  = url.pathname.replace(/^\/+/, '').replace(/\.html$/, '') || 'index';
         // [SEC] Prevent path traversal — allow only slug-safe characters
         const safeSlug = rawSlug.replace(/[^a-z0-9_-]/gi, '');
         if (safeSlug) {
-          const r2Key = `${tenantByDomain.id}/${safeSlug}.html`;
+          const r2Key = `${tenant.id}/${safeSlug}.html`;
           const obj   = await env.TOUR_PAGES?.get(r2Key);
           if (obj) {
             return new Response(await obj.text(), {
@@ -200,7 +211,7 @@ export default {
             });
           }
         }
-        // If no page found, fall through to normal routing (e.g. API calls on custom domain)
+        // No page found — fall through to API routing
       }
     }
 
