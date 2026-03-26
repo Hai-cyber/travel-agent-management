@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -160,44 +160,28 @@
     .itin-nights-note { font-size: 11px; color: #94a3b8; }
     .itin-meal-badge { font-size: 11px; font-weight: 700; color: #7c3aed; background: #ede9fe; padding: 2px 7px; border-radius: 99px; }
     .itin-total-bar { padding: 12px 18px; background: #f8fafc; border-top: 2px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; display: flex; justify-content: space-between; }
-    /* ── Right panel tab switcher ── */
-    .r-tab { background:none; border:none; border-bottom:3px solid transparent; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; color:#94a3b8; white-space:nowrap; }
-    .r-tab:hover:not(:disabled) { color:#7c3aed; }
-    .r-tab.active { color:#7c3aed; border-bottom-color:#7c3aed; }
-    .r-tab:disabled { opacity:.35; cursor:not-allowed; }
-    /* ── Service sections ── */
-    .svc-section { border-bottom:1px solid #f1f5f9; }
-    .svc-section:last-child { border-bottom:none; }
-    .svc-hdr { display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; user-select:none; }
-    .svc-hdr:hover { background:#fafafa; }
-    .svc-icon { font-size:15px; flex-shrink:0; }
-    .svc-name { font-size:13px; font-weight:700; color:#1e293b; flex:1; }
-    .svc-badge { font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; }
-    .svc-badge.has { background:#d1fae5; color:#065f46; }
-    .svc-badge.none { background:#f1f5f9; color:#94a3b8; }
-    .svc-chev { font-size:10px; color:#94a3b8; flex-shrink:0; }
-    .svc-body { display:none; padding:4px 16px 12px; }
-    .svc-body.open { display:block; }
-    .svc-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px 12px; margin-bottom:8px; }
-    .svc-card-top { display:flex; align-items:center; gap:8px; }
-    .svc-card-name { font-size:13px; font-weight:600; flex:1; color:#1e293b; }
-    .svc-card-sub { font-size:11px; color:#64748b; margin-top:2px; }
-    .status-pill { font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; cursor:pointer; border:none; white-space:nowrap; }
-    .status-pill.planned   { background:#fef3c7; color:#92400e; }
-    .status-pill.booked    { background:#dbeafe; color:#1e40af; }
-    .status-pill.confirmed { background:#d1fae5; color:#065f46; }
-    .status-pill.canceled  { background:#fee2e2; color:#991b1b; }
-    .task-list { margin-top:7px; padding-top:7px; border-top:1px solid #f1f5f9; display:flex; flex-direction:column; gap:5px; }
-    .task-row { display:flex; align-items:center; gap:7px; font-size:12px; color:#475569; }
-    .task-row input[type=checkbox] { accent-color:#7c3aed; flex-shrink:0; cursor:pointer; width:14px; height:14px; }
-    .task-row.done span { color:#94a3b8; text-decoration:line-through; }
-    .svc-add-form { background:#eff6ff; border:1px solid #bfdbfe; border-radius:7px; padding:12px 14px; margin-top:8px; display:none; }
-    .svc-add-form .f { margin-bottom:8px; }
-    .svc-add-form label { display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#475569; margin-bottom:3px; }
-    .svc-add-form input, .svc-add-form select { width:100%; padding:6px 9px; border:1px solid #d1d5db; border-radius:5px; font-size:13px; font-family:inherit; background:#fff; box-sizing:border-box; }
-    .svc-add-form input:focus, .svc-add-form select:focus { outline:none; border-color:#7c3aed; }
-    .f2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .stop-row.svc-active { background:#f5f3ff; border-left:3px solid #7c3aed; }
+    /* ── Stop cards (inline service toggles) ── */
+    .stop-card { border-bottom: 1px solid #f1f5f9; }
+    .stop-card:last-child { border-bottom: none; }
+    .stop-card-main { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+    .stop-card:hover .stop-card-main { background: #fafafa; }
+    .stop-svc-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 16px 6px 36px; }
+    .svc-toggle { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 700; cursor: pointer; color: #64748b; transition: all .1s; white-space: nowrap; }
+    .svc-toggle:hover { border-color: #a78bfa; color: #7c3aed; }
+    .svc-toggle.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+    .svc-div { width: 1px; background: #e2e8f0; height: 16px; margin: 0 4px; flex-shrink: 0; align-self: center; }
+    .svc-grp-lbl { font-size: 13px; flex-shrink: 0; line-height: 1; }
+    .stop-desc-row { padding: 2px 16px 8px 36px; }
+    .stop-desc-inp { width: 100%; border: 1px solid #f1f5f9; border-radius: 5px; padding: 5px 8px; font-size: 12px; font-family: inherit; resize: none; overflow: hidden; min-height: 30px; color: #475569; background: transparent; box-sizing: border-box; line-height: 1.5; }
+    .stop-desc-inp:focus { outline: none; border-color: #a78bfa; background: #fefefe; }
+    .stop-desc-inp::placeholder { color: #cbd5e1; font-style: italic; }
+    /* ── Pricing tab ── */
+    .price-matrix { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .price-matrix th { background: #f8fafc; padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+    .price-matrix td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+    .price-matrix tr:last-child td { border-bottom: none; }
+    .price-input { width: 90px; padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-family: monospace; text-align: right; }
+    .price-input:focus { outline: none; border-color: #7c3aed; }
 
     /* ── Preview panel ── */
     #preview-frame {
@@ -278,8 +262,9 @@
   <button class="tab-btn active" data-tab="tours">① Tour</button>
   <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>② Content</button>
   <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>③ Stops</button>
-  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>④ Preview</button>
-  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>⑤ Publish</button>
+  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>④ Price Config</button>
+  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>⑤ Preview</button>
+  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>⑥ Publish</button>
 </nav>
 
 <!-- ════════════════════════════════  TAB 1: TOUR  ═══════════════════════════ -->
@@ -540,39 +525,60 @@
         </div>
       </div>
 
-      <!-- Stop IDs for service items -->
-      <div class="card" id="service-items-hint" style="display:none; margin-top:16px">
-        <div class="card-header"><h2>Stop IDs → Service Items</h2></div>
-        <div class="card-body">
-          <p style="font-size:12px;color:#64748b;margin-bottom:10px">Click to copy. Use with<br><code>POST /api/stops/:stopId/{accommodations|meals|…}</code></p>
-          <div id="stop-id-chips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-        </div>
-      </div>
     </div>
 
-    <!-- ── RIGHT: itinerary / services ── -->
+    <!-- ── RIGHT: itinerary preview ── -->
     <div>
       <div class="card">
         <div class="card-header">
-          <h2 id="right-panel-h2" style="font-size:14px;font-weight:700;color:#1e293b">📋 Itinerary</h2>
-          <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#7c3aed;margin-left:6px"></span>
-          <div style="margin-left:auto;display:flex;border-bottom:none">
-            <button class="r-tab active" id="rtab-itin">📋 Itinerary</button>
-            <button class="r-tab" id="rtab-svc" disabled>⚙️ Services</button>
-          </div>
+          <h2>📋 Itinerary</h2>
+          <span id="total-days-badge" style="font-size:14px;font-weight:900;color:#7c3aed;margin-left:auto;letter-spacing:.05em"></span>
         </div>
         <div id="itin-preview-panel">
           <div class="empty-state">Add stops to see preview.</div>
-        </div>
-        <div id="svc-stop-panel" style="display:none">
-          <div class="empty-state">Click ⚙️ on a stop row to manage its services.</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ════════════════════════════  TAB 4: PREVIEW  ════════════════════════════ -->
+<!-- ════════════════════════════  TAB 4: PRICE CONFIG  ═══════════════════════ -->
+<section class="panel" id="panel-pricing">
+  <div class="selected-notice" id="pricing-notice" style="display:none; margin-bottom:16px">
+    <span>💰 Pricing for: <strong id="pricing-tour-label"></strong></span>
+    <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto">&#x21BA; Refresh</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+    <!-- Seasons -->
+    <div class="card">
+      <div class="card-header"><h2>&#x1F4C5; Seasons</h2></div>
+      <div id="pricing-seasons-body" class="card-body">
+        <div class="empty-state">Select a tour first.</div>
+      </div>
+    </div>
+    <!-- Segments -->
+    <div class="card">
+      <div class="card-header"><h2>&#x1F465; Segments</h2></div>
+      <div id="pricing-segments-body" class="card-body">
+        <div class="empty-state">Select a tour first.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tour price matrix -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header">
+      <h2>💳 Price Config</h2>
+      <span style="font-size:11px;color:#94a3b8;margin-left:auto">Values in tenant currency &middot; per person</span>
+    </div>
+    <div id="pricing-matrix-body" class="card-body">
+      <div class="empty-state">Select a tour first.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================  TAB 5: PREVIEW  ================================================================ -->
 <section class="panel" id="panel-preview">
   <div class="preview-toolbar">
     <span id="preview-url-label">—</span>
@@ -582,7 +588,7 @@
   <iframe id="preview-frame" src="about:blank" title="Tour Preview"></iframe>
 </section>
 
-<!-- ════════════════════════════  TAB 5: PUBLISH  ════════════════════════════ -->
+<!-- ================================================================  TAB 6: PUBLISH  ================================================================ -->
 <section class="panel" id="panel-publish">
   <div class="card" style="max-width:600px">
     <div class="card-header"><h2>Publish Tour</h2></div>
@@ -621,8 +627,6 @@ const S = {
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
-  selectedStopId: null,
-  stopServicesCache: {},  // { [stopId]: { accommodations: [], meals: [], guides: [], 'local-transports': [], 'intercity-legs': [] } }
 };
 
 /* ════════════════════════════════  HELPERS  ════════════════════════════════ */
@@ -653,7 +657,7 @@ async function api(path, opts = {}) {
 }
 
 function unlockTabs() {
-  ['tab-content','tab-stops','tab-preview','tab-publish'].forEach(id => {
+  ['tab-content','tab-stops','tab-pricing','tab-preview','tab-publish'].forEach(id => {
     document.getElementById(id).disabled = !S.tour;
   });
 }
@@ -661,6 +665,8 @@ function unlockTabs() {
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.panel')  .forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
+  if (name === 'pricing') loadPricing();
+  if (name === 'preview')  loadPreview();
 }
 
 function copyText(text) {
@@ -940,10 +946,10 @@ function renderItinPreview() {
     badge.textContent = '';
     return;
   }
-  const calc       = calcDays(S.stops);
-  const totalDays  = calc[calc.length - 1]._dayTo;
+  const calc        = calcDays(S.stops);
+  const totalDays   = calc[calc.length - 1]._dayTo;
   const totalNights = S.stops.reduce((s, x) => s + (Number(x.nights) || 0), 0);
-  badge.textContent = `${totalDays}D / ${totalNights}N`;
+  badge.textContent = `${totalDays}D / ${totalNights}N`;
   let html = '';
   calc.forEach(s => {
     const dayLabel = s._dayFrom === s._dayTo
@@ -954,19 +960,32 @@ function renderItinPreview() {
       s.meal_lunch     && '🌞L',
       s.meal_dinner    && '🌙D',
     ].filter(Boolean);
-    const mealBadge  = meals.length ? `<span class="itin-meal-badge">${meals.join(' ')}</span>` : '';
-    const nightsTxt  = Number(s.nights) > 0
+    const mealBadge = meals.length ? `<span class="itin-meal-badge">${meals.join('\u2009')}</span>` : '';
+    const nightsTxt = Number(s.nights) > 0
       ? `${s.nights} night${s.nights > 1 ? 's' : ''}`
       : 'day trip';
+    // Service icons from services_config
+    const cfg   = parseSvcCfg(s);
+    const lModes = Array.isArray(cfg.local)     ? cfg.local     : [];
+    const iModes = Array.isArray(cfg.intercity) ? cfg.intercity : [];
+    const svcIcons = [
+      cfg.hotel ? '🏨' : null,
+      cfg.guide ? '🧭' : null,
+      lModes.length ? `🚗\u202f${lModes.join('/')}` : null,
+      iModes.length ? `✈️\u202f${iModes.join('/')}` : null,
+    ].filter(Boolean);
+    const svcBadge = svcIcons.length
+      ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcIcons.join('\u2002')}</span>` : '';
     html += `
       <div class="itin-day-row">
         <div class="itin-day-tag"><span class="itin-day-label">${esc(dayLabel)}</span></div>
-        <div>
+        <div style="flex:1">
           <div class="itin-stop-name">${esc(s.label)}</div>
           <div class="itin-stop-meta">
             <span class="itin-nights-note">${nightsTxt}</span>
-            ${mealBadge}
+            ${mealBadge}${svcBadge}
           </div>
+          ${s.description ? `<div style="font-size:11px;color:#94a3b8;margin-top:3px;line-height:1.4">${esc(s.description)}</div>` : ''}
         </div>
       </div>`;
   });
@@ -974,43 +993,67 @@ function renderItinPreview() {
   panel.innerHTML = html;
 }
 
+function parseSvcCfg(stop) {
+  try { return JSON.parse(stop.services_config || '{}'); } catch { return {}; }
+}
+
 function renderStopRows() {
   const container = document.getElementById('stops-rows-container');
   if (!S.stops.length) {
     container.innerHTML = '<div class="empty-state">No stops yet. Click <strong>+ Add Stop</strong>.</div>';
-    document.getElementById('service-items-hint').style.display = 'none';
     renderItinPreview();
     return;
   }
   container.innerHTML = '';
   S.stops.forEach((s, i) => {
-    const row = document.createElement('div');
-    row.className = 'stop-row';
-    const mB = s.meal_breakfast ? 'active' : '';
-    const mL = s.meal_lunch     ? 'active' : '';
-    const mD = s.meal_dinner    ? 'active' : '';
-    row.innerHTML = `
-      <span class="stop-row-num">${i + 1}</span>
-      <span class="stop-row-label" title="ID: ${esc(s.id)}">${esc(s.label)}</span>
-      <div class="stop-nights-wrap">
-        🌙
-        <input type="number" class="nights-inp" data-sid="${esc(s.id)}" value="${Number(s.nights)}" min="0" max="60" title="Nights" />
+    const cfg   = parseSvcCfg(s);
+    const mB    = s.meal_breakfast ? 'active' : '';
+    const mL    = s.meal_lunch     ? 'active' : '';
+    const mD    = s.meal_dinner    ? 'active' : '';
+    const hotel = cfg.hotel ? 'active' : '';
+    const guide = cfg.guide ? 'active' : '';
+    const local = Array.isArray(cfg.local)     ? cfg.local     : [];
+    const icty  = Array.isArray(cfg.intercity) ? cfg.intercity : [];
+    const lModes = ['car4','car7','bus','train'];
+    const iModes = ['car4','car7','bus','train','flight'];
+    const card = document.createElement('div');
+    card.className = 'stop-card';
+    card.innerHTML = `
+      <div class="stop-card-main">
+        <span class="stop-row-num">${i + 1}</span>
+        <span class="stop-row-label" title="ID: ${esc(s.id)}">${esc(s.label)}</span>
+        <div class="stop-nights-wrap">
+          🌙 <input type="number" class="nights-inp" data-sid="${esc(s.id)}" value="${Number(s.nights)}" min="0" max="60" title="Nights" />
+          <span style="font-size:11px;color:#94a3b8">nts</span>
+        </div>
+        <div class="stop-row-actions">
+          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">↑</button>` : `<span style="width:28px"></span>`}
+          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">↓</button>` : `<span style="width:28px"></span>`}
+          <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete">✕</button>
+        </div>
       </div>
-      <div class="stop-meal-group">
+      <div class="stop-svc-row">
+        <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel" title="Hotel / Accommodation">🏨</button>
+        <span class="svc-div"></span>
         <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast" title="Breakfast">🌅 B</button>
         <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch"     title="Lunch">🌞 L</button>
         <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner"    title="Dinner">🌙 D</button>
+        <span class="svc-div"></span>
+        <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide" title="Guide">🧭</button>
+        <span class="svc-div"></span>
+        <span class="svc-grp-lbl">🚗</span>
+        ${lModes.map(m => `<button class="svc-toggle${local.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="local" data-mode="${m}">${m}</button>`).join('')}
+        <span class="svc-div"></span>
+        <span class="svc-grp-lbl">✈️</span>
+        ${iModes.map(m => `<button class="svc-toggle${icty.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="intercity" data-mode="${m}">${m}</button>`).join('')}
       </div>
-      <div class="stop-row-actions">
-        ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">↑</button>` : `<span style="width:28px"></span>`}
-        ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">↓</button>` : `<span style="width:28px"></span>`}
-        <button class="btn btn-ghost btn-sm svc-mgr-btn" data-sid="${esc(s.id)}" title="Manage services" style="font-size:13px">⚙️</button>
-        <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete stop">✕</button>
+      <div class="stop-desc-row">
+        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop — activities, highlights, notes…">${esc(s.description || '')}</textarea>
       </div>`;
-    container.appendChild(row);
+    container.appendChild(card);
   });
 
-  // Wire nights input → live preview + PATCH
+  // Nights input
   container.querySelectorAll('.nights-inp').forEach(inp => {
     inp.addEventListener('change', e => {
       const stop = S.stops.find(s => s.id === e.target.dataset.sid);
@@ -1021,7 +1064,7 @@ function renderStopRows() {
     });
   });
 
-  // Wire meal toggles → live preview + PATCH
+  // Meal toggles
   container.querySelectorAll('.meal-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
       const stop = S.stops.find(s => s.id === btn.dataset.sid);
@@ -1034,6 +1077,57 @@ function renderStopRows() {
     });
   });
 
+  // Hotel / Guide single toggles
+  container.querySelectorAll('.svc-toggle[data-svc]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stop = S.stops.find(s => s.id === btn.dataset.sid);
+      if (!stop) return;
+      const cfg = parseSvcCfg(stop);
+      cfg[btn.dataset.svc] = cfg[btn.dataset.svc] ? 0 : 1;
+      stop.services_config = JSON.stringify(cfg);
+      btn.classList.toggle('active', !!cfg[btn.dataset.svc]);
+      renderItinPreview();
+      patchStop(stop.id, { services_config: stop.services_config });
+    });
+  });
+
+  // Transport mode multi-toggles (🚗 local / ✈️ intercity)
+  container.querySelectorAll('.svc-toggle[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stop  = S.stops.find(s => s.id === btn.dataset.sid);
+      if (!stop) return;
+      const cfg   = parseSvcCfg(stop);
+      const grp   = btn.dataset.grp;
+      const mode  = btn.dataset.mode;
+      const modes = Array.isArray(cfg[grp]) ? [...cfg[grp]] : [];
+      const idx   = modes.indexOf(mode);
+      if (idx === -1) modes.push(mode); else modes.splice(idx, 1);
+      cfg[grp] = modes;
+      stop.services_config = JSON.stringify(cfg);
+      btn.classList.toggle('active', modes.includes(mode));
+      renderItinPreview();
+      patchStop(stop.id, { services_config: stop.services_config });
+    });
+  });
+
+  // Description textarea (debounced auto-save + auto-height)
+  container.querySelectorAll('.stop-desc-inp').forEach(ta => {
+    // Auto-height on load
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight || 30) + 'px';
+    let timer;
+    ta.addEventListener('input', () => {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+      clearTimeout(timer);
+      const stop = S.stops.find(s => s.id === ta.dataset.sid);
+      if (!stop) return;
+      stop.description = ta.value;
+      timer = setTimeout(() => patchStop(stop.id, { description: stop.description }), 700);
+    });
+  });
+
+  // Delete / move
   container.querySelectorAll('.del-stop-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteStop(btn.dataset.sid));
   });
@@ -1042,23 +1136,6 @@ function renderStopRows() {
   });
   container.querySelectorAll('.move-dn').forEach(btn => {
     btn.addEventListener('click', () => moveStop(btn.dataset.sid, 1));
-  });
-  container.querySelectorAll('.svc-mgr-btn').forEach(btn => {
-    btn.addEventListener('click', () => selectStopForServices(btn.dataset.sid));
-  });
-
-  // Update service-items stop-ID chips
-  const hint  = document.getElementById('service-items-hint');
-  const chips = document.getElementById('stop-id-chips');
-  hint.style.display = '';
-  chips.innerHTML = '';
-  S.stops.forEach(s => {
-    const b = document.createElement('button');
-    b.className = 'copy-id';
-    b.style.fontSize = '12px';
-    b.textContent = `${s.label} › ${s.id}`;
-    b.addEventListener('click', () => copyText(s.id));
-    chips.appendChild(b);
   });
 }
 
@@ -1177,223 +1254,82 @@ document.getElementById('btn-confirm-add-stop').addEventListener('click', async 
   }
 });
 
-/* ════════════════════════════  SERVICE ITEMS PER STOP  ════════════════════ */
-const SVC_GROUPS = [
-  { key: 'accommodations',   icon: '🏨', label: 'Accommodation',   modeField: false },
-  { key: 'meals',            icon: '🍽', label: 'Meals',           modeField: false },
-  { key: 'guides',           icon: '🧭', label: 'Guide',           modeField: false },
-  { key: 'local-transports', icon: '🚗', label: 'Local Transport', modeField: true, modes: ['car4','car7','van','bus','motorbike'] },
-  { key: 'intercity-legs',   icon: '✈️', label: 'Intercity Leg',   modeField: true, modes: ['car4','car7','bus','train','flight'] },
-];
-const STATUS_CYCLE = ['planned','booked','confirmed','canceled'];
+/* ════════════════════════════  TAB 4: PRICE CONFIG  ════════════════════════ */
+async function loadPricing() {
+  if (!S.tour) return;
+  document.getElementById('pricing-notice').style.display      = '';
+  document.getElementById('pricing-tour-label').textContent    = S.tour.title;
 
-function switchRightPanel(panel) {
-  const isItin = panel === 'itin';
-  document.getElementById('itin-preview-panel').style.display = isItin ? '' : 'none';
-  document.getElementById('svc-stop-panel').style.display     = isItin ? 'none' : '';
-  document.getElementById('rtab-itin').classList.toggle('active',  isItin);
-  document.getElementById('rtab-svc').classList.toggle('active',  !isItin);
-  document.getElementById('right-panel-h2').textContent = isItin ? '📋 Itinerary' : '⚙️ Services';
-}
+  const [seasonsRes, segmentsRes] = await Promise.all([
+    api('/api/pricing/tenant-seasons').catch(() => ({ items: [] })),
+    api('/api/pricing/pricing-segments').catch(() => ({ items: [] })),
+  ]);
+  const seasons  = seasonsRes.items  ?? seasonsRes  ?? [];
+  const segments = segmentsRes.items ?? segmentsRes ?? [];
 
-document.getElementById('rtab-itin').addEventListener('click', () => switchRightPanel('itin'));
-document.getElementById('rtab-svc').addEventListener('click', () => {
-  if (S.selectedStopId) switchRightPanel('svc');
-});
+  // Seasons table
+  const sBody = document.getElementById('pricing-seasons-body');
+  if (!seasons.length) {
+    sBody.innerHTML = '<div class="empty-state">No seasons configured.</div>';
+  } else {
+    sBody.innerHTML = `<table class="price-matrix">
+      <thead><tr><th>Season</th><th>Period</th></tr></thead>
+      <tbody>${seasons.map(s => `
+        <tr>
+          <td><strong>${esc(s.name)}</strong></td>
+          <td style="color:#64748b">${s.start_month}/${s.start_day} – ${s.end_month}/${s.end_day}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
 
-async function selectStopForServices(stopId) {
-  document.querySelectorAll('.stop-row').forEach(r => r.classList.remove('svc-active'));
-  document.querySelectorAll(`.svc-mgr-btn[data-sid="${stopId}"]`).forEach(b => {
-    b.closest('.stop-row')?.classList.add('svc-active');
+  // Segments table
+  const gBody = document.getElementById('pricing-segments-body');
+  if (!segments.length) {
+    gBody.innerHTML = '<div class="empty-state">No segments configured.</div>';
+  } else {
+    gBody.innerHTML = `<table class="price-matrix">
+      <thead><tr><th>Segment</th><th>Code</th></tr></thead>
+      <tbody>${segments.map(g => `
+        <tr>
+          <td><strong>${esc(g.name)}</strong></td>
+          <td><code style="font-size:11px">${esc(g.code)}</code></td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  // Price matrix (seasons × segments)
+  const mBody = document.getElementById('pricing-matrix-body');
+  if (!seasons.length || !segments.length) {
+    mBody.innerHTML = '<div class="empty-state" style="padding:16px">Configure seasons &amp; segments first via the Pricing API.</div>';
+    return;
+  }
+  let tableHtml = `<div style="overflow-x:auto"><table class="price-matrix">
+    <thead><tr><th>Season \\ Segment</th>${segments.map(g => `<th>${esc(g.name)}</th>`).join('')}</tr></thead>
+    <tbody>`;
+  seasons.forEach(s => {
+    tableHtml += `<tr><td><strong>${esc(s.name)}</strong></td>`;
+    segments.forEach(g => {
+      tableHtml += `<td><input type="number" class="price-input" placeholder="—"
+        data-season="${esc(s.id)}" data-segment="${esc(g.id)}"
+        data-tour="${esc(S.tour.id)}" min="0" step="1" /></td>`;
+    });
+    tableHtml += '</tr>';
   });
-  S.selectedStopId = stopId;
-  document.getElementById('rtab-svc').disabled = false;
-  switchRightPanel('svc');
-  document.getElementById('svc-stop-panel').innerHTML = '<div class="loading">Loading services…</div>';
-  await loadServicesForStop(stopId);
+  tableHtml += '</tbody></table></div>';
+  tableHtml += `<p style="font-size:11px;color:#94a3b8;margin:8px 4px 0">
+    Prices saved here are planning estimates. Full pax-band pricing lives in the Pricing module.</p>`;
+  mBody.innerHTML = tableHtml;
 }
 
-async function loadServicesForStop(stopId) {
-  const results = await Promise.all(
-    SVC_GROUPS.map(g =>
-      api(`/api/stops/${stopId}/${g.key}`)
-        .then(d => ({ key: g.key, items: d.items ?? [] }))
-        .catch(() => ({ key: g.key, items: [] }))
-    )
-  );
-  S.stopServicesCache[stopId] = {};
-  results.forEach(r => { S.stopServicesCache[stopId][r.key] = r.items; });
-  renderServicesPanel(stopId);
-}
+document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
 
-function buildSvcAddForm(g, stopId) {
-  const nameField = g.key === 'accommodations'
-    ? `<div class="f"><label>Hotel Name *</label><input type="text" class="sf-name" placeholder="Sheraton Hanoi" /></div>`
-    : g.key === 'meals'
-    ? `<div class="f"><label>Restaurant Name *</label><input type="text" class="sf-name" placeholder="Pho Gia Truyen" /></div>`
-    : g.key === 'guides'
-    ? `<div class="f"><label>Guide Name *</label><input type="text" class="sf-name" placeholder="Nguyen Van A" /></div>`
-    : `<div class="f"><label>Supplier *</label><input type="text" class="sf-name" placeholder="Blue Sky Travel" /></div>`;
-
-  const mealTypeField = g.key === 'meals'
-    ? `<div class="f"><label>Meal Type *</label><select class="sf-meal-type"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="set_menu">Set Menu</option></select></div>`
-    : '';
-
-  const modeField = g.modeField
-    ? `<div class="f"><label>Mode *</label><select class="sf-mode">${g.modes.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>`
-    : '';
-
-  const addrLabel = g.key.includes('intercity') ? 'Departure Point' : g.key.includes('local') ? 'Pickup Address' : 'Address';
-
-  return `<div class="svc-add-form" id="saf-${g.key}">
-    ${modeField}${mealTypeField}${nameField}
-    <div class="f2">
-      <div class="f"><label>Person in Charge *</label><input type="text" class="sf-pic" placeholder="Your name" /></div>
-      <div class="f"><label>${addrLabel} *</label><input type="text" class="sf-addr" placeholder="TBD" /></div>
-    </div>
-    <div class="btn-row" style="margin-top:10px">
-      <button class="btn btn-success btn-sm saf-submit" data-grp="${g.key}" data-sid="${stopId}">✓ Add + Create Tasks</button>
-      <button class="btn btn-ghost btn-sm saf-cancel" data-grp="${g.key}">Cancel</button>
-    </div>
-  </div>`;
-}
-
-function renderServicesPanel(stopId) {
-  const stop  = S.stops.find(s => s.id === stopId);
-  const cache = S.stopServicesCache[stopId] ?? {};
-  const panel = document.getElementById('svc-stop-panel');
-  document.getElementById('right-panel-h2').textContent = stop ? `⚙️ ${stop.label}` : '⚙️ Services';
-  panel.innerHTML = '';
-
-  SVC_GROUPS.forEach(g => {
-    const items = cache[g.key] ?? [];
-    const sec   = document.createElement('div');
-    sec.className = 'svc-section';
-
-    const itemsHtml = items.map(item => {
-      const name   = item.hotel_name || item.restaurant_name || item.guide_name || item.supplier || '—';
-      const sub    = [item.mode, item.meal_type, item.address].filter(Boolean).join(' · ');
-      const tasks  = (item.tasks ?? []).map(t =>
-        `<label class="task-row ${t.status === 'done' ? 'done' : ''}">
-          <input type="checkbox" class="task-cb" data-tid="${esc(t.id)}" ${t.status === 'done' ? 'checked' : ''} />
-          <span>${esc(t.title)}</span>
-        </label>`
-      ).join('');
-      return `<div class="svc-card">
-        <div class="svc-card-top">
-          <span class="svc-card-name">${esc(name)}</span>
-          <button class="status-pill ${item.status ?? 'planned'}" data-iid="${esc(item.id)}" data-grp="${g.key}" data-sid="${stopId}" title="Click to cycle status">${item.status ?? 'planned'}</button>
-        </div>
-        ${sub ? `<div class="svc-card-sub">${esc(sub)}</div>` : ''}
-        ${tasks ? `<div class="task-list">${tasks}</div>` : ''}
-      </div>`;
-    }).join('');
-
-    sec.innerHTML = `
-      <div class="svc-hdr" data-grp="${g.key}">
-        <span class="svc-icon">${g.icon}</span>
-        <span class="svc-name">${g.label}</span>
-        <span class="svc-badge ${items.length ? 'has' : 'none'}">${items.length ? items.length + ' item' + (items.length > 1 ? 's' : '') : 'none'}</span>
-        <button class="btn btn-primary btn-sm saf-open-btn" data-grp="${g.key}" style="font-size:11px;padding:3px 9px">+ Add</button>
-        <span class="svc-chev">▸</span>
-      </div>
-      <div class="svc-body ${items.length ? 'open' : ''}" id="svb-${g.key}">
-        ${itemsHtml}
-        ${buildSvcAddForm(g, stopId)}
-      </div>`;
-
-    // Toggle section open/close
-    sec.querySelector('.svc-hdr').addEventListener('click', e => {
-      if (e.target.closest('button')) return;
-      const body = document.getElementById(`svb-${g.key}`);
-      body.classList.toggle('open');
-      sec.querySelector('.svc-chev').textContent = body.classList.contains('open') ? '▾' : '▸';
-    });
-
-    // Open add form
-    sec.querySelector('.saf-open-btn').addEventListener('click', () => {
-      const body = document.getElementById(`svb-${g.key}`);
-      body.classList.add('open');
-      const form = document.getElementById(`saf-${g.key}`);
-      form.style.display = '';
-      form.querySelector('input,select')?.focus();
-    });
-
-    // Cancel add form
-    sec.querySelector('.saf-cancel').addEventListener('click', () => {
-      document.getElementById(`saf-${g.key}`).style.display = 'none';
-    });
-
-    // Submit add form
-    sec.querySelector('.saf-submit').addEventListener('click', async function() {
-      const grp      = this.dataset.grp;
-      const sid      = this.dataset.sid;
-      const form     = document.getElementById(`saf-${grp}`);
-      const pic      = form.querySelector('.sf-pic')?.value.trim();
-      const addr     = form.querySelector('.sf-addr')?.value.trim();
-      const name     = form.querySelector('.sf-name')?.value.trim();
-      const mode     = form.querySelector('.sf-mode')?.value;
-      const mealType = form.querySelector('.sf-meal-type')?.value;
-      if (!pic || !addr || !name) { toast('All starred fields are required', 'err'); return; }
-      const body = { person_in_charge: pic, address: addr };
-      if      (grp === 'accommodations') body.hotel_name       = name;
-      else if (grp === 'meals')          { body.restaurant_name = name; body.meal_type = mealType; }
-      else if (grp === 'guides')         body.guide_name       = name;
-      else                               { body.supplier        = name; body.mode = mode; }
-      this.disabled = true;
-      try {
-        await api(`/api/stops/${sid}/${grp}`, { method: 'POST', body: JSON.stringify(body) });
-        toast(`${grp} added — tasks created ✓`);
-        await loadServicesForStop(sid);
-      } catch(err) {
-        toast('Add failed: ' + err.message, 'err');
-        this.disabled = false;
-      }
-    });
-
-    // Status cycle
-    sec.querySelectorAll('.status-pill').forEach(pill => {
-      pill.addEventListener('click', async () => {
-        const cur  = pill.textContent.trim();
-        const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-        try {
-          await api(`/api/stops/${pill.dataset.sid}/${pill.dataset.grp}/${pill.dataset.iid}`, {
-            method: 'PATCH', body: JSON.stringify({ status: next })
-          });
-          pill.textContent = next;
-          pill.className   = `status-pill ${next}`;
-          toast(`Status → ${next}`);
-        } catch(err) { toast('Update failed: ' + err.message, 'err'); }
-      });
-    });
-
-    // Task checkboxes
-    sec.querySelectorAll('.task-cb').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        try {
-          await api(`/api/tasks/${cb.dataset.tid}`, {
-            method: 'PATCH', body: JSON.stringify({ status: cb.checked ? 'done' : 'pending' })
-          });
-          cb.closest('.task-row').classList.toggle('done', cb.checked);
-        } catch(err) { toast('Task update failed', 'err'); cb.checked = !cb.checked; }
-      });
-    });
-
-    panel.appendChild(sec);
-  });
-}
-
-/* ════════════════════════════  TAB 4: PREVIEW  ═════════════════════════════ */
+/* ════════════════════════════  TAB 5: PREVIEW  ═════════════════════════════ */
 function loadPreview() {
   if (!S.tour) return;
   const url   = `${S.baseUrl}/api/tours/${S.tour.id}/preview`;
   const frame = document.getElementById('preview-frame');
   document.getElementById('preview-url-label').textContent = url;
-  // Set X-Tenant-ID via query param workaround — preview iframe uses a direct GET
-  // We proxy through a data URL redirect approach since iframes can't set headers.
-  // Instead, use a service-worker-free approach: open in new tab for header injection.
-  // For local dev, the tenant context comes from X-Tenant-ID header so we use a form POST trick.
-  // Simplest: use a blob URL with an auto-posting form.
+  // Simplest: use a blob URL with an auto-posting form pointing at the worker fetch.
   const html = `<!doctype html><html><body>
     <form id="f" method="GET" action="${url}">
     </form>

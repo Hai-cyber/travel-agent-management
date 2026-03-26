@@ -590,7 +590,7 @@ tours.patch('/:tourId/stops/:stopId', async (c) => {
   try { body = await c.req.json(); }
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
-  const ALLOWED = ['label','day_from','day_to','nights','meal_breakfast','meal_lunch','meal_dinner','description','sort_order'];
+  const ALLOWED = ['label','day_from','day_to','nights','meal_breakfast','meal_lunch','meal_dinner','description','services_config','sort_order'];
   const updates = {};
   for (const k of ALLOWED) { if (k in body) updates[k] = body[k]; }
   if (!Object.keys(updates).length) return c.json({ error: 'No updatable fields provided.' }, 400);
