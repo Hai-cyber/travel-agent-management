@@ -21,60 +21,42 @@ Suggested next prompt:
 
 ## Latest Handoff
 Date: 2026-03-26
-Checkpoint: CHK-R18 + CHK-R19
-Git commit: `0583b86` on branch `rescue-minimum`
-Goal of session: Implement bank transfer order system with identity lock, proof upload, revenue tracking, scheduled purge; then add Guest Portal (token-gated) and Booking Widget v1.
+Checkpoint: CHK-R36 + CHK-R36b
+Git commits: `4e38506`, `2d14b0b` on branch `rescue-minimum`
+Goal of session: Redesign the Price Config tab in `public/tour-config.html` to show a customer-facing Booking View (segment tiers, per-pax-type qty controls, live price calculator) instead of the flat admin grid; then add full CRUD for seasons and segments.
 
 ### What was completed this session
 
-**CHK-R18 — Bank Transfer Order System**
-- `db/migrations/0016_booking_orders.sql` — `booking_orders` table, state machine, identity lock, proof columns, cron purge index
-- `wrangler.jsonc` — `BOOKING_PROOFS` R2 bucket + `*/15 * * * *` cron trigger
-- `src/routes/bookings.js` — 4 new endpoints:
-  - `POST /api/bookings/order` (legal firewall, reprice, 48h/72h deadline)
-  - `GET /api/bookings/order/:id` (maskOrder — identity omitted until proof)
-  - `POST /api/bookings/order/:id/proof` (MIME allowlist, 10 MB, R2 upload, identity unlock)
-  - `POST /api/bookings/order/:id/confirm-receipt` (2-step idempotent, revenue increment)
-- `export purgeExpiredOrders(env)` — NULLs guest identity on expired rows (GDPR)
-- `src/index.js` — `scheduled` handler wired
+**CHK-R36 — Price Config tab: Customer Booking View**
+- `public/tour-config.html` — replaced 3-column admin grid with:
+  - **Booking View card** (top): segment tier buttons (auto-select first on load), 4-row pax table (Adult Shared Room, Adult Private Room, Child with parents, Infant) with ±qty steppers and unit price / subtotal columns, travel date input (triggers `POST /api/pricing/calculate` for season-aware total + footnote showing applied season + pax band)
+  - **Collapsible admin `<details>`** (bottom): 2-col grid Seasons + Pax Bands; Segments; Tour Prices table. All existing IDs preserved.
+  - New CSS: `.seg-tab`, `.seg-tab.active`, `.qty-wrap`, `.qty-btn`, `.qty-val`
 
-**CHK-R19 — Guest Portal + Booking Widget v1**
-- Audit confirmed `maskOrder()` and revenue guard logic are correct
-- `db/migrations/0017_booking_order_token.sql` — `secure_token` column + partial unique index
-- `POST /api/bookings/order` now returns `guest_portal_token` + `guest_portal_url`
-- `GET /api/bookings/public/:token` — no-auth guest view (own identity visible, i18n status label, hours_remaining)
-- `POST /api/bookings/public/:token/proof` — token-gated upload, same rules as agent endpoint
-- `public/widget.js` — zero-dep IIFE embed widget (Book Now button, price-check modal, segment compare, i18n en/vi)
-- `test/test_booking_orders.sh` — 15-assertion bash test suite (3 test groups)
-- `docs/ai/03_PROGRESS_LEDGER.md` — CHK-R18 + CHK-R19 detail blocks added
-- `docs/ai/01_CURRENT_STATE.md` — full runtime reality update
+**CHK-R36b — Season/Segment full CRUD + editable dates**
+- Season dates (start/end month+day) now render as 4 editable `<input type="number">` fields — each fires `PATCH /api/pricing/tenant-seasons/:id` on blur
+- **Add Season form**: Name + from month/from day/to month/to day → `POST /api/pricing/tenant-seasons`
+- **Add Segment form**: Label + Code (auto-uppercased) → `POST /api/pricing/pricing-segments`
+- Both season and segment rows already had delete (`×`) buttons from previous session
+- Fixed `updatePricingItem` to correctly handle numeric field values
 
-### Files changed (key)
+### Files changed
 ```
-src/routes/bookings.js          (4 new order endpoints + 2 public routes + purge export)
-db/migrations/0016_booking_orders.sql
-db/migrations/0017_booking_order_token.sql
-public/widget.js
-wrangler.jsonc
-src/index.js
-test/test_booking_orders.sh
-docs/ai/01_CURRENT_STATE.md
+public/tour-config.html   (+264 -76 CHK-R36; +70 -7 CHK-R36b)
 docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/01_CURRENT_STATE.md
 docs/ai/04_SESSION_HANDOFF.md
 ```
 
-### What is still not done
-- `npx wrangler r2 bucket create booking-proofs` — R2 bucket must be created on Cloudflare account before `wrangler deploy`
-- `wrangler dev` was failing (exit code 1) throughout this session — root cause not yet diagnosed (likely esbuild/compat flag issue unrelated to new code; no errors in JS files)
-- Allotment / seat management: `purgeExpiredOrders` logs a TODO for freeing seats — not yet wired
-- Email/Zalo delivery of `guest_portal_url` to guests — no notification system built yet
-- Calendar, billing, site studio, SEO, mobile ops — not started
+### What is still not done / testing in progress
+- Agent has not finished testing the Price Config tab in the running dev server — visual verification partially done, full CRUD flow (add season, add pax band, add segment, add tour price, run calculate) still pending
+- `wrangler dev` runs on port 8787; ensure it is running before testing: `npx wrangler dev`
+- Apply local migrations if needed: `npx wrangler d1 migrations apply travel_agent_db --local`
 
 ### Known risks
-- `wrangler dev` exit 1 must be diagnosed before testing — check `wrangler` version and `compatibility_flags` in `wrangler.jsonc`
-- Tenant `subscription_status` defaults to `'TRIAL'` — tests must set it to `'ACTIVE'` via D1 execute or seed before calling `POST /api/bookings/order`
-- `booking_orders.secure_token` is generated by `nanoid(32)` — ensure migration 0017 is applied before running order creation
-- `public/widget.js` calls `/api/pricing/metadata` which must return `segments[]` — verify that endpoint returns the expected shape
+- Season date PATCH sends values as strings from `<input type="number">`; backend `coerceNumeric()` handles the int conversion — verify on first edit
+- `POST /api/pricing/calculate` requires an existing tour price row matching the selected segment + date's season + pax count band; if no matching row, fallback total is shown (raw sum from base price row)
+- Segment tabs auto-select the first segment on `loadPricing()` — if the tenant has no segments yet, the tab area shows a help message pointing to the Manage section
 
 ### Suggested next prompt
 ```
@@ -82,25 +64,29 @@ Read:
 1. docs/ai/01_CURRENT_STATE.md
 2. docs/ai/03_PROGRESS_LEDGER.md
 
-First: diagnose why `wrangler dev` exits with code 1.
-Run: npx wrangler dev 2>&1 and share the error output.
-Fix the build error without touching any business logic.
+Open http://localhost:8787/tour-config.html
+Connect with tenant ten-demo-001, select a tour.
+Go to Price Config tab and test:
+1. Add a season (name, dates)
+2. Add a segment (label, code)
+3. Add a pax band
+4. Add a tour price row linking them
+5. In Booking View, select the new segment, set qty, pick a travel date → verify grand total appears
+6. Delete a season and a segment — confirm loadPricing() refreshes cleanly
 
-Then: apply pending migrations locally:
-  npx wrangler d1 migrations apply travel_agent_db --local
-
-Then: run the test suite:
-  bash test/test_booking_orders.sh
-
-Report results. Only proceed to the next feature (allotment / notifications)
-once all 15 assertions pass.
+If all pass, CHK-R36 is DONE. Proceed to the next planned feature.
 ```
 
 ---
 
 ## Handoff Archive
 
-### 2026-03-24 — CHK-R08 docs reality reset
-Goal: reset AI control docs so Copilot stops assuming old system is already rebuilt.
-Completed: rewrote 01_CURRENT_STATE, 03_PROGRESS_LEDGER, 04_SESSION_HANDOFF.
-Next was: design stop-based service tables.
+### 2026-03-26 — CHK-R18 + CHK-R19
+Date: 2026-03-26
+Checkpoint: CHK-R18 + CHK-R19
+Git commit: `0583b86` on branch `rescue-minimum`
+Goal of session: Implement bank transfer order system with identity lock, proof upload, revenue tracking, scheduled purge; then add Guest Portal (token-gated) and Booking Widget v1.
+
+What was completed: `booking_orders` table, 4 order endpoints, `purgeExpiredOrders` cron, `secure_token` migration, `GET/POST /api/bookings/public/:token`, `public/widget.js` embed widget, test suite `test/test_booking_orders.sh`.
+
+Files changed: `src/routes/bookings.js`, `db/migrations/0016_booking_orders.sql`, `db/migrations/0017_booking_order_token.sql`, `public/widget.js`, `wrangler.jsonc`, `src/index.js`, `test/test_booking_orders.sh`
