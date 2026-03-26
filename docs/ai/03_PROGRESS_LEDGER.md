@@ -404,6 +404,36 @@ All service CRUD, validation, and task system logic is now implemented and teste
   - /calculate route code enriches via `enrichPricesObject` before responding ✅
   - curl: `curl -X GET http://localhost:8787/api/pricing/tour-prices -H "X-Tenant-ID: ten-demo-001"`
 
+### CHK-R31 — Tour Config Dashboard UI + Tour Stops CRUD
+- Checkpoint: CHK-R31
+- Status: done
+- Files changed:
+  - `src/routes/tours.js` — Added 4 tour stops CRUD endpoints before `export default`
+  - `public/tour-config.html` — New multi-step agent dashboard page (Tour/Content/Stops/Preview/Publish)
+  - `public/dashboard.html` — Agent dashboard home with i18n EN/VI/ZH (CHK-R31 prep)
+  - `public/assets/` + `public/images/` — Verti template static assets copied in
+- Summary:
+  - Backend: `GET/POST/PATCH/DELETE /api/tours/:tourId/stops` — full tenant isolation, nanoid IDs, required-field validation, dynamic PATCH.
+  - Frontend: `public/tour-config.html` — 5-tab workflow (① Tour select/create, ② Content editor, ③ Stops manager, ④ Preview iframe, ⑤ Publish). Same connect-form + X-Tenant-ID pattern as category-manager.html.
+- Risks / TODO:
+  - Preview tab uses a Blob URL trick to inject X-Tenant-ID — works for local dev; a proper auth-token approach needed for production.
+  - Service items per stop: stop IDs shown as copy-chips in tab ③; full service-items UI not yet embedded.
+- Verification:
+  ```bash
+  # List stops for a tour
+  curl http://localhost:8787/api/tours/{TOUR_ID}/stops \
+    -H "X-Tenant-ID: ten-demo-001"
+
+  # Create a stop
+  curl -X POST http://localhost:8787/api/tours/{TOUR_ID}/stops \
+    -H "X-Tenant-ID: ten-demo-001" \
+    -H "Content-Type: application/json" \
+    -d '{ "label": "Day 1: Arrive Hanoi", "day_from": 1, "day_to": 1, "nights": 1, "meal_breakfast": 1 }'
+
+  # Open tour config UI
+  # npx wrangler dev  →  http://localhost:8787/tour-config.html
+  ```
+
 ### YYYY-MM-DD
 - Checkpoint:
 - Status:

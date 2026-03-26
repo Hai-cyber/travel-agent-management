@@ -506,6 +506,114 @@ tours.post('/:id/switch-template', async (c) => {
   });
 });
 
+// ── Tour Stops CRUD ───────────────────────────────────────────────────────────
+
+// GET /api/tours/:tourId/stops — List stops ordered by sort_order / day_from
+tours.get('/:tourId/stops', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const tour = await c.env.DB
+    .prepare('SELECT id FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), tenantId)
+    .first();
+  if (!tour) return c.json({ error: 'Tour not found.' }, 404);
+
+  const { results } = await c.env.DB
+    .prepare('SELECT * FROM tour_stops WHERE tour_id = ? AND tenant_id = ? ORDER BY sort_order ASC, day_from ASC')
+    .bind(c.req.param('tourId'), tenantId)
+    .all();
+
+  return c.json({ ok: true, stops: results });
+});
+
+// POST /api/tours/:tourId/stops — Create a stop
+tours.post('/:tourId/stops', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const tour = await c.env.DB
+    .prepare('SELECT id FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), tenantId)
+    .first();
+  if (!tour) return c.json({ error: 'Tour not found.' }, 404);
+
+  let body;
+  try { body = await c.req.json(); }
+  catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
+
+  if (!body.label)          return c.json({ error: 'Missing required field: label.' }, 400);
+  if (body.day_from == null) return c.json({ error: 'Missing required field: day_from.' }, 400);
+  if (body.day_to   == null) return c.json({ error: 'Missing required field: day_to.' }, 400);
+
+  const id  = nanoid();
+  const now = Math.floor(Date.now() / 1000);
+
+  await c.env.DB
+    .prepare(
+      `INSERT INTO tour_stops
+         (id, tenant_id, tour_id, label, day_from, day_to, nights,
+          meal_breakfast, meal_lunch, meal_dinner, description, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      id, tenantId, c.req.param('tourId'),
+      body.label,
+      Number(body.day_from),
+      Number(body.day_to),
+      Number(body.nights          ?? 0),
+      Number(body.meal_breakfast  ?? 0),
+      Number(body.meal_lunch      ?? 0),
+      Number(body.meal_dinner     ?? 0),
+      body.description ?? null,
+      Number(body.sort_order ?? 0),
+      now
+    )
+    .run();
+
+  return c.json({ ok: true, id, tour_id: c.req.param('tourId') }, 201);
+});
+
+// PATCH /api/tours/:tourId/stops/:stopId — Update a stop
+tours.patch('/:tourId/stops/:stopId', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); }
+  catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
+
+  const ALLOWED = ['label','day_from','day_to','nights','meal_breakfast','meal_lunch','meal_dinner','description','sort_order'];
+  const updates = {};
+  for (const k of ALLOWED) { if (k in body) updates[k] = body[k]; }
+  if (!Object.keys(updates).length) return c.json({ error: 'No updatable fields provided.' }, 400);
+
+  const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+  const values     = [...Object.values(updates), c.req.param('stopId'), c.req.param('tourId'), tenantId];
+
+  const result = await c.env.DB
+    .prepare(`UPDATE tour_stops SET ${setClauses} WHERE id = ? AND tour_id = ? AND tenant_id = ?`)
+    .bind(...values)
+    .run();
+
+  if (result.meta.changes === 0) return c.json({ error: 'Stop not found.' }, 404);
+  return c.json({ ok: true, updated: Object.keys(updates) });
+});
+
+// DELETE /api/tours/:tourId/stops/:stopId — Delete a stop
+tours.delete('/:tourId/stops/:stopId', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const result = await c.env.DB
+    .prepare('DELETE FROM tour_stops WHERE id = ? AND tour_id = ? AND tenant_id = ?')
+    .bind(c.req.param('stopId'), c.req.param('tourId'), tenantId)
+    .run();
+
+  if (result.meta.changes === 0) return c.json({ error: 'Stop not found.' }, 404);
+  return c.json({ ok: true });
+});
+
 // ── Register ──────────────────────────────────────────────────────────────────
 export default function registerTourRoutes(app) {
   app.route('/api/tours', tours);

@@ -1,0 +1,678 @@
+<!DOCTYPE HTML>
+<!--
+  Travel Agent Management — Dashboard
+  Based on Verti by HTML5 UP (html5up.net | @ajlkn)
+  CCA 3.0 license
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title data-i18n="meta.title">Dashboard — Travel Agent Management</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    /* ── Dashboard overrides ── */
+    #logo h1 a { font-size: 18px; }
+    #logo span  { font-size: 12px; color: #aaa; }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px 24px;
+      text-align: center;
+    }
+    .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: #7c3aed; line-height: 1.2; }
+    .stat-card .stat-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef9c3; color: #713f12; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; }
+    .badge-gray   { background: #f1f5f9; color: #475569; }
+
+    table.booking-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.booking-table th {
+      background: #f8fafc; text-align: left;
+      padding: 10px 14px; font-size: 12px;
+      text-transform: uppercase; letter-spacing: .03em; color: #64748b;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    table.booking-table td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; }
+    table.booking-table tr:last-child td { border-bottom: none; }
+    table.booking-table tr:hover td { background: #fafafa; }
+
+    .section-title {
+      font-size: 15px; font-weight: 700; color: #1e293b;
+      margin: 0 0 16px; padding-bottom: 10px;
+      border-bottom: 2px solid #ede9fe;
+    }
+
+    .sidebar-section { margin-bottom: 28px; }
+    .sidebar-section h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 10px; }
+
+    .nav-list { list-style: none; padding: 0; margin: 0; }
+    .nav-list li + li { margin-top: 2px; }
+    .nav-list a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 6px; text-decoration: none;
+      font-size: 14px; color: #334155; transition: background .15s;
+    }
+    .nav-list a:hover  { background: #f1f5f9; color: #7c3aed; }
+    .nav-list a.active { background: #ede9fe; color: #7c3aed; font-weight: 600; }
+    .nav-list .icon { width: 18px; text-align: center; font-size: 15px; }
+
+    .compliance-banner {
+      background: #fef2f2; border: 1px solid #fca5a5;
+      border-radius: 8px; padding: 12px 16px;
+      font-size: 13px; color: #991b1b; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .compliance-banner.ok { background: #f0fdf4; border-color: #86efac; color: #166534; }
+
+    .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
+    .quick-actions a.button { margin: 0; }
+
+    /* hide default banner/features on dashboard */
+    #banner-wrapper, #features-wrapper { display: none; }
+
+    /* ── Language switcher ── */
+    .lang-switcher {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 0 4px 16px;
+    }
+    .lang-btn {
+      background: transparent; border: 1px solid transparent;
+      color: #ccc; padding: 3px 8px; border-radius: 4px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      letter-spacing: .03em; transition: all .15s; line-height: 1;
+    }
+    .lang-btn:hover { border-color: #aaa; color: #fff; }
+    .lang-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .lang-sep { color: #555; font-size: 11px; }
+  </style>
+</head>
+<body class="is-preload left-sidebar">
+<div id="page-wrapper">
+
+  <!-- ── Header / Topbar ── -->
+  <div id="header-wrapper">
+    <header id="header" class="container">
+      <div id="logo">
+        <h1><a href="dashboard.html">🧭 TravelAgent</a></h1>
+        <span data-i18n="meta.subtitle">Management Dashboard</span>
+      </div>
+      <nav id="nav">
+        <ul>
+          <li class="current"><a href="dashboard.html" data-i18n="nav.dashboard">Dashboard</a></li>
+          <li>
+            <a href="#" data-i18n="nav.bookings">Bookings</a>
+            <ul>
+              <li><a href="#" data-i18n="nav.all_orders">All Orders</a></li>
+              <li><a href="#" data-i18n="nav.pending_confirm">Pending Confirmation</a></li>
+              <li><a href="#" data-i18n="nav.pending_payment">Pending Payment</a></li>
+              <li><a href="#" data-i18n="nav.pending_proof">Pending Proof</a></li>
+            </ul>
+          </li>
+          <li><a href="category-manager.html">Site Studio</a></li>
+          <li>
+            <a href="#" data-i18n="nav.settings">Settings</a>
+            <ul>
+              <li><a href="#" data-i18n="nav.payments">Payments</a></li>
+              <li><a href="#" data-i18n="nav.tours_pricing">Tours &amp; Pricing</a></li>
+              <li><a href="#" data-i18n="nav.notifications">Notifications</a></li>
+            </ul>
+          </li>
+          <li><a href="visual-editor.html">Visual Editor</a></li>
+          <li style="display:flex;align-items:center">
+            <div class="lang-switcher">
+              <button class="lang-btn" data-lang="en" onclick="i18n.setLang('en')">EN</button>
+              <span class="lang-sep">|</span>
+              <button class="lang-btn" data-lang="vi" onclick="i18n.setLang('vi')">VI</button>
+              <span class="lang-sep">|</span>
+              <button class="lang-btn" data-lang="zh" onclick="i18n.setLang('zh')" title="中文 (Optional)">ZH</button>
+            </div>
+          </li>
+        </ul>
+      </nav>
+    </header>
+  </div>
+
+  <!-- ── Main Layout ── -->
+  <div id="main-wrapper">
+    <div class="container">
+      <div class="row gtr-200">
+
+        <!-- ── Left Sidebar ── -->
+        <div class="col-3 col-12-medium">
+          <div id="sidebar">
+
+            <div class="sidebar-section">
+              <h4 data-i18n="sidebar.overview">Overview</h4>
+              <ul class="nav-list">
+                <li><a href="dashboard.html" class="active"><span class="icon">📊</span> <span data-i18n="nav.dashboard">Dashboard</span></a></li>
+                <li><a href="#"><span class="icon">📅</span> <span data-i18n="sidebar.booking_calendar">Booking Calendar</span></a></li>
+                <li><a href="#"><span class="icon">💰</span> <span data-i18n="sidebar.revenue">Revenue</span></a></li>
+              </ul>
+            </div>
+
+            <div class="sidebar-section">
+              <h4 data-i18n="sidebar.orders">Orders</h4>
+              <ul class="nav-list">
+                <li><a href="#"><span class="icon">📋</span> <span data-i18n="nav.all_orders">All Orders</span> <span class="badge badge-blue" style="margin-left:auto">24</span></a></li>
+                <li><a href="#"><span class="icon">⏳</span> <span data-i18n="status.awaiting_payment">Awaiting Payment</span> <span class="badge badge-yellow" style="margin-left:auto">7</span></a></li>
+                <li><a href="#"><span class="icon">📄</span> <span data-i18n="status.awaiting_proof">Awaiting Proof</span> <span class="badge badge-yellow" style="margin-left:auto">3</span></a></li>
+                <li><a href="#"><span class="icon">🔒</span> <span data-i18n="status.proof_uploaded">Proof Uploaded</span> <span class="badge badge-red" style="margin-left:auto">2</span></a></li>
+                <li><a href="#"><span class="icon">✅</span> <span data-i18n="status.confirmed">Confirmed</span></a></li>
+                <li><a href="#"><span class="icon">🏨</span> <span data-i18n="status.pending_arrival">Pending Arrival</span> <span class="badge badge-gray" style="margin-left:auto">1</span></a></li>
+              </ul>
+            </div>
+
+            <div class="sidebar-section">
+              <h4 data-i18n="sidebar.manage">Manage</h4>
+              <ul class="nav-list">
+                <li><a href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours_destinations">Tours &amp; Destinations</span></a></li>
+                <li><a href="#"><span class="icon">💲</span> <span data-i18n="sidebar.pricing">Pricing</span></a></li>
+                <li><a href="#"><span class="icon">📦</span> <span data-i18n="sidebar.add_ons">Add-ons</span></a></li>
+                <li><a href="#"><span class="icon">👥</span> <span data-i18n="sidebar.customers">Customers</span></a></li>
+              </ul>
+            </div>
+
+            <div class="sidebar-section">
+              <h4 data-i18n="sidebar.system">System</h4>
+              <ul class="nav-list">
+                <li><a href="category-manager.html"><span class="icon">🎨</span> Site Studio</a></li>
+                <li><a href="visual-editor.html"><span class="icon">✏️</span> Visual Editor</a></li>
+                <li><a href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
+                <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── Main Content ── -->
+        <div class="col-9 col-12-medium imp-medium">
+          <div id="content">
+
+            <!-- Compliance Banner -->
+            <div class="compliance-banner" id="compliance-banner" style="display:none">
+              ⚠️ <strong data-i18n="compliance.warning_title">Warning:</strong>
+              <span data-i18n="compliance.warning_body">No electronic payment gateway configured. Your website is currently offline.</span>
+              <a href="#" data-i18n="compliance.setup_now">Set up now →</a>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+              <a href="#" class="button icon solid fa-plus-circle" data-i18n="action.new_order">New Order</a>
+              <a href="#" class="button icon solid fa-file-invoice-dollar" data-i18n="action.view_reports">View Reports</a>
+              <a href="#" class="button alt icon solid fa-cog" data-i18n="action.payment_settings">Payment Settings</a>
+            </div>
+
+            <!-- Stat Cards -->
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-value">24</div>
+                <div class="stat-label" data-i18n="stat.total_orders">Total Orders</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color:#f59e0b">7</div>
+                <div class="stat-label" data-i18n="stat.pending_payment">Pending Payment</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color:#ef4444">2</div>
+                <div class="stat-label" data-i18n="stat.pending_identity">Pending Identity Confirm</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color:#10b981">15</div>
+                <div class="stat-label" data-i18n="stat.confirmed">Confirmed</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">₫48.2M</div>
+                <div class="stat-label" data-i18n="stat.revenue_month">Revenue This Month</div>
+              </div>
+            </div>
+
+            <!-- Recent Bookings Table -->
+            <h3 class="section-title" data-i18n="table.recent_orders">Recent Orders</h3>
+            <table class="booking-table">
+              <thead>
+                <tr>
+                  <th data-i18n="table.col_id">Order ID</th>
+                  <th data-i18n="table.col_guest">Guest</th>
+                  <th data-i18n="table.col_tour">Tour</th>
+                  <th data-i18n="table.col_payment">Payment</th>
+                  <th data-i18n="table.col_status">Status</th>
+                  <th data-i18n="table.col_date">Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>ORD-001</code></td>
+                  <td data-i18n="table.locked_guest">*** (unverified)</td>
+                  <td>Hà Nội – Hạ Long 3D2N</td>
+                  <td><span class="badge badge-blue">BANK_TRANSFER</span></td>
+                  <td><span class="badge badge-yellow" data-i18n="status.proof_uploaded">Proof Uploaded</span></td>
+                  <td>25/03/2026</td>
+                  <td><a href="#" class="button small" data-i18n="action.confirm">Confirm</a></td>
+                </tr>
+                <tr>
+                  <td><code>ORD-002</code></td>
+                  <td>Nguyễn Văn A</td>
+                  <td>Đà Nẵng – Hội An 2D1N</td>
+                  <td><span class="badge badge-green">MOMO</span></td>
+                  <td><span class="badge badge-green" data-i18n="status.confirmed">Confirmed</span></td>
+                  <td>24/03/2026</td>
+                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
+                </tr>
+                <tr>
+                  <td><code>ORD-003</code></td>
+                  <td data-i18n="table.locked_guest">*** (unverified)</td>
+                  <td>Phú Quốc 4D3N</td>
+                  <td><span class="badge badge-gray">BANK_TRANSFER</span></td>
+                  <td><span class="badge badge-yellow" data-i18n="status.awaiting_proof">Awaiting Proof</span></td>
+                  <td>24/03/2026</td>
+                  <td><a href="#" class="button small" data-i18n="action.remind">Remind</a></td>
+                </tr>
+                <tr>
+                  <td><code>ORD-004</code></td>
+                  <td>Trần Thị B</td>
+                  <td>Sapa Trekking 3D2N</td>
+                  <td><span class="badge badge-green">ZALOPAY</span></td>
+                  <td><span class="badge badge-green" data-i18n="status.confirmed">Confirmed</span></td>
+                  <td>23/03/2026</td>
+                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
+                </tr>
+                <tr>
+                  <td><code>ORD-005</code></td>
+                  <td>Lê Minh C</td>
+                  <td>Mũi Né Resort 2D1N</td>
+                  <td><span class="badge badge-gray">PAY_ON_ARRIVAL</span></td>
+                  <td><span class="badge badge-gray" data-i18n="status.pending_arrival">Pending Arrival</span></td>
+                  <td>22/03/2026</td>
+                  <td><a href="#" class="button small" data-i18n="action.unlock">Unlock</a></td>
+                </tr>
+                <tr>
+                  <td><code>ORD-006</code></td>
+                  <td>—</td>
+                  <td>Ninh Bình Tràng An 1D</td>
+                  <td><span class="badge badge-blue">CREDIT_CARD</span></td>
+                  <td><span class="badge badge-red" data-i18n="status.awaiting_payment">Awaiting Payment</span></td>
+                  <td>22/03/2026</td>
+                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Audit Log -->
+            <h3 class="section-title" style="margin-top:32px" data-i18n="table.audit_log">Identity Audit Log</h3>
+            <table class="booking-table">
+              <thead>
+                <tr>
+                  <th data-i18n="table.col_time">Time</th>
+                  <th data-i18n="table.col_action">Action</th>
+                  <th data-i18n="table.col_id">Order ID</th>
+                  <th data-i18n="table.col_actor">Actor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>25/03 14:22</td>
+                  <td><span class="badge badge-green">IDENTITY_UNLOCK_CONFIRM_RECEIPT</span></td>
+                  <td><code>ORD-002</code></td>
+                  <td>agent:203.0.113.5</td>
+                </tr>
+                <tr>
+                  <td>25/03 09:11</td>
+                  <td><span class="badge badge-blue">INSTANT_UNLOCK_WEBHOOK</span></td>
+                  <td><code>ORD-004</code></td>
+                  <td>webhook:ZALOPAY</td>
+                </tr>
+                <tr>
+                  <td>24/03 17:05</td>
+                  <td><span class="badge badge-yellow">MANUAL_UNLOCK_ARRIVAL</span></td>
+                  <td><code>ORD-005</code></td>
+                  <td>agent:203.0.113.5</td>
+                </tr>
+              </tbody>
+            </table>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div id="footer-wrapper">
+    <footer id="footer" class="container">
+      <div class="row">
+        <div class="col-12">
+          <div id="copyright">
+            <ul class="menu">
+              <li>Travel Agent Management &copy; 2026</li>
+              <li>Template: <a href="https://html5up.net">HTML5 UP</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+</div><!-- /page-wrapper -->
+
+<!-- Scripts -->
+<script src="assets/js/jquery.min.js"></script>
+<script src="assets/js/jquery.dropotron.min.js"></script>
+<script src="assets/js/browser.min.js"></script>
+<script src="assets/js/breakpoints.min.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/main.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   i18n — lightweight translation engine
+   Supported: en (English), vi (Vietnamese), zh (Chinese — optional)
+   Usage: i18n.setLang('vi')  — persisted in localStorage
+   Keys:  data-i18n="key.path"  on any element
+════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    meta: {
+      title:    'Dashboard — Travel Agent Management',
+      subtitle: 'Management Dashboard',
+    },
+    nav: {
+      dashboard:       'Dashboard',
+      bookings:        'Bookings',
+      all_orders:      'All Orders',
+      pending_confirm: 'Pending Confirmation',
+      pending_payment: 'Pending Payment',
+      pending_proof:   'Pending Proof',
+      settings:        'Settings',
+      payments:        'Payments',
+      tours_pricing:   'Tours & Pricing',
+      notifications:   'Notifications',
+    },
+    sidebar: {
+      overview:           'Overview',
+      booking_calendar:   'Booking Calendar',
+      revenue:            'Revenue',
+      orders:             'Orders',
+      manage:             'Manage',
+      tours_destinations: 'Tours & Destinations',
+      pricing:            'Pricing',
+      add_ons:            'Add-ons',
+      customers:          'Customers',
+      system:             'System',
+    },
+    status: {
+      awaiting_payment: 'Awaiting Payment',
+      awaiting_proof:   'Awaiting Proof',
+      proof_uploaded:   'Proof Uploaded',
+      confirmed:        'Confirmed',
+      pending_arrival:  'Pending Arrival',
+    },
+    compliance: {
+      warning_title: 'Warning:',
+      warning_body:  'No electronic payment gateway configured. Your website is currently offline.',
+      setup_now:     'Set up now →',
+    },
+    action: {
+      new_order:        'New Order',
+      view_reports:     'View Reports',
+      payment_settings: 'Payment Settings',
+      confirm:          'Confirm',
+      view:             'View',
+      remind:           'Remind',
+      unlock:           'Unlock',
+    },
+    stat: {
+      total_orders:    'Total Orders',
+      pending_payment: 'Pending Payment',
+      pending_identity:'Pending Identity Confirm',
+      confirmed:       'Confirmed',
+      revenue_month:   'Revenue This Month',
+    },
+    table: {
+      recent_orders: 'Recent Orders',
+      audit_log:     'Identity Audit Log',
+      col_id:        'Order ID',
+      col_guest:     'Guest',
+      col_tour:      'Tour',
+      col_payment:   'Payment',
+      col_status:    'Status',
+      col_date:      'Date',
+      col_time:      'Time',
+      col_action:    'Action',
+      col_actor:     'Actor',
+      locked_guest:  '*** (unverified)',
+    },
+  },
+
+  vi: {
+    meta: {
+      title:    'Bảng điều khiển — Quản lý đại lý du lịch',
+      subtitle: 'Bảng Điều Khiển',
+    },
+    nav: {
+      dashboard:       'Tổng quan',
+      bookings:        'Đặt tour',
+      all_orders:      'Tất cả đơn hàng',
+      pending_confirm: 'Đang chờ xác nhận',
+      pending_payment: 'Chờ thanh toán',
+      pending_proof:   'Chờ chứng từ',
+      settings:        'Cài đặt',
+      payments:        'Thanh toán',
+      tours_pricing:   'Tour & Giá',
+      notifications:   'Thông báo',
+    },
+    sidebar: {
+      overview:           'Tổng quan',
+      booking_calendar:   'Lịch đặt tour',
+      revenue:            'Doanh thu',
+      orders:             'Đặt hàng',
+      manage:             'Quản lý',
+      tours_destinations: 'Tours & Điểm đến',
+      pricing:            'Bảng giá',
+      add_ons:            'Dịch vụ bổ sung',
+      customers:          'Khách hàng',
+      system:             'Hệ thống',
+    },
+    status: {
+      awaiting_payment: 'Chờ thanh toán',
+      awaiting_proof:   'Chờ chứng từ',
+      proof_uploaded:   'Đã gửi chứng từ',
+      confirmed:        'Đã xác nhận',
+      pending_arrival:  'Chờ nhận phòng',
+    },
+    compliance: {
+      warning_title: 'Cảnh báo:',
+      warning_body:  'Chưa cấu hình cổng thanh toán điện tử. Website đang bị tắt.',
+      setup_now:     'Thiết lập ngay →',
+    },
+    action: {
+      new_order:        'Tạo đơn mới',
+      view_reports:     'Xem báo cáo',
+      payment_settings: 'Cài đặt thanh toán',
+      confirm:          'Xác nhận',
+      view:             'Xem',
+      remind:           'Nhắc nhở',
+      unlock:           'Mở khoá',
+    },
+    stat: {
+      total_orders:    'Tổng đơn hàng',
+      pending_payment: 'Chờ thanh toán',
+      pending_identity:'Chờ xác nhận danh tính',
+      confirmed:       'Đã xác nhận',
+      revenue_month:   'Doanh thu tháng này',
+    },
+    table: {
+      recent_orders: 'Đơn hàng gần đây',
+      audit_log:     'Nhật ký danh tính (Audit Log)',
+      col_id:        'Mã đơn',
+      col_guest:     'Khách hàng',
+      col_tour:      'Tour',
+      col_payment:   'Thanh toán',
+      col_status:    'Trạng thái',
+      col_date:      'Ngày tạo',
+      col_time:      'Thời gian',
+      col_action:    'Hành động',
+      col_actor:     'Tác nhân',
+      locked_guest:  '*** (chưa xác nhận)',
+    },
+  },
+
+  // ── Chinese Simplified (optional) ────────────────────────────
+  zh: {
+    meta: {
+      title:    '控制台 — 旅行社管理系统',
+      subtitle: '管理控制台',
+    },
+    nav: {
+      dashboard:       '仪表盘',
+      bookings:        '订单',
+      all_orders:      '所有订单',
+      pending_confirm: '待确认',
+      pending_payment: '待付款',
+      pending_proof:   '待凭证',
+      settings:        '设置',
+      payments:        '支付',
+      tours_pricing:   '行程 & 定价',
+      notifications:   '通知',
+    },
+    sidebar: {
+      overview:           '概览',
+      booking_calendar:   '预订日历',
+      revenue:            '收入',
+      orders:             '订单管理',
+      manage:             '管理',
+      tours_destinations: '行程 & 目的地',
+      pricing:            '价格表',
+      add_ons:            '附加服务',
+      customers:          '客户',
+      system:             '系统',
+    },
+    status: {
+      awaiting_payment: '待付款',
+      awaiting_proof:   '待上传凭证',
+      proof_uploaded:   '已上传凭证',
+      confirmed:        '已确认',
+      pending_arrival:  '待到店',
+    },
+    compliance: {
+      warning_title: '警告：',
+      warning_body:  '未配置电子支付网关，您的网站当前已下线。',
+      setup_now:     '立即设置 →',
+    },
+    action: {
+      new_order:        '新建订单',
+      view_reports:     '查看报告',
+      payment_settings: '支付设置',
+      confirm:          '确认',
+      view:             '查看',
+      remind:           '提醒',
+      unlock:           '解锁',
+    },
+    stat: {
+      total_orders:    '总订单数',
+      pending_payment: '待付款',
+      pending_identity:'待身份确认',
+      confirmed:       '已确认',
+      revenue_month:   '本月收入',
+    },
+    table: {
+      recent_orders: '最近订单',
+      audit_log:     '身份审计日志',
+      col_id:        '订单编号',
+      col_guest:     '客户',
+      col_tour:      '行程',
+      col_payment:   '支付方式',
+      col_status:    '状态',
+      col_date:      '创建日期',
+      col_time:      '时间',
+      col_action:    '操作',
+      col_actor:     '执行者',
+      locked_guest:  '*** (未验证)',
+    },
+  },
+};
+
+/* ── Engine ── */
+const i18n = (() => {
+  const STORAGE_KEY = 'tam_lang';
+  const FALLBACK    = 'en';
+
+  function get(lang, keyPath) {
+    const parts = keyPath.split('.');
+    let node = TRANSLATIONS[lang] || TRANSLATIONS[FALLBACK];
+    for (const p of parts) { node = node?.[p]; if (node === undefined) break; }
+    if (node === undefined) {
+      node = TRANSLATIONS[FALLBACK];
+      for (const p of parts) { node = node?.[p]; if (node === undefined) break; }
+    }
+    return node ?? keyPath;
+  }
+
+  function apply(lang) {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key  = el.getAttribute('data-i18n');
+      const text = get(lang, key);
+      if (el.tagName === 'TITLE') { el.textContent = text; return; }
+      // only update leaf nodes — skip elements whose children also have data-i18n
+      const hasChildKeys = [...el.children].some(c => c.hasAttribute('data-i18n'));
+      if (!hasChildKeys) el.textContent = text;
+    });
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+  }
+
+  function setLang(lang) {
+    if (!TRANSLATIONS[lang]) lang = FALLBACK;
+    localStorage.setItem(STORAGE_KEY, lang);
+    apply(lang);
+  }
+
+  function init() {
+    const saved     = localStorage.getItem(STORAGE_KEY);
+    const browser   = navigator.language?.split('-')[0];
+    const preferred = saved || (TRANSLATIONS[browser] ? browser : FALLBACK);
+    apply(preferred);
+  }
+
+  return { setLang, init };
+})();
+
+/* ── Compliance check ── */
+(async () => {
+  try {
+    const res = await fetch('/api/tenant/config', { headers: { 'x-api-key': 'dev' } });
+    if (!res.ok) return;
+    const { value } = await res.json();
+    const methods  = value?.config?.payment_methods ?? [];
+    const GATEWAYS = ['stripe','paypal','momo','zalopay','vnpay','grabpay'];
+    const ok = methods.some(m => m.enabled && GATEWAYS.includes(m.id));
+    if (!ok) document.getElementById('compliance-banner').style.display = 'flex';
+  } catch (_) { /* API unavailable — static preview mode */ }
+})();
+
+document.addEventListener('DOMContentLoaded', () => i18n.init());
+</script>
+</body>
+</html>

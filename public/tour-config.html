@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tour Config — Agent Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: #1e1e2e; color: #cdd6f4; padding: 0 20px;
+      display: flex; align-items: center; gap: 16px; height: 52px;
+      border-bottom: 2px solid #313244;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 700; color: #cba6f7; flex-shrink: 0; }
+    .connect-form { display: flex; gap: 8px; align-items: center; flex: 1; }
+    .connect-form input {
+      background: #313244; border: 1px solid #45475a; color: #cdd6f4;
+      padding: 5px 10px; border-radius: 5px; font-size: 13px; font-family: monospace;
+    }
+    .connect-form input:focus { outline: none; border-color: #cba6f7; }
+    #input-base   { width: 220px; }
+    #input-tenant { width: 200px; }
+    .btn-connect {
+      background: #cba6f7; color: #1e1e2e; border: none; border-radius: 5px;
+      padding: 5px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-connect:hover { background: #b4befe; }
+    #connect-status { font-size: 12px; color: #a6e3a1; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
+    .topbar-right a:hover { color: #cdd6f4; }
+
+    /* ── Tabs ── */
+    .tabs {
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      display: flex; padding: 0 24px; gap: 2px; position: sticky; top: 0; z-index: 10;
+    }
+    .tab-btn {
+      background: none; border: none; cursor: pointer; padding: 13px 20px;
+      font-size: 14px; font-weight: 600; color: #64748b;
+      border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
+    }
+    .tab-btn:hover { color: #7c3aed; }
+    .tab-btn.active { color: #7c3aed; border-bottom-color: #7c3aed; }
+    .tab-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Layout ── */
+    .page-body { display: flex; gap: 0; min-height: calc(100vh - 92px); }
+    .panel { display: none; flex: 1; padding: 28px 32px; max-width: 1000px; }
+    .panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      margin-bottom: 24px; overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px; border-bottom: 1px solid #f1f5f9;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .card-header h2 { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .card-body { padding: 20px; }
+
+    /* ── Forms ── */
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+    .field input, .field select, .field textarea {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 6px;
+      padding: 8px 11px; font-size: 14px; color: #1e293b; background: #fff;
+      font-family: inherit;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.08);
+    }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .field-row { display: grid; gap: 12px; }
+    .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .field-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .field-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .field small { font-size: 11px; color: #94a3b8; margin-top: 3px; display: block; }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none; border-radius: 6px; padding: 8px 16px;
+      font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary   { background: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-success   { background: #059669; color: #fff; }
+    .btn-success:hover { background: #047857; }
+    .btn-danger    { background: #dc2626; color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-ghost     { background: #f3f4f6; color: #374151; border: 1px solid #e2e8f0; }
+    .btn-ghost:hover { background: #e5e7eb; }
+    .btn-sm        { padding: 5px 10px; font-size: 12px; }
+    .btn:disabled  { opacity: .5; cursor: not-allowed; }
+    .btn-row       { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    /* ── Tour selector list ── */
+    .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .tour-item {
+      display: flex; align-items: center; gap: 12px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 10px 14px; cursor: pointer; transition: all .15s;
+    }
+    .tour-item:hover { border-color: #c4b5fd; background: #f5f3ff; }
+    .tour-item.selected { border-color: #7c3aed; background: #ede9fe; }
+    .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; }
+    .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-draft    { background: #fef3c7; color: #92400e; }
+    .badge-on_sale  { background: #d1fae5; color: #065f46; }
+    .badge-active   { background: #dbeafe; color: #1e40af; }
+    .badge-inactive { background: #f3f4f6; color: #6b7280; }
+
+    /* ── Stops table ── */
+    table.stop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.stop-table th {
+      background: #f8fafc; text-align: left; padding: 9px 12px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #64748b;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    table.stop-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    table.stop-table tr:last-child td { border-bottom: none; }
+    table.stop-table tr:hover td { background: #fafafa; }
+    .meal-icons { display: flex; gap: 3px; font-size: 14px; }
+    .meal-icon.off { opacity: .2; }
+
+    /* ── Stop add form ── */
+    .stop-add-form {
+      background: #f8fafc; border-top: 1px solid #e2e8f0;
+      padding: 16px 20px;
+    }
+    .stop-add-form h4 { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .checkbox-row { display: flex; align-items: center; gap: 16px; }
+    .checkbox-row label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+    .checkbox-row input[type=checkbox] { width: 15px; height: 15px; accent-color: #7c3aed; }
+
+    /* ── Itinerary builder ── */
+    .itin-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .itin-item {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .itin-day-badge {
+      background: #ede9fe; color: #6d28d9; border-radius: 6px;
+      padding: 3px 9px; font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .itin-content { flex: 1; }
+    .itin-title { font-weight: 600; font-size: 13px; }
+    .itin-desc  { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    /* ── Preview panel ── */
+    #preview-frame {
+      width: 100%; height: calc(100vh - 200px);
+      border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
+    }
+    .preview-toolbar {
+      display: flex; gap: 10px; align-items: center;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .preview-toolbar span { font-size: 12px; color: #94a3b8; flex: 1; font-family: monospace; }
+
+    /* ── Publish result ── */
+    .publish-result {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;
+      padding: 16px 20px; margin-top: 16px; font-size: 13px; display: none;
+    }
+    .publish-result.err { background: #fef2f2; border-color: #fca5a5; }
+    .publish-result h4 { font-weight: 700; margin-bottom: 6px; }
+    .publish-result code { font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+
+    /* ── Empty / Loading ── */
+    .empty-state { padding: 32px; text-align: center; color: #94a3b8; font-size: 14px; }
+    .loading { color: #94a3b8; font-size: 13px; padding: 20px; }
+
+    /* ── Copy badge ── */
+    .copy-id {
+      font-family: monospace; font-size: 11px; color: #7c3aed;
+      background: #ede9fe; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+      border: none; transition: background .1s;
+    }
+    .copy-id:hover { background: #ddd6fe; }
+
+    /* ── Section selected tour notice ── */
+    .selected-notice {
+      background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; color: #5b21b6; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .selected-notice strong { font-weight: 700; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      color: #fff; opacity: 0; pointer-events: none; transition: opacity .25s;
+      max-width: 340px;
+    }
+    #toast.show { opacity: 1; }
+    #toast.ok  { background: #059669; }
+    #toast.err { background: #dc2626; }
+
+    /* ── Code pill ── */
+    code { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #7c3aed; }
+    hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <h1>🗺 Tour Config</h1>
+  <form class="connect-form" id="connect-form" autocomplete="off">
+    <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" />
+    <input type="text" id="input-tenant" placeholder="Tenant ID …"           spellcheck="false" />
+    <button type="submit" class="btn-connect">Connect</button>
+    <span id="connect-status"></span>
+  </form>
+  <div class="topbar-right">
+    <a href="dashboard.html">← Dashboard</a>
+    <a href="category-manager.html">Category Manager</a>
+  </div>
+</header>
+
+<!-- ── Tabs ── -->
+<nav class="tabs" id="tab-nav">
+  <button class="tab-btn active" data-tab="tours">① Tour</button>
+  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>② Content</button>
+  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>③ Stops</button>
+  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>④ Preview</button>
+  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>⑤ Publish</button>
+</nav>
+
+<!-- ════════════════════════════════  TAB 1: TOUR  ═══════════════════════════ -->
+<section class="panel active" id="panel-tours">
+  <div class="page-body" style="display:grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; max-width: 960px">
+
+    <!-- Left: existing tours -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Existing Tours</h2>
+          <button class="btn btn-primary btn-sm" id="btn-new-tour">+ New</button>
+        </div>
+        <div class="card-body" style="padding:12px">
+          <div class="empty-state" id="tour-list-placeholder">Connect to load tours.</div>
+          <ul class="tour-list" id="tour-list" style="display:none"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: create / inspect -->
+    <div>
+      <!-- Create form (shown when New is clicked) -->
+      <div class="card" id="create-tour-card" style="display:none">
+        <div class="card-header">
+          <h2>Create New Tour</h2>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">✕ Cancel</button>
+        </div>
+        <div class="card-body">
+          <form id="create-tour-form">
+            <div class="field-row cols-2">
+              <div class="field">
+                <label>Title *</label>
+                <input type="text" id="new-title" placeholder="Hà Nội – Hạ Long 3N2Đ" required />
+              </div>
+              <div class="field">
+                <label>Duration Text</label>
+                <input type="text" id="new-duration" placeholder="3 days 2 nights" />
+              </div>
+            </div>
+            <div class="field-row cols-3">
+              <div class="field">
+                <label>Language</label>
+                <select id="new-lang">
+                  <option value="vi">Vietnamese (vi)</option>
+                  <option value="en">English (en)</option>
+                  <option value="zh">Chinese (zh)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Start Date</label>
+                <input type="date" id="new-start-date" />
+              </div>
+              <div class="field">
+                <label>Status</label>
+                <select id="new-status">
+                  <option value="draft">draft</option>
+                  <option value="on_sale">on_sale</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:4px">
+              <button type="submit" class="btn btn-success">✓ Create Tour</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Selected tour info -->
+      <div class="card" id="tour-detail-card" style="display:none">
+        <div class="card-header">
+          <h2 id="tour-detail-title">—</h2>
+          <span class="badge badge-draft" id="tour-detail-badge">draft</span>
+        </div>
+        <div class="card-body">
+          <div class="field-row cols-2" style="font-size:13px; color:#475569; row-gap:10px">
+            <div><strong>ID</strong><br><button class="copy-id" id="tour-detail-id" title="Click to copy"></button></div>
+            <div><strong>Slug</strong><br><code id="tour-detail-slug"></code></div>
+            <div><strong>Language</strong><br><span id="tour-detail-lang"></span></div>
+            <div><strong>Duration</strong><br><span id="tour-detail-duration"></span></div>
+            <div><strong>Start Date</strong><br><span id="tour-detail-startdate"></span></div>
+            <div><strong>Published</strong><br><span id="tour-detail-published"></span></div>
+          </div>
+          <hr />
+          <div class="btn-row">
+            <button class="btn btn-primary"   id="btn-goto-content">② Edit Content →</button>
+            <button class="btn btn-ghost"     id="btn-goto-stops">③ Stops →</button>
+            <button class="btn btn-ghost"     id="btn-goto-preview">④ Preview →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="tour-hint-card">
+        <div class="card-body">
+          <div class="empty-state" style="padding:20px">
+            👈 Select a tour from the list, or click <strong>+ New</strong> to create one.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════  TAB 2: CONTENT  ════════════════════════════ -->
+<section class="panel" id="panel-content">
+  <div id="content-selected-notice" class="selected-notice" style="display:none">
+    Editing: <strong id="content-tour-name-label"></strong>
+    <span style="margin-left:auto;font-size:11px;color:#7c3aed;font-family:monospace" id="content-tour-id-label"></span>
+  </div>
+
+  <!-- Basic fields (PATCH /api/tours/:id) -->
+  <div class="card">
+    <div class="card-header"><h2>Tour Metadata</h2></div>
+    <div class="card-body">
+      <form id="meta-form">
+        <div class="field-row cols-2">
+          <div class="field">
+            <label>Title</label>
+            <input type="text" id="meta-title" placeholder="Hà Nội – Hạ Long 3N2Đ" />
+          </div>
+          <div class="field">
+            <label>Duration Text</label>
+            <input type="text" id="meta-duration" placeholder="3 ngày 2 đêm" />
+          </div>
+        </div>
+        <div class="field-row cols-3">
+          <div class="field">
+            <label>Status</label>
+            <select id="meta-status">
+              <option value="draft">draft</option>
+              <option value="on_sale">on_sale</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Language</label>
+            <select id="meta-lang">
+              <option value="vi">vi</option>
+              <option value="en">en</option>
+              <option value="zh">zh</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Start Date</label>
+            <input type="date" id="meta-start-date" />
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary">💾 Save Metadata</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- content_data editor -->
+  <div class="card">
+    <div class="card-header"><h2>Content Data (website copy)</h2></div>
+    <div class="card-body">
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Tour Name (display)</label>
+          <input type="text" id="cd-tour-name" placeholder="Hà Nội – Hạ Long 3N2Đ" />
+        </div>
+        <div class="field">
+          <label>Tour Code</label>
+          <input type="text" id="cd-tour-code" placeholder="HNX-HAL-3N2D" />
+        </div>
+      </div>
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Base Price (VND / display)</label>
+          <input type="number" id="cd-base-price" placeholder="2500000" />
+        </div>
+        <div class="field">
+          <label>Duration (copy)</label>
+          <input type="text" id="cd-duration" placeholder="3 Days / 2 Nights" />
+        </div>
+      </div>
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Highlights <small style="font-weight:400;text-transform:none">One per line</small></label>
+          <textarea id="cd-highlights" placeholder="Cave cruise&#10;Sunset views&#10;5-star hotel"></textarea>
+        </div>
+        <div class="field">
+          <label>Includes <small style="font-weight:400;text-transform:none">One per line</small></label>
+          <textarea id="cd-includes" placeholder="Hotel 2 nights&#10;Daily breakfast&#10;Tour guide"></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <label>Excludes <small style="font-weight:400;text-transform:none">One per line</small></label>
+        <textarea id="cd-excludes" placeholder="International flights&#10;Travel insurance" style="min-height:60px"></textarea>
+      </div>
+
+      <hr />
+
+      <!-- Itinerary builder -->
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+        <strong style="font-size:13px">Itinerary</strong>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day">+ Add Day</button>
+      </div>
+      <ul class="itin-list" id="itin-list"></ul>
+      <div id="add-day-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px">
+        <div class="field-row cols-3">
+          <div class="field">
+            <label>Day #</label>
+            <input type="number" id="day-num" min="1" value="1" />
+          </div>
+          <div class="field" style="grid-column: span 2">
+            <label>Title</label>
+            <input type="text" id="day-title" placeholder="Arrival in Hanoi" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at Noi Bai airport…"></textarea>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-save-day">+ Add</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-day">Cancel</button>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:8px">
+        <button type="button" class="btn btn-success" id="btn-save-content">💾 Save Content</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════  TAB 3: STOPS  ══════════════════════════════ -->
+<section class="panel" id="panel-stops">
+  <div class="selected-notice" id="stops-notice" style="display:none">
+    Stops for: <strong id="stops-tour-label"></strong>
+    <span style="margin-left:auto;font-size:11px;color:#7c3aed">Each stop generates a <code>stop_id</code> for service items</span>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Tour Stops (Itinerary Segments)</h2>
+      <button class="btn btn-primary btn-sm" id="btn-refresh-stops">↺ Refresh</button>
+    </div>
+    <div id="stops-table-wrap">
+      <div class="empty-state">Select a tour first.</div>
+    </div>
+
+    <!-- Add stop form -->
+    <div class="stop-add-form" id="stop-add-form" style="display:none">
+      <h4>Add Stop</h4>
+      <div class="field-row cols-4" style="margin-bottom:12px">
+        <div class="field" style="grid-column: span 2">
+          <label>Label *</label>
+          <input type="text" id="s-label" placeholder="Day 1: Arrive in Hanoi" />
+        </div>
+        <div class="field">
+          <label>Day From *</label>
+          <input type="number" id="s-day-from" min="1" value="1" />
+        </div>
+        <div class="field">
+          <label>Day To *</label>
+          <input type="number" id="s-day-to" min="1" value="1" />
+        </div>
+      </div>
+      <div class="field-row cols-4" style="margin-bottom:12px">
+        <div class="field">
+          <label>Nights</label>
+          <input type="number" id="s-nights" min="0" value="0" />
+        </div>
+        <div class="field">
+          <label>Sort Order</label>
+          <input type="number" id="s-sort" min="0" value="0" />
+        </div>
+        <div class="field" style="grid-column: span 2">
+          <label>Description</label>
+          <input type="text" id="s-desc" placeholder="Optional description…" />
+        </div>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:14px">
+        <label><input type="checkbox" id="s-breakfast" /> 🌅 Breakfast</label>
+        <label><input type="checkbox" id="s-lunch" />    🌞 Lunch</label>
+        <label><input type="checkbox" id="s-dinner" />   🌙 Dinner</label>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-success" id="btn-add-stop">+ Add Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Items shortcut -->
+  <div class="card" id="service-items-hint" style="display:none">
+    <div class="card-header"><h2>Service Items</h2></div>
+    <div class="card-body">
+      <p style="font-size:13px; color:#475569; margin-bottom:12px">
+        Use a Stop ID below with the service items endpoints:<br>
+        <code>POST /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}</code>
+      </p>
+      <div id="stop-id-chips" style="display:flex; flex-wrap:wrap; gap:8px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════  TAB 4: PREVIEW  ════════════════════════════ -->
+<section class="panel" id="panel-preview">
+  <div class="preview-toolbar">
+    <span id="preview-url-label">—</span>
+    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">↺ Reload</button>
+    <button class="btn btn-primary btn-sm" id="btn-open-preview">↗ Open in tab</button>
+  </div>
+  <iframe id="preview-frame" src="about:blank" title="Tour Preview"></iframe>
+</section>
+
+<!-- ════════════════════════════  TAB 5: PUBLISH  ════════════════════════════ -->
+<section class="panel" id="panel-publish">
+  <div class="card" style="max-width:600px">
+    <div class="card-header"><h2>Publish Tour</h2></div>
+    <div class="card-body">
+      <div id="publish-selected-notice" class="selected-notice" style="display:none; margin-bottom:16px">
+        Tour: <strong id="publish-tour-label"></strong>
+      </div>
+      <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.7">
+        Publishing renders your tour page from the template + content data and saves it to R2.<br>
+        Requires <strong>ACTIVE subscription</strong> and at least one electronic payment gateway.
+      </p>
+      <div class="field">
+        <label>Template ID <small style="font-weight:400;text-transform:none">(default = "default")</small></label>
+        <input type="text" id="pub-template-id" value="default" placeholder="default" />
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-success" id="btn-publish" disabled>🚀 Publish Now</button>
+        <button class="btn btn-ghost"   id="btn-switch-template" disabled>🔄 Switch Template</button>
+      </div>
+      <div class="publish-result" id="publish-result"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════  STATE  ══════════════════════════════════ */
+const S = {
+  tenantId: localStorage.getItem('tc_tenant') ?? '',
+  baseUrl:  localStorage.getItem('tc_base')   ?? 'http://127.0.0.1:8787',
+  tour:     null,    // selected tour full object
+  tours:    [],
+  stops:    [],
+  itinerary: [],     // local draft for content_data
+};
+
+/* ════════════════════════════════  HELPERS  ════════════════════════════════ */
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 4000);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const h = () => ({
+  'Content-Type':  'application/json',
+  'X-Tenant-ID':   S.tenantId,
+});
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign(h(), opts.headers ?? {});
+  const res  = await fetch(S.baseUrl + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+function unlockTabs() {
+  ['tab-content','tab-stops','tab-preview','tab-publish'].forEach(id => {
+    document.getElementById(id).disabled = !S.tour;
+  });
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.panel')  .forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
+}
+
+function copyText(text) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+  toast('Copied: ' + text);
+}
+
+function badgeClass(status) {
+  return { draft: 'badge-draft', on_sale: 'badge-on_sale', active: 'badge-active' }[status] ?? 'badge-inactive';
+}
+
+/* ════════════════════════════  CONNECT  ════════════════════════════════════ */
+document.getElementById('input-base').value   = S.baseUrl;
+document.getElementById('input-tenant').value = S.tenantId;
+
+document.getElementById('connect-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  S.baseUrl  = document.getElementById('input-base').value.trim().replace(/\/$/, '');
+  S.tenantId = document.getElementById('input-tenant').value.trim();
+  localStorage.setItem('tc_base',   S.baseUrl);
+  localStorage.setItem('tc_tenant', S.tenantId);
+
+  const status = document.getElementById('connect-status');
+  status.textContent = 'Connecting…';
+  try {
+    const data = await api('/api/tours');
+    S.tours = data.tours ?? [];
+    renderTourList();
+    status.textContent = `✓ ${S.tours.length} tours`;
+    toast(`Connected — ${S.tours.length} tour(s) found`);
+  } catch (err) {
+    status.textContent = '✗ error';
+    toast('Connect failed: ' + err.message, 'err');
+  }
+});
+
+/* ════════════════════════════  TAB 1: TOUR  ════════════════════════════════ */
+function renderTourList() {
+  const placeholder = document.getElementById('tour-list-placeholder');
+  const list        = document.getElementById('tour-list');
+  if (!S.tours.length) {
+    placeholder.textContent = 'No tours yet. Click + New.';
+    placeholder.style.display = '';
+    list.style.display = 'none';
+    return;
+  }
+  placeholder.style.display = 'none';
+  list.style.display = '';
+  list.innerHTML = '';
+  S.tours.forEach(t => {
+    const li = document.createElement('li');
+    li.className = 'tour-item' + (S.tour?.id === t.id ? ' selected' : '');
+    li.innerHTML = `
+      <div class="tour-item-title">${esc(t.title)}</div>
+      <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
+      <div class="tour-item-meta">${esc(t.id.slice(0,8))}…</div>`;
+    li.addEventListener('click', () => selectTour(t));
+    list.appendChild(li);
+  });
+}
+
+function selectTour(t) {
+  S.tour = t;
+  renderTourList();
+  unlockTabs();
+
+  // Show detail card
+  document.getElementById('tour-hint-card').style.display        = 'none';
+  document.getElementById('create-tour-card').style.display      = 'none';
+  document.getElementById('tour-detail-card').style.display      = '';
+  document.getElementById('tour-detail-title').textContent       = t.title;
+  document.getElementById('tour-detail-badge').textContent       = t.status;
+  document.getElementById('tour-detail-badge').className         = `badge ${badgeClass(t.status)}`;
+
+  const idBtn = document.getElementById('tour-detail-id');
+  idBtn.textContent = t.id;
+  idBtn.onclick = () => copyText(t.id);
+
+  document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '—';
+  document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '—';
+  document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '—';
+  document.getElementById('tour-detail-startdate').textContent   = t.start_date    ?? '—';
+  document.getElementById('tour-detail-published').textContent   = t.published_at
+    ? new Date(t.published_at * 1000).toLocaleDateString() : 'Not yet';
+
+  // Pre-fill content tab
+  prefillContent(t);
+  // Update publish tab label
+  document.getElementById('publish-selected-notice').style.display = '';
+  document.getElementById('publish-tour-label').textContent = t.title;
+  document.getElementById('btn-publish').disabled          = false;
+  document.getElementById('btn-switch-template').disabled  = false;
+}
+
+document.getElementById('btn-new-tour').addEventListener('click', () => {
+  document.getElementById('create-tour-card').style.display = '';
+  document.getElementById('tour-hint-card').style.display   = 'none';
+  document.getElementById('tour-detail-card').style.display = 'none';
+});
+document.getElementById('btn-cancel-create').addEventListener('click', () => {
+  document.getElementById('create-tour-card').style.display = 'none';
+  document.getElementById('tour-hint-card').style.display   = S.tour ? 'none' : '';
+  document.getElementById('tour-detail-card').style.display = S.tour ? ''     : 'none';
+});
+
+document.getElementById('create-tour-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = {
+    title:         document.getElementById('new-title').value.trim(),
+    duration_text: document.getElementById('new-duration').value.trim() || undefined,
+    lang:          document.getElementById('new-lang').value,
+    start_date:    document.getElementById('new-start-date').value || undefined,
+    status:        document.getElementById('new-status').value,
+  };
+  try {
+    const data = await api('/api/tours', { method: 'POST', body: JSON.stringify(body) });
+    toast(`Tour created: ${data.id}`);
+    // Reload list
+    const listData = await api('/api/tours');
+    S.tours = listData.tours ?? [];
+    const created = S.tours.find(t => t.id === data.id) ?? { ...body, id: data.id, slug: data.slug, status: body.status };
+    renderTourList();
+    selectTour(created);
+    document.getElementById('create-tour-card').style.display = 'none';
+    e.target.reset();
+  } catch (err) {
+    toast('Create failed: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('btn-goto-content').addEventListener('click', () => switchTab('content'));
+document.getElementById('btn-goto-stops').addEventListener('click',   () => { switchTab('stops'); loadStops(); });
+document.getElementById('btn-goto-preview').addEventListener('click', () => { switchTab('preview'); loadPreview(); });
+
+/* ════════════════════════════  TAB 2: CONTENT  ═════════════════════════════ */
+function prefillContent(tour) {
+  const label = document.getElementById('content-tour-name-label');
+  const idlbl = document.getElementById('content-tour-id-label');
+  if (label) { label.textContent = tour.title; document.getElementById('content-selected-notice').style.display = ''; }
+  if (idlbl) idlbl.textContent = tour.id;
+
+  // Metadata fields
+  document.getElementById('meta-title').value       = tour.title     ?? '';
+  document.getElementById('meta-duration').value    = tour.duration_text ?? '';
+  document.getElementById('meta-status').value      = tour.status    ?? 'draft';
+  document.getElementById('meta-lang').value        = tour.lang      ?? 'vi';
+  document.getElementById('meta-start-date').value  = tour.start_date ?? '';
+
+  // content_data
+  let cd = {};
+  if (tour.content_data) {
+    try { cd = typeof tour.content_data === 'string' ? JSON.parse(tour.content_data) : tour.content_data; } catch {}
+  }
+  document.getElementById('cd-tour-name').value   = cd.tour_name  ?? '';
+  document.getElementById('cd-tour-code').value   = cd.tour_code  ?? '';
+  document.getElementById('cd-base-price').value  = cd.base_price ?? '';
+  document.getElementById('cd-duration').value    = cd.duration   ?? '';
+  document.getElementById('cd-highlights').value  = (cd.highlights ?? []).join('\n');
+  document.getElementById('cd-includes').value    = (cd.includes   ?? []).join('\n');
+  document.getElementById('cd-excludes').value    = (cd.excludes   ?? []).join('\n');
+
+  S.itinerary = cd.itinerary ?? [];
+  renderItinerary();
+}
+
+function renderItinerary() {
+  const list = document.getElementById('itin-list');
+  list.innerHTML = '';
+  S.itinerary.forEach((d, i) => {
+    const li = document.createElement('li');
+    li.className = 'itin-item';
+    li.innerHTML = `
+      <span class="itin-day-badge">Day ${d.day}</span>
+      <div class="itin-content">
+        <div class="itin-title">${esc(d.title)}</div>
+        <div class="itin-desc">${esc(d.description ?? '')}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" data-index="${i}" title="Remove">✕</button>`;
+    li.querySelector('[data-index]').addEventListener('click', () => {
+      S.itinerary.splice(i, 1);
+      renderItinerary();
+    });
+    list.appendChild(li);
+  });
+}
+
+document.getElementById('btn-add-day').addEventListener('click', () => {
+  const form = document.getElementById('add-day-form');
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+  if (form.style.display === '') {
+    document.getElementById('day-num').value = (S.itinerary.length + 1).toString();
+  }
+});
+document.getElementById('btn-cancel-day').addEventListener('click', () => {
+  document.getElementById('add-day-form').style.display = 'none';
+});
+document.getElementById('btn-save-day').addEventListener('click', () => {
+  const num   = Number(document.getElementById('day-num').value);
+  const title = document.getElementById('day-title').value.trim();
+  const desc  = document.getElementById('day-desc').value.trim();
+  if (!title) { toast('Day title is required', 'err'); return; }
+  S.itinerary.push({ day: num, title, description: desc });
+  S.itinerary.sort((a, b) => a.day - b.day);
+  renderItinerary();
+  document.getElementById('add-day-form').style.display = 'none';
+  document.getElementById('day-title').value = '';
+  document.getElementById('day-desc').value  = '';
+  toast('Day added');
+});
+
+// Save metadata
+document.getElementById('meta-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  const body = {};
+  const title = document.getElementById('meta-title').value.trim();
+  if (title)  body.title         = title;
+  const dur   = document.getElementById('meta-duration').value.trim();
+  if (dur)    body.duration_text = dur;
+  body.status     = document.getElementById('meta-status').value;
+  body.lang       = document.getElementById('meta-lang').value;
+  const sd = document.getElementById('meta-start-date').value;
+  if (sd) body.start_date = sd;
+  try {
+    await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    Object.assign(S.tour, body);
+    toast('Metadata saved ✓');
+    // Refresh list label
+    const t = S.tours.find(t => t.id === S.tour.id);
+    if (t) Object.assign(t, body);
+    renderTourList();
+  } catch (err) {
+    toast('Save failed: ' + err.message, 'err');
+  }
+});
+
+// Save content_data
+document.getElementById('btn-save-content').addEventListener('click', async () => {
+  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  const lines = t => t.split('\n').map(l => l.trim()).filter(Boolean);
+  const cd = {
+    tour_name:  document.getElementById('cd-tour-name').value.trim()  || undefined,
+    tour_code:  document.getElementById('cd-tour-code').value.trim()  || undefined,
+    base_price: Number(document.getElementById('cd-base-price').value) || undefined,
+    duration:   document.getElementById('cd-duration').value.trim()   || undefined,
+    highlights: lines(document.getElementById('cd-highlights').value),
+    includes:   lines(document.getElementById('cd-includes').value),
+    excludes:   lines(document.getElementById('cd-excludes').value),
+    itinerary:  S.itinerary,
+  };
+  // Clean undefined keys
+  Object.keys(cd).forEach(k => cd[k] === undefined && delete cd[k]);
+  try {
+    await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: cd }) });
+    S.tour.content_data = cd;
+    toast('Content saved ✓');
+  } catch (err) {
+    toast('Save failed: ' + err.message, 'err');
+  }
+});
+
+/* ════════════════════════════  TAB 3: STOPS  ═══════════════════════════════ */
+async function loadStops() {
+  if (!S.tour) return;
+  document.getElementById('stops-notice').style.display      = '';
+  document.getElementById('stops-tour-label').textContent    = S.tour.title;
+  document.getElementById('stop-add-form').style.display     = '';
+
+  const wrap = document.getElementById('stops-table-wrap');
+  wrap.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const data = await api(`/api/tours/${S.tour.id}/stops`);
+    S.stops = data.stops ?? [];
+    renderStopsTable();
+    renderStopChips();
+  } catch (err) {
+    wrap.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderStopsTable() {
+  const wrap = document.getElementById('stops-table-wrap');
+  if (!S.stops.length) {
+    wrap.innerHTML = '<div class="empty-state">No stops yet. Add the first stop below.</div>';
+    document.getElementById('service-items-hint').style.display = 'none';
+    return;
+  }
+  const table = document.createElement('table');
+  table.className = 'stop-table';
+  table.innerHTML = `<thead><tr>
+    <th>#</th><th>Label</th><th>Days</th><th>Nights</th><th>Meals</th>
+    <th>Stop ID</th><th></th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  S.stops.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(String(s.sort_order))}</td>
+      <td>${esc(s.label)}</td>
+      <td>${esc(String(s.day_from))} – ${esc(String(s.day_to))}</td>
+      <td>${esc(String(s.nights))}</td>
+      <td>
+        <div class="meal-icons">
+          <span class="meal-icon ${s.meal_breakfast ? '' : 'off'}" title="Breakfast">🌅</span>
+          <span class="meal-icon ${s.meal_lunch     ? '' : 'off'}" title="Lunch">🌞</span>
+          <span class="meal-icon ${s.meal_dinner    ? '' : 'off'}" title="Dinner">🌙</span>
+        </div>
+      </td>
+      <td><button class="copy-id" data-id="${esc(s.id)}">${esc(s.id.slice(0,10))}…</button></td>
+      <td><button class="btn btn-danger btn-sm" data-del="${esc(s.id)}">✕</button></td>`;
+    tr.querySelector('[data-id]').addEventListener('click', () => copyText(s.id));
+    tr.querySelector('[data-del]').addEventListener('click', () => deleteStop(s.id));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+function renderStopChips() {
+  const hint  = document.getElementById('service-items-hint');
+  const chips = document.getElementById('stop-id-chips');
+  if (!S.stops.length) { hint.style.display = 'none'; return; }
+  hint.style.display = '';
+  chips.innerHTML = '';
+  S.stops.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-id';
+    btn.style.fontSize = '12px';
+    btn.textContent = `${s.label} › ${s.id}`;
+    btn.addEventListener('click', () => copyText(s.id));
+    chips.appendChild(btn);
+  });
+}
+
+async function deleteStop(stopId) {
+  if (!confirm('Delete this stop?')) return;
+  try {
+    await api(`/api/tours/${S.tour.id}/stops/${stopId}`, { method: 'DELETE' });
+    toast('Stop deleted');
+    await loadStops();
+  } catch (err) {
+    toast('Delete failed: ' + err.message, 'err');
+  }
+}
+
+document.getElementById('btn-refresh-stops').addEventListener('click', loadStops);
+
+document.getElementById('btn-add-stop').addEventListener('click', async () => {
+  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  const body = {
+    label:          document.getElementById('s-label').value.trim(),
+    day_from:       Number(document.getElementById('s-day-from').value),
+    day_to:         Number(document.getElementById('s-day-to').value),
+    nights:         Number(document.getElementById('s-nights').value),
+    sort_order:     Number(document.getElementById('s-sort').value),
+    description:    document.getElementById('s-desc').value.trim() || undefined,
+    meal_breakfast: document.getElementById('s-breakfast').checked ? 1 : 0,
+    meal_lunch:     document.getElementById('s-lunch').checked     ? 1 : 0,
+    meal_dinner:    document.getElementById('s-dinner').checked    ? 1 : 0,
+  };
+  if (!body.label) { toast('Label is required', 'err'); return; }
+  try {
+    const data = await api(`/api/tours/${S.tour.id}/stops`, { method: 'POST', body: JSON.stringify(body) });
+    toast(`Stop added: ${data.id}`);
+    // Reset form fields
+    ['s-label','s-desc'].forEach(id => document.getElementById(id).value = '');
+    ['s-breakfast','s-lunch','s-dinner'].forEach(id => document.getElementById(id).checked = false);
+    document.getElementById('s-day-from').value = String(body.day_to + 1);
+    document.getElementById('s-day-to').value   = String(body.day_to + 1);
+    document.getElementById('s-sort').value     = String(body.sort_order + 1);
+    await loadStops();
+  } catch (err) {
+    toast('Add stop failed: ' + err.message, 'err');
+  }
+});
+
+/* ════════════════════════════  TAB 4: PREVIEW  ═════════════════════════════ */
+function loadPreview() {
+  if (!S.tour) return;
+  const url   = `${S.baseUrl}/api/tours/${S.tour.id}/preview`;
+  const frame = document.getElementById('preview-frame');
+  document.getElementById('preview-url-label').textContent = url;
+  // Set X-Tenant-ID via query param workaround — preview iframe uses a direct GET
+  // We proxy through a data URL redirect approach since iframes can't set headers.
+  // Instead, use a service-worker-free approach: open in new tab for header injection.
+  // For local dev, the tenant context comes from X-Tenant-ID header so we use a form POST trick.
+  // Simplest: use a blob URL with an auto-posting form.
+  const html = `<!doctype html><html><body>
+    <form id="f" method="GET" action="${url}">
+    </form>
+    <script>
+      fetch('${url}', {headers:{'X-Tenant-ID':'${S.tenantId}'}})
+        .then(r=>r.text()).then(t=>{
+          document.open();document.write(t);document.close();
+        }).catch(e=>{document.body.innerHTML='<pre>'+e+'</pre>';});
+    <\/script></body></html>`;
+  const blob  = new Blob([html], { type: 'text/html' });
+  const bUrl  = URL.createObjectURL(blob);
+  frame.src   = bUrl;
+}
+
+document.getElementById('btn-reload-preview').addEventListener('click', loadPreview);
+document.getElementById('btn-open-preview').addEventListener('click', () => {
+  if (!S.tour) return;
+  window.open(`${S.baseUrl}/api/tours/${S.tour.id}/preview`, '_blank');
+});
+
+/* ════════════════════════════  TAB 5: PUBLISH  ══════════════════════════════ */
+document.getElementById('btn-publish').addEventListener('click', async () => {
+  if (!S.tour) return;
+  const result = document.getElementById('publish-result');
+  result.style.display = 'none';
+  try {
+    const data = await api(`/api/tours/${S.tour.id}/publish`, { method: 'POST' });
+    result.className   = 'publish-result';
+    result.style.display = '';
+    result.innerHTML   = `
+      <h4>✅ Published Successfully</h4>
+      <p><strong>Slug:</strong> <code>${esc(data.slug)}</code></p>
+      <p><strong>R2 Key:</strong> <code>${esc(data.r2_key)}</code></p>
+      <p><strong>Template:</strong> <code>${esc(data.template_id)}</code></p>
+      <p><strong>Published at:</strong> ${esc(data.published_at)}</p>`;
+    toast('Published ✓');
+    S.tour.status = 'on_sale';
+    const t = S.tours.find(t => t.id === S.tour.id);
+    if (t) t.status = 'on_sale';
+    renderTourList();
+  } catch (err) {
+    result.className   = 'publish-result err';
+    result.style.display = '';
+    result.innerHTML   = `<h4>❌ Publish Failed</h4><p>${esc(err.message)}</p>`;
+    toast('Publish failed: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('btn-switch-template').addEventListener('click', async () => {
+  if (!S.tour) return;
+  const tmplId = document.getElementById('pub-template-id').value.trim();
+  if (!tmplId) { toast('Enter template ID', 'err'); return; }
+  try {
+    const data = await api(`/api/tours/${S.tour.id}/switch-template`, {
+      method: 'POST', body: JSON.stringify({ template_id: tmplId })
+    });
+    toast(`Template switched to "${data.new_template_id}"`);
+  } catch (err) {
+    toast('Switch failed: ' + err.message, 'err');
+  }
+});
+
+/* ════════════════════════════  TAB NAVIGATION  ════════════════════════════ */
+document.getElementById('tab-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn || btn.disabled) return;
+  const tab = btn.dataset.tab;
+  switchTab(tab);
+  if (tab === 'stops')   loadStops();
+  if (tab === 'preview') loadPreview();
+});
+
+/* ════════════════════════════  AUTO-CONNECT  ════════════════════════════════ */
+if (S.tenantId && S.baseUrl) {
+  document.getElementById('connect-form').requestSubmit?.();
+}
+</script>
+</body>
+</html>
