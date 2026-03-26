@@ -1,3 +1,10 @@
+#
+ In this file, add one more explicit rule under the "Rules" / "Non-negotiables" / "Rules" section:
+
+- "Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned."
+
+Do not change anything else.
+
 # Prompt Recipes for Copilot / Cline
 
 ## 1) Small implementation task
@@ -17,6 +24,7 @@ Output format:
 5. update note for `03_PROGRESS_LEDGER.md`
 
 Constraints:
+- Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned.
 - do not invent fields/routes/tables
 - do not refactor unrelated code
 - keep answer compact

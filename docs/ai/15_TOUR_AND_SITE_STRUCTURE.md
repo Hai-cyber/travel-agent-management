@@ -1,3 +1,17 @@
+# > **RUNTIME NOTE:**
+# > Tour data and preview endpoints exist in the rescue runtime. The Site/public layer is **NOT** rebuilt yet. This document describes the intended separation between Tour (data/logic) and Site (presentation), **not** the current runtime implementation.
+
+# 
+Add a "RUNTIME NOTE" near the top of this file:
+
+- Clarify that:
+  - tour data and preview endpoints exist in the rescue runtime
+  - the Site/public layer is NOT rebuilt yet
+- Say explicitly that this document describes the intended separation between Tour (data/logic) and Site (presentation), not current runtime implementation.
+
+Do not change the rest of the content.
+
+
 # TOUR AND SITE STRUCTURE
 
 ## Layers

@@ -1,9 +1,19 @@
+
+> RUNTIME NOTE: This document reflects the CURRENT RUNTIME of the rescue repo. Only features confirmed in 01_CURRENT_STATE.md are considered implemented. All others are planned/target design.
+
 # REALITY CHECK (ANTI-HALLUCINATION)
 
+## Implemented (Rescue runtime truth)
+- Cloudflare Worker runtime with basic shell
+- D1 with tables: tours, destinations, tour_destinations, destination_texts, tenants, tour_stops
+- Preview endpoints:
+	- /api/tours-preview
+	- /api/destinations-preview
+	- /api/tour-destinations-preview
+	- /api/destination-texts-preview
+	- /api/tours-with-destinations
 
-## Implemented
-- Cloudflare Worker runtime with structured observability
-- Tours + tour_stops CRUD with tenant guardrails (tour_stops are canonical itinerary segments)
+## Planned (legacy/target, NOT implemented in rescue repo yet)
 - Service-item operational CRUD (5 groups, linked to tour_stop_id)
 - Task APIs + manual generation + CHK-207 day-1 task auto-creation
 - CHK-208 calendar baseline:
@@ -19,29 +29,6 @@
 - Thread/message handling (email + notes)
 - Static UI shell (Tour/Pricing/Visual) + mini-card service UI (local data)
 - AI documentation layer
-
-> NOTE: Legacy "destination" logic is retained for business intent but is not canonical for itinerary modeling. All operational service items must reference tour_stop_id.
-
-> Pricing model upgrade: Flat season/pax fields are deprecated. Canonical pricing now uses tenant_seasons, pricing_segments, pax_bands, and tour_prices.
-
-> AI doc control: Do not assume legacy-doc completion is canonical for itinerary or pricing; always check for tour_stops and new pricing model.
-
-## NOT Implemented (DO NOT ASSUME)
-
-### UI / Product Surface
-- UI shell is not yet fully connected to all backend operational APIs
-- Consolidated task + communication timeline UI is missing
-- Itinerary preview/composer UI is missing (TODO [CHK-303])
-
-### Platform / Tenant Lifecycle
-
-
-### Growth / Distribution
-
-
-### Integrations
-- Calendar OAuth/live push jobs for Google/iPhone channels are not fully wired
-- Reminder automation scheduler delivery is not yet wired (candidate APIs exist)
 
 ## Rule
 

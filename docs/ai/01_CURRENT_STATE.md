@@ -1,6 +1,9 @@
+
+> RUNTIME NOTE: This file must not claim features as implemented unless 01_CURRENT_STATE.md confirms them. Only the runtime and endpoints listed below are actually implemented; all others are planned/target design.
+
 # Current State Snapshot
 
-Last updated: 2026-03-24
+Last updated: 2026-03-25
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -18,16 +21,42 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Base URL: `http://127.0.0.1:8787`
 - D1 binding: `DB`
 
-### What is confirmed working
-- `/` returns HTML shell
-- `/api/site/config` returns JSON config
-- `/api/db-check` works
-- `/api/tables` works
-- `/api/tours-preview` works
-- `/api/destinations-preview` works
-- `/api/tour-destinations-preview` works
-- `/api/destination-texts-preview` works
-- `/api/tours-with-destinations` works
+
+## Implemented (rescue runtime truth)
+- Cloudflare Worker runtime
+- D1 with tables: tours, destinations, tour_destinations, destination_texts, tenants, tour_stops, stop_accommodations, stop_meals, stop_guides, stop_local_transports, stop_intercity_legs, tasks
+- Preview endpoints:
+  - /api/tours-preview
+  - /api/destinations-preview
+  - /api/tour-destinations-preview
+  - /api/destination-texts-preview
+  - /api/tours-with-destinations
+- Service item CRUD API (CHK‑R09):
+  - All 5 groups implemented: accommodations, meals, guides, local-transports, intercity-legs
+  - POST/GET/PATCH fully working
+  - Schema-aligned payloads
+  - Validation for POST and PATCH implemented (CHK‑R10)
+- Validation (CHK‑R10):
+  - Required-field validation for POST
+  - Unknown-field and empty-body validation for PATCH
+  - No changes to service layer
+- Task System (CHK‑R11):
+  - Task templates for all 5 groups
+  - Auto-generate tasks on POST
+  - GET returns tasks embedded in each service item
+  - PATCH /api/tasks/:taskId updates task status
+  - All 5 test scripts passed (accommodations, meals, guides, local-transports, intercity-legs)
+  - Full integrated test script passed
+
+## Planned / Target (not implemented in rescue repo yet)
+- Calendar endpoints and reminder cadence
+- Domain onboarding flow
+- Publish gate checklist endpoints
+- Billing status endpoints
+- Site studio API baseline
+- Growth/SEO API baseline
+- Mobile ops surface
+
 
 ### Current rebuilt database reality
 Confirmed tables in the rescue rebuild:

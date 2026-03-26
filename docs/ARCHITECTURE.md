@@ -1,3 +1,7 @@
+
+> RUNTIME NOTE: This document describes TARGET PRODUCT DESIGN.
+> Current rescue repo only implements a small subset (see 01_CURRENT_STATE.md).
+
 # Architecture
 
 System context, components, and deployment topology.

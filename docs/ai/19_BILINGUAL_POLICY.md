@@ -1,5 +1,12 @@
+# > These conventions apply to all new code and documentation in the rescue rebuild.
 
----
+#
+> NOTE: These conventions apply to all new code and documentation in the rescue rebuild.
+#
+Add one sentence near the top stating that these conventions apply to all new code and documentation in the rescue rebuild.
+
+Do not change anything else.
+
 
 # 📄 19_BILINGUAL_POLICY.md
 

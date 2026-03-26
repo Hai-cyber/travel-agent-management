@@ -1,0 +1,90 @@
+{
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "active": "Active",
+    "inactive": "Inactive",
+    "draft": "Draft",
+    "published": "Published",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "not_found": "Not found",
+    "required": "Required"
+  },
+  "error": {
+    "missing_tenant": "X-Tenant-ID header is required.",
+    "invalid_json": "Request body is not valid JSON.",
+    "invalid_content_type": "Content-Type must be application/json.",
+    "missing_fields": "Missing required fields: {{fields}}.",
+    "not_found": "Record not found.",
+    "invalid_group": "Invalid group: {{group}}.",
+    "db_error": "A database error occurred. Please try again later.",
+    "unauthorized": "Unauthorized.",
+    "system_error": "Internal server error. Please try again later.",
+    "season_not_found": "We couldn't find a matching season for your travel date. Please contact our support.",
+    "no_pax": "At least 1 adult is required.",
+    "invalid_date": "Invalid date format — expected YYYY-MM-DD (received: \"{{date}}\").",
+    "invalid_pax_count": "{{field}} must be a non-negative integer."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "season": "Season",
+    "segment": "Segment",
+    "pax_band": "Pax Band",
+    "adult_shared": "Adult (Shared Room)",
+    "adult_single": "Adult (Private Room)",
+    "child_shared": "Child (shared with parents)",
+    "base_currency": "Base currency",
+    "exchange_rate": "Exchange rate",
+    "no_price_found": "No matching price found.",
+    "copy_season_success": "Season copied successfully.",
+    "season_overlap": "Season date ranges overlap.",
+    "invalid_month": "Month must be between 1 and 12.",
+    "invalid_day": "Day must be between 1 and 31."
+  },
+  "invoice": {
+    "title": "Invoice",
+    "detail": "Invoice Detail",
+    "grand_total": "Grand Total",
+    "subtotal": "Subtotal",
+    "unit_price": "Unit Price",
+    "qty": "Qty",
+    "adult_shared_room": "Adult (Shared Room)",
+    "adult_private_room": "Adult (Private Room)",
+    "child": "Child (2\u201311 years)",
+    "infant": "Infant (0\u20132 years)"
+  },
+  "tour": {
+    "title": "Tour",
+    "stops": "Stops",
+    "duration": "Duration",
+    "days": "days",
+    "nights": "nights",
+    "departure": "Departure",
+    "arrival": "Arrival",
+    "pax": "Passengers",
+    "adult": "Adult",
+    "child": "Child"
+  },
+  "service": {
+    "accommodation": "Accommodation",
+    "meal": "Meal",
+    "guide": "Tour Guide",
+    "transport_local": "Local Transport",
+    "transport_intercity": "Intercity Transport"
+  },
+  "task": {
+    "status_pending": "Pending",
+    "status_in_progress": "In Progress",
+    "status_done": "Done",
+    "status_cancelled": "Cancelled",
+    "due_date": "Due date"
+  }
+}

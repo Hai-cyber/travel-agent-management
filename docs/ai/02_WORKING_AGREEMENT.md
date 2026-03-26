@@ -1,3 +1,9 @@
+# In this file, add one more explicit rule under the "Rules" / "Non-negotiables" / "Rules" section:
+
+- "Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned."
+
+Do not change anything else.
+
 # Working Agreement for Copilot / Cline
 
 Use this as the first instruction block for AI coding sessions.
@@ -11,6 +17,7 @@ Help implement the tour booking management MVP incrementally, without fabricatin
   - `/docs/ARCHITECTURE.md`
   - `/docs/DOMAIN_MODEL.md`
   - `/docs/API_SPEC.md`
+- Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned.
 - Keep names consistent with existing docs.
 - Do not silently rename tables, routes, bindings, entities, or statuses.
 - If a needed detail is missing, write `TODO([CHK-XXX]: reason)`.

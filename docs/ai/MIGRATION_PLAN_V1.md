@@ -1,4 +1,18 @@
-MIGRATION_PLAN_V1
+> **RUNTIME NOTE:**
+> Only migration **0001** is currently applied in the rescue runtime. Migrations **0002+** in this file are planned and not executed yet. See 01_CURRENT_STATE.md for runtime truth.
+
+Update this migration plan to clearly distinguish what is already applied vs planned.
+
+Source of truth:
+- 01_CURRENT_STATE.md (only base schema is confirmed)
+
+Task:
+1. Add a "RUNTIME NOTE" near the top stating:
+   - only migration 0001 is currently applied in the rescue runtime
+   - migrations 0002+ in this file are planned and not executed yet.
+2. In section "6. First migration to implement now", add a sentence that this migration is the next planned step and is not yet applied.
+Do not change the migration content itself.
+
 1. Current reality
 
 Current rescue runtime is small and working. Confirmed slices:
@@ -294,6 +308,8 @@ no locale formatting engine
 no full booking engine rebuild
 no “sync old docs into runtime” bulk action
 6. First migration to implement now
+
+**Note:** As of now, this migration is **not yet applied**; it is the next planned step.
 
 The first migration that should be implemented immediately is:
 

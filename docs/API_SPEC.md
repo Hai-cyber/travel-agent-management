@@ -1,3 +1,11 @@
+> **RUNTIME NOTE:** This file describes the full target API design. Only preview endpoints and /api/site/config exist in the current rescue runtime. All other endpoints are planned.
+
+> NOTE: This API spec is TARGET DESIGN for the MVP.
+> Unless an endpoint is present in current code and listed in 01_CURRENT_STATE.md, it is NOT implemented yet in the rescue repo.
+
+
+> RUNTIME NOTE: This file is the TARGET API DESIGN for the MVP. Endpoints are NOT implemented unless 01_CURRENT_STATE.md or code confirms them. Only the HTML shell, /api/site/config, and preview endpoints for tours/destinations/tour_stops exist in the rescue repo. All other endpoints are planned only.
+
 # API Spec
 
 Endpoints, request/response schemas, and error conventions.
@@ -6,6 +14,7 @@ Endpoints, request/response schemas, and error conventions.
 # API Spec (MVP)
 
 ## Tours
+Status: not implemented (planned)
 - POST `/api/tours` : create {title, start_date, duration_text, lang, day1_pickup_enabled?, day1_welcome_enabled?}
 - GET  `/api/tours/:id`
 - PATCH `/api/tours/:id` : update fields, status
@@ -19,11 +28,13 @@ Endpoints, request/response schemas, and error conventions.
 
 
 ## Destinations (catalog/reference only)
+Status: not implemented (planned)
 - POST /api/destinations
 - PATCH /api/destinations/:id
 - GET   /api/destinations
 
 ## Tour Stops (canonical itinerary segments)
+Status: not implemented (planned)
 - POST /api/tours/:id/stops
 - PATCH /api/stops/:id
 - GET   /api/tours/:id/stops
@@ -31,6 +42,7 @@ Endpoints, request/response schemas, and error conventions.
 > NOTE: All operational service items must reference tour_stop_id. Legacy endpoints referencing destination_id are retained for business intent only and are not canonical for itinerary modeling.
 
 ## Service Items (5 groups, linked to tour_stop_id)
+Status: not implemented (planned)
 - POST `/api/stops/:id/accommodations`
 - POST `/api/stops/:id/meals`
 - POST `/api/stops/:id/guides`
@@ -41,6 +53,7 @@ Endpoints, request/response schemas, and error conventions.
 - Optional linkage: service items may reference `supplier_id`
 
 ## Suppliers (CHK-209)
+Status: not implemented (planned)
 - POST `/api/suppliers` : create {name, type, contact?, notes?}
 - GET  `/api/suppliers?type=&limit=&offset=`
 - PATCH `/api/suppliers/:id` : update {name?, type?, contact?, notes?}
@@ -63,6 +76,7 @@ Endpoints, request/response schemas, and error conventions.
 	- intercity legs: `depart_time`, `depart_point`, `arrive_point`
 
 ## Pricing Model (upgrade)
+Status: not implemented (planned)
 - Canonical pricing uses:
 	- tenant_seasons
 	- pricing_segments
@@ -71,10 +85,12 @@ Endpoints, request/response schemas, and error conventions.
 - Flat season/pax fields are deprecated.
 
 ## Threads & Messages
+Status: not implemented (planned)
 - POST `/api/threads/:entityType/:entityId/email` : send + log
 - POST `/api/threads/:threadId/note`              : note/call log
 
 ## Tasks (auto khi booking→booked)
+Status: not implemented (planned)
 - GET  `/api/tasks?tourId=&status=`
 - PATCH `/api/tasks/:id` : {status, due_at?}
 
@@ -88,12 +104,14 @@ Endpoints, request/response schemas, and error conventions.
   - 3d before start
 
 ## Calendar (CHK-208)
+Status: not implemented (planned)
 - GET  `/api/calendar/config`
 - POST `/api/calendar/config`
 - GET  `/api/calendar/tours/:id/tasks.ics` (iPhone Calendar-compatible feed)
 - GET  `/api/calendar/tours/:id/google-sync/preview` (Google Calendar event payload preview)
 
 ## Mobile Ops (CHK-304)
+Status: not implemented (planned)
 - GET `/api/mobile/tasks?status=&includeClosed=&limit=&offset=`
 	- mobile-focused task feed with:
 		- quick contact actions (`call`, `sms`, `email`, `whatsapp`, `zalo`)
@@ -108,6 +126,7 @@ Endpoints, request/response schemas, and error conventions.
 	- updates task status from mobile flow (`pending|confirmed|completed|canceled`)
 
 ## Domain Onboarding (CHK-401)
+Status: not implemented (planned)
 - GET `/api/domain/config`
 	- returns tenant domain onboarding status and verification instructions
 	- default state when unset: `status = no_domain`
@@ -125,6 +144,7 @@ Endpoints, request/response schemas, and error conventions.
 - Public publish remains gated separately in CHK-402
 
 ## Publish Gate (CHK-402)
+Status: not implemented (planned)
 - GET `/api/publish/gate`
 	- returns tenant publish checklist state
 	- preview remains available even when publish is blocked
@@ -143,6 +163,7 @@ Endpoints, request/response schemas, and error conventions.
 - `PATCH /api/tours/:id` with `status=on_sale` must be rejected when gate requirements are not satisfied
 
 ## Billing Restrictions (CHK-403)
+Status: not implemented (planned)
 - GET `/api/billing/status`
 	- returns tenant billing standing
 	- creates a default 6-month `trialing` billing record when none exists yet
@@ -160,6 +181,7 @@ Endpoints, request/response schemas, and error conventions.
 - `PATCH /api/tours/:id` with `status=booked` must be rejected when billing does not allow new bookings
 
 ## Site Studio (CHK-404)
+Status: implemented in rescue runtime (only /api/site/config endpoint)
 - GET `/api/site/config`
 	- returns tenant site presentation config
 	- creates default config if tenant has no site settings yet
@@ -222,6 +244,7 @@ Endpoints, request/response schemas, and error conventions.
 - MVP still excludes full drag-drop page composition and complex CMS behavior
 
 ## Growth & SEO (CHK-405)
+Status: not implemented (planned)
 - GET `/api/growth/config`
 	- returns tenant distribution/growth configuration
 	- creates a default config when missing

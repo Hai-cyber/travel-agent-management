@@ -1,181 +1,230 @@
+import { Hono } from 'hono';
+import { formatMoney, formatDateTime, translate, resolveLocaleFromAcceptLanguage } from './utils/formatter.js';
+import {
+  handleCreateServiceItem,
+  handleGetServiceItems,
+  handleUpdateServiceItem
+} from './routes/serviceItems.js';
+import registerTaskRoutes from "./routes/tasks.js";
+import registerTenantRoutes from './routes/tenants.js';
+import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js';
+import registerTourRoutes from './routes/tours.js';
+import registerPricingRoutes, { 
+  handleCreatePricing, 
+  handleGetPricing,
+  handleGetPricingMetadata,
+  handleUpdatePricing,
+  handleDuplicateSeason,
+  handleCopySeason,
+  // [FIX] handleDeletePricing được dùng trong patterns[] nhưng trước đây bị thiếu import
+  handleDeletePricing
+} from './routes/pricing.js';
+
+const app = new Hono();
+
+// ── UTF-8 enforcement middleware ─────────────────────────────────────────────
+// Annotates all JSON responses with charset=utf-8 — critical for Vietnamese
+// place names and special characters sent to international clients.
+app.use('*', async (c, next) => {
+  await next();
+  const ct = c.res.headers.get('content-type') ?? '';
+  if (ct.startsWith('application/json') && !ct.includes('charset')) {
+    const headers = new Headers(c.res.headers);
+    headers.set('content-type', 'application/json; charset=utf-8');
+    c.res = new Response(c.res.body, { status: c.res.status, headers });
+  }
+});
+
+// ── Tenant-context middleware ──────────────────────────────────────────────────
+// Chạy trước mọi Hono route. Đọc X-Tenant-ID → truy vấn tenants → lưu config
+// vào c.set('tenantConfig') và c.set('formatter').
+// Nếu không có header hoặc tenant không tồn tại, tiếp tục (route tự xử lý 400).
+app.use('*', async (c, next) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (tenantId) {
+    const tenant = await c.env.DB
+      .prepare(
+        `SELECT t.default_locale, t.base_currency,
+                t.target_currency AS display_currency, t.exchange_rate,
+                t.pricing_policy, t.infant_policy_text,
+                COALESCE(tcc.timezone, 'Asia/Ho_Chi_Minh') AS timezone
+         FROM tenants t
+         LEFT JOIN tenant_calendar_configs tcc ON tcc.tenant_id = t.id
+         WHERE t.id = ?`
+      )
+      .bind(tenantId)
+      .first();
+
+    if (tenant) {
+      // Accept-Language → UI language for labels/error messages (fallback: 'en')
+      // tenant locale → number/date formatting only
+      const uiLang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
+
+      const config = {
+        tenant_id:          tenantId,
+        locale:             tenant.default_locale    ?? 'en-US',
+        base_currency:      tenant.base_currency     ?? 'USD',
+        display_currency:   tenant.display_currency  ?? 'USD',
+        exchange_rate:      tenant.exchange_rate      ?? 1,
+        timezone:           tenant.timezone           ?? 'Asia/Ho_Chi_Minh',
+        pricing_policy:     tenant.pricing_policy     ?? 'PRIORITY_HIGH_SEASON',
+        infant_policy_text: tenant.infant_policy_text ?? null,
+        lang:               uiLang,
+      };
+
+      c.set('tenantConfig', config);
+
+      // formatter: bound helpers — route chỉ cần gọi formatter.money(amount)
+      c.set('formatter', {
+        /** Số tiền USD → đồng nội địa của tenant, đã format */
+        money: (amount) =>
+          formatMoney(amount, config.locale, config.display_currency, config.exchange_rate),
+
+        /** Số tiền USD → USD, đã format ($1,000.00) */
+        moneyUSD: (amount) =>
+          formatMoney(amount, 'en-US', 'USD'),
+
+        /** Số tiền USD → object dual-currency { usd, local } */
+        moneyBoth: (amount) => ({
+          usd:   formatMoney(amount, 'en-US', 'USD'),
+          local: formatMoney(amount, config.locale, config.display_currency, config.exchange_rate),
+        }),
+
+        /** Ngày (Date | UNIX giây | ISO string) → chuỗi theo locale tenant */
+        date: (d, opts) => formatDateTime(d, config.locale, opts),
+
+        /** Dịch key dot-notation theo ngôn ngữ client (Accept-Language) */
+        t: (key, vars) => translate(key, uiLang, vars),
+      });
+    }
+  }
+  await next();
+});
+
+// Đăng ký các route cho Hono (Task, Pricing, Tenants)
+registerTaskRoutes && registerTaskRoutes(app);
+registerPricingRoutes && registerPricingRoutes(app);
+registerTenantRoutes && registerTenantRoutes(app);
+registerBookingRoutes && registerBookingRoutes(app);
+registerTourRoutes && registerTourRoutes(app);
+
+const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
+const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];
+
+// ĐỊNH NGHĨA MẢNG PATTERNS ĐÚNG CÚ PHÁP
+const patterns = [
+  // Route đặc biệt: duplicate season (phải đứng trước PRICING_GROUPS patterns)
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/pricing/duplicate-season' }),
+    handler: (req, env) => handleDuplicateSeason(req, env)
+  },
+  // Route đặc biệt: copy season
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/pricing/tenant-seasons/:sourceSeasonId/copy' }),
+    handler: (req, env, match) => handleCopySeason(req, env, { sourceSeasonId: match.pathname.groups.sourceSeasonId })
+  },
+  // Route đặc biệt: metadata (phải đứng trước GET /:group)
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/pricing/metadata' }),
+    handler: (req, env) => handleGetPricingMetadata(req, env)
+  },
+
+  // Các route cho Service Items
+  ...SERVICE_GROUPS.map(group => ({
+    method: 'POST',
+    pattern: new URLPattern({ pathname: `/api/stops/:stopId/${group}` }),
+    handler: (req, env, match) => handleCreateServiceItem(req, env, { group, stopId: match.pathname.groups.stopId })
+  })),
+  
+  // Các route cho Pricing (POST)
+  ...PRICING_GROUPS.map(group => ({
+    method: 'POST',
+    pattern: new URLPattern({ pathname: `/api/pricing/${group}` }),
+    handler: (req, env, match) => handleCreatePricing(req, env, { group })
+  })),
+
+  // Các route cho Pricing (GET)
+  ...PRICING_GROUPS.map(group => ({
+    method: 'GET',
+    pattern: new URLPattern({ pathname: `/api/pricing/${group}` }),
+    handler: (req, env, match) => handleGetPricing(req, env, { group })
+  })),
+
+  // Update
+  ...PRICING_GROUPS.map(group => ({
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: `/api/pricing/${group}/:itemId` }),
+    handler: (req, env, match) => handleUpdatePricing(req, env, { 
+      group, 
+      itemId: match.pathname.groups.itemId 
+    })
+  })),
+
+  // Xóa sau thử
+  ...PRICING_GROUPS.map(group => ({
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: `/api/pricing/${group}/:itemId` }),
+    handler: (req, env, match) => handleDeletePricing(req, env, { group, itemId: match.pathname.groups.itemId })
+  })),
+];
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/") {
-      return new Response(
-        `<!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Travel Agent Management</title>
-          </head>
-          <body>
-  <h1>Travel Agent Management</h1>
-  <p id="status">Loading...</p>
+    // ── Custom domain routing ────────────────────────────────────────────────
+    // If the incoming Host header matches a tenant's custom_domain, serve the
+    // pre-rendered R2 page directly — bypassing all API routing.
+    // Only activates for hosts that are NOT the Workers or localhost origins.
+    const host = request.headers.get('host') ?? '';
+    if (host && !host.includes('workers.dev') && !host.includes('localhost')) {
+      const tenantByDomain = await env.DB
+        .prepare('SELECT id, subscription_status FROM tenants WHERE custom_domain = ?')
+        .bind(host)
+        .first();
 
-  <script>
-    fetch('/api/site/config')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('status').innerText =
-          'API OK: ' + data.name + ' (' + data.version + ')';
-      })
-      .catch(err => {
-        document.getElementById('status').innerText =
-          'API ERROR';
-      });
-  </script>
-</body>
-        </html>`,
-        {
-          headers: {
-            "Content-Type": "text/html; charset=utf-8",
-          },
+      if (tenantByDomain && tenantByDomain.subscription_status === 'ACTIVE') {
+        // Map /  →  index.html,  /ha-long-3n2d  →  ha-long-3n2d.html
+        const rawSlug = url.pathname.replace(/^\/+/, '').replace(/\.html$/, '') || 'index';
+        // [SEC] Prevent path traversal — allow only slug-safe characters
+        const safeSlug = rawSlug.replace(/[^a-z0-9_-]/gi, '');
+        if (safeSlug) {
+          const r2Key = `${tenantByDomain.id}/${safeSlug}.html`;
+          const obj   = await env.TOUR_PAGES?.get(r2Key);
+          if (obj) {
+            return new Response(await obj.text(), {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            });
+          }
         }
-      );
-    }
-
-    if (url.pathname === "/api/site/config") {
-  return new Response(
-    JSON.stringify({
-      name: "Travel Agent Management",
-      version: "rescue-1",
-      status: "ok"
-    }),
-    {
-      headers: {
-        "Content-Type": "application/json"
+        // If no page found, fall through to normal routing (e.g. API calls on custom domain)
       }
     }
-  );
-}
-    if (url.pathname === "/message") {
-      return new Response("Hello, World!");
+
+    // Kiểm tra mảng patterns thủ công
+    for (const p of patterns) {
+      const match = p.pattern.exec(url.pathname);
+      if (match && request.method === p.method) {
+        return p.handler(request, env, match);
+      }
     }
 
-    if (url.pathname === "/random") {
-      return new Response(crypto.randomUUID());
-    }
-
-    if (url.pathname === "/api/db-check") {
-  const result = await env.DB.prepare("SELECT 1 as ok").first();
-
-  return new Response(JSON.stringify(result), {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-    if (url.pathname === "/api/tables") {
-  const rows = await env.DB.prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-  ).all();
-
-  return new Response(JSON.stringify(rows.results), {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-    if (url.pathname === "/api/destinations-preview") {
-  const { results } = await env.DB.prepare(`
-    SELECT id, code, name, is_active, created_at
-    FROM destinations
-    ORDER BY id DESC
-  `).all();
-
-  return Response.json(results);
-}
-
-    if (url.pathname === "/api/destination-texts-preview") {
-  const { results } = await env.DB.prepare(`
-    SELECT
-      dt.id,
-      dt.destination_id,
-      d.name AS destination_name,
-      dt.lang_code,
-      dt.title,
-      dt.summary,
-      dt.content,
-      dt.created_at
-    FROM destination_texts dt
-    JOIN destinations d ON dt.destination_id = d.id
-    ORDER BY dt.id ASC
-  `).all();
-
-  return Response.json(results);
-}
-
-if (url.pathname === "/api/tour-destinations-preview") {
-  const { results } = await env.DB.prepare(`
-    SELECT
-      td.id,
-      td.tour_id,
-      t.name AS tour_name,
-      td.destination_id,
-      d.name AS destination_name,
-      td.sort_order,
-      td.created_at
-    FROM tour_destinations td
-    JOIN tours t ON td.tour_id = t.id
-    JOIN destinations d ON td.destination_id = d.id
-    ORDER BY td.sort_order ASC, td.id ASC
-  `).all();
-
-  return Response.json(results);
-}
-
+    // Các route đặc biệt khác
     if (url.pathname === "/api/tours-preview") {
-  const rows = await env.DB.prepare("SELECT * FROM tours LIMIT 5").all();
+      const rows = await env.DB.prepare("SELECT * FROM tours LIMIT 5").all();
+      return Response.json(rows.results);
+    }
 
-  return new Response(JSON.stringify(rows.results, null, 2), {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
+    // Nếu không khớp pattern nào, chuyển cho Hono xử lý
+    return app.fetch(request, env, ctx);
+  },
 
-    if (url.pathname === "/api/tours-with-destinations") {
-  // 1. lấy tất cả tours
-  const { results: tours } = await env.DB.prepare(`
-    SELECT id, name
-    FROM tours
-    ORDER BY id ASC
-  `).all();
-
-  // 2. lấy tất cả relations
-  const { results: relations } = await env.DB.prepare(`
-    SELECT
-      td.tour_id,
-      d.id AS destination_id,
-      d.name AS destination_name
-    FROM tour_destinations td
-    JOIN destinations d ON td.destination_id = d.id
-    ORDER BY td.sort_order ASC
-  `).all();
-
-  // 3. gộp dữ liệu
-  const result = tours.map(tour => {
-    const destinations = relations
-      .filter(r => r.tour_id === tour.id)
-      .map(r => ({
-        id: r.destination_id,
-        name: r.destination_name
-      }));
-
-    return {
-      ...tour,
-      destinations
-    };
-  });
-
-  return Response.json(result);
-}
-
-    return new Response("Not Found", { status: 404 });
+  // Scheduled purge — cron "*/15 * * * *" (configured in wrangler.jsonc triggers.crons)
+  // Expires AWAITING_PROOF orders past payment_deadline; NULLs guest identity (data minimisation).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(purgeExpiredOrders(env));
   },
 };

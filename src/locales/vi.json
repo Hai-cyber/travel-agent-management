@@ -1,0 +1,85 @@
+{
+  "common": {
+    "yes": "Có",
+    "no": "Không",
+    "active": "Hoạt động",
+    "inactive": "Ngừng hoạt động",
+    "draft": "Bản nháp",
+    "published": "Đã xuất bản",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "create": "Tạo mới",
+    "search": "Tìm kiếm",
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "not_found": "Không tìm thấy",
+    "required": "Bắt buộc"
+  },
+  "error": {
+    "missing_tenant": "Header X-Tenant-ID là bắt buộc",
+    "invalid_json": "Request body không phải JSON hợp lệ",
+    "invalid_content_type": "Content-Type phải là application/json",
+    "missing_fields": "Thiếu tham số bắt buộc: {{fields}}",
+    "not_found": "Không tìm thấy bản ghi",
+    "invalid_group": "Nhóm không hợp lệ: {{group}}",
+    "db_error": "Lỗi cơ sở dữ liệu",
+    "unauthorized": "Không có quyền truy cập"
+  },
+  "pricing": {
+    "title": "Bảng giá",
+    "season": "Mùa",
+    "segment": "Phân khúc",
+    "pax_band": "Nhóm hành khách",
+    "adult_shared": "Người lớn (phòng đôi)",
+    "adult_single": "Người lớn (phòng đơn)",
+    "child_shared": "Trẻ em (ghép phòng)",
+    "base_currency": "Tiền tệ gốc",
+    "exchange_rate": "Tỷ giá",
+    "no_price_found": "Không tìm thấy mức giá phù hợp",
+    "copy_season_success": "Nhân bản mùa thành công",
+    "season_overlap": "Khoảng thời gian mùa bị trùng lặp",
+    "invalid_month": "Tháng phải từ 1 đến 12",
+    "invalid_day": "Ngày phải từ 1 đến 31"
+  },
+  "tour": {
+    "title": "Tour du lịch",
+    "stops": "Điểm dừng",
+    "duration": "Thời gian",
+    "days": "ngày",
+    "nights": "đêm",
+    "departure": "Khởi hành",
+    "arrival": "Kết thúc",
+    "pax": "Hành khách",
+    "adult": "Người lớn",
+    "child": "Trẻ em"
+  },
+  "service": {
+    "accommodation": "Lưu trú",
+    "meal": "Bữa ăn",
+    "guide": "Hướng dẫn viên",
+    "transport_local": "Vận chuyển nội địa",
+    "transport_intercity": "Vận chuyển liên tỉnh"
+  },
+  "task": {
+    "status_pending": "Chờ xử lý",
+    "status_in_progress": "Đang thực hiện",
+    "status_done": "Hoàn thành",
+    "status_cancelled": "Đã hủy",
+    "due_date": "Hạn chót"
+  },
+  "invoice": {
+    "title": "Hóa đơn",
+    "detail": "Chi tiết hóa đơn",
+    "grand_total": "Tổng cộng",
+    "subtotal": "Tiểu kết",
+    "unit_price": "Đơn giá",
+    "qty": "Số lượng",
+    "adult_shared_room": "Người lớn (Phòng đôi/Ba)",
+    "adult_private_room": "Người lớn (Phòng riêng)",
+    "child": "Trẻ em (2\u201311 tuổi)",
+    "infant": "Trẻ sơ sinh (0\u20132 tuổi)"
+  }
+}

@@ -9,5 +9,9 @@
 	},
 	"devDependencies": {
 		"wrangler": "^4.76.0"
+	},
+	"dependencies": {
+		"hono": "^4.12.9",
+		"nanoid": "^5.1.7"
 	}
 }

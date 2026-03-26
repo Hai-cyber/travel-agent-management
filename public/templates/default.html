@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="{{LANG}}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TOUR_NAME}}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #1a1a1a;
+      line-height: 1.6;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+    }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: .25rem; }
+    h2 { font-size: 1.2rem; font-weight: 600; margin: 2rem 0 .6rem; color: #333; }
+    .meta { color: #666; font-size: .9rem; margin-bottom: 1.5rem; }
+    .meta span + span::before { content: ' · '; }
+    .price-badge {
+      display: inline-block;
+      background: #0057b7;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: .4rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 2rem;
+    }
+    .itinerary { padding-left: 1.2rem; }
+    .itinerary-day { margin-bottom: 1rem; }
+    .itinerary-day strong { display: block; }
+    .itinerary-day p { color: #444; margin-top: .2rem; }
+    ul { padding-left: 1.4rem; }
+    ul li { margin-bottom: .3rem; }
+    .booking-cta { margin: 2.5rem 0; }
+    .btn-book-now {
+      display: inline-block;
+      background: #0057b7;
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: .75rem 2rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .btn-book-now:hover { background: #004a9f; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e5e5;
+      font-size: .8rem;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+{{PREVIEW_BANNER}}
+  <header>
+    <h1>{{TOUR_NAME}}</h1>
+    <p class="meta">
+      <span>Code: {{TOUR_CODE}}</span>
+      <span>{{DURATION}}</span>
+    </p>
+    <div class="price-badge">From {{BASE_PRICE}}</div>
+  </header>
+
+  <section>
+    <h2>Itinerary</h2>
+    {{ITINERARY}}
+  </section>
+
+  <section>
+    <h2>Highlights</h2>
+    {{HIGHLIGHTS}}
+  </section>
+
+  <section>
+    <h2>What's Included</h2>
+    {{INCLUDES}}
+  </section>
+
+  <section>
+    <h2>Not Included</h2>
+    {{EXCLUDES}}
+  </section>
+
+  <section class="booking-cta">
+    {{PAY_BUTTON}}
+  </section>
+
+  <footer>
+    <p>Tour ID: {{TOUR_SLUG}} &mdash; Published by {{TENANT_ID}}{{PLATFORM_BRAND}}</p>
+  </footer>
+
+  <!--
+    booking-widget.js — Quote & Draft Side-Drawer
+    Replace the data-api-base value with your actual Workers URL.
+    data-lang accepts "en" or "vi".
+  -->
+  <script src="/booking-widget.js"
+          data-tour-id="{{TOUR_SLUG}}"
+          data-tenant-id="{{TENANT_ID}}"
+          data-api-base=""
+          data-lang="{{LANG}}">
+  </script>
+
+</body>
+</html>

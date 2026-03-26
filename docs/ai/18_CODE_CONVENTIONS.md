@@ -1,3 +1,11 @@
+# > These conventions apply to all new code and documentation in the rescue rebuild.
+
+#
+Add one sentence near the top stating that these conventions apply to all new code and documentation in the rescue rebuild.
+
+Do not change anything else.
+
+
 # CODE CONVENTIONS
 
 ## Language Policy

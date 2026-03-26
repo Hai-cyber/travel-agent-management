@@ -23,3 +23,11 @@ Source and strategy for sample data and fixtures.
 
 ## Pricing model upgrade
 - Canonical pricing uses tenant_seasons, pricing_segments, pax_bands, and tour_prices. Flat season/pax fields are deprecated.
+
+> NOTE: Pricing upgrade tables (tenant_seasons, pricing_segments, pax_bands, tour_prices) are NOT part of the current seed; they will be added in later migrations.
+
+Add a short NOTE near the bottom of this file:
+
+- Clarify that pricing upgrade tables (tenant_seasons, pricing_segments, pax_bands, tour_prices) are NOT part of the current seed and will be added in later migrations.
+
+Do not change anything else.

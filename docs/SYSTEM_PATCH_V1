@@ -1,3 +1,6 @@
+
+> RUNTIME NOTE: This document describes TARGET DESIGN for this module.
+> The current rescue runtime does NOT implement these flows yet. Actual implemented slices are listed in 01_CURRENT_STATE.md.
 SYSTEM_PATCH_V1
 0. Patch intent
 

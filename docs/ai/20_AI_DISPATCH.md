@@ -1,3 +1,10 @@
+#
+In this file, add one more explicit rule under the "Rules" / "Non-negotiables" / "Rules" section:
+
+- "Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned."
+
+Do not change anything else.
+
 # AI DISPATCH
 
 ## Always Read First
@@ -35,6 +42,7 @@
 
 
 ## Rules
+- Always treat 01_CURRENT_STATE.md and MIGRATION_PLAN_V1.md as runtime truth for what is actually implemented vs planned.
 - Do not scan the full repository by default
 - Work by checkpoint [CHK-XXX]
 - Read only files relevant to the current task
