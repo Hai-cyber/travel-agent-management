@@ -188,6 +188,15 @@
     .price-input:focus { outline: none; border-color: #7c3aed; }
     .price-name-inp { border: none; background: transparent; font-size: 13px; font-weight: 700; color: #1e293b; width: 100%; padding: 2px 4px; border-radius: 3px; }
     .price-name-inp:hover, .price-name-inp:focus { background: #f8fafc; border: 1px solid #e2e8f0; outline: none; }
+    /* -- Segment tabs -- */
+    .seg-tab { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; color: #64748b; transition: all .1s; }
+    .seg-tab:hover { border-color: #a78bfa; color: #7c3aed; }
+    .seg-tab.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    /* -- Qty control -- */
+    .qty-wrap { display: inline-flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    .qty-btn { background: #f8fafc; border: none; padding: 3px 10px; font-size: 16px; font-weight: 700; cursor: pointer; color: #475569; line-height: 1.3; }
+    .qty-btn:hover { background: #ede9fe; color: #7c3aed; }
+    .qty-val { padding: 3px 12px; font-size: 14px; font-weight: 700; color: #1e293b; min-width: 28px; text-align: center; background: #fff; }
 
     /* -- Preview panel -- */
     #preview-frame {
@@ -555,57 +564,97 @@
     <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto">&#x21BA; Refresh</button>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start">
-    <!-- Seasons -->
-    <div class="card">
-      <div class="card-header"><h2>Seasons</h2></div>
-      <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+  <!-- BOOKING VIEW -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <h2>Booking View</h2>
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">how customers select &amp; price this tour</span>
     </div>
-    <!-- Segments -->
-    <div class="card">
-      <div class="card-header"><h2>Segments</h2></div>
-      <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-    </div>
-    <!-- Pax Bands -->
-    <div class="card">
-      <div class="card-header"><h2>Pax Bands</h2></div>
-      <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-      <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
-        <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:4px" />
-        <div style="display:flex;gap:4px;margin-bottom:4px">
-          <input id="pb-min" type="number" placeholder="Min pax" style="flex:1" min="1" />
-          <input id="pb-max" type="number" placeholder="Max pax" style="flex:1" min="1" />
+    <div class="card-body">
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:8px">Price Tier</div>
+        <div id="seg-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="color:#94a3b8;font-size:13px">Select a tour to see pricing tiers.</span>
         </div>
-        <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:2px solid #e2e8f0">
+            <th style="text-align:left;padding:6px 0;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Type</th>
+            <th style="text-align:right;padding:6px 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Unit price</th>
+            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Qty</th>
+            <th style="text-align:right;padding:6px 0;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody id="pax-rows-body">
+          <tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;align-items:flex-end;gap:24px;margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9;flex-wrap:wrap">
+        <div>
+          <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Travel date <small style="font-weight:400">(determines season &amp; pricing)</small></label>
+          <input type="date" id="calc-date" />
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div id="calc-total" style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1">&mdash;</div>
+          <div id="calc-meta" style="font-size:11px;color:#94a3b8;margin-top:3px">Add travellers to calculate</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Tour Prices -->
-  <div class="card" style="margin-top:16px">
-    <div class="card-header">
-      <h2>Tour Prices</h2>
-      <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; tenant currency</span>
+  <!-- ADMIN (collapsible) -->
+  <details id="pricing-admin-details">
+    <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#475569;padding:12px 0;user-select:none;display:flex;align-items:center;gap:6px;list-style:none">
+      <span id="pricing-admin-arrow" style="font-size:10px;display:inline-block;transition:transform .15s">&#9654;</span>
+      Manage Seasons &middot; Pax Bands &middot; Segments &middot; Tour Prices
+    </summary>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:8px">
+      <div class="card">
+        <div class="card-header"><h2>Seasons</h2></div>
+        <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>Pax Bands</h2></div>
+        <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
+          <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:4px" />
+          <div style="display:flex;gap:4px;margin-bottom:4px">
+            <input id="pb-min" type="number" placeholder="Min pax" style="flex:1" min="1" />
+            <input id="pb-max" type="number" placeholder="Max pax" style="flex:1" min="1" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
+        </div>
+      </div>
     </div>
-    <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-    <!-- Add price row form -->
-    <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><h2>Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto">Tenant-level &middot; rename inline</span></div>
+      <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header">
+        <h2>Tour Prices</h2>
+        <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; season &times; segment &times; pax band</span>
+      </div>
+      <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+      <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Add Price Row</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:11px;color:#64748b">Season</label><select id="ap-season" style="width:100%"><option value="">�</option></select></div>
-        <div><label style="font-size:11px;color:#64748b">Segment</label><select id="ap-segment" style="width:100%"><option value="">�</option></select></div>
-        <div><label style="font-size:11px;color:#64748b">Pax Band</label><select id="ap-paxband" style="width:100%"><option value="">�</option></select></div>
+        <div><label style="font-size:11px;color:#64748b">Season</label><select id="ap-season" style="width:100%"><option value="">&mdash;</option></select></div>
+        <div><label style="font-size:11px;color:#64748b">Segment</label><select id="ap-segment" style="width:100%"><option value="">&mdash;</option></select></div>
+        <div><label style="font-size:11px;color:#64748b">Pax Band</label><select id="ap-paxband" style="width:100%"><option value="">&mdash;</option></select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
         <div><label style="font-size:11px;color:#64748b">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
-        <div><label style="font-size:11px;color:#64748b">Single room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+        <div><label style="font-size:11px;color:#64748b">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
         <div><label style="font-size:11px;color:#64748b">Child</label><input id="ap-child" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
         <div><label style="font-size:11px;color:#64748b">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
       </div>
-      <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
+        <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
+      </div>
     </div>
-  </div>
+  </details>
 </section>
 
 <!-- ================================================================  TAB 5: PREVIEW  ================================================================ -->
@@ -1310,7 +1359,7 @@ async function updatePricingItem(group, id, field, newVal, oldVal) {
   if (!trimmed) return;
   try {
     await api(`/api/pricing/${group}/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: trimmed }) });
-    toast('Saved ?');
+    toast('Saved \u2713');
   } catch (e) {
     toast('Save failed: ' + e.message, 'err');
   }
@@ -1326,13 +1375,106 @@ async function deletePricingItem(group, id) {
   }
 }
 
-/* ----------------------------  TAB 4: PRICE CONFIG  ------------------------ */
+/* ----------------------------  TAB 4: PRICE CONFIG (BOOKING VIEW)  --------- */
+const PAX_TYPES = [
+  { key: 'adult_shared_room_count', label: 'Adult (Shared Room)',   priceField: 'adult_shared_room_price' },
+  { key: 'adult_single_room_count', label: 'Adult (Private Room)',  priceField: 'adult_single_room_price' },
+  { key: 'child_count',             label: 'Child (with parents)',  priceField: 'child_shared_with_parents_price' },
+  { key: 'infant_count',            label: 'Infant',                priceField: 'infant_price' },
+];
 let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
+let _calcState   = {
+  segmentId: null,
+  pax: { adult_shared_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
+  date: new Date().toISOString().slice(0, 10),
+};
+
+function findBasePrice(segId) {
+  const totalPax = Object.values(_calcState.pax).reduce((a, b) => a + b, 0);
+  const rows = _pricingData.prices.filter(p => p.segment_id === segId);
+  if (!rows.length) return null;
+  if (totalPax > 0) {
+    const pb = [..._pricingData.paxBands]
+      .sort((a, b) => a.min_pax - b.min_pax)
+      .find(b => totalPax >= b.min_pax && totalPax <= b.max_pax);
+    if (pb) {
+      const m = rows.find(r => r.pax_band_id === pb.id);
+      if (m) return m;
+    }
+  }
+  return rows[0];
+}
+
+function renderPaxRows(priceRow) {
+  const tbody = document.getElementById('pax-rows-body');
+  if (!_calcState.segmentId) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr>';
+    return;
+  }
+  const fmtN = n => (n != null && n !== '') ? Number(n).toLocaleString() : '\u2014';
+  let html = '';
+  PAX_TYPES.forEach(t => {
+    const qty       = _calcState.pax[t.key] || 0;
+    const unitPrice = priceRow ? priceRow[t.priceField] : null;
+    const subtotal  = (unitPrice != null && qty > 0) ? unitPrice * qty : null;
+    html += `<tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:10px 0;color:#1e293b;font-size:14px">${t.label}</td>
+      <td style="text-align:right;padding:10px 8px;color:#475569;font-family:monospace;font-size:13px">${fmtN(unitPrice)}</td>
+      <td style="text-align:center;padding:10px 8px">
+        <div class="qty-wrap">
+          <button class="qty-btn" data-key="${t.key}" data-delta="-1">&minus;</button>
+          <span class="qty-val" id="qv-${t.key}">${qty}</span>
+          <button class="qty-btn" data-key="${t.key}" data-delta="1">+</button>
+        </div>
+      </td>
+      <td style="text-align:right;padding:10px 0;font-weight:700;font-size:14px;color:${subtotal != null ? '#1e293b' : '#cbd5e1'}">${fmtN(subtotal)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+async function runCalc() {
+  if (!S.tour) return;
+  const priceRow = _calcState.segmentId ? findBasePrice(_calcState.segmentId) : null;
+  renderPaxRows(priceRow);
+
+  const totalEl  = document.getElementById('calc-total');
+  const metaEl   = document.getElementById('calc-meta');
+  const totalPax = Object.values(_calcState.pax).reduce((a, b) => a + b, 0);
+
+  if (!_calcState.segmentId || totalPax === 0) {
+    totalEl.textContent = '\u2014';
+    metaEl.textContent  = totalPax === 0 ? 'Add travellers to calculate' : 'Select a tier';
+    return;
+  }
+
+  try {
+    const result = await api('/api/pricing/calculate', {
+      method: 'POST',
+      body: JSON.stringify({
+        tour_id:     S.tour.id,
+        segment_id:  _calcState.segmentId,
+        travel_date: _calcState.date,
+        ..._calcState.pax,
+      }),
+    });
+    const disp = result?.invoice?.grand_total_display;
+    totalEl.textContent = disp?.local?.formatted ?? disp?.formatted ?? String(result?.invoice?.grand_total ?? '\u2014');
+    const season = result.applied_season_name ? `Season: ${result.applied_season_name}` : '';
+    const band   = result.pax_band_name        ? `\u00b7 Band: ${result.pax_band_name}` : '';
+    metaEl.textContent  = [season, band].filter(Boolean).join(' ') || 'Calculated';
+  } catch (e) {
+    const raw = PAX_TYPES.reduce((sum, t) => sum + (_calcState.pax[t.key] || 0) * (priceRow?.[t.priceField] || 0), 0);
+    totalEl.textContent = raw.toLocaleString();
+    metaEl.textContent  = 'Season not matched \u2014 base price shown';
+  }
+}
 
 async function loadPricing() {
   if (!S.tour) return;
   document.getElementById('pricing-notice').style.display   = '';
   document.getElementById('pricing-tour-label').textContent = S.tour.title;
+  document.getElementById('calc-date').value = _calcState.date;
 
   const [seasonsRes, segmentsRes, paxRes, pricesRes] = await Promise.all([
     api('/api/pricing/tenant-seasons').catch(() => ({})),
@@ -1347,20 +1489,47 @@ async function loadPricing() {
   const prices   = toArr(pricesRes).filter(p => p.tour_id === S.tour.id);
   _pricingData   = { seasons, segments, paxBands, prices };
 
-  // -- Seasons --------------------------------------------------------------
+  // Segment tabs
+  const tabsEl = document.getElementById('seg-tabs');
+  if (!segments.length) {
+    tabsEl.innerHTML = '<span style="color:#94a3b8;font-size:13px">No segments configured. Add them in Manage below.</span>';
+    _calcState.segmentId = null;
+  } else {
+    if (!_calcState.segmentId || !segments.find(s => s.id === _calcState.segmentId)) {
+      _calcState.segmentId = segments[0].id;
+    }
+    tabsEl.innerHTML = segments.map(g =>
+      `<button class="seg-tab${_calcState.segmentId === g.id ? ' active' : ''}" data-seg-id="${esc(g.id)}">${esc(g.name)}</button>`
+    ).join('');
+  }
+
+  // Admin -- Seasons
   const sBody = document.getElementById('pricing-seasons-body');
   sBody.innerHTML = !seasons.length ? '<div class="empty-state">No seasons.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Name (click to edit)</th><th>Period</th><th></th></tr></thead><tbody>${
+    `<table class="price-matrix"><thead><tr><th>Name</th><th>Period</th><th></th></tr></thead><tbody>${
       seasons.map(s => `<tr>
         <td><input class="price-name-inp" value="${esc(s.name)}" data-orig="${esc(s.name)}"
           onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
-        <td style="color:#64748b;white-space:nowrap;font-size:11px">${s.start_month}/${s.start_day}�${s.end_month}/${s.end_day}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')">?</button></td>
+        <td style="color:#64748b;white-space:nowrap;font-size:11px">${s.start_month}/${s.start_day}&ndash;${s.end_month}/${s.end_day}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')">&times;</button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
-  // -- Segments -------------------------------------------------------------
+  // Admin -- Pax Bands
+  const pbBody = document.getElementById('pricing-paxbands-body');
+  pbBody.innerHTML = !paxBands.length ? '<div class="empty-state">No pax bands.</div>' :
+    `<table class="price-matrix"><thead><tr><th>Name</th><th>Range</th><th></th></tr></thead><tbody>${
+      paxBands.map(p => `<tr>
+        <td><input class="price-name-inp" value="${esc(p.name)}" data-orig="${esc(p.name)}"
+          onblur="updatePricingItem('pax-bands','${esc(p.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
+          onkeydown="if(event.key==='Enter')this.blur()" /></td>
+        <td style="font-size:11px;color:#64748b">${p.min_pax}&ndash;${p.max_pax} pax</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pax-bands','${esc(p.id)}')">&times;</button></td>
+      </tr>`).join('')
+    }</tbody></table>`;
+
+  // Admin -- Segments
   const gBody = document.getElementById('pricing-segments-body');
   gBody.innerHTML = !segments.length ? '<div class="empty-state">No segments.</div>' :
     `<table class="price-matrix"><thead><tr><th>Label (click to edit)</th><th>Code</th><th></th></tr></thead><tbody>${
@@ -1369,56 +1538,75 @@ async function loadPricing() {
           onblur="updatePricingItem('pricing-segments','${esc(g.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
         <td><code style="font-size:11px">${esc(g.code)}</code></td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')">?</button></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')">&times;</button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
-  // -- Pax Bands -------------------------------------------------------------
-  const pbBody = document.getElementById('pricing-paxbands-body');
-  pbBody.innerHTML = !paxBands.length ? '<div class="empty-state">No pax bands.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Name</th><th>Range</th><th></th></tr></thead><tbody>${
-      paxBands.map(p => `<tr>
-        <td><input class="price-name-inp" value="${esc(p.name)}" data-orig="${esc(p.name)}"
-          onblur="updatePricingItem('pax-bands','${esc(p.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
-          onkeydown="if(event.key==='Enter')this.blur()" /></td>
-        <td style="font-size:11px;color:#64748b">${p.min_pax}�${p.max_pax} pax</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pax-bands','${esc(p.id)}')">?</button></td>
-      </tr>`).join('')
-    }</tbody></table>`;
-
-  // -- Tour Prices -----------------------------------------------------------
+  // Admin -- Tour Prices
   const seasonMap  = Object.fromEntries(seasons.map(s => [s.id, s.name]));
   const segmentMap = Object.fromEntries(segments.map(g => [g.id, g.name]));
-  const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax}�${p.max_pax})`]));
+  const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax}\u2013${p.max_pax})`]));
   const pBody = document.getElementById('pricing-prices-body');
-  pBody.innerHTML = !prices.length ? '<div class="empty-state">No prices added yet. Use the form below.</div>' :
-    `<div style="overflow-x:auto"><table class="price-matrix">
-      <thead><tr><th>Season</th><th>Segment</th><th>Pax Band</th><th>Shared</th><th>Single</th><th>Child</th><th>Infant</th><th></th></tr></thead>
-      <tbody>${prices.map(p => `<tr>
-        <td>${esc(seasonMap[p.season_id] ?? p.season_id)}</td>
-        <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
-        <td style="font-size:11px">${esc(paxMap[p.pax_band_id] ?? p.pax_band_id)}</td>
-        <td>${p.adult_shared_room_price ?? 0}</td>
-        <td>${p.adult_single_room_price ?? 0}</td>
-        <td>${p.child_shared_with_parents_price ?? 0}</td>
-        <td>${p.infant_price ?? 0}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tour-prices','${esc(p.id)}')">?</button></td>
-      </tr>`).join('')}
-      </tbody></table></div>`;
+  pBody.innerHTML = !prices.length
+    ? '<div class="empty-state">No prices yet. Add them below.</div>'
+    : `<div style="overflow-x:auto"><table class="price-matrix">
+        <thead><tr><th>Season</th><th>Segment</th><th>Pax Band</th><th>Shared</th><th>Private</th><th>Child</th><th>Infant</th><th></th></tr></thead>
+        <tbody>${prices.map(p => `<tr>
+          <td>${esc(seasonMap[p.season_id]  ?? p.season_id)}</td>
+          <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
+          <td style="font-size:11px">${esc(paxMap[p.pax_band_id] ?? p.pax_band_id)}</td>
+          <td>${p.adult_shared_room_price ?? 0}</td>
+          <td>${p.adult_single_room_price ?? 0}</td>
+          <td>${p.child_shared_with_parents_price ?? 0}</td>
+          <td>${p.infant_price ?? 0}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tour-prices','${esc(p.id)}')">&times;</button></td>
+        </tr>`).join('')}
+        </tbody></table></div>`;
 
   // Populate add-price selects
   const addForm = document.getElementById('pricing-add-form');
   addForm.style.display = (seasons.length && segments.length && paxBands.length) ? '' : 'none';
   const setSel = (id, items, labelFn) => {
     const el = document.getElementById(id);
-    el.innerHTML = '<option value="">�</option>' + items.map(i => `<option value="${esc(i.id)}">${esc(labelFn(i))}</option>`).join('');
+    el.innerHTML = '<option value="">&mdash;</option>' + items.map(i => `<option value="${esc(i.id)}">${esc(labelFn(i))}</option>`).join('');
   };
   setSel('ap-season',  seasons,  s => s.name);
   setSel('ap-segment', segments, g => g.name);
-  setSel('ap-paxband', paxBands, p => `${p.name} (${p.min_pax}�${p.max_pax})`);
+  setSel('ap-paxband', paxBands, p => `${p.name} (${p.min_pax}\u2013${p.max_pax})`);
+
+  runCalc();
 }
 
 document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
+
+document.getElementById('seg-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-tab');
+  if (!btn) return;
+  document.querySelectorAll('.seg-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _calcState.segmentId = btn.dataset.segId;
+  runCalc();
+});
+
+document.getElementById('pax-rows-body').addEventListener('click', e => {
+  const btn = e.target.closest('.qty-btn');
+  if (!btn || !S.tour) return;
+  const key   = btn.dataset.key;
+  const delta = Number(btn.dataset.delta);
+  _calcState.pax[key] = Math.max(0, (_calcState.pax[key] || 0) + delta);
+  const priceRow = findBasePrice(_calcState.segmentId);
+  renderPaxRows(priceRow);
+  runCalc();
+});
+
+document.getElementById('calc-date').addEventListener('change', e => {
+  _calcState.date = e.target.value;
+  runCalc();
+});
+
+document.getElementById('pricing-admin-details').addEventListener('toggle', e => {
+  document.getElementById('pricing-admin-arrow').style.transform = e.target.open ? 'rotate(90deg)' : '';
+});
 
 document.getElementById('btn-add-paxband').addEventListener('click', async () => {
   const name = document.getElementById('pb-name').value.trim();
@@ -1430,7 +1618,7 @@ document.getElementById('btn-add-paxband').addEventListener('click', async () =>
     document.getElementById('pb-name').value = '';
     document.getElementById('pb-min').value  = '';
     document.getElementById('pb-max').value  = '';
-    toast('Pax band added ?');
+    toast('Pax band added \u2713');
     loadPricing();
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 });
@@ -1452,7 +1640,7 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
   try {
     await api('/api/pricing/tour-prices', { method: 'POST', body: JSON.stringify(body) });
     ['ap-shared','ap-single','ap-child','ap-infant'].forEach(id => document.getElementById(id).value = '');
-    toast('Price row saved ?');
+    toast('Price row saved \u2713');
     loadPricing();
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 });
