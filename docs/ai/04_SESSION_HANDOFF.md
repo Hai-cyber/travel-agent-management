@@ -20,50 +20,87 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-03-24
-Checkpoint: CHK-R08 / docs reality reset
-Goal of session: reset AI control docs so Copilot/Cline stop assuming the old system is already rebuilt in the current repo
+Date: 2026-03-26
+Checkpoint: CHK-R18 + CHK-R19
+Git commit: `0583b86` on branch `rescue-minimum`
+Goal of session: Implement bank transfer order system with identity lock, proof upload, revenue tracking, scheduled purge; then add Guest Portal (token-gated) and Booking Widget v1.
 
-What was completed:
-- rewrote current-state guidance to describe the actual rescue rebuild only
-- rewrote progress ledger to use rescue checkpoints instead of old fully-complete checkpoints
-- clarified canonical architecture direction:
-  - `destinations` = catalog/reference
-  - `tour_stops` = itinerary segments
-- clarified that `tour_destinations` is transitional only
-- clarified that stop-based services and pricing foundation are not rebuilt yet
+### What was completed this session
 
-Files changed:
-- `docs/ai/01_CURRENT_STATE.md`
-- `docs/ai/03_PROGRESS_LEDGER.md`
-- `docs/ai/04_SESSION_HANDOFF.md`
+**CHK-R18 — Bank Transfer Order System**
+- `db/migrations/0016_booking_orders.sql` — `booking_orders` table, state machine, identity lock, proof columns, cron purge index
+- `wrangler.jsonc` — `BOOKING_PROOFS` R2 bucket + `*/15 * * * *` cron trigger
+- `src/routes/bookings.js` — 4 new endpoints:
+  - `POST /api/bookings/order` (legal firewall, reprice, 48h/72h deadline)
+  - `GET /api/bookings/order/:id` (maskOrder — identity omitted until proof)
+  - `POST /api/bookings/order/:id/proof` (MIME allowlist, 10 MB, R2 upload, identity unlock)
+  - `POST /api/bookings/order/:id/confirm-receipt` (2-step idempotent, revenue increment)
+- `export purgeExpiredOrders(env)` — NULLs guest identity on expired rows (GDPR)
+- `src/index.js` — `scheduled` handler wired
 
-What is still not done:
-- stop-based service tables are not rebuilt yet
-- pricing foundation is not rebuilt yet
-- legacy old-system modules (tasks/comms/site/growth/mobile) are not yet re-established in the rescue repo
-- `schema.sql` still needs to be kept aligned carefully with canonical design and additive migrations
+**CHK-R19 — Guest Portal + Booking Widget v1**
+- Audit confirmed `maskOrder()` and revenue guard logic are correct
+- `db/migrations/0017_booking_order_token.sql` — `secure_token` column + partial unique index
+- `POST /api/bookings/order` now returns `guest_portal_token` + `guest_portal_url`
+- `GET /api/bookings/public/:token` — no-auth guest view (own identity visible, i18n status label, hours_remaining)
+- `POST /api/bookings/public/:token/proof` — token-gated upload, same rules as agent endpoint
+- `public/widget.js` — zero-dep IIFE embed widget (Book Now button, price-check modal, segment compare, i18n en/vi)
+- `test/test_booking_orders.sh` — 15-assertion bash test suite (3 test groups)
+- `docs/ai/03_PROGRESS_LEDGER.md` — CHK-R18 + CHK-R19 detail blocks added
+- `docs/ai/01_CURRENT_STATE.md` — full runtime reality update
 
-Known risks / TODOs:
-- old docs may still mislead AI if they are treated as runtime truth
-- Copilot may still drift unless prompts explicitly say:
-  - current repo is rescue rebuild
-  - legacy docs are reference only
-  - verify actual working routes/tables before claiming completion
-- future schema work must prefer additive migrations over destructive rewrites
+### Files changed (key)
+```
+src/routes/bookings.js          (4 new order endpoints + 2 public routes + purge export)
+db/migrations/0016_booking_orders.sql
+db/migrations/0017_booking_order_token.sql
+public/widget.js
+wrangler.jsonc
+src/index.js
+test/test_booking_orders.sh
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+```
 
-Suggested next prompt:
-Read only:
-1. `docs/ai/00_AI_INDEX.md`
-2. `docs/ai/01_CURRENT_STATE.md`
-3. `docs/ai/03_PROGRESS_LEDGER.md`
-4. `docs/DATA_MODEL.sql`
+### What is still not done
+- `npx wrangler r2 bucket create booking-proofs` — R2 bucket must be created on Cloudflare account before `wrangler deploy`
+- `wrangler dev` was failing (exit code 1) throughout this session — root cause not yet diagnosed (likely esbuild/compat flag issue unrelated to new code; no errors in JS files)
+- Allotment / seat management: `purgeExpiredOrders` logs a TODO for freeing seats — not yet wired
+- Email/Zalo delivery of `guest_portal_url` to guests — no notification system built yet
+- Calendar, billing, site studio, SEO, mobile ops — not started
 
-Then do only this:
-Design the next additive migration slice for stop-based service operations.
-Do not touch pricing, site, growth, or old legacy modules.
-Propose:
-- new canonical stop-based service tables
-- migration filenames
-- local verification commands
-Do not mark any old checkpoint as rebuilt unless current repo code/schema proves it.
+### Known risks
+- `wrangler dev` exit 1 must be diagnosed before testing — check `wrangler` version and `compatibility_flags` in `wrangler.jsonc`
+- Tenant `subscription_status` defaults to `'TRIAL'` — tests must set it to `'ACTIVE'` via D1 execute or seed before calling `POST /api/bookings/order`
+- `booking_orders.secure_token` is generated by `nanoid(32)` — ensure migration 0017 is applied before running order creation
+- `public/widget.js` calls `/api/pricing/metadata` which must return `segments[]` — verify that endpoint returns the expected shape
+
+### Suggested next prompt
+```
+Read:
+1. docs/ai/01_CURRENT_STATE.md
+2. docs/ai/03_PROGRESS_LEDGER.md
+
+First: diagnose why `wrangler dev` exits with code 1.
+Run: npx wrangler dev 2>&1 and share the error output.
+Fix the build error without touching any business logic.
+
+Then: apply pending migrations locally:
+  npx wrangler d1 migrations apply travel_agent_db --local
+
+Then: run the test suite:
+  bash test/test_booking_orders.sh
+
+Report results. Only proceed to the next feature (allotment / notifications)
+once all 15 assertions pass.
+```
+
+---
+
+## Handoff Archive
+
+### 2026-03-24 — CHK-R08 docs reality reset
+Goal: reset AI control docs so Copilot stops assuming old system is already rebuilt.
+Completed: rewrote 01_CURRENT_STATE, 03_PROGRESS_LEDGER, 04_SESSION_HANDOFF.
+Next was: design stop-based service tables.

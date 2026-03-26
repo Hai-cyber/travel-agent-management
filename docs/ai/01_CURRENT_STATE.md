@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-25
+Last updated: 2026-03-26
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -23,39 +23,84 @@ If old documentation says a feature exists but the current rescue repo does not 
 
 
 ## Implemented (rescue runtime truth)
-- Cloudflare Worker runtime
-- D1 with tables: tours, destinations, tour_destinations, destination_texts, tenants, tour_stops, stop_accommodations, stop_meals, stop_guides, stop_local_transports, stop_intercity_legs, tasks
-- Preview endpoints:
-  - /api/tours-preview
-  - /api/destinations-preview
-  - /api/tour-destinations-preview
-  - /api/destination-texts-preview
-  - /api/tours-with-destinations
-- Service item CRUD API (CHK‑R09):
-  - All 5 groups implemented: accommodations, meals, guides, local-transports, intercity-legs
-  - POST/GET/PATCH fully working
-  - Schema-aligned payloads
-  - Validation for POST and PATCH implemented (CHK‑R10)
-- Validation (CHK‑R10):
-  - Required-field validation for POST
-  - Unknown-field and empty-body validation for PATCH
-  - No changes to service layer
-- Task System (CHK‑R11):
-  - Task templates for all 5 groups
-  - Auto-generate tasks on POST
-  - GET returns tasks embedded in each service item
-  - PATCH /api/tasks/:taskId updates task status
-  - All 5 test scripts passed (accommodations, meals, guides, local-transports, intercity-legs)
-  - Full integrated test script passed
 
-## Planned / Target (not implemented in rescue repo yet)
+### Infrastructure
+- Cloudflare Workers runtime, D1 SQLite (binding: `DB`), R2 (bindings: `TOUR_PAGES`, `BOOKING_PROOFS`)
+- KV (binding: `TOUR_PRESETS`)
+- Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)`
+- Local dev: `npx wrangler dev` on `http://127.0.0.1:8787`
+- i18n: Accept-Language → `translate()`, dual-price formatter, `resolveLocaleFromAcceptLanguage()`
+- Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
+- All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
+
+### D1 Tables (migrations 0001–0017)
+`tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
+`tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
+`stop_local_transports`, `stop_intercity_legs`, `tasks`,
+`tenant_seasons`, `pricing_segments`, `pax_bands`, `tour_prices`,
+`booking_drafts`, `tour_pages` (R2-backed), `tenant_audit_log`,
+`booking_orders`
+
+Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
+`total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`
+
+### API Endpoints (all tenant-scoped via `X-Tenant-ID` header)
+
+**Service Items (CHK-R09/R10)**
+- `POST/GET/PATCH /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}`
+
+**Task System (CHK-R11)**
+- `PATCH /api/tasks/:taskId` — update task status
+
+**Pricing Engine (CHK-R12/foundation)**
+- `GET /api/pricing/calculate` — single segment or compare-all mode
+- `POST/GET/PATCH/DELETE /api/pricing/{tenant-seasons|pricing-segments|pax-bands|tour-prices}`
+- `POST /api/pricing/duplicate-season`
+- `POST /api/pricing/tenant-seasons/:id/copy`
+- `GET /api/pricing/metadata`
+
+**Tenants (CHK-R14/R15/R17)**
+- `PATCH /api/tenants/settings` — updateable: `exchange_rate`, `target_currency`, `pricing_policy`, `infant_policy_text`, `custom_domain`, `subscription_status`, `payment_config_json`
+- `GET /api/tenants/settings` — includes read-only: `total_revenue_tracked`, `commission_threshold`
+- `GET /api/tenants/audit-log` — last 100 entries for `custom_domain` / `payment_config_json` changes
+
+**Tour Publishing (CHK-R13/R14/R15)**
+- `POST /api/tours/:id/publish` — subscription gate, renders HTML to R2 `TOUR_PAGES`
+- `POST /api/tours/:id/switch-template`
+- `GET /api/tours/:id/preview` — live re-render in preview mode (no R2 cache)
+
+**Booking Drafts (quote cart)**
+- `POST /api/bookings/draft` — server-side reprice, 24h TTL
+- `GET /api/bookings/draft/:draftId`
+
+**Booking Orders — Bank Transfer (CHK-R18)**
+- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; returns `guest_portal_token`
+- `GET /api/bookings/order/:id` — agent view; identity omitted until `identity_unlocked=1`
+- `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, R2 → identity unlock
+- `POST /api/bookings/order/:id/confirm-receipt` — 2-step idempotent; increments `total_revenue_tracked`
+
+**Guest Portal — no auth required (CHK-R19)**
+- `GET /api/bookings/public/:token` — guest views own booking status, pax, total, upload link
+- `POST /api/bookings/public/:token/proof` — guest uploads bank slip via token URL
+
+### Frontend Assets
+- `public/templates/default.html` — tour page template with all placeholders
+- `public/booking-widget.js` — full booking flow widget (CHK-R16): floating button, drawer, invoice panel, segment compare, draft save/load
+- `public/widget.js` — lightweight embed widget (CHK-R19): Book Now button, price-check modal, calls `/api/pricing/calculate`
+
+### Test Scripts
+- `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)
+- `test/test_pricing.sh`, `test/test_tasks.sh`, `test/test_all_services.sh` and per-group scripts
+
+## Planned / Target (not yet implemented)
 - Calendar endpoints and reminder cadence
-- Domain onboarding flow
+- Domain onboarding flow (automated DNS verification)
 - Publish gate checklist endpoints
-- Billing status endpoints
+- Billing/invoicing status endpoints
 - Site studio API baseline
 - Growth/SEO API baseline
 - Mobile ops surface
+- Allotment / seat management (referenced in purge cron TODO)
 
 
 ### Current rebuilt database reality
@@ -68,12 +113,9 @@ Confirmed tables in the rescue rebuild:
 - `tour_stops`
 
 ### Current sample data confirmed
-- 1 demo tour exists
-- 1 demo destination exists
-- 1 tour-destination relation exists
-- 1 destination text exists
-- 1 demo tenant exists
-- 1 demo tour stop exists
+- 1 demo tour exists (`tour-001`, tenant `ten-demo-001`)
+- Pricing seed: `season-high`, `season-low`, segments `segment-standard/vip/boutique`, pax bands `band-01/02/03`, tour prices for High/Low season
+- Demo tenant: `ten-demo-001` (slug: `demo`), `subscription_status = 'TRIAL'` by default — set to `'ACTIVE'` in tests
 
 ---
 
