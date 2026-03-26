@@ -169,6 +169,87 @@
         } catch (_) {}
       });
     }
+
+    // payment_methods: render enabled channels + hide instant-only blocks when needed
+    var methods = cfg.payment_methods;
+    if (Array.isArray(methods) && methods.length) {
+      var pmContainer = document.querySelector('[data-component="payment-methods"]');
+      if (pmContainer) buildPaymentMethodSelector(methods, pmContainer);
+
+      // Hide instant-payment instructions when no instant method is enabled
+      var hasInstant = methods.some(function (m) {
+        return m.enabled && m.category === 'instant';
+      });
+      if (!hasInstant) {
+        try {
+          document.querySelectorAll('[data-payment-instant]').forEach(function (el) {
+            el.style.setProperty('display', 'none', 'important');
+          });
+        } catch (_) {}
+      }
+    }
+  }
+
+  // ── Feature: dynamic payment method selector in booking modal ─────────────
+  //
+  // Renders one button/radio per enabled payment method fetched from
+  // GET /api/tenant/config (cfg.payment_methods). Zero-code for agents:
+  // toggle methods in Dashboard → selector updates automatically.
+  //
+  // Template contract
+  // ─────────────────
+  //  Hook      : <div data-component="payment-methods">
+  //  Instant   : <section data-payment-instant>  ← hidden when no instant method
+  //
+  // Each rendered button carries:
+  //   data-method-id="BANK_TRANSFER"
+  //   data-method-category="manual"
+  //   class="ssi-payment-btn"
+  function buildPaymentMethodSelector(methods, container) {
+    var enabled = methods.filter(function (m) { return m.enabled; });
+    if (!enabled.length) return;
+
+    // Inject minimal styles once
+    if (!document.getElementById('ssi-payment-styles')) {
+      var style = document.createElement('style');
+      style.id = 'ssi-payment-styles';
+      style.textContent =
+        '.ssi-payment-btn{cursor:pointer;display:inline-block;margin:4px;}' +
+        '.ssi-payment-btn.ssi-active{font-weight:700;outline:2px solid currentColor;}';
+      document.head.appendChild(style);
+    }
+
+    container.innerHTML = '';
+
+    enabled.forEach(function (method) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = method.label || method.id;
+      btn.className = 'ssi-payment-btn';
+      btn.setAttribute('data-method-id', method.id);
+      btn.setAttribute('data-method-category', method.category || '');
+      if (method.risk) btn.setAttribute('data-method-risk', method.risk);
+      container.appendChild(btn);
+    });
+
+    // Activate first option by default
+    var first = container.querySelector('.ssi-payment-btn');
+    if (first) first.classList.add('ssi-active');
+
+    // Single listener: update active + propagate selection
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ssi-payment-btn');
+      if (!btn) return;
+      container.querySelectorAll('.ssi-payment-btn').forEach(function (b) {
+        b.classList.remove('ssi-active');
+      });
+      btn.classList.add('ssi-active');
+      // Expose selected method — booking form can read [data-method-id] on .ssi-active
+      container.setAttribute('data-selected-method', btn.getAttribute('data-method-id'));
+    });
+
+    // Set initial data-selected-method
+    if (first) container.setAttribute('data-selected-method', first.getAttribute('data-method-id'));
   }
 
   // ── Feature: dynamic category filter on tour listing page ─────────────────

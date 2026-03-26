@@ -30,13 +30,30 @@ export const INSTANT_PROVIDERS = new Set([
   'CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY',
 ]);
 export const MANUAL_PROVIDERS = new Set([
-  'BANK_TRANSFER', 'CASH_AT_OFFICE',
+  'BANK_TRANSFER', 'CASH_AT_OFFICE', 'PAY_ON_ARRIVAL',
 ]);
 export const ALL_PROVIDERS = new Set([...INSTANT_PROVIDERS, ...MANUAL_PROVIDERS]);
 
 export function isInstantProvider(method) {
   return INSTANT_PROVIDERS.has((method ?? '').toUpperCase());
 }
+
+// ── Default payment method catalogue (9 entries) ──────────────────────────────
+// Populated into tenants.payment_methods on first PATCH /api/payments/settings.
+// Agents toggle enabled/disabled — only enabled methods appear in inject.js checkout.
+const DEFAULT_PAYMENT_METHODS = [
+  { id: 'BANK_TRANSFER',  label: 'Chuyển khoản',         enabled: true,  category: 'manual'  },
+  { id: 'MOMO',           label: 'MoMo',                  enabled: false, category: 'instant' },
+  { id: 'ZALOPAY',        label: 'ZaloPay',               enabled: false, category: 'instant' },
+  { id: 'VNPAY',          label: 'VNPay',                 enabled: false, category: 'instant' },
+  { id: 'CREDIT_CARD',    label: 'Thẻ tín dụng',         enabled: false, category: 'instant' },
+  { id: 'PAYPAL',         label: 'PayPal',                enabled: false, category: 'instant' },
+  { id: 'GRABPAY',        label: 'GrabPay',               enabled: false, category: 'instant' },
+  { id: 'CASH_AT_OFFICE', label: 'Thanh toán trực tiếp', enabled: false, category: 'manual'  },
+  { id: 'PAY_ON_ARRIVAL', label: 'Trả khi gặp mặt',      enabled: false, category: 'manual', risk: 'ghosting' },
+];
+
+export { DEFAULT_PAYMENT_METHODS };
 
 // ── POST /api/payments/webhook/:provider ──────────────────────────────────────
 // External payment gateway calls this URL on transaction success/failure.
@@ -325,6 +342,96 @@ function hexToBytes(hex) {
   }
   return bytes;
 }
+
+// ── PATCH /api/payments/settings ─────────────────────────────────────────────
+// Agent toggles which payment channels are enabled/disabled for their tenant.
+// Accepts an array of { id, enabled } update objects.
+// Merges with DEFAULT_PAYMENT_METHODS so unmentioned entries keep their state.
+// [VALIDATION] At least one method must remain enabled — blocks full disable.
+// [SEC] Only the tenant identified by X-Tenant-ID may modify their own config.
+payments.patch('/settings', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); }
+  catch { return c.json({ error: 'Invalid JSON body.' }, 400); }
+
+  // Accept array [ { id, enabled }, ... ] or object { methods: [...] }
+  const updates = Array.isArray(body) ? body : (Array.isArray(body?.methods) ? body.methods : null);
+  if (!updates) {
+    return c.json({ error: 'Body must be an array of { id, enabled } objects, or { methods: [...] }.' }, 400);
+  }
+
+  // Validate each update entry
+  for (const entry of updates) {
+    if (!entry?.id || typeof entry.enabled !== 'boolean') {
+      return c.json({ error: 'Each entry must have { id: string, enabled: boolean }.' }, 400);
+    }
+    if (!ALL_PROVIDERS.has((entry.id ?? '').toUpperCase())) {
+      return c.json({
+        error:   `Unknown payment method: "${entry.id}".`,
+        allowed: [...ALL_PROVIDERS],
+      }, 400);
+    }
+  }
+
+  const tenant = await c.env.DB
+    .prepare('SELECT payment_methods FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  // Load existing config (or start from defaults)
+  let existing = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));
+  try {
+    if (tenant.payment_methods) {
+      const parsed = JSON.parse(tenant.payment_methods);
+      if (Array.isArray(parsed) && parsed.length) existing = parsed;
+    }
+  } catch { /* use defaults */ }
+
+  // Build a lookup for fast merge — normalise IDs to uppercase for matching
+  const updateMap = new Map(updates.map(u => [u.id.toUpperCase(), u.enabled]));
+
+  const merged = existing.map(m => {
+    const overrideEnabled = updateMap.get(m.id.toUpperCase());
+    return overrideEnabled !== undefined ? { ...m, enabled: overrideEnabled } : m;
+  });
+
+  // Ensure any new-to-existing IDs from updates are included
+  for (const u of updates) {
+    const id = u.id.toUpperCase();
+    if (!merged.some(m => m.id.toUpperCase() === id)) {
+      const def = DEFAULT_PAYMENT_METHODS.find(d => d.id === id);
+      if (def) merged.push({ ...def, enabled: u.enabled });
+    }
+  }
+
+  // [VALIDATION] Must keep at least one method enabled
+  const enabledCount = merged.filter(m => m.enabled).length;
+  if (enabledCount === 0) {
+    return c.json({
+      error:   'Bạn cần ít nhất một phương thức thanh toán để nhận booking!',
+      code:    'MIN_ONE_METHOD_REQUIRED',
+    }, 400);
+  }
+
+  await c.env.DB
+    .prepare('UPDATE tenants SET payment_methods = ? WHERE id = ?')
+    .bind(JSON.stringify(merged), tenantId)
+    .run();
+
+  const hasRisk = merged.some(m => m.enabled && m.risk === 'ghosting');
+
+  return c.json({
+    ok:              true,
+    payment_methods: merged,
+    warning: hasRisk
+      ? '⚠ PAY_ON_ARRIVAL đang bật. Phương thức này có rủi ro ghosting — khách đặt chỗ nhưng không đến và không liên lạc.'
+      : undefined,
+  });
+});
 
 export default function registerPaymentRoutes(app) {
   app.route('/api/payments', payments);

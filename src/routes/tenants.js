@@ -318,7 +318,7 @@ publicConfig.get('/config', async (c) => {
     const adminId = c.req.header('X-Tenant-ID')?.trim();
     if (adminId) {
       tenant = await c.env.DB
-        .prepare('SELECT id, site_config FROM tenants WHERE id = ?')
+        .prepare('SELECT id, site_config, payment_methods FROM tenants WHERE id = ?')
         .bind(adminId)
         .first();
     } else {
@@ -344,6 +344,12 @@ publicConfig.get('/config', async (c) => {
 
   // [SEC] Return only the public-safe fields. Never expose payment_config_json,
   //       total_revenue_tracked, subscription_status, or internal IDs here.
+  //       payment_methods is safe to expose — it's the enabled channel list for inject.js checkout.
+  let paymentMethods = [];
+  try {
+    if (tenant.payment_methods) paymentMethods = JSON.parse(tenant.payment_methods);
+  } catch { /* malformed JSON — return empty array */ }
+
   return c.json({
     ok: true,
     config: {
@@ -351,6 +357,7 @@ publicConfig.get('/config', async (c) => {
       content:          cfg.content          ?? {},
       features:         cfg.features         ?? {},
       custom_selectors: cfg.custom_selectors ?? {},
+      payment_methods:  paymentMethods,
     },
   });
 });

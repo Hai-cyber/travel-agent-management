@@ -215,7 +215,7 @@ bookings.post('/order', async (c) => {
 
   // [LEGAL FIREWALL] Only live (ACTIVE) tenants may accept bookings.
   const tenantRow = await c.env.DB
-    .prepare('SELECT subscription_status FROM tenants WHERE id = ?')
+    .prepare('SELECT subscription_status, payment_methods FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenantRow) return c.json({ error: 'Tenant not found.' }, 404);
@@ -249,6 +249,21 @@ bookings.post('/order', async (c) => {
       allowed: [...ALL_PROVIDERS],
     }, 400);
   }
+
+  // Validate method is enabled for this tenant (if tenant has configured their channels)
+  if (tenantRow.payment_methods) {
+    try {
+      const methods = JSON.parse(tenantRow.payment_methods);
+      const enabledMethod = methods.find(m => m.id === rawMethod && m.enabled);
+      if (!enabledMethod) {
+        return c.json({
+          error: `Payment method "${rawMethod}" is not enabled for this tour operator.`,
+          code:  'PAYMENT_METHOD_DISABLED',
+        }, 400);
+      }
+    } catch { /* malformed JSON — allow all methods */ }
+  }
+
   const instant = isInstantProvider(rawMethod);
 
   const { tour_id, travel_date, segment_id, pax = {}, guest, draft_id = null } = body;
@@ -280,9 +295,13 @@ bookings.post('/order', async (c) => {
 
   // Group A (Instant): status = AWAITING_PAYMENT, no real deadline
   // Group B (Manual):  status = AWAITING_PROOF,   deadline = 48/72h
-  const initialStatus = instant ? 'AWAITING_PAYMENT' : 'AWAITING_PROOF';
-  const deadline      = instant ? 0 : computePaymentDeadline(now);
-  const deadlineHours = !instant && deadline === now + 72 * 3600 ? 72 : 48;
+  // Group C (Arrival): status = PENDING_ARRIVAL,  no deadline, identity locked until manual unlock
+  const isArrival     = rawMethod === 'PAY_ON_ARRIVAL';
+  const initialStatus = isArrival ? 'PENDING_ARRIVAL'
+                      : instant   ? 'AWAITING_PAYMENT'
+                                  : 'AWAITING_PROOF';
+  const deadline      = (instant || isArrival) ? 0 : computePaymentDeadline(now);
+  const deadlineHours = !instant && !isArrival && deadline === now + 72 * 3600 ? 72 : 48;
 
   try {
     await c.env.DB
@@ -326,6 +345,23 @@ bookings.post('/order', async (c) => {
         }
       )
     );
+
+    if (isArrival) {
+      // Group C: PAY_ON_ARRIVAL — identity locked until agent calls manual-unlock
+      return c.json({
+        ok:                 true,
+        order_id:           orderId,
+        status:             'PENDING_ARRIVAL',
+        payment_method:     rawMethod,
+        grand_total_usd:    priceResult.totals.grand_total,
+        segment_name:       priceResult.segment_name,
+        guest_portal_token: secureToken,
+        guest_portal_url:   `/api/bookings/public/${secureToken}`,
+        note:               'Đặt chỗ thành công. Khách sẽ thanh toán khi gặp nhân viên. Danh tính bị khoá cho đến khi nhân viên mở khoá thủ công.',
+        warning:            '⚠ PAY_ON_ARRIVAL có rủi ro ghosting. Gọi POST /api/bookings/order/:orderId/manual-unlock khi thực sự gặp khách.',
+        manual_unlock_url:  `/api/bookings/order/${orderId}/manual-unlock`,
+      }, 201);
+    }
 
     if (instant) {
       // Instant payment channel: return a payment initiation payload.
@@ -595,6 +631,10 @@ const GUEST_STATUS_LABELS = {
     en: 'Awaiting proof of payment. Please upload your bank transfer receipt.',
     vi: 'Đang chờ biên lai chuyển khoản. Vui lòng tải ảnh chụp giao dịch lên.',
   },
+  PENDING_ARRIVAL: {
+    en: 'Your booking is confirmed for pay-on-arrival. Please meet the agent at the designated location.',
+    vi: 'Đặt chỗ thành công. Vui lòng gặp nhân viên tại điểm hẹn để thanh toán.',
+  },
   PROOF_UPLOADED: {
     en: 'Proof received. Your booking is awaiting agent confirmation.',
     vi: 'Đã nhận biên lai. Đặt tour đang chờ xác nhận từ nhân viên.',
@@ -773,6 +813,77 @@ bookings.post('/public/:secure_token/proof', async (c) => {
     ok:      true,
     status:  'PROOF_UPLOADED',
     message: 'Your proof of payment has been received. The agent will confirm your booking shortly.',
+  });
+});
+
+// ── POST /api/bookings/order/:orderId/manual-unlock ───────────────────────────
+// Agent explicitly unlocks the identity of a PAY_ON_ARRIVAL (PENDING_ARRIVAL) order.
+// By calling this, the agent accepts the ghosting risk — the guest may not show up.
+// [SEC] Only the owning tenant may unlock via X-Tenant-ID.
+// [LOG] Logged with [MANUAL_UNLOCK_GHOSTING_RISK] tag for audit trail.
+bookings.post('/order/:orderId/manual-unlock', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const orderId = c.req.param('orderId');
+
+  const order = await c.env.DB
+    .prepare(
+      `SELECT id, status, identity_unlocked, guest_name, guest_email, guest_phone
+       FROM booking_orders WHERE id = ? AND tenant_id = ?`
+    )
+    .bind(orderId, tenantId)
+    .first();
+
+  if (!order) return c.json({ error: 'Order not found.' }, 404);
+
+  if (order.status !== 'PENDING_ARRIVAL') {
+    return c.json({
+      error:          'Manual unlock is only available for PAY_ON_ARRIVAL orders in PENDING_ARRIVAL status.',
+      current_status: order.status,
+    }, 422);
+  }
+
+  // Idempotent — already unlocked, return current data without re-writing
+  if (order.identity_unlocked) {
+    return c.json({
+      ok:               true,
+      order_id:         orderId,
+      already_unlocked: true,
+      guest: {
+        name:  order.guest_name,
+        email: order.guest_email,
+        phone: order.guest_phone,
+      },
+    });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await c.env.DB
+    .prepare(`UPDATE booking_orders
+              SET identity_unlocked = 1,
+                  manual_unlock_at  = ?
+              WHERE id = ? AND tenant_id = ? AND status = 'PENDING_ARRIVAL'`)
+    .bind(now, orderId, tenantId)
+    .run();
+
+  console.warn(
+    `[MANUAL_UNLOCK_GHOSTING_RISK] order=${orderId} tenant=${tenantId} at=${new Date(now * 1000).toISOString()}`
+  );
+
+  return c.json({
+    ok:                true,
+    order_id:          orderId,
+    status:            order.status,
+    identity_unlocked: true,
+    manual_unlock_at:  now,
+    guest: {
+      name:  order.guest_name,
+      email: order.guest_email,
+      phone: order.guest_phone,
+    },
+    warning: '⚠ Bạn đã chấp nhận rủi ro ghosting. Dữ liệu khách đã được mở khoá.',
   });
 });
 

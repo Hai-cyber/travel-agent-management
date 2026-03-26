@@ -71,7 +71,7 @@ export async function resolveTenantByHost(host, db) {
   // 1. Exact custom_domain lookup
   const byDomain = await db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config
+      `SELECT id, subscription_status, template_id, site_config, payment_methods
          FROM tenants
         WHERE custom_domain = ? AND subscription_status = 'ACTIVE'`
     )
@@ -87,7 +87,7 @@ export async function resolveTenantByHost(host, db) {
   const subLabel = labels[0];
   return db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config
+      `SELECT id, subscription_status, template_id, site_config, payment_methods
          FROM tenants
         WHERE subdomain = ? AND subscription_status = 'ACTIVE'`
     )
