@@ -122,42 +122,44 @@
     .badge-active   { background: #dbeafe; color: #1e40af; }
     .badge-inactive { background: #f3f4f6; color: #6b7280; }
 
-    /* ── Stops table ── */
-    table.stop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    table.stop-table th {
-      background: #f8fafc; text-align: left; padding: 9px 12px;
-      font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #64748b;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    table.stop-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-    table.stop-table tr:last-child td { border-bottom: none; }
-    table.stop-table tr:hover td { background: #fafafa; }
-    .meal-icons { display: flex; gap: 3px; font-size: 14px; }
-    .meal-icon.off { opacity: .2; }
+    /* ── Stops workspace (two-col) ── */
+    .stops-workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 800px) { .stops-workspace { grid-template-columns: 1fr; } }
 
-    /* ── Stop add form ── */
-    .stop-add-form {
-      background: #f8fafc; border-top: 1px solid #e2e8f0;
-      padding: 16px 20px;
+    /* ── Stop builder rows ── */
+    .stop-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 16px; border-bottom: 1px solid #f1f5f9;
     }
-    .stop-add-form h4 { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .04em; }
-    .checkbox-row { display: flex; align-items: center; gap: 16px; }
-    .checkbox-row label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
-    .checkbox-row input[type=checkbox] { width: 15px; height: 15px; accent-color: #7c3aed; }
+    .stop-row:hover { background: #fafafa; }
+    .stop-row-num { width: 20px; text-align: center; font-size: 11px; color: #94a3b8; font-weight: 700; flex-shrink: 0; }
+    .stop-row-label { flex: 1; font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stop-nights-wrap { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; flex-shrink: 0; }
+    .stop-nights-wrap input { width: 38px; padding: 3px 4px; border: 1px solid #e2e8f0; border-radius: 4px; text-align: center; font-size: 12px; font-family: monospace; }
+    .stop-meal-group { display: flex; gap: 3px; flex-shrink: 0; }
+    .meal-toggle { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 7px; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all .1s; white-space: nowrap; }
+    .meal-toggle.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+    .stop-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
-    /* ── Itinerary builder ── */
-    .itin-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-    .itin-item {
-      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-      padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;
-    }
-    .itin-day-badge {
-      background: #ede9fe; color: #6d28d9; border-radius: 6px;
-      padding: 3px 9px; font-size: 12px; font-weight: 700; flex-shrink: 0;
-    }
-    .itin-content { flex: 1; }
-    .itin-title { font-weight: 600; font-size: 13px; }
-    .itin-desc  { font-size: 12px; color: #64748b; margin-top: 2px; }
+    /* ── Quick add form ── */
+    .stop-quick-form { background: #f0f4ff; border-top: 2px solid #7c3aed; padding: 12px 16px; }
+    .stop-quick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .stop-quick-row input[type=text] { flex: 1; min-width: 150px; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    .stop-quick-row input[type=text]:focus { outline: none; border-color: #7c3aed; }
+    .nights-pill { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #475569; flex-shrink: 0; }
+    .nights-pill input { width: 44px; padding: 7px 4px; border: 1px solid #d1d5db; border-radius: 6px; text-align: center; font-size: 13px; font-family: monospace; }
+    .nights-pill input:focus { outline: none; border-color: #7c3aed; }
+
+    /* ── Itinerary preview timeline ── */
+    .itin-day-row { display: flex; padding: 12px 18px; gap: 14px; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
+    .itin-day-row:last-of-type { border-bottom: none; }
+    .itin-day-tag { flex-shrink: 0; width: 72px; padding-top: 1px; }
+    .itin-day-label { font-size: 11px; font-weight: 800; color: #7c3aed; background: #ede9fe; padding: 3px 6px; border-radius: 5px; text-align: center; display: block; }
+    .itin-stop-name { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .itin-stop-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+    .itin-nights-note { font-size: 11px; color: #94a3b8; }
+    .itin-meal-badge { font-size: 11px; font-weight: 700; color: #7c3aed; background: #ede9fe; padding: 2px 7px; border-radius: 99px; }
+    .itin-total-bar { padding: 12px 18px; background: #f8fafc; border-top: 2px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; display: flex; justify-content: space-between; }
 
     /* ── Preview panel ── */
     #preview-frame {
@@ -461,71 +463,66 @@
 
 <!-- ════════════════════════════  TAB 3: STOPS  ══════════════════════════════ -->
 <section class="panel" id="panel-stops">
-  <div class="selected-notice" id="stops-notice" style="display:none">
-    Stops for: <strong id="stops-tour-label"></strong>
-    <span style="margin-left:auto;font-size:11px;color:#7c3aed">Each stop generates a <code>stop_id</code> for service items</span>
+  <div class="selected-notice" id="stops-notice" style="display:none; margin-bottom:0">
+    <span>Itinerary for: <strong id="stops-tour-label"></strong></span>
+    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date → days auto-calculate from nights</span>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h2>Tour Stops (Itinerary Segments)</h2>
-      <button class="btn btn-primary btn-sm" id="btn-refresh-stops">↺ Refresh</button>
-    </div>
-    <div id="stops-table-wrap">
-      <div class="empty-state">Select a tour first.</div>
+  <div class="stops-workspace" style="margin-top:20px">
+    <!-- ── LEFT: builder ── -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Stop Builder</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">↺</button>
+            <button class="btn btn-primary btn-sm" id="btn-show-add-stop">+ Add Stop</button>
+          </div>
+        </div>
+        <div id="stops-rows-container">
+          <div class="empty-state">Select a tour first.</div>
+        </div>
+        <!-- Quick-add form -->
+        <div class="stop-quick-form" id="stop-quick-form" style="display:none">
+          <div class="stop-quick-row">
+            <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" />
+            <div class="nights-pill">
+              🌙
+              <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" />
+              <span style="font-size:12px;color:#94a3b8">nights</span>
+            </div>
+            <div class="stop-meal-group">
+              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">🌅 B</button>
+              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">🌞 L</button>
+              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">🌙 D</button>
+            </div>
+            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add ↵</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stop IDs for service items -->
+      <div class="card" id="service-items-hint" style="display:none; margin-top:16px">
+        <div class="card-header"><h2>Stop IDs → Service Items</h2></div>
+        <div class="card-body">
+          <p style="font-size:12px;color:#64748b;margin-bottom:10px">Click to copy. Use with<br><code>POST /api/stops/:stopId/{accommodations|meals|…}</code></p>
+          <div id="stop-id-chips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Add stop form -->
-    <div class="stop-add-form" id="stop-add-form" style="display:none">
-      <h4>Add Stop</h4>
-      <div class="field-row cols-4" style="margin-bottom:12px">
-        <div class="field" style="grid-column: span 2">
-          <label>Label *</label>
-          <input type="text" id="s-label" placeholder="Day 1: Arrive in Hanoi" />
+    <!-- ── RIGHT: live preview ── -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2>📋 Itinerary Preview</h2>
+          <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#7c3aed"></span>
         </div>
-        <div class="field">
-          <label>Day From *</label>
-          <input type="number" id="s-day-from" min="1" value="1" />
-        </div>
-        <div class="field">
-          <label>Day To *</label>
-          <input type="number" id="s-day-to" min="1" value="1" />
+        <div id="itin-preview-panel">
+          <div class="empty-state">Add stops to see preview.</div>
         </div>
       </div>
-      <div class="field-row cols-4" style="margin-bottom:12px">
-        <div class="field">
-          <label>Nights</label>
-          <input type="number" id="s-nights" min="0" value="0" />
-        </div>
-        <div class="field">
-          <label>Sort Order</label>
-          <input type="number" id="s-sort" min="0" value="0" />
-        </div>
-        <div class="field" style="grid-column: span 2">
-          <label>Description</label>
-          <input type="text" id="s-desc" placeholder="Optional description…" />
-        </div>
-      </div>
-      <div class="checkbox-row" style="margin-bottom:14px">
-        <label><input type="checkbox" id="s-breakfast" /> 🌅 Breakfast</label>
-        <label><input type="checkbox" id="s-lunch" />    🌞 Lunch</label>
-        <label><input type="checkbox" id="s-dinner" />   🌙 Dinner</label>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-success" id="btn-add-stop">+ Add Stop</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Service Items shortcut -->
-  <div class="card" id="service-items-hint" style="display:none">
-    <div class="card-header"><h2>Service Items</h2></div>
-    <div class="card-body">
-      <p style="font-size:13px; color:#475569; margin-bottom:12px">
-        Use a Stop ID below with the service items endpoints:<br>
-        <code>POST /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}</code>
-      </p>
-      <div id="stop-id-chips" style="display:flex; flex-wrap:wrap; gap:8px"></div>
     </div>
   </div>
 </section>
@@ -874,85 +871,192 @@ document.getElementById('btn-save-content').addEventListener('click', async () =
 });
 
 /* ════════════════════════════  TAB 3: STOPS  ═══════════════════════════════ */
-async function loadStops() {
-  if (!S.tour) return;
-  document.getElementById('stops-notice').style.display      = '';
-  document.getElementById('stops-tour-label').textContent    = S.tour.title;
-  document.getElementById('stop-add-form').style.display     = '';
+/* ════════════════════════════  STOPS — SMART BUILDER  ══════════════════════ */
 
-  const wrap = document.getElementById('stops-table-wrap');
-  wrap.innerHTML = '<div class="loading">Loading…</div>';
-  try {
-    const data = await api(`/api/tours/${S.tour.id}/stops`);
-    S.stops = data.stops ?? [];
-    renderStopsTable();
-    renderStopChips();
-  } catch (err) {
-    wrap.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
-  }
+// Day-range calculator — derives day_from / day_to purely from nights order
+function calcDays(stops) {
+  let day = 1;
+  return stops.map(s => {
+    const nights = Math.max(Number(s.nights) || 0, 0);
+    const dayFrom = day;
+    const dayTo   = nights > 0 ? day + nights - 1 : day;
+    day = dayTo + 1;
+    return { ...s, _dayFrom: dayFrom, _dayTo: dayTo };
+  });
 }
 
-function renderStopsTable() {
-  const wrap = document.getElementById('stops-table-wrap');
+function renderItinPreview() {
+  const panel = document.getElementById('itin-preview-panel');
+  const badge = document.getElementById('total-days-badge');
   if (!S.stops.length) {
-    wrap.innerHTML = '<div class="empty-state">No stops yet. Add the first stop below.</div>';
-    document.getElementById('service-items-hint').style.display = 'none';
+    panel.innerHTML = '<div class="empty-state">Add stops to see preview.</div>';
+    badge.textContent = '';
     return;
   }
-  const table = document.createElement('table');
-  table.className = 'stop-table';
-  table.innerHTML = `<thead><tr>
-    <th>#</th><th>Label</th><th>Days</th><th>Nights</th><th>Meals</th>
-    <th>Stop ID</th><th></th>
-  </tr></thead>`;
-  const tbody = document.createElement('tbody');
-  S.stops.forEach(s => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${esc(String(s.sort_order))}</td>
-      <td>${esc(s.label)}</td>
-      <td>${esc(String(s.day_from))} – ${esc(String(s.day_to))}</td>
-      <td>${esc(String(s.nights))}</td>
-      <td>
-        <div class="meal-icons">
-          <span class="meal-icon ${s.meal_breakfast ? '' : 'off'}" title="Breakfast">🌅</span>
-          <span class="meal-icon ${s.meal_lunch     ? '' : 'off'}" title="Lunch">🌞</span>
-          <span class="meal-icon ${s.meal_dinner    ? '' : 'off'}" title="Dinner">🌙</span>
+  const calc       = calcDays(S.stops);
+  const totalDays  = calc[calc.length - 1]._dayTo;
+  const totalNights = S.stops.reduce((s, x) => s + (Number(x.nights) || 0), 0);
+  badge.textContent = `${totalDays}D / ${totalNights}N`;
+  let html = '';
+  calc.forEach(s => {
+    const dayLabel = s._dayFrom === s._dayTo
+      ? `Day ${s._dayFrom}`
+      : `Day ${s._dayFrom}–${s._dayTo}`;
+    const meals = [
+      s.meal_breakfast && '🌅B',
+      s.meal_lunch     && '🌞L',
+      s.meal_dinner    && '🌙D',
+    ].filter(Boolean);
+    const mealBadge  = meals.length ? `<span class="itin-meal-badge">${meals.join(' ')}</span>` : '';
+    const nightsTxt  = Number(s.nights) > 0
+      ? `${s.nights} night${s.nights > 1 ? 's' : ''}`
+      : 'day trip';
+    html += `
+      <div class="itin-day-row">
+        <div class="itin-day-tag"><span class="itin-day-label">${esc(dayLabel)}</span></div>
+        <div>
+          <div class="itin-stop-name">${esc(s.label)}</div>
+          <div class="itin-stop-meta">
+            <span class="itin-nights-note">${nightsTxt}</span>
+            ${mealBadge}
+          </div>
         </div>
-      </td>
-      <td><button class="copy-id" data-id="${esc(s.id)}">${esc(s.id.slice(0,10))}…</button></td>
-      <td><button class="btn btn-danger btn-sm" data-del="${esc(s.id)}">✕</button></td>`;
-    tr.querySelector('[data-id]').addEventListener('click', () => copyText(s.id));
-    tr.querySelector('[data-del]').addEventListener('click', () => deleteStop(s.id));
-    tbody.appendChild(tr);
+      </div>`;
   });
-  table.appendChild(tbody);
-  wrap.innerHTML = '';
-  wrap.appendChild(table);
+  html += `<div class="itin-total-bar"><span>Total</span><span>${totalDays} days · ${totalNights} nights</span></div>`;
+  panel.innerHTML = html;
 }
 
-function renderStopChips() {
+function renderStopRows() {
+  const container = document.getElementById('stops-rows-container');
+  if (!S.stops.length) {
+    container.innerHTML = '<div class="empty-state">No stops yet. Click <strong>+ Add Stop</strong>.</div>';
+    document.getElementById('service-items-hint').style.display = 'none';
+    renderItinPreview();
+    return;
+  }
+  container.innerHTML = '';
+  S.stops.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'stop-row';
+    const mB = s.meal_breakfast ? 'active' : '';
+    const mL = s.meal_lunch     ? 'active' : '';
+    const mD = s.meal_dinner    ? 'active' : '';
+    row.innerHTML = `
+      <span class="stop-row-num">${i + 1}</span>
+      <span class="stop-row-label" title="ID: ${esc(s.id)}">${esc(s.label)}</span>
+      <div class="stop-nights-wrap">
+        🌙
+        <input type="number" class="nights-inp" data-sid="${esc(s.id)}" value="${Number(s.nights)}" min="0" max="60" title="Nights" />
+      </div>
+      <div class="stop-meal-group">
+        <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast" title="Breakfast">🌅 B</button>
+        <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch"     title="Lunch">🌞 L</button>
+        <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner"    title="Dinner">🌙 D</button>
+      </div>
+      <div class="stop-row-actions">
+        ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">↑</button>` : `<span style="width:28px"></span>`}
+        ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">↓</button>` : `<span style="width:28px"></span>`}
+        <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete stop">✕</button>
+      </div>`;
+    container.appendChild(row);
+  });
+
+  // Wire nights input → live preview + PATCH
+  container.querySelectorAll('.nights-inp').forEach(inp => {
+    inp.addEventListener('change', e => {
+      const stop = S.stops.find(s => s.id === e.target.dataset.sid);
+      if (!stop) return;
+      stop.nights = Number(e.target.value);
+      renderItinPreview();
+      patchStop(stop.id, { nights: stop.nights });
+    });
+  });
+
+  // Wire meal toggles → live preview + PATCH
+  container.querySelectorAll('.meal-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stop = S.stops.find(s => s.id === btn.dataset.sid);
+      if (!stop) return;
+      const key = `meal_${btn.dataset.meal}`;
+      stop[key] = stop[key] ? 0 : 1;
+      btn.classList.toggle('active', !!stop[key]);
+      renderItinPreview();
+      patchStop(stop.id, { [key]: stop[key] });
+    });
+  });
+
+  container.querySelectorAll('.del-stop-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteStop(btn.dataset.sid));
+  });
+  container.querySelectorAll('.move-up').forEach(btn => {
+    btn.addEventListener('click', () => moveStop(btn.dataset.sid, -1));
+  });
+  container.querySelectorAll('.move-dn').forEach(btn => {
+    btn.addEventListener('click', () => moveStop(btn.dataset.sid, 1));
+  });
+
+  // Update service-items stop-ID chips
   const hint  = document.getElementById('service-items-hint');
   const chips = document.getElementById('stop-id-chips');
-  if (!S.stops.length) { hint.style.display = 'none'; return; }
   hint.style.display = '';
   chips.innerHTML = '';
   S.stops.forEach(s => {
-    const btn = document.createElement('button');
-    btn.className = 'copy-id';
-    btn.style.fontSize = '12px';
-    btn.textContent = `${s.label} › ${s.id}`;
-    btn.addEventListener('click', () => copyText(s.id));
-    chips.appendChild(btn);
+    const b = document.createElement('button');
+    b.className = 'copy-id';
+    b.style.fontSize = '12px';
+    b.textContent = `${s.label} › ${s.id}`;
+    b.addEventListener('click', () => copyText(s.id));
+    chips.appendChild(b);
   });
+}
+
+async function patchStop(stopId, fields) {
+  try {
+    await api(`/api/tours/${S.tour.id}/stops/${stopId}`, { method: 'PATCH', body: JSON.stringify(fields) });
+  } catch (err) { toast('Auto-save failed: ' + err.message, 'err'); }
+}
+
+async function moveStop(stopId, dir) {
+  const idx = S.stops.findIndex(s => s.id === stopId);
+  const nxt = idx + dir;
+  if (nxt < 0 || nxt >= S.stops.length) return;
+  [S.stops[idx], S.stops[nxt]] = [S.stops[nxt], S.stops[idx]];
+  S.stops.forEach((s, i) => { s.sort_order = i; });
+  renderStopRows();
+  renderItinPreview();
+  // Persist new order
+  await Promise.all([
+    patchStop(S.stops[idx].id, { sort_order: idx }),
+    patchStop(S.stops[nxt].id, { sort_order: nxt }),
+  ]);
+}
+
+async function loadStops() {
+  if (!S.tour) return;
+  document.getElementById('stops-notice').style.display   = '';
+  document.getElementById('stops-tour-label').textContent = S.tour.title;
+  const container = document.getElementById('stops-rows-container');
+  container.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const data = await api(`/api/tours/${S.tour.id}/stops`);
+    S.stops = data.stops ?? [];
+    renderStopRows();
+    renderItinPreview();
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
+  }
 }
 
 async function deleteStop(stopId) {
   if (!confirm('Delete this stop?')) return;
   try {
     await api(`/api/tours/${S.tour.id}/stops/${stopId}`, { method: 'DELETE' });
+    S.stops = S.stops.filter(s => s.id !== stopId);
+    S.stops.forEach((s, i) => { s.sort_order = i; });
+    renderStopRows();
+    renderItinPreview();
     toast('Stop deleted');
-    await loadStops();
   } catch (err) {
     toast('Delete failed: ' + err.message, 'err');
   }
@@ -960,32 +1064,65 @@ async function deleteStop(stopId) {
 
 document.getElementById('btn-refresh-stops').addEventListener('click', loadStops);
 
-document.getElementById('btn-add-stop').addEventListener('click', async () => {
+// ── Quick-add form ──
+document.getElementById('btn-show-add-stop').addEventListener('click', () => {
+  const form = document.getElementById('stop-quick-form');
+  form.style.display = '';
+  document.getElementById('sq-label').focus();
+  document.getElementById('sq-nights').value = '1';
+  ['sq-b','sq-l','sq-d'].forEach(id => document.getElementById(id).classList.remove('active'));
+});
+document.getElementById('btn-cancel-add-stop').addEventListener('click', () => {
+  document.getElementById('stop-quick-form').style.display = 'none';
+});
+['sq-b','sq-l','sq-d'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function() { this.classList.toggle('active'); });
+});
+document.getElementById('sq-label').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-confirm-add-stop').click(); }
+});
+document.getElementById('btn-confirm-add-stop').addEventListener('click', async () => {
   if (!S.tour) { toast('Select a tour first', 'err'); return; }
-  const body = {
-    label:          document.getElementById('s-label').value.trim(),
-    day_from:       Number(document.getElementById('s-day-from').value),
-    day_to:         Number(document.getElementById('s-day-to').value),
-    nights:         Number(document.getElementById('s-nights').value),
-    sort_order:     Number(document.getElementById('s-sort').value),
-    description:    document.getElementById('s-desc').value.trim() || undefined,
-    meal_breakfast: document.getElementById('s-breakfast').checked ? 1 : 0,
-    meal_lunch:     document.getElementById('s-lunch').checked     ? 1 : 0,
-    meal_dinner:    document.getElementById('s-dinner').checked    ? 1 : 0,
-  };
-  if (!body.label) { toast('Label is required', 'err'); return; }
+  const label  = document.getElementById('sq-label').value.trim();
+  if (!label) { toast('Label is required', 'err'); document.getElementById('sq-label').focus(); return; }
+  const nights = Math.max(Number(document.getElementById('sq-nights').value) || 0, 0);
+  const mB = document.getElementById('sq-b').classList.contains('active') ? 1 : 0;
+  const mL = document.getElementById('sq-l').classList.contains('active') ? 1 : 0;
+  const mD = document.getElementById('sq-d').classList.contains('active') ? 1 : 0;
+
+  // Auto-calculate day_from / day_to from current stops
+  const calc    = calcDays(S.stops);
+  const dayFrom = calc.length ? calc[calc.length - 1]._dayTo + 1 : 1;
+  const dayTo   = nights > 0 ? dayFrom + nights - 1 : dayFrom;
+  const sortOrder = S.stops.length;
+
+  const btn = document.getElementById('btn-confirm-add-stop');
+  btn.disabled = true;
   try {
-    const data = await api(`/api/tours/${S.tour.id}/stops`, { method: 'POST', body: JSON.stringify(body) });
-    toast(`Stop added: ${data.id}`);
-    // Reset form fields
-    ['s-label','s-desc'].forEach(id => document.getElementById(id).value = '');
-    ['s-breakfast','s-lunch','s-dinner'].forEach(id => document.getElementById(id).checked = false);
-    document.getElementById('s-day-from').value = String(body.day_to + 1);
-    document.getElementById('s-day-to').value   = String(body.day_to + 1);
-    document.getElementById('s-sort').value     = String(body.sort_order + 1);
-    await loadStops();
+    const data = await api(`/api/tours/${S.tour.id}/stops`, {
+      method: 'POST',
+      body: JSON.stringify({
+        label, nights, day_from: dayFrom, day_to: dayTo,
+        meal_breakfast: mB, meal_lunch: mL, meal_dinner: mD,
+        sort_order: sortOrder,
+      })
+    });
+    S.stops.push({
+      id: data.id, tour_id: S.tour.id, tenant_id: S.tenantId,
+      label, nights, day_from: dayFrom, day_to: dayTo,
+      meal_breakfast: mB, meal_lunch: mL, meal_dinner: mD, sort_order: sortOrder,
+    });
+    document.getElementById('sq-label').value = '';
+    document.getElementById('sq-nights').value = '1';
+    ['sq-b','sq-l','sq-d'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById('sq-label').focus(); // stay open for next stop
+    renderStopRows();
+    renderItinPreview();
+    toast(`"${label}" added`);
   } catch (err) {
     toast('Add stop failed: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
   }
 });
 
