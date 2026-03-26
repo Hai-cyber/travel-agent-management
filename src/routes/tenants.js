@@ -2,6 +2,7 @@
 // Quản lý cài đặt Tenant: FX (tỉ giá), display currency, pricing policy
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
+import { resolveTenantByHost } from '../lib/siteStudio.js';
 
 const tenants = new Hono();
 
@@ -277,6 +278,59 @@ tenants.get('/audit-log', async (c) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/tenant/config  (public — no X-Tenant-ID required)
+// ─────────────────────────────────────────────────────────────────────────────
+// Called by public/inject.js running inside a tenant's site.
+// Resolves the tenant from the Host header (custom_domain or platform subdomain).
+// Returns only the safe public subset of site_config: brand, content, features,
+// and custom_selectors. No sensitive fields (payment config, revenue, etc.) are
+// ever exposed.
+//
+// The Hono router for this route lives on the root app (not on the /api/tenants
+// sub-router) so that the URL is /api/tenant/config, not /api/tenants/tenant/config.
+// Registration in registerTenantRoutes() below handles this.
+const publicConfig = new Hono();
+
+publicConfig.get('/config', async (c) => {
+  const host = c.req.header('host') ?? '';
+  if (!host) return c.json({ ok: false, error: 'Cannot determine tenant from request.' }, 400);
+
+  let tenant = null;
+  try {
+    tenant = await resolveTenantByHost(host, c.env.DB);
+  } catch (err) {
+    console.error('[TENANT_CONFIG_RESOLVE_ERROR]', err);
+    return c.json({ error: 'Internal server error.' }, 500);
+  }
+
+  if (!tenant) {
+    return c.json({ ok: false, error: 'Tenant not found or not active.' }, 404);
+  }
+
+  // Parse site_config — return empty defaults on malformed JSON.
+  let cfg = {};
+  try {
+    if (tenant.site_config) cfg = JSON.parse(tenant.site_config);
+  } catch {
+    // Intentional: fall through with empty config — inject.js degrades gracefully.
+  }
+
+  // [SEC] Return only the public-safe fields. Never expose payment_config_json,
+  //       total_revenue_tracked, subscription_status, or internal IDs here.
+  return c.json({
+    ok: true,
+    config: {
+      brand:            cfg.brand            ?? {},
+      content:          cfg.content          ?? {},
+      features:         cfg.features         ?? {},
+      custom_selectors: cfg.custom_selectors ?? {},
+    },
+  });
+});
+
 export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
+  // Public config endpoint — registered separately to keep URL path clean.
+  app.route('/api/tenant', publicConfig);
 }
