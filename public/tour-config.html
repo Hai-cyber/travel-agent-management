@@ -613,6 +613,17 @@
       <div class="card">
         <div class="card-header"><h2>Seasons</h2></div>
         <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Season</div>
+          <input id="sn-name" placeholder="Name (e.g. High Season)" style="width:100%;margin-bottom:4px" />
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:4px">
+            <input id="sn-smon" type="number" placeholder="From month" min="1" max="12" title="From month (1-12)" />
+            <input id="sn-sday" type="number" placeholder="From day"   min="1" max="31" title="From day (1-31)" />
+            <input id="sn-emon" type="number" placeholder="To month"   min="1" max="12" title="To month (1-12)" />
+            <input id="sn-eday" type="number" placeholder="To day"     min="1" max="31" title="To day (1-31)" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-add-season" style="width:100%">+ Add Season</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-header"><h2>Pax Bands</h2></div>
@@ -631,6 +642,14 @@
     <div class="card" style="margin-top:16px">
       <div class="card-header"><h2>Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto">Tenant-level &middot; rename inline</span></div>
       <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+      <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Segment</div>
+        <div style="display:flex;gap:6px;margin-bottom:4px">
+          <input id="sg-name" placeholder="Label (e.g. Standard)" style="flex:2" />
+          <input id="sg-code" placeholder="Code (e.g. STD)" style="flex:1" />
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-segment" style="width:100%">+ Add Segment</button>
+      </div>
     </div>
     <div class="card" style="margin-top:16px">
       <div class="card-header">
@@ -1354,11 +1373,10 @@ document.getElementById('btn-confirm-add-stop').addEventListener('click', async 
 
 /* ----------------------------  PRICE CONFIG HELPERS  ----------------------- */
 async function updatePricingItem(group, id, field, newVal, oldVal) {
-  const trimmed = (newVal || '').trim();
-  if (trimmed === oldVal) return;
-  if (!trimmed) return;
+  const str = String(newVal ?? '').trim();
+  if (!str || str === String(oldVal ?? '').trim()) return;
   try {
-    await api(`/api/pricing/${group}/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: trimmed }) });
+    await api(`/api/pricing/${group}/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: str }) });
     toast('Saved \u2713');
   } catch (e) {
     toast('Save failed: ' + e.message, 'err');
@@ -1505,13 +1523,26 @@ async function loadPricing() {
 
   // Admin -- Seasons
   const sBody = document.getElementById('pricing-seasons-body');
-  sBody.innerHTML = !seasons.length ? '<div class="empty-state">No seasons.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Name</th><th>Period</th><th></th></tr></thead><tbody>${
+  sBody.innerHTML = !seasons.length ? '<div class="empty-state">No seasons yet.</div>' :
+    `<table class="price-matrix"><thead><tr><th>Name</th><th>From (mm/dd)</th><th>To (mm/dd)</th><th></th></tr></thead><tbody>${
       seasons.map(s => `<tr>
         <td><input class="price-name-inp" value="${esc(s.name)}" data-orig="${esc(s.name)}"
           onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
-        <td style="color:#64748b;white-space:nowrap;font-size:11px">${s.start_month}/${s.start_day}&ndash;${s.end_month}/${s.end_day}</td>
+        <td style="white-space:nowrap">
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.start_month}" title="Month"
+            onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','start_month',this.value,${s.start_month})" onkeydown="if(event.key==='Enter')this.blur()" />
+          <span style="color:#94a3b8">/</span>
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.start_day}" title="Day"
+            onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','start_day',this.value,${s.start_day})" onkeydown="if(event.key==='Enter')this.blur()" />
+        </td>
+        <td style="white-space:nowrap">
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.end_month}" title="Month"
+            onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','end_month',this.value,${s.end_month})" onkeydown="if(event.key==='Enter')this.blur()" />
+          <span style="color:#94a3b8">/</span>
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.end_day}" title="Day"
+            onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','end_day',this.value,${s.end_day})" onkeydown="if(event.key==='Enter')this.blur()" />
+        </td>
         <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')">&times;</button></td>
       </tr>`).join('')
     }</tbody></table>`;
@@ -1606,6 +1637,38 @@ document.getElementById('calc-date').addEventListener('change', e => {
 
 document.getElementById('pricing-admin-details').addEventListener('toggle', e => {
   document.getElementById('pricing-admin-arrow').style.transform = e.target.open ? 'rotate(90deg)' : '';
+});
+
+document.getElementById('btn-add-season').addEventListener('click', async () => {
+  const name = document.getElementById('sn-name').value.trim();
+  const smon = Number(document.getElementById('sn-smon').value);
+  const sday = Number(document.getElementById('sn-sday').value);
+  const emon = Number(document.getElementById('sn-emon').value);
+  const eday = Number(document.getElementById('sn-eday').value);
+  if (!name || !smon || !sday || !emon || !eday) { toast('Name, from month/day and to month/day are all required', 'err'); return; }
+  if (smon < 1 || smon > 12 || emon < 1 || emon > 12) { toast('Month must be 1\u201312', 'err'); return; }
+  if (sday < 1 || sday > 31 || eday < 1 || eday > 31) { toast('Day must be 1\u201331', 'err'); return; }
+  try {
+    await api('/api/pricing/tenant-seasons', { method: 'POST', body: JSON.stringify({
+      name, start_month: smon, start_day: sday, end_month: emon, end_day: eday,
+    }) });
+    ['sn-name','sn-smon','sn-sday','sn-emon','sn-eday'].forEach(id => document.getElementById(id).value = '');
+    toast('Season added \u2713');
+    loadPricing();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+});
+
+document.getElementById('btn-add-segment').addEventListener('click', async () => {
+  const name = document.getElementById('sg-name').value.trim();
+  const code = document.getElementById('sg-code').value.trim().toUpperCase();
+  if (!name || !code) { toast('Label and code are required', 'err'); return; }
+  try {
+    await api('/api/pricing/pricing-segments', { method: 'POST', body: JSON.stringify({ name, code }) });
+    document.getElementById('sg-name').value = '';
+    document.getElementById('sg-code').value = '';
+    toast('Segment added \u2713');
+    loadPricing();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
 });
 
 document.getElementById('btn-add-paxband').addEventListener('click', async () => {
