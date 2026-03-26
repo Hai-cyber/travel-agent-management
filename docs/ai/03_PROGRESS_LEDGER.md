@@ -434,6 +434,25 @@ All service CRUD, validation, and task system logic is now implemented and teste
   # npx wrangler dev  →  http://localhost:8787/tour-config.html
   ```
 
+### CHK-R36 — Price Config tab: Customer Booking View (2026-current)
+- Checkpoint: CHK-R36
+- Status: done
+- Commit: 4e38506
+- Files changed:
+  - `public/tour-config.html` — Replaced flat admin grid with customer-facing Booking View + collapsible admin section
+- Summary:
+  - **Booking View card** (top): Segment tabs as pricing tier buttons → auto-selects first segment on load. 4-row pax table (Adult Shared, Adult Private, Child with parents, Infant) with ±qty controls, unit price from raw `_pricingData.prices`, and live subtotal column. Travel date input triggers `POST /api/pricing/calculate` for season-aware grand total + applied season/pax-band footnote. Fallback to raw total if calculate returns an error (e.g. season not matched).
+  - **Admin section** (collapsible `<details>` with arrow): 2-col grid Seasons + Pax Bands; Segments table (inline rename); Tour Prices table + Add row form. All existing IDs preserved.
+  - New CSS: `.seg-tab`, `.seg-tab.active`, `.qty-wrap`, `.qty-btn`, `.qty-val`
+- Verification:
+  ```bash
+  # Open tour config, select a tour → Price Config tab
+  npx wrangler dev  →  http://localhost:8787/tour-config.html
+  # Segment tabs appear; select one → pax rows show unit prices
+  # ± qty buttons update counts; travel date triggers live season-aware total
+  # Manage section expands via ▶ arrow; seasons/pax bands/segments/prices all editable
+  ```
+
 ### YYYY-MM-DD
 - Checkpoint:
 - Status:
