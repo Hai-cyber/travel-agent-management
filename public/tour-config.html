@@ -1,14 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tour Config — Agent Dashboard</title>
+  <title>Tour Config � Agent Dashboard</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
 
-    /* ── Topbar ── */
+    /* -- Topbar -- */
     .topbar {
       background: #1e1e2e; color: #cdd6f4; padding: 0 20px;
       display: flex; align-items: center; gap: 16px; height: 52px;
@@ -33,7 +33,7 @@
     .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
     .topbar-right a:hover { color: #cdd6f4; }
 
-    /* ── Tabs ── */
+    /* -- Tabs -- */
     .tabs {
       background: #fff; border-bottom: 1px solid #e2e8f0;
       display: flex; padding: 0 24px; gap: 2px; position: sticky; top: 0; z-index: 10;
@@ -47,12 +47,12 @@
     .tab-btn.active { color: #7c3aed; border-bottom-color: #7c3aed; }
     .tab-btn:disabled { opacity: .4; cursor: not-allowed; }
 
-    /* ── Layout ── */
+    /* -- Layout -- */
     .page-body { display: flex; gap: 0; min-height: calc(100vh - 92px); }
     .panel { display: none; flex: 1; padding: 28px 32px; max-width: 1000px; }
     .panel.active { display: block; }
 
-    /* ── Cards ── */
+    /* -- Cards -- */
     .card {
       background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
       margin-bottom: 24px; overflow: hidden;
@@ -64,7 +64,7 @@
     .card-header h2 { font-size: 14px; font-weight: 700; color: #1e293b; }
     .card-body { padding: 20px; }
 
-    /* ── Forms ── */
+    /* -- Forms -- */
     .field { margin-bottom: 16px; }
     .field label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
     .field input, .field select, .field textarea {
@@ -82,7 +82,7 @@
     .field-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
     .field small { font-size: 11px; color: #94a3b8; margin-top: 3px; display: block; }
 
-    /* ── Buttons ── */
+    /* -- Buttons -- */
     .btn {
       border: none; border-radius: 6px; padding: 8px 16px;
       font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
@@ -100,7 +100,7 @@
     .btn:disabled  { opacity: .5; cursor: not-allowed; }
     .btn-row       { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-    /* ── Tour selector list ── */
+    /* -- Tour selector list -- */
     .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
     .tour-item {
       display: flex; align-items: center; gap: 12px;
@@ -112,7 +112,7 @@
     .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; }
     .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; }
 
-    /* ── Badge ── */
+    /* -- Badge -- */
     .badge {
       display: inline-block; padding: 2px 8px; border-radius: 99px;
       font-size: 11px; font-weight: 700;
@@ -122,11 +122,11 @@
     .badge-active   { background: #dbeafe; color: #1e40af; }
     .badge-inactive { background: #f3f4f6; color: #6b7280; }
 
-    /* ── Stops workspace (two-col) ── */
+    /* -- Stops workspace (two-col) -- */
     .stops-workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
     @media (max-width: 800px) { .stops-workspace { grid-template-columns: 1fr; } }
 
-    /* ── Stop builder rows ── */
+    /* -- Stop builder rows -- */
     .stop-row {
       display: flex; align-items: center; gap: 8px;
       padding: 9px 16px; border-bottom: 1px solid #f1f5f9;
@@ -141,7 +141,7 @@
     .meal-toggle.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
     .stop-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
-    /* ── Quick add form ── */
+    /* -- Quick add form -- */
     .stop-quick-form { background: #f0f4ff; border-top: 2px solid #7c3aed; padding: 12px 16px; }
     .stop-quick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .stop-quick-row input[type=text] { flex: 1; min-width: 150px; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
@@ -150,7 +150,7 @@
     .nights-pill input { width: 44px; padding: 7px 4px; border: 1px solid #d1d5db; border-radius: 6px; text-align: center; font-size: 13px; font-family: monospace; }
     .nights-pill input:focus { outline: none; border-color: #7c3aed; }
 
-    /* ── Itinerary preview timeline ── */
+    /* -- Itinerary preview timeline -- */
     .itin-day-row { display: flex; padding: 12px 18px; gap: 14px; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
     .itin-day-row:last-of-type { border-bottom: none; }
     .itin-day-tag { flex-shrink: 0; width: 72px; padding-top: 1px; }
@@ -160,7 +160,7 @@
     .itin-nights-note { font-size: 11px; color: #94a3b8; }
     .itin-meal-badge { font-size: 11px; font-weight: 700; color: #7c3aed; background: #ede9fe; padding: 2px 7px; border-radius: 99px; }
     .itin-total-bar { padding: 12px 18px; background: #f8fafc; border-top: 2px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; display: flex; justify-content: space-between; }
-    /* ── Stop cards (inline service toggles) ── */
+    /* -- Stop cards (inline service toggles) -- */
     .stop-card { border-bottom: 1px solid #f1f5f9; }
     .stop-card:last-child { border-bottom: none; }
     .stop-card-main { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
@@ -179,7 +179,7 @@
     .stop-desc-inp { width: 100%; border: 1px solid #f1f5f9; border-radius: 5px; padding: 5px 8px; font-size: 12px; font-family: inherit; resize: none; overflow: hidden; min-height: 30px; color: #475569; background: transparent; box-sizing: border-box; line-height: 1.5; }
     .stop-desc-inp:focus { outline: none; border-color: #a78bfa; background: #fefefe; }
     .stop-desc-inp::placeholder { color: #cbd5e1; font-style: italic; }
-    /* ── Pricing tab ── */
+    /* -- Pricing tab -- */
     .price-matrix { width: 100%; border-collapse: collapse; font-size: 12px; }
     .price-matrix th { background: #f8fafc; padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
     .price-matrix td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
@@ -189,7 +189,7 @@
     .price-name-inp { border: none; background: transparent; font-size: 13px; font-weight: 700; color: #1e293b; width: 100%; padding: 2px 4px; border-radius: 3px; }
     .price-name-inp:hover, .price-name-inp:focus { background: #f8fafc; border: 1px solid #e2e8f0; outline: none; }
 
-    /* ── Preview panel ── */
+    /* -- Preview panel -- */
     #preview-frame {
       width: 100%; height: calc(100vh - 200px);
       border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
@@ -201,7 +201,7 @@
     }
     .preview-toolbar span { font-size: 12px; color: #94a3b8; flex: 1; font-family: monospace; }
 
-    /* ── Publish result ── */
+    /* -- Publish result -- */
     .publish-result {
       background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;
       padding: 16px 20px; margin-top: 16px; font-size: 13px; display: none;
@@ -210,11 +210,11 @@
     .publish-result h4 { font-weight: 700; margin-bottom: 6px; }
     .publish-result code { font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
 
-    /* ── Empty / Loading ── */
+    /* -- Empty / Loading -- */
     .empty-state { padding: 32px; text-align: center; color: #94a3b8; font-size: 14px; }
     .loading { color: #94a3b8; font-size: 13px; padding: 20px; }
 
-    /* ── Copy badge ── */
+    /* -- Copy badge -- */
     .copy-id {
       font-family: monospace; font-size: 11px; color: #7c3aed;
       background: #ede9fe; padding: 2px 7px; border-radius: 4px; cursor: pointer;
@@ -222,7 +222,7 @@
     }
     .copy-id:hover { background: #ddd6fe; }
 
-    /* ── Section selected tour notice ── */
+    /* -- Section selected tour notice -- */
     .selected-notice {
       background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 8px;
       padding: 10px 16px; font-size: 13px; color: #5b21b6; margin-bottom: 20px;
@@ -230,7 +230,7 @@
     }
     .selected-notice strong { font-weight: 700; }
 
-    /* ── Toast ── */
+    /* -- Toast -- */
     #toast {
       position: fixed; bottom: 24px; right: 24px; z-index: 9999;
       padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
@@ -241,39 +241,39 @@
     #toast.ok  { background: #059669; }
     #toast.err { background: #dc2626; }
 
-    /* ── Code pill ── */
+    /* -- Code pill -- */
     code { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #7c3aed; }
     hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
   </style>
 </head>
 <body>
 
-<!-- ── Topbar ── -->
+<!-- -- Topbar -- -->
 <header class="topbar">
-  <h1>🗺 Tour Config</h1>
+  <h1>?? Tour Config</h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
     <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" />
-    <input type="text" id="input-tenant" placeholder="Tenant ID …"           spellcheck="false" />
+    <input type="text" id="input-tenant" placeholder="Tenant ID �"           spellcheck="false" />
     <button type="submit" class="btn-connect">Connect</button>
     <span id="connect-status"></span>
   </form>
   <div class="topbar-right">
-    <a href="dashboard.html">← Dashboard</a>
+    <a href="dashboard.html">? Dashboard</a>
     <a href="category-manager.html">Category Manager</a>
   </div>
 </header>
 
-<!-- ── Tabs ── -->
+<!-- -- Tabs -- -->
 <nav class="tabs" id="tab-nav">
-  <button class="tab-btn active" data-tab="tours">① Tour</button>
-  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>② Content</button>
-  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>③ Stops</button>
-  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>④ Price Config</button>
-  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>⑤ Preview</button>
-  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>⑥ Publish</button>
+  <button class="tab-btn active" data-tab="tours">? Tour</button>
+  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>? Content</button>
+  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>? Stops</button>
+  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>? Price Config</button>
+  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>? Preview</button>
+  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>? Publish</button>
 </nav>
 
-<!-- ════════════════════════════════  TAB 1: TOUR  ═══════════════════════════ -->
+<!-- --------------------------------  TAB 1: TOUR  --------------------------- -->
 <section class="panel active" id="panel-tours">
   <div class="page-body" style="display:grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; max-width: 960px">
 
@@ -297,14 +297,14 @@
       <div class="card" id="create-tour-card" style="display:none">
         <div class="card-header">
           <h2>Create New Tour</h2>
-          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">✕ Cancel</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">? Cancel</button>
         </div>
         <div class="card-body">
           <form id="create-tour-form">
             <div class="field-row cols-2">
               <div class="field">
                 <label>Title *</label>
-                <input type="text" id="new-title" placeholder="Hà Nội – Hạ Long 3N2Đ" required />
+                <input type="text" id="new-title" placeholder="H� N?i � H? Long 3N2�" required />
               </div>
               <div class="field">
                 <label>Duration Text</label>
@@ -329,7 +329,7 @@
               </div>
             </div>
             <div class="btn-row" style="margin-top:4px">
-              <button type="submit" class="btn btn-success">✓ Create Tour</button>
+              <button type="submit" class="btn btn-success">? Create Tour</button>
             </div>
           </form>
         </div>
@@ -338,7 +338,7 @@
       <!-- Selected tour info -->
       <div class="card" id="tour-detail-card" style="display:none">
         <div class="card-header">
-          <h2 id="tour-detail-title">—</h2>
+          <h2 id="tour-detail-title">�</h2>
           <span class="badge badge-draft" id="tour-detail-badge">draft</span>
         </div>
         <div class="card-body">
@@ -351,9 +351,9 @@
           </div>
           <hr />
           <div class="btn-row">
-            <button class="btn btn-primary"   id="btn-goto-content">② Edit Content →</button>
-            <button class="btn btn-ghost"     id="btn-goto-stops">③ Stops →</button>
-            <button class="btn btn-ghost"     id="btn-goto-preview">④ Preview →</button>
+            <button class="btn btn-primary"   id="btn-goto-content">? Edit Content ?</button>
+            <button class="btn btn-ghost"     id="btn-goto-stops">? Stops ?</button>
+            <button class="btn btn-ghost"     id="btn-goto-preview">? Preview ?</button>
           </div>
         </div>
       </div>
@@ -361,7 +361,7 @@
       <div class="card" id="tour-hint-card">
         <div class="card-body">
           <div class="empty-state" style="padding:20px">
-            👈 Select a tour from the list, or click <strong>+ New</strong> to create one.
+            ?? Select a tour from the list, or click <strong>+ New</strong> to create one.
           </div>
         </div>
       </div>
@@ -369,7 +369,7 @@
   </div>
 </section>
 
-<!-- ════════════════════════════  TAB 2: CONTENT  ════════════════════════════ -->
+<!-- ----------------------------  TAB 2: CONTENT  ---------------------------- -->
 <section class="panel" id="panel-content">
   <div id="content-selected-notice" class="selected-notice" style="display:none">
     Editing: <strong id="content-tour-name-label"></strong>
@@ -384,11 +384,11 @@
         <div class="field-row cols-2">
           <div class="field">
             <label>Title</label>
-            <input type="text" id="meta-title" placeholder="Hà Nội – Hạ Long 3N2Đ" />
+            <input type="text" id="meta-title" placeholder="H� N?i � H? Long 3N2�" />
           </div>
           <div class="field">
             <label>Duration Text</label>
-            <input type="text" id="meta-duration" placeholder="3 ngày 2 đêm" />
+            <input type="text" id="meta-duration" placeholder="3 ng�y 2 d�m" />
           </div>
         </div>
         <div class="field-row cols-2">
@@ -409,7 +409,7 @@
           </div>
         </div>
         <div class="btn-row">
-          <button type="submit" class="btn btn-primary">💾 Save Metadata</button>
+          <button type="submit" class="btn btn-primary">?? Save Metadata</button>
         </div>
       </form>
     </div>
@@ -422,7 +422,7 @@
       <div class="field-row cols-2">
         <div class="field">
           <label>Tour Name (display)</label>
-          <input type="text" id="cd-tour-name" placeholder="Hà Nội – Hạ Long 3N2Đ" />
+          <input type="text" id="cd-tour-name" placeholder="H� N?i � H? Long 3N2�" />
         </div>
         <div class="field">
           <label>Tour Code</label>
@@ -475,7 +475,7 @@
         </div>
         <div class="field">
           <label>Description</label>
-          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at Noi Bai airport…"></textarea>
+          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at Noi Bai airport�"></textarea>
         </div>
         <div class="btn-row">
           <button type="button" class="btn btn-primary btn-sm" id="btn-save-day">+ Add</button>
@@ -484,27 +484,27 @@
       </div>
 
       <div class="btn-row" style="margin-top:8px">
-        <button type="button" class="btn btn-success" id="btn-save-content">💾 Save Content</button>
+        <button type="button" class="btn btn-success" id="btn-save-content">?? Save Content</button>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ════════════════════════════  TAB 3: STOPS  ══════════════════════════════ -->
+<!-- ----------------------------  TAB 3: STOPS  ------------------------------ -->
 <section class="panel" id="panel-stops">
   <div class="selected-notice" id="stops-notice" style="display:none; margin-bottom:0">
     <span>Itinerary for: <strong id="stops-tour-label"></strong></span>
-    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date → days auto-calculate from nights</span>
+    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date ? days auto-calculate from nights</span>
   </div>
 
   <div class="stops-workspace" style="margin-top:20px">
-    <!-- ── LEFT: builder ── -->
+    <!-- -- LEFT: builder -- -->
     <div>
       <div class="card">
         <div class="card-header">
           <h2>Stop Builder</h2>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">↺</button>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">?</button>
             <button class="btn btn-primary btn-sm" id="btn-show-add-stop">+ Add Stop</button>
           </div>
         </div>
@@ -516,28 +516,28 @@
           <div class="stop-quick-row">
             <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" />
             <div class="nights-pill">
-              🌙
+              ??
               <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" />
               <span style="font-size:12px;color:#94a3b8">nights</span>
             </div>
             <div class="stop-meal-group">
-              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">🌅 B</button>
-              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">🌞 L</button>
-              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">🌙 D</button>
+              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">?? B</button>
+              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">?? L</button>
+              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">?? D</button>
             </div>
-            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add ↵</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">✕</button>
+            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add ?</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">?</button>
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- ── RIGHT: itinerary preview ── -->
+    <!-- -- RIGHT: itinerary preview -- -->
     <div>
       <div class="card">
         <div class="card-header">
-          <h2>📋 Itinerary</h2>
+          <h2>?? Itinerary</h2>
           <span id="total-days-badge" style="font-size:14px;font-weight:900;color:#7c3aed;margin-left:auto;letter-spacing:.05em"></span>
         </div>
         <div id="itin-preview-panel">
@@ -548,38 +548,62 @@
   </div>
 </section>
 
-<!-- ════════════════════════════  TAB 4: PRICE CONFIG  ═══════════════════════ -->
+<!-- ----------------------------  TAB 4: PRICE CONFIG  ----------------------- -->
 <section class="panel" id="panel-pricing">
   <div class="selected-notice" id="pricing-notice" style="display:none; margin-bottom:16px">
-    <span>💰 Pricing for: <strong id="pricing-tour-label"></strong></span>
+    <span>Pricing for: <strong id="pricing-tour-label"></strong></span>
     <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto">&#x21BA; Refresh</button>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start">
     <!-- Seasons -->
     <div class="card">
-      <div class="card-header"><h2>&#x1F4C5; Seasons</h2></div>
-      <div id="pricing-seasons-body" class="card-body">
-        <div class="empty-state">Select a tour first.</div>
-      </div>
+      <div class="card-header"><h2>Seasons</h2></div>
+      <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
     </div>
     <!-- Segments -->
     <div class="card">
-      <div class="card-header"><h2>&#x1F465; Segments</h2></div>
-      <div id="pricing-segments-body" class="card-body">
-        <div class="empty-state">Select a tour first.</div>
+      <div class="card-header"><h2>Segments</h2></div>
+      <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+    </div>
+    <!-- Pax Bands -->
+    <div class="card">
+      <div class="card-header"><h2>Pax Bands</h2></div>
+      <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+      <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
+        <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:4px" />
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <input id="pb-min" type="number" placeholder="Min pax" style="flex:1" min="1" />
+          <input id="pb-max" type="number" placeholder="Max pax" style="flex:1" min="1" />
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
       </div>
     </div>
   </div>
 
-  <!-- Tour price matrix -->
-  <div class="card" style="margin-top:20px">
+  <!-- Tour Prices -->
+  <div class="card" style="margin-top:16px">
     <div class="card-header">
-      <h2>💳 Price Config</h2>
-      <span style="font-size:11px;color:#94a3b8;margin-left:auto">Values in tenant currency &middot; per person</span>
+      <h2>Tour Prices</h2>
+      <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; tenant currency</span>
     </div>
-    <div id="pricing-matrix-body" class="card-body">
-      <div class="empty-state">Select a tour first.</div>
+    <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+    <!-- Add price row form -->
+    <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Add Price Row</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:11px;color:#64748b">Season</label><select id="ap-season" style="width:100%"><option value="">�</option></select></div>
+        <div><label style="font-size:11px;color:#64748b">Segment</label><select id="ap-segment" style="width:100%"><option value="">�</option></select></div>
+        <div><label style="font-size:11px;color:#64748b">Pax Band</label><select id="ap-paxband" style="width:100%"><option value="">�</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:11px;color:#64748b">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+        <div><label style="font-size:11px;color:#64748b">Single room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+        <div><label style="font-size:11px;color:#64748b">Child</label><input id="ap-child" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+        <div><label style="font-size:11px;color:#64748b">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
     </div>
   </div>
 </section>
@@ -587,9 +611,9 @@
 <!-- ================================================================  TAB 5: PREVIEW  ================================================================ -->
 <section class="panel" id="panel-preview">
   <div class="preview-toolbar">
-    <span id="preview-url-label">—</span>
-    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">↺ Reload</button>
-    <button class="btn btn-primary btn-sm" id="btn-open-preview">↗ Open in tab</button>
+    <span id="preview-url-label">�</span>
+    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">? Reload</button>
+    <button class="btn btn-primary btn-sm" id="btn-open-preview">? Open in tab</button>
   </div>
   <iframe id="preview-frame" src="about:blank" title="Tour Preview"></iframe>
 </section>
@@ -611,8 +635,8 @@
         <input type="text" id="pub-template-id" value="default" placeholder="default" />
       </div>
       <div class="btn-row">
-        <button class="btn btn-success" id="btn-publish" disabled>🚀 Publish Now</button>
-        <button class="btn btn-ghost"   id="btn-switch-template" disabled>🔄 Switch Template</button>
+        <button class="btn btn-success" id="btn-publish" disabled>?? Publish Now</button>
+        <button class="btn btn-ghost"   id="btn-switch-template" disabled>?? Switch Template</button>
       </div>
       <div class="publish-result" id="publish-result"></div>
     </div>
@@ -625,7 +649,7 @@
 <script>
 'use strict';
 
-/* ════════════════════════════════  STATE  ══════════════════════════════════ */
+/* --------------------------------  STATE  ---------------------------------- */
 const S = {
   tenantId: localStorage.getItem('tc_tenant') ?? '',
   baseUrl:  localStorage.getItem('tc_base')   ?? 'http://127.0.0.1:8787',
@@ -635,7 +659,7 @@ const S = {
   itinerary: [],     // local draft for content_data
 };
 
-/* ════════════════════════════════  HELPERS  ════════════════════════════════ */
+/* --------------------------------  HELPERS  -------------------------------- */
 let toastTimer;
 function toast(msg, type = 'ok') {
   const el = document.getElementById('toast');
@@ -684,7 +708,7 @@ function badgeClass(status) {
   return { draft: 'badge-draft', on_sale: 'badge-on_sale', active: 'badge-active' }[status] ?? 'badge-inactive';
 }
 
-/* ════════════════════════════  CONNECT  ════════════════════════════════════ */
+/* ----------------------------  CONNECT  ------------------------------------ */
 document.getElementById('input-base').value   = S.baseUrl;
 document.getElementById('input-tenant').value = S.tenantId;
 
@@ -696,20 +720,20 @@ document.getElementById('connect-form').addEventListener('submit', async e => {
   localStorage.setItem('tc_tenant', S.tenantId);
 
   const status = document.getElementById('connect-status');
-  status.textContent = 'Connecting…';
+  status.textContent = 'Connecting�';
   try {
     const data = await api('/api/tours');
     S.tours = data.tours ?? [];
     renderTourList();
-    status.textContent = `✓ ${S.tours.length} tours`;
-    toast(`Connected — ${S.tours.length} tour(s) found`);
+    status.textContent = `? ${S.tours.length} tours`;
+    toast(`Connected � ${S.tours.length} tour(s) found`);
   } catch (err) {
-    status.textContent = '✗ error';
+    status.textContent = '? error';
     toast('Connect failed: ' + err.message, 'err');
   }
 });
 
-/* ════════════════════════════  TAB 1: TOUR  ════════════════════════════════ */
+/* ----------------------------  TAB 1: TOUR  -------------------------------- */
 function renderTourList() {
   const placeholder = document.getElementById('tour-list-placeholder');
   const list        = document.getElementById('tour-list');
@@ -728,7 +752,7 @@ function renderTourList() {
     li.innerHTML = `
       <div class="tour-item-title">${esc(t.title)}</div>
       <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
-      <div class="tour-item-meta">${esc(t.id.slice(0,8))}…</div>`;
+      <div class="tour-item-meta">${esc(t.id.slice(0,8))}�</div>`;
     li.addEventListener('click', () => selectTour(t));
     list.appendChild(li);
   });
@@ -751,9 +775,9 @@ function selectTour(t) {
   idBtn.textContent = t.id;
   idBtn.onclick = () => copyText(t.id);
 
-  document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '—';
-  document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '—';
-  document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '—';
+  document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '�';
+  document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '�';
+  document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '�';
   document.getElementById('tour-detail-published').textContent   = t.published_at
     ? new Date(t.published_at * 1000).toLocaleDateString() : 'Not yet';
 
@@ -805,7 +829,7 @@ document.getElementById('btn-goto-content').addEventListener('click', () => swit
 document.getElementById('btn-goto-stops').addEventListener('click',   () => { switchTab('stops'); loadStops(); });
 document.getElementById('btn-goto-preview').addEventListener('click', () => { switchTab('preview'); loadPreview(); });
 
-/* ════════════════════════════  TAB 2: CONTENT  ═════════════════════════════ */
+/* ----------------------------  TAB 2: CONTENT  ----------------------------- */
 function prefillContent(tour) {
   const label = document.getElementById('content-tour-name-label');
   const idlbl = document.getElementById('content-tour-id-label');
@@ -847,7 +871,7 @@ function renderItinerary() {
         <div class="itin-title">${esc(d.title)}</div>
         <div class="itin-desc">${esc(d.description ?? '')}</div>
       </div>
-      <button class="btn btn-danger btn-sm" data-index="${i}" title="Remove">✕</button>`;
+      <button class="btn btn-danger btn-sm" data-index="${i}" title="Remove">?</button>`;
     li.querySelector('[data-index]').addEventListener('click', () => {
       S.itinerary.splice(i, 1);
       renderItinerary();
@@ -894,7 +918,7 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
     Object.assign(S.tour, body);
-    toast('Metadata saved ✓');
+    toast('Metadata saved ?');
     // Refresh list label
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) Object.assign(t, body);
@@ -923,16 +947,16 @@ document.getElementById('btn-save-content').addEventListener('click', async () =
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: cd }) });
     S.tour.content_data = cd;
-    toast('Content saved ✓');
+    toast('Content saved ?');
   } catch (err) {
     toast('Save failed: ' + err.message, 'err');
   }
 });
 
-/* ════════════════════════════  TAB 3: STOPS  ═══════════════════════════════ */
-/* ════════════════════════════  STOPS — SMART BUILDER  ══════════════════════ */
+/* ----------------------------  TAB 3: STOPS  ------------------------------- */
+/* ----------------------------  STOPS � SMART BUILDER  ---------------------- */
 
-// Day-range calculator — derives day_from / day_to purely from nights order
+// Day-range calculator � derives day_from / day_to purely from nights order
 function calcDays(stops) {
   let day = 1;
   return stops.map(s => {
@@ -953,18 +977,17 @@ function renderItinPreview() {
     return;
   }
   const calc        = calcDays(S.stops);
-  const totalDays   = calc[calc.length - 1]._dayTo;
   const totalNights = S.stops.reduce((s, x) => s + (Number(x.nights) || 0), 0);
-  badge.textContent = `${totalDays}D / ${totalNights}N`;
+  badge.textContent = `${totalNights + 1}D�/�${totalNights}N`;
   let html = '';
   calc.forEach(s => {
     const dayLabel = s._dayFrom === s._dayTo
       ? `Day ${s._dayFrom}`
-      : `Day ${s._dayFrom}–${s._dayTo}`;
+      : `Day ${s._dayFrom}�${s._dayTo}`;
     const meals = [
-      s.meal_breakfast && 'Bfast',
-      s.meal_lunch     && 'Lunch',
-      s.meal_dinner    && 'Dinner',
+      s.meal_breakfast && 'B',
+      s.meal_lunch     && 'L',
+      s.meal_dinner    && 'D',
     ].filter(Boolean);
     const mealBadge = meals.length ? `<span class="itin-meal-badge">${meals.join('\u2009')}</span>` : '';
     const nightsTxt = Number(s.nights) > 0
@@ -981,7 +1004,7 @@ function renderItinPreview() {
       iModes.length ? `Intercity:${iModes.join('/')}` : null,
     ].filter(Boolean);
     const svcBadge = svcParts.length
-      ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcParts.join(' · ')}</span>` : '';
+      ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcParts.join(' � ')}</span>` : '';
     html += `
       <div class="itin-day-row">
         <div class="itin-day-tag"><span class="itin-day-label">${esc(dayLabel)}</span></div>
@@ -995,7 +1018,7 @@ function renderItinPreview() {
         </div>
       </div>`;
   });
-  html += `<div class="itin-total-bar"><span>Total</span><span>${totalNights + 1} days · ${totalNights} nights</span></div>`;
+  html += `<div class="itin-total-bar"><span>Total</span><span>${totalNights + 1} days � ${totalNights} nights</span></div>`;
   panel.innerHTML = html;
 }
 
@@ -1033,24 +1056,24 @@ function renderStopRows() {
           <span style="font-size:11px;color:#94a3b8">nights</span>
         </div>
         <div class="stop-row-actions">
-          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">↑</button>` : `<span style="width:28px"></span>`}
-          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">↓</button>` : `<span style="width:28px"></span>`}
-          <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete">✕</button>
+          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">?</button>` : `<span style="width:28px"></span>`}
+          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">?</button>` : `<span style="width:28px"></span>`}
+          <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete">?</button>
         </div>
       </div>
       <div class="stop-svc-row">
         <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel">Hotel</button>
         <span class="svc-div"></span>
-        <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast">Bfast</button>
-        <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch">Lunch</button>
-        <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner">Dinner</button>
+        <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast">B</button>
+        <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch">L</button>
+        <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner">D</button>
         <span class="svc-div"></span>
         <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide">Guide</button>
         <span class="svc-div"></span>
-        <span class="svc-grp-lbl">Local</span>
+        <span class="svc-grp-lbl">Local Transport</span>
         ${lModes.map(m => `<button class="svc-toggle${local.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="local" data-mode="${m}">${m}</button>`).join('')}
         <span class="svc-div"></span>
-        <span class="svc-grp-lbl">Intercity</span>
+        <span class="svc-grp-lbl">Intercity Transport</span>
         ${iModes.map(m => `<button class="svc-toggle${icty.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="intercity" data-mode="${m}">${m}</button>`).join('')}
         <span class="svc-div"></span>
         <span class="svc-grp-lbl">Customer sees</span>
@@ -1059,8 +1082,9 @@ function renderStopRows() {
           return `<label class="pub-check"><input type="checkbox" class="pub-toggle" data-sid="${esc(s.id)}" data-pub="${k}" ${on ? 'checked' : ''}>${k.charAt(0).toUpperCase()+k.slice(1)}</label>`;
         }).join('')}
       </div>
+      <div style="padding:1px 16px 4px 36px;font-size:10px;color:#cbd5e1">B=Breakfast &middot; L=Lunch &middot; D=Dinner</div>
       <div class="stop-desc-row">
-        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop — activities, highlights, notes…">${esc(s.description || '')}</textarea>
+        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop � activities, highlights, notes�">${esc(s.description || '')}</textarea>
       </div>`;
     container.appendChild(card);
   });
@@ -1116,7 +1140,7 @@ function renderStopRows() {
     });
   });
 
-  // Transport mode multi-toggles (🚗 local / ✈️ intercity)
+  // Transport mode multi-toggles (?? local / ?? intercity)
   container.querySelectorAll('.svc-toggle[data-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
       const stop  = S.stops.find(s => s.id === btn.dataset.sid);
@@ -1190,7 +1214,7 @@ async function loadStops() {
   document.getElementById('stops-notice').style.display   = '';
   document.getElementById('stops-tour-label').textContent = S.tour.title;
   const container = document.getElementById('stops-rows-container');
-  container.innerHTML = '<div class="loading">Loading…</div>';
+  container.innerHTML = '<div class="loading">Loading�</div>';
   try {
     const data = await api(`/api/tours/${S.tour.id}/stops`);
     S.stops = data.stops ?? [];
@@ -1217,7 +1241,7 @@ async function deleteStop(stopId) {
 
 document.getElementById('btn-refresh-stops').addEventListener('click', loadStops);
 
-// ── Quick-add form ──
+// -- Quick-add form --
 document.getElementById('btn-show-add-stop').addEventListener('click', () => {
   const form = document.getElementById('stop-quick-form');
   form.style.display = '';
@@ -1279,95 +1303,161 @@ document.getElementById('btn-confirm-add-stop').addEventListener('click', async 
   }
 });
 
-/* ════════════════════════════  PRICE CONFIG HELPERS  ═══════════════════════ */
+/* ----------------------------  PRICE CONFIG HELPERS  ----------------------- */
 async function updatePricingItem(group, id, field, newVal, oldVal) {
   const trimmed = (newVal || '').trim();
   if (trimmed === oldVal) return;
   if (!trimmed) return;
   try {
     await api(`/api/pricing/${group}/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: trimmed }) });
-    toast('Saved ✓');
+    toast('Saved ?');
   } catch (e) {
     toast('Save failed: ' + e.message, 'err');
   }
 }
 
-/* ════════════════════════════  TAB 4: PRICE CONFIG  ════════════════════════ */
+async function deletePricingItem(group, id) {
+  try {
+    await api(`/api/pricing/${group}/${id}`, { method: 'DELETE' });
+    toast('Deleted');
+    loadPricing();
+  } catch (e) {
+    toast('Delete failed: ' + e.message, 'err');
+  }
+}
+
+/* ----------------------------  TAB 4: PRICE CONFIG  ------------------------ */
+let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
+
 async function loadPricing() {
   if (!S.tour) return;
-  document.getElementById('pricing-notice').style.display      = '';
-  document.getElementById('pricing-tour-label').textContent    = S.tour.title;
+  document.getElementById('pricing-notice').style.display   = '';
+  document.getElementById('pricing-tour-label').textContent = S.tour.title;
 
-  const [seasonsRes, segmentsRes] = await Promise.all([
-    api('/api/pricing/tenant-seasons').catch(() => ({ items: [] })),
-    api('/api/pricing/pricing-segments').catch(() => ({ items: [] })),
+  const [seasonsRes, segmentsRes, paxRes, pricesRes] = await Promise.all([
+    api('/api/pricing/tenant-seasons').catch(() => ({})),
+    api('/api/pricing/pricing-segments').catch(() => ({})),
+    api('/api/pricing/pax-bands').catch(() => ({})),
+    api('/api/pricing/tour-prices').catch(() => ({})),
   ]);
-  const seasons  = Array.isArray(seasonsRes)  ? seasonsRes  : (seasonsRes.items  ?? []);
-  const segments = Array.isArray(segmentsRes) ? segmentsRes : (segmentsRes.items ?? []);
+  const toArr = r => Array.isArray(r) ? r : (r?.items ?? []);
+  const seasons  = toArr(seasonsRes);
+  const segments = toArr(segmentsRes);
+  const paxBands = toArr(paxRes);
+  const prices   = toArr(pricesRes).filter(p => p.tour_id === S.tour.id);
+  _pricingData   = { seasons, segments, paxBands, prices };
 
-  // Seasons table — names are editable inline
+  // -- Seasons --------------------------------------------------------------
   const sBody = document.getElementById('pricing-seasons-body');
-  if (!seasons.length) {
-    sBody.innerHTML = '<div class="empty-state">No seasons configured.</div>';
-  } else {
-    sBody.innerHTML = `<table class="price-matrix">
-      <thead><tr><th>Season (click to rename)</th><th>Period</th></tr></thead>
-      <tbody>${seasons.map(s => `
-        <tr>
-          <td><input class="price-name-inp" value="${esc(s.name)}"
-            data-orig="${esc(s.name)}"
-            onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
-            onkeydown="if(event.key==='Enter')this.blur()" /></td>
-          <td style="color:#64748b;white-space:nowrap">${s.start_month}/${s.start_day} – ${s.end_month}/${s.end_day}</td>
-        </tr>`).join('')}
-      </tbody></table>`;
-  }
+  sBody.innerHTML = !seasons.length ? '<div class="empty-state">No seasons.</div>' :
+    `<table class="price-matrix"><thead><tr><th>Name (click to edit)</th><th>Period</th><th></th></tr></thead><tbody>${
+      seasons.map(s => `<tr>
+        <td><input class="price-name-inp" value="${esc(s.name)}" data-orig="${esc(s.name)}"
+          onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
+          onkeydown="if(event.key==='Enter')this.blur()" /></td>
+        <td style="color:#64748b;white-space:nowrap;font-size:11px">${s.start_month}/${s.start_day}�${s.end_month}/${s.end_day}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')">?</button></td>
+      </tr>`).join('')
+    }</tbody></table>`;
 
-  // Segments table — names are editable inline
+  // -- Segments -------------------------------------------------------------
   const gBody = document.getElementById('pricing-segments-body');
-  if (!segments.length) {
-    gBody.innerHTML = '<div class="empty-state">No segments configured.</div>';
-  } else {
-    gBody.innerHTML = `<table class="price-matrix">
-      <thead><tr><th>Label (click to rename)</th><th>Code</th></tr></thead>
-      <tbody>${segments.map(g => `
-        <tr>
-          <td><input class="price-name-inp" value="${esc(g.name)}"
-            data-orig="${esc(g.name)}"
-            onblur="updatePricingItem('pricing-segments','${esc(g.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
-            onkeydown="if(event.key==='Enter')this.blur()" /></td>
-          <td><code style="font-size:11px">${esc(g.code)}</code></td>
-        </tr>`).join('')}
-      </tbody></table>`;
-  }
+  gBody.innerHTML = !segments.length ? '<div class="empty-state">No segments.</div>' :
+    `<table class="price-matrix"><thead><tr><th>Label (click to edit)</th><th>Code</th><th></th></tr></thead><tbody>${
+      segments.map(g => `<tr>
+        <td><input class="price-name-inp" value="${esc(g.name)}" data-orig="${esc(g.name)}"
+          onblur="updatePricingItem('pricing-segments','${esc(g.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
+          onkeydown="if(event.key==='Enter')this.blur()" /></td>
+        <td><code style="font-size:11px">${esc(g.code)}</code></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')">?</button></td>
+      </tr>`).join('')
+    }</tbody></table>`;
 
-  // Price matrix (seasons × segments)
-  const mBody = document.getElementById('pricing-matrix-body');
-  if (!seasons.length || !segments.length) {
-    mBody.innerHTML = '<div class="empty-state" style="padding:16px">Configure seasons &amp; segments first in the Pricing module, then return here.</div>';
-    return;
-  }
-  let tableHtml = `<div style="overflow-x:auto"><table class="price-matrix">
-    <thead><tr><th>Season / Segment</th>${segments.map(g => `<th>${esc(g.name)}</th>`).join('')}</tr></thead>
-    <tbody>`;
-  seasons.forEach(s => {
-    tableHtml += `<tr><td style="font-weight:700">${esc(s.name)}</td>`;
-    segments.forEach(g => {
-      tableHtml += `<td><input type="number" class="price-input" placeholder="—"
-        data-season="${esc(s.id)}" data-segment="${esc(g.id)}"
-        data-tour="${esc(S.tour.id)}" min="0" step="1" /></td>`;
-    });
-    tableHtml += '</tr>';
-  });
-  tableHtml += '</tbody></table></div>';
-  tableHtml += `<p style="font-size:11px;color:#94a3b8;margin:8px 4px 0">
-    Planning estimates only. Full pax-band pricing lives in the Pricing module.</p>`;
-  mBody.innerHTML = tableHtml;
+  // -- Pax Bands -------------------------------------------------------------
+  const pbBody = document.getElementById('pricing-paxbands-body');
+  pbBody.innerHTML = !paxBands.length ? '<div class="empty-state">No pax bands.</div>' :
+    `<table class="price-matrix"><thead><tr><th>Name</th><th>Range</th><th></th></tr></thead><tbody>${
+      paxBands.map(p => `<tr>
+        <td><input class="price-name-inp" value="${esc(p.name)}" data-orig="${esc(p.name)}"
+          onblur="updatePricingItem('pax-bands','${esc(p.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
+          onkeydown="if(event.key==='Enter')this.blur()" /></td>
+        <td style="font-size:11px;color:#64748b">${p.min_pax}�${p.max_pax} pax</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pax-bands','${esc(p.id)}')">?</button></td>
+      </tr>`).join('')
+    }</tbody></table>`;
+
+  // -- Tour Prices -----------------------------------------------------------
+  const seasonMap  = Object.fromEntries(seasons.map(s => [s.id, s.name]));
+  const segmentMap = Object.fromEntries(segments.map(g => [g.id, g.name]));
+  const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax}�${p.max_pax})`]));
+  const pBody = document.getElementById('pricing-prices-body');
+  pBody.innerHTML = !prices.length ? '<div class="empty-state">No prices added yet. Use the form below.</div>' :
+    `<div style="overflow-x:auto"><table class="price-matrix">
+      <thead><tr><th>Season</th><th>Segment</th><th>Pax Band</th><th>Shared</th><th>Single</th><th>Child</th><th>Infant</th><th></th></tr></thead>
+      <tbody>${prices.map(p => `<tr>
+        <td>${esc(seasonMap[p.season_id] ?? p.season_id)}</td>
+        <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
+        <td style="font-size:11px">${esc(paxMap[p.pax_band_id] ?? p.pax_band_id)}</td>
+        <td>${p.adult_shared_room_price ?? 0}</td>
+        <td>${p.adult_single_room_price ?? 0}</td>
+        <td>${p.child_shared_with_parents_price ?? 0}</td>
+        <td>${p.infant_price ?? 0}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tour-prices','${esc(p.id)}')">?</button></td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+
+  // Populate add-price selects
+  const addForm = document.getElementById('pricing-add-form');
+  addForm.style.display = (seasons.length && segments.length && paxBands.length) ? '' : 'none';
+  const setSel = (id, items, labelFn) => {
+    const el = document.getElementById(id);
+    el.innerHTML = '<option value="">�</option>' + items.map(i => `<option value="${esc(i.id)}">${esc(labelFn(i))}</option>`).join('');
+  };
+  setSel('ap-season',  seasons,  s => s.name);
+  setSel('ap-segment', segments, g => g.name);
+  setSel('ap-paxband', paxBands, p => `${p.name} (${p.min_pax}�${p.max_pax})`);
 }
 
 document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
 
-/* ════════════════════════════  TAB 5: PREVIEW  ═════════════════════════════ */
+document.getElementById('btn-add-paxband').addEventListener('click', async () => {
+  const name = document.getElementById('pb-name').value.trim();
+  const min  = Number(document.getElementById('pb-min').value);
+  const max  = Number(document.getElementById('pb-max').value);
+  if (!name || !min || !max) { toast('Name, min and max pax are required', 'err'); return; }
+  try {
+    await api('/api/pricing/pax-bands', { method: 'POST', body: JSON.stringify({ name, min_pax: min, max_pax: max }) });
+    document.getElementById('pb-name').value = '';
+    document.getElementById('pb-min').value  = '';
+    document.getElementById('pb-max').value  = '';
+    toast('Pax band added ?');
+    loadPricing();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+});
+
+document.getElementById('btn-save-price').addEventListener('click', async () => {
+  if (!S.tour) return;
+  const season_id   = document.getElementById('ap-season').value;
+  const segment_id  = document.getElementById('ap-segment').value;
+  const pax_band_id = document.getElementById('ap-paxband').value;
+  if (!season_id || !segment_id || !pax_band_id) { toast('Select season, segment and pax band', 'err'); return; }
+  const body = {
+    tour_id:   S.tour.id,
+    season_id, segment_id, pax_band_id,
+    adult_shared_room_price:         Number(document.getElementById('ap-shared').value)  || 0,
+    adult_single_room_price:         Number(document.getElementById('ap-single').value)  || 0,
+    child_shared_with_parents_price: Number(document.getElementById('ap-child').value)   || 0,
+    infant_price:                    Number(document.getElementById('ap-infant').value)  || 0,
+  };
+  try {
+    await api('/api/pricing/tour-prices', { method: 'POST', body: JSON.stringify(body) });
+    ['ap-shared','ap-single','ap-child','ap-infant'].forEach(id => document.getElementById(id).value = '');
+    toast('Price row saved ?');
+    loadPricing();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+});
+
+/* ----------------------------  TAB 5: PREVIEW  ----------------------------- */
 function loadPreview() {
   if (!S.tour) return;
   const url   = `${S.baseUrl}/api/tours/${S.tour.id}/preview`;
@@ -1408,7 +1498,7 @@ document.getElementById('btn-open-preview').addEventListener('click', () => {
   window.open(`${S.baseUrl}/api/tours/${S.tour.id}/preview`, '_blank');
 });
 
-/* ════════════════════════════  TAB 5: PUBLISH  ══════════════════════════════ */
+/* ----------------------------  TAB 5: PUBLISH  ------------------------------ */
 document.getElementById('btn-publish').addEventListener('click', async () => {
   if (!S.tour) return;
   const result = document.getElementById('publish-result');
@@ -1418,12 +1508,12 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
     result.className   = 'publish-result';
     result.style.display = '';
     result.innerHTML   = `
-      <h4>✅ Published Successfully</h4>
+      <h4>? Published Successfully</h4>
       <p><strong>Slug:</strong> <code>${esc(data.slug)}</code></p>
       <p><strong>R2 Key:</strong> <code>${esc(data.r2_key)}</code></p>
       <p><strong>Template:</strong> <code>${esc(data.template_id)}</code></p>
       <p><strong>Published at:</strong> ${esc(data.published_at)}</p>`;
-    toast('Published ✓');
+    toast('Published ?');
     S.tour.status = 'on_sale';
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) t.status = 'on_sale';
@@ -1431,7 +1521,7 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
   } catch (err) {
     result.className   = 'publish-result err';
     result.style.display = '';
-    result.innerHTML   = `<h4>❌ Publish Failed</h4><p>${esc(err.message)}</p>`;
+    result.innerHTML   = `<h4>? Publish Failed</h4><p>${esc(err.message)}</p>`;
     toast('Publish failed: ' + err.message, 'err');
   }
 });
@@ -1450,7 +1540,7 @@ document.getElementById('btn-switch-template').addEventListener('click', async (
   }
 });
 
-/* ════════════════════════════  TAB NAVIGATION  ════════════════════════════ */
+/* ----------------------------  TAB NAVIGATION  ---------------------------- */
 document.getElementById('tab-nav').addEventListener('click', e => {
   const btn = e.target.closest('.tab-btn');
   if (!btn || btn.disabled) return;
@@ -1460,7 +1550,7 @@ document.getElementById('tab-nav').addEventListener('click', e => {
   if (tab === 'preview') loadPreview();
 });
 
-/* ════════════════════════════  AUTO-CONNECT  ════════════════════════════════ */
+/* ----------------------------  AUTO-CONNECT  -------------------------------- */
 if (S.tenantId && S.baseUrl) {
   document.getElementById('connect-form').requestSubmit?.();
 }
