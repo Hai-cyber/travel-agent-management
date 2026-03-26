@@ -1,0 +1,3 @@
+﻿# Force LF for shell scripts — CRLF breaks backslash line continuations in bash
+*.sh text eol=lf
+

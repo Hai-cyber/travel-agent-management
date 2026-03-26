@@ -9,7 +9,9 @@
 #
 # Chạy: bash test/test_booking_orders.sh
 
-set -euo pipefail
+set -u
+# Note: no -e or pipefail — grep exits 1 on no-match which would kill the script.
+# Errors are handled explicitly with pass()/fail() instead.
 
 API="http://127.0.0.1:8787"
 TENANT="ten-demo-001"
@@ -32,10 +34,10 @@ title() { echo -e "\n${CYAN}═════════════════�
           echo -e "${CYAN}══════════════════════════════════════════════════════${NC}"; }
 
 # ── Helper: extract JSON string value ────────────────────────────────────────
-# Usage: json_str '"key":"value"' key  →  value
-json_str() { echo "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -1 | cut -d'"' -f4; }
-json_num() { echo "$1" | grep -o "\"$2\":[0-9.]*"   | head -1 | cut -d':' -f2; }
-json_bool(){ echo "$1" | grep -o "\"$2\":[a-z]*"    | head -1 | cut -d':' -f2; }
+# Usage: json_str '..json..' key  →  value  (returns empty string on no-match)
+json_str() { echo "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -1 | cut -d'"' -f4 || echo ""; }
+json_num() { echo "$1" | grep -o "\"$2\":[0-9.]*"   | head -1 | cut -d':' -f2 || echo ""; }
+json_bool(){ echo "$1" | grep -o "\"$2\":[a-z]*"    | head -1 | cut -d':' -f2 || echo ""; }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SETUP: Đảm bảo tenant ACTIVE + migration 0016 + pricing data
@@ -93,6 +95,7 @@ if [ -z "$ORDER_ID" ]; then
   echo ""
   echo "  Hint — chạy thủ công để xem lỗi:"
   echo "    npx wrangler d1 execute travel_agent_db --local --command=\"SELECT subscription_status FROM tenants WHERE id='ten-demo-001';\""
+  echo " Response nhận được: $ORDER_RES"
   exit 1
 fi
 pass "Đơn hàng tạo thành công → order_id=$ORDER_ID  grand_total_usd=$GRAND_TOTAL"
@@ -126,14 +129,20 @@ title "TEST 2: Proof Unlock (Upload bank slip)"
 echo "  Mong đợi: status → PROOF_UPLOADED, 'guest' object hiện đầy đủ"
 echo ""
 
-# Tạo file giả JPEG cho mục đích test (không cần ảnh thật — server check MIME type từ header)
+# Tạo file giả JPEG cho mục đích test.
+# Nội dung là text thuần — server check MIME type từ Content-Type header, không đọc bytes.
 PROOF_FILE="/tmp/test_proof_$$.jpg"
 echo "FAKE_BANK_TRANSFER_PROOF_FOR_TESTING_ONLY" > "$PROOF_FILE"
-info "Tạo file proof tạm: $PROOF_FILE"
 
-PROOF_RES=$(curl -s -X POST "$API/api/bookings/order/$ORDER_ID/proof" \
-  -H "X-Tenant-ID: $TENANT" \
-  -F "proof=@$PROOF_FILE;type=image/jpeg")
+# Verify file was created before trying to upload
+if [ ! -f "$PROOF_FILE" ]; then
+  fail "Không thể tạo file proof tạm '$PROOF_FILE'. Kiểm tra quyền ghi /tmp."
+  exit 1
+fi
+info "Tạo file proof tạm: $PROOF_FILE (đã xác nhận tồn tại)"
+
+# curl -F with @file — keep on ONE line to avoid CRLF continuation issues on Windows
+PROOF_RES=$(curl -s -X POST "$API/api/bookings/order/$ORDER_ID/proof" -H "X-Tenant-ID: $TENANT" -F "proof=@$PROOF_FILE;type=image/jpeg") || PROOF_RES="{}"
 
 rm -f "$PROOF_FILE"
 info "POST /api/bookings/order/$ORDER_ID/proof → $PROOF_RES"
@@ -183,7 +192,7 @@ echo "$GET2" | grep -q '"confirm_receipt_available":true' \
 PROOF2_RES=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "$API/api/bookings/order/$ORDER_ID/proof" \
   -H "X-Tenant-ID: $TENANT" \
-  -F "proof=@/dev/null;type=image/jpeg")
+  -F "proof=@/dev/null;type=image/jpeg") || PROOF2_RES="000"
 [ "$PROOF2_RES" = "409" ] \
   && pass "Upload lần 2 trả về 409 Conflict (đúng)" \
   || fail "Upload lần 2 mong đợi 409, thực tế HTTP $PROOF2_RES"
@@ -205,7 +214,7 @@ info "grand_total_usd của đơn hàng         = $GRAND_TOTAL"
 
 # 3b. Agent confirm receipt
 CONFIRM_RES=$(curl -s -X POST "$API/api/bookings/order/$ORDER_ID/confirm-receipt" \
-  -H "X-Tenant-ID: $TENANT")
+  -H "X-Tenant-ID: $TENANT") || CONFIRM_RES="{}"
 info "POST confirm-receipt → $CONFIRM_RES"
 
 CONFIRM_STATUS=$(json_str "$CONFIRM_RES" "status")
@@ -232,7 +241,7 @@ ACTUAL=$(awk    "BEGIN { printf \"%.4f\", $REV_AFTER }")
 # 3d. Confirm lần 2 → phải bị block (422)
 CONFIRM2_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "$API/api/bookings/order/$ORDER_ID/confirm-receipt" \
-  -H "X-Tenant-ID: $TENANT")
+  -H "X-Tenant-ID: $TENANT") || CONFIRM2_HTTP="000"
 [ "$CONFIRM2_HTTP" = "422" ] \
   && pass "Idempotency guard: confirm lần 2 trả về 422 (đúng)" \
   || fail "Idempotency guard: mong đợi 422, thực tế HTTP $CONFIRM2_HTTP"
