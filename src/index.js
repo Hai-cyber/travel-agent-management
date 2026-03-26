@@ -171,7 +171,17 @@ const patterns = [
     pattern: new URLPattern({ pathname: `/api/stops/:stopId/${group}` }),
     handler: (req, env, match) => handleCreateServiceItem(req, env, { group, stopId: match.pathname.groups.stopId })
   })),
-  
+  ...SERVICE_GROUPS.map(group => ({
+    method: 'GET',
+    pattern: new URLPattern({ pathname: `/api/stops/:stopId/${group}` }),
+    handler: (req, env, match) => handleGetServiceItems(req, env, { group, stopId: match.pathname.groups.stopId })
+  })),
+  ...SERVICE_GROUPS.map(group => ({
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: `/api/stops/:stopId/${group}/:itemId` }),
+    handler: (req, env, match) => handleUpdateServiceItem(req, env, { group, itemId: match.pathname.groups.itemId })
+  })),
+
   // Các route cho Pricing (POST)
   ...PRICING_GROUPS.map(group => ({
     method: 'POST',

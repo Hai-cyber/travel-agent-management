@@ -160,6 +160,44 @@
     .itin-nights-note { font-size: 11px; color: #94a3b8; }
     .itin-meal-badge { font-size: 11px; font-weight: 700; color: #7c3aed; background: #ede9fe; padding: 2px 7px; border-radius: 99px; }
     .itin-total-bar { padding: 12px 18px; background: #f8fafc; border-top: 2px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; display: flex; justify-content: space-between; }
+    /* ── Right panel tab switcher ── */
+    .r-tab { background:none; border:none; border-bottom:3px solid transparent; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; color:#94a3b8; white-space:nowrap; }
+    .r-tab:hover:not(:disabled) { color:#7c3aed; }
+    .r-tab.active { color:#7c3aed; border-bottom-color:#7c3aed; }
+    .r-tab:disabled { opacity:.35; cursor:not-allowed; }
+    /* ── Service sections ── */
+    .svc-section { border-bottom:1px solid #f1f5f9; }
+    .svc-section:last-child { border-bottom:none; }
+    .svc-hdr { display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; user-select:none; }
+    .svc-hdr:hover { background:#fafafa; }
+    .svc-icon { font-size:15px; flex-shrink:0; }
+    .svc-name { font-size:13px; font-weight:700; color:#1e293b; flex:1; }
+    .svc-badge { font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; }
+    .svc-badge.has { background:#d1fae5; color:#065f46; }
+    .svc-badge.none { background:#f1f5f9; color:#94a3b8; }
+    .svc-chev { font-size:10px; color:#94a3b8; flex-shrink:0; }
+    .svc-body { display:none; padding:4px 16px 12px; }
+    .svc-body.open { display:block; }
+    .svc-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px 12px; margin-bottom:8px; }
+    .svc-card-top { display:flex; align-items:center; gap:8px; }
+    .svc-card-name { font-size:13px; font-weight:600; flex:1; color:#1e293b; }
+    .svc-card-sub { font-size:11px; color:#64748b; margin-top:2px; }
+    .status-pill { font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; cursor:pointer; border:none; white-space:nowrap; }
+    .status-pill.planned   { background:#fef3c7; color:#92400e; }
+    .status-pill.booked    { background:#dbeafe; color:#1e40af; }
+    .status-pill.confirmed { background:#d1fae5; color:#065f46; }
+    .status-pill.canceled  { background:#fee2e2; color:#991b1b; }
+    .task-list { margin-top:7px; padding-top:7px; border-top:1px solid #f1f5f9; display:flex; flex-direction:column; gap:5px; }
+    .task-row { display:flex; align-items:center; gap:7px; font-size:12px; color:#475569; }
+    .task-row input[type=checkbox] { accent-color:#7c3aed; flex-shrink:0; cursor:pointer; width:14px; height:14px; }
+    .task-row.done span { color:#94a3b8; text-decoration:line-through; }
+    .svc-add-form { background:#eff6ff; border:1px solid #bfdbfe; border-radius:7px; padding:12px 14px; margin-top:8px; display:none; }
+    .svc-add-form .f { margin-bottom:8px; }
+    .svc-add-form label { display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#475569; margin-bottom:3px; }
+    .svc-add-form input, .svc-add-form select { width:100%; padding:6px 9px; border:1px solid #d1d5db; border-radius:5px; font-size:13px; font-family:inherit; background:#fff; box-sizing:border-box; }
+    .svc-add-form input:focus, .svc-add-form select:focus { outline:none; border-color:#7c3aed; }
+    .f2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .stop-row.svc-active { background:#f5f3ff; border-left:3px solid #7c3aed; }
 
     /* ── Preview panel ── */
     #preview-frame {
@@ -512,15 +550,22 @@
       </div>
     </div>
 
-    <!-- ── RIGHT: live preview ── -->
+    <!-- ── RIGHT: itinerary / services ── -->
     <div>
       <div class="card">
         <div class="card-header">
-          <h2>📋 Itinerary Preview</h2>
-          <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#7c3aed"></span>
+          <h2 id="right-panel-h2" style="font-size:14px;font-weight:700;color:#1e293b">📋 Itinerary</h2>
+          <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#7c3aed;margin-left:6px"></span>
+          <div style="margin-left:auto;display:flex;border-bottom:none">
+            <button class="r-tab active" id="rtab-itin">📋 Itinerary</button>
+            <button class="r-tab" id="rtab-svc" disabled>⚙️ Services</button>
+          </div>
         </div>
         <div id="itin-preview-panel">
           <div class="empty-state">Add stops to see preview.</div>
+        </div>
+        <div id="svc-stop-panel" style="display:none">
+          <div class="empty-state">Click ⚙️ on a stop row to manage its services.</div>
         </div>
       </div>
     </div>
@@ -576,6 +621,8 @@ const S = {
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
+  selectedStopId: null,
+  stopServicesCache: {},  // { [stopId]: { accommodations: [], meals: [], guides: [], 'local-transports': [], 'intercity-legs': [] } }
 };
 
 /* ════════════════════════════════  HELPERS  ════════════════════════════════ */
@@ -957,6 +1004,7 @@ function renderStopRows() {
       <div class="stop-row-actions">
         ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">↑</button>` : `<span style="width:28px"></span>`}
         ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">↓</button>` : `<span style="width:28px"></span>`}
+        <button class="btn btn-ghost btn-sm svc-mgr-btn" data-sid="${esc(s.id)}" title="Manage services" style="font-size:13px">⚙️</button>
         <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete stop">✕</button>
       </div>`;
     container.appendChild(row);
@@ -994,6 +1042,9 @@ function renderStopRows() {
   });
   container.querySelectorAll('.move-dn').forEach(btn => {
     btn.addEventListener('click', () => moveStop(btn.dataset.sid, 1));
+  });
+  container.querySelectorAll('.svc-mgr-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectStopForServices(btn.dataset.sid));
   });
 
   // Update service-items stop-ID chips
@@ -1125,6 +1176,212 @@ document.getElementById('btn-confirm-add-stop').addEventListener('click', async 
     btn.disabled = false;
   }
 });
+
+/* ════════════════════════════  SERVICE ITEMS PER STOP  ════════════════════ */
+const SVC_GROUPS = [
+  { key: 'accommodations',   icon: '🏨', label: 'Accommodation',   modeField: false },
+  { key: 'meals',            icon: '🍽', label: 'Meals',           modeField: false },
+  { key: 'guides',           icon: '🧭', label: 'Guide',           modeField: false },
+  { key: 'local-transports', icon: '🚗', label: 'Local Transport', modeField: true, modes: ['car4','car7','van','bus','motorbike'] },
+  { key: 'intercity-legs',   icon: '✈️', label: 'Intercity Leg',   modeField: true, modes: ['car4','car7','bus','train','flight'] },
+];
+const STATUS_CYCLE = ['planned','booked','confirmed','canceled'];
+
+function switchRightPanel(panel) {
+  const isItin = panel === 'itin';
+  document.getElementById('itin-preview-panel').style.display = isItin ? '' : 'none';
+  document.getElementById('svc-stop-panel').style.display     = isItin ? 'none' : '';
+  document.getElementById('rtab-itin').classList.toggle('active',  isItin);
+  document.getElementById('rtab-svc').classList.toggle('active',  !isItin);
+  document.getElementById('right-panel-h2').textContent = isItin ? '📋 Itinerary' : '⚙️ Services';
+}
+
+document.getElementById('rtab-itin').addEventListener('click', () => switchRightPanel('itin'));
+document.getElementById('rtab-svc').addEventListener('click', () => {
+  if (S.selectedStopId) switchRightPanel('svc');
+});
+
+async function selectStopForServices(stopId) {
+  document.querySelectorAll('.stop-row').forEach(r => r.classList.remove('svc-active'));
+  document.querySelectorAll(`.svc-mgr-btn[data-sid="${stopId}"]`).forEach(b => {
+    b.closest('.stop-row')?.classList.add('svc-active');
+  });
+  S.selectedStopId = stopId;
+  document.getElementById('rtab-svc').disabled = false;
+  switchRightPanel('svc');
+  document.getElementById('svc-stop-panel').innerHTML = '<div class="loading">Loading services…</div>';
+  await loadServicesForStop(stopId);
+}
+
+async function loadServicesForStop(stopId) {
+  const results = await Promise.all(
+    SVC_GROUPS.map(g =>
+      api(`/api/stops/${stopId}/${g.key}`)
+        .then(d => ({ key: g.key, items: d.items ?? [] }))
+        .catch(() => ({ key: g.key, items: [] }))
+    )
+  );
+  S.stopServicesCache[stopId] = {};
+  results.forEach(r => { S.stopServicesCache[stopId][r.key] = r.items; });
+  renderServicesPanel(stopId);
+}
+
+function buildSvcAddForm(g, stopId) {
+  const nameField = g.key === 'accommodations'
+    ? `<div class="f"><label>Hotel Name *</label><input type="text" class="sf-name" placeholder="Sheraton Hanoi" /></div>`
+    : g.key === 'meals'
+    ? `<div class="f"><label>Restaurant Name *</label><input type="text" class="sf-name" placeholder="Pho Gia Truyen" /></div>`
+    : g.key === 'guides'
+    ? `<div class="f"><label>Guide Name *</label><input type="text" class="sf-name" placeholder="Nguyen Van A" /></div>`
+    : `<div class="f"><label>Supplier *</label><input type="text" class="sf-name" placeholder="Blue Sky Travel" /></div>`;
+
+  const mealTypeField = g.key === 'meals'
+    ? `<div class="f"><label>Meal Type *</label><select class="sf-meal-type"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="set_menu">Set Menu</option></select></div>`
+    : '';
+
+  const modeField = g.modeField
+    ? `<div class="f"><label>Mode *</label><select class="sf-mode">${g.modes.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>`
+    : '';
+
+  const addrLabel = g.key.includes('intercity') ? 'Departure Point' : g.key.includes('local') ? 'Pickup Address' : 'Address';
+
+  return `<div class="svc-add-form" id="saf-${g.key}">
+    ${modeField}${mealTypeField}${nameField}
+    <div class="f2">
+      <div class="f"><label>Person in Charge *</label><input type="text" class="sf-pic" placeholder="Your name" /></div>
+      <div class="f"><label>${addrLabel} *</label><input type="text" class="sf-addr" placeholder="TBD" /></div>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-success btn-sm saf-submit" data-grp="${g.key}" data-sid="${stopId}">✓ Add + Create Tasks</button>
+      <button class="btn btn-ghost btn-sm saf-cancel" data-grp="${g.key}">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderServicesPanel(stopId) {
+  const stop  = S.stops.find(s => s.id === stopId);
+  const cache = S.stopServicesCache[stopId] ?? {};
+  const panel = document.getElementById('svc-stop-panel');
+  document.getElementById('right-panel-h2').textContent = stop ? `⚙️ ${stop.label}` : '⚙️ Services';
+  panel.innerHTML = '';
+
+  SVC_GROUPS.forEach(g => {
+    const items = cache[g.key] ?? [];
+    const sec   = document.createElement('div');
+    sec.className = 'svc-section';
+
+    const itemsHtml = items.map(item => {
+      const name   = item.hotel_name || item.restaurant_name || item.guide_name || item.supplier || '—';
+      const sub    = [item.mode, item.meal_type, item.address].filter(Boolean).join(' · ');
+      const tasks  = (item.tasks ?? []).map(t =>
+        `<label class="task-row ${t.status === 'done' ? 'done' : ''}">
+          <input type="checkbox" class="task-cb" data-tid="${esc(t.id)}" ${t.status === 'done' ? 'checked' : ''} />
+          <span>${esc(t.title)}</span>
+        </label>`
+      ).join('');
+      return `<div class="svc-card">
+        <div class="svc-card-top">
+          <span class="svc-card-name">${esc(name)}</span>
+          <button class="status-pill ${item.status ?? 'planned'}" data-iid="${esc(item.id)}" data-grp="${g.key}" data-sid="${stopId}" title="Click to cycle status">${item.status ?? 'planned'}</button>
+        </div>
+        ${sub ? `<div class="svc-card-sub">${esc(sub)}</div>` : ''}
+        ${tasks ? `<div class="task-list">${tasks}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    sec.innerHTML = `
+      <div class="svc-hdr" data-grp="${g.key}">
+        <span class="svc-icon">${g.icon}</span>
+        <span class="svc-name">${g.label}</span>
+        <span class="svc-badge ${items.length ? 'has' : 'none'}">${items.length ? items.length + ' item' + (items.length > 1 ? 's' : '') : 'none'}</span>
+        <button class="btn btn-primary btn-sm saf-open-btn" data-grp="${g.key}" style="font-size:11px;padding:3px 9px">+ Add</button>
+        <span class="svc-chev">▸</span>
+      </div>
+      <div class="svc-body ${items.length ? 'open' : ''}" id="svb-${g.key}">
+        ${itemsHtml}
+        ${buildSvcAddForm(g, stopId)}
+      </div>`;
+
+    // Toggle section open/close
+    sec.querySelector('.svc-hdr').addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      const body = document.getElementById(`svb-${g.key}`);
+      body.classList.toggle('open');
+      sec.querySelector('.svc-chev').textContent = body.classList.contains('open') ? '▾' : '▸';
+    });
+
+    // Open add form
+    sec.querySelector('.saf-open-btn').addEventListener('click', () => {
+      const body = document.getElementById(`svb-${g.key}`);
+      body.classList.add('open');
+      const form = document.getElementById(`saf-${g.key}`);
+      form.style.display = '';
+      form.querySelector('input,select')?.focus();
+    });
+
+    // Cancel add form
+    sec.querySelector('.saf-cancel').addEventListener('click', () => {
+      document.getElementById(`saf-${g.key}`).style.display = 'none';
+    });
+
+    // Submit add form
+    sec.querySelector('.saf-submit').addEventListener('click', async function() {
+      const grp      = this.dataset.grp;
+      const sid      = this.dataset.sid;
+      const form     = document.getElementById(`saf-${grp}`);
+      const pic      = form.querySelector('.sf-pic')?.value.trim();
+      const addr     = form.querySelector('.sf-addr')?.value.trim();
+      const name     = form.querySelector('.sf-name')?.value.trim();
+      const mode     = form.querySelector('.sf-mode')?.value;
+      const mealType = form.querySelector('.sf-meal-type')?.value;
+      if (!pic || !addr || !name) { toast('All starred fields are required', 'err'); return; }
+      const body = { person_in_charge: pic, address: addr };
+      if      (grp === 'accommodations') body.hotel_name       = name;
+      else if (grp === 'meals')          { body.restaurant_name = name; body.meal_type = mealType; }
+      else if (grp === 'guides')         body.guide_name       = name;
+      else                               { body.supplier        = name; body.mode = mode; }
+      this.disabled = true;
+      try {
+        await api(`/api/stops/${sid}/${grp}`, { method: 'POST', body: JSON.stringify(body) });
+        toast(`${grp} added — tasks created ✓`);
+        await loadServicesForStop(sid);
+      } catch(err) {
+        toast('Add failed: ' + err.message, 'err');
+        this.disabled = false;
+      }
+    });
+
+    // Status cycle
+    sec.querySelectorAll('.status-pill').forEach(pill => {
+      pill.addEventListener('click', async () => {
+        const cur  = pill.textContent.trim();
+        const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+        try {
+          await api(`/api/stops/${pill.dataset.sid}/${pill.dataset.grp}/${pill.dataset.iid}`, {
+            method: 'PATCH', body: JSON.stringify({ status: next })
+          });
+          pill.textContent = next;
+          pill.className   = `status-pill ${next}`;
+          toast(`Status → ${next}`);
+        } catch(err) { toast('Update failed: ' + err.message, 'err'); }
+      });
+    });
+
+    // Task checkboxes
+    sec.querySelectorAll('.task-cb').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        try {
+          await api(`/api/tasks/${cb.dataset.tid}`, {
+            method: 'PATCH', body: JSON.stringify({ status: cb.checked ? 'done' : 'pending' })
+          });
+          cb.closest('.task-row').classList.toggle('done', cb.checked);
+        } catch(err) { toast('Task update failed', 'err'); cb.checked = !cb.checked; }
+      });
+    });
+
+    panel.appendChild(sec);
+  });
+}
 
 /* ════════════════════════════  TAB 4: PREVIEW  ═════════════════════════════ */
 function loadPreview() {
