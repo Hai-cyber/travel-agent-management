@@ -21,6 +21,7 @@
 // [SEC] Always returns HTTP 200 to the provider regardless of outcome — prevents probing.
 // [SEC] Orders from other tenants are never modifiable; order lookup includes tenant check.
 import { Hono } from 'hono';
+import { nanoid } from 'nanoid';
 import { notifyAgent } from '../lib/notifications.js';
 
 const payments = new Hono();
@@ -173,15 +174,30 @@ payments.post('/webhook/:provider', async (c) => {
       `tenant=${order.tenant_id} amount=${order.grand_total_usd}`
     );
 
-    // Push notification — non-blocking (does not extend response time)
+    // Push notification + audit log — both non-blocking (do not extend response time)
     c.executionCtx.waitUntil(
-      notifyAgent(c.env, order.tenant_id, 'WEBHOOK_PAID', {
-        order_id:    order.id,
-        provider,
-        guest_name:  order.guest_name,   // visible now — identity is unlocked
-        grand_total: order.grand_total_usd,
-        tour_id:     order.tour_id,
-      })
+      Promise.all([
+        notifyAgent(c.env, order.tenant_id, 'WEBHOOK_PAID', {
+          order_id:    order.id,
+          provider,
+          guest_name:  order.guest_name,   // visible now — identity is unlocked
+          grand_total: order.grand_total_usd,
+          tour_id:     order.tour_id,
+        }),
+        // [AUDIT] Record instant unlock for anti-ghosting compliance trail
+        c.env.DB
+          .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
+                    VALUES (?, ?, ?, 'INSTANT_UNLOCK_WEBHOOK', 'booking_order', ?, ?, ?)`)
+          .bind(
+            nanoid(),
+            order.tenant_id,
+            `webhook:${provider}`,
+            order.id,
+            JSON.stringify({ provider, amount_usd: order.grand_total_usd }),
+            now
+          )
+          .run(),
+      ])
     );
 
   } else {

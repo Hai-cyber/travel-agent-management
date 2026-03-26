@@ -158,10 +158,14 @@ const PROOF_ALLOWED_TYPES = new Set([
 const PROOF_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Identity mask ─────────────────────────────────────────────────────────────
-// Agent API response:
-//   identity_unlocked = 1 → full guest data visible
-//   identity_unlocked = 0 → guest data masked as *** (Anti-Ghosting shield)
-// Both Group A (PAID webhook) and Group B (proof upload) set identity_unlocked = 1.
+// Trust-tier unlock model:
+//   Group A — Instant (webhook): identity_unlocked = 1 the moment webhook fires
+//   Group B — Manual (bank transfer): identity stays locked until agent calls confirm-receipt
+//   Group C — Arrival (PAY_ON_ARRIVAL): identity stays locked until agent calls manual-unlock
+//
+// proof_r2_key is ALWAYS exposed so the agent can view the uploaded image/PDF
+// even while the guest identity is still masked. This enables the "eyes on proof
+// before unlock" workflow without extra round-trips.
 function maskOrder(row) {
   const unlocked = !!row.identity_unlocked;
 
@@ -182,12 +186,14 @@ function maskOrder(row) {
     },
     identity_locked:   !unlocked,
     identity_unlocked: unlocked,
+    // Always visible — agent must review proof before unlocking identity
+    proof_r2_key:      row.proof_r2_key ?? null,
     proof_uploaded_at: row.proof_uploaded_at ?? null,
     created_at:        row.created_at,
   };
 
   // [SEC] Identity Shield: always include guest field but mask when locked.
-  // Agent sees *** until payment is confirmed, preventing ghosting.
+  // Identity is revealed ONLY after payment confirmation, not on proof upload.
   base.guest = {
     name:  unlocked ? row.guest_name  : '***',
     email: unlocked ? row.guest_email : '***',
@@ -195,11 +201,11 @@ function maskOrder(row) {
   };
 
   if (unlocked) {
-    // Signal actions available in this state
     base.confirm_receipt_available = row.status === 'PROOF_UPLOADED';
   } else {
-    base.identity_note =
-      'Identity locked. It will be revealed once payment is confirmed or proof is uploaded.';
+    base.identity_note = row.proof_r2_key
+      ? 'Proof received. Call POST /confirm-receipt to unlock guest identity.'
+      : 'Identity locked. Awaiting proof of payment upload.';
   }
 
   return base;
@@ -534,11 +540,11 @@ bookings.post('/order/:orderId/proof', async (c) => {
     customMetadata: { order_id: orderId, tenant_id: tenantId, uploaded_at: new Date(now * 1000).toISOString() },
   });
 
-  // Unlock identity + transition to PROOF_UPLOADED in one statement
+  // Strict Lock: transition to PROOF_UPLOADED but keep identity locked.
+  // Identity is revealed only when the agent calls POST /confirm-receipt.
   const result = await c.env.DB
     .prepare(`UPDATE booking_orders
               SET status             = 'PROOF_UPLOADED',
-                  identity_unlocked  = 1,
                   proof_r2_key       = ?,
                   proof_content_type = ?,
                   proof_uploaded_at  = ?
@@ -547,36 +553,37 @@ bookings.post('/order/:orderId/proof', async (c) => {
     .run();
 
   if (result.meta.changes === 0) {
-    // Race condition: status changed between the read above and now
     return c.json({ error: 'Order status changed before upload could be saved. Please refresh and try again.' }, 409);
   }
 
-  console.info(`[PROOF_UPLOADED] order=${orderId} tenant=${tenantId} identity_unlocked=1 at=${new Date(now * 1000).toISOString()}`);
+  console.info(`[PROOF_UPLOADED] order=${orderId} tenant=${tenantId} identity_locked=STRICT at=${new Date(now * 1000).toISOString()}`);
 
   return c.json({
     ok:               true,
     order_id:         orderId,
     status:           'PROOF_UPLOADED',
-    identity_unlocked: true,
+    identity_unlocked: false,
     proof_r2_key:     r2Key,
-    note:             'Identity unlocked. The agent can now view guest details and confirm receipt.',
+    note:             'Proof stored. Guest identity remains locked. Call POST /confirm-receipt after verifying the bank transfer to unlock.',
+    confirm_url:      `/api/bookings/order/${orderId}/confirm-receipt`,
   });
 });
 
 // ── POST /api/bookings/order/:orderId/confirm-receipt ────────────────────────
-// Agent confirms they received the bank transfer.
+// Agent confirms they received the bank transfer AND unlocks guest identity.
 // Only valid when status = 'PROOF_UPLOADED'.
-// On success: status → CONFIRMED; grand_total_usd added to tenants.total_revenue_tracked.
+// On success: identity_unlocked = 1, status → CONFIRMED, revenue tracked, audit logged.
 // [SEC] Non-atomic but idempotent: status check prevents double-revenue count.
+// [AUDIT] Every confirm-receipt is written to tenant_audit_log.
 bookings.post('/order/:orderId/confirm-receipt', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const orderId = c.req.param('orderId');
 
-  // Fetch the order first — need grand_total_usd and status
+  // Fetch order — include guest fields so we can return them after unlock
   const order = await c.env.DB
-    .prepare('SELECT id, status, grand_total_usd FROM booking_orders WHERE id = ? AND tenant_id = ?')
+    .prepare('SELECT id, status, grand_total_usd, guest_name, guest_email, guest_phone FROM booking_orders WHERE id = ? AND tenant_id = ?')
     .bind(orderId, tenantId)
     .first();
 
@@ -595,12 +602,14 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
   const now       = Math.floor(Date.now() / 1000);
   const confirmedBy = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? null;
 
-  // Step 1: Transition order status → CONFIRMED (guards against double-confirm)
+  // Step 1: Confirm + unlock identity atomically
+  // [IDENTITY] identity_unlocked = 1 set HERE, not on proof upload (Strict Lock model)
   const orderUpdate = await c.env.DB
     .prepare(`UPDATE booking_orders
-              SET status       = 'CONFIRMED',
-                  confirmed_at  = ?,
-                  confirmed_by  = ?
+              SET status            = 'CONFIRMED',
+                  identity_unlocked = 1,
+                  confirmed_at      = ?,
+                  confirmed_by      = ?
               WHERE id = ? AND tenant_id = ? AND status = 'PROOF_UPLOADED'`)
     .bind(now, confirmedBy, orderId, tenantId)
     .run();
@@ -618,17 +627,37 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
     .bind(order.grand_total_usd, tenantId)
     .run();
 
+  // Step 3: Audit log — record this identity unlock event
+  await c.env.DB
+    .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
+              VALUES (?, ?, ?, 'IDENTITY_UNLOCK_CONFIRM_RECEIPT', 'booking_order', ?, ?, ?)`)
+    .bind(
+      nanoid(),
+      tenantId,
+      `agent:${confirmedBy ?? 'unknown'}`,
+      orderId,
+      JSON.stringify({ revenue_added: order.grand_total_usd }),
+      now
+    )
+    .run();
+
   console.info(
-    `[REVENUE_CONFIRMED] order=${orderId} tenant=${tenantId} amount_usd=${order.grand_total_usd} at=${new Date(now * 1000).toISOString()}`
+    `[IDENTITY_UNLOCK_CONFIRM_RECEIPT] order=${orderId} tenant=${tenantId} amount_usd=${order.grand_total_usd} at=${new Date(now * 1000).toISOString()}`
   );
 
   return c.json({
-    ok:              true,
-    order_id:        orderId,
-    status:          'CONFIRMED',
-    confirmed_at:    now,
-    revenue_added:   order.grand_total_usd,
-    note:            'Order confirmed. Revenue has been added to your tracked total.',
+    ok:                true,
+    order_id:          orderId,
+    status:            'CONFIRMED',
+    confirmed_at:      now,
+    revenue_added:     order.grand_total_usd,
+    identity_unlocked: true,
+    guest: {
+      name:  order.guest_name,
+      email: order.guest_email,
+      phone: order.guest_phone,
+    },
+    note: 'Order confirmed. Identity unlocked. Revenue has been added to your tracked total.',
   });
 });
 
@@ -796,13 +825,13 @@ bookings.post('/public/:secure_token/proof', async (c) => {
     customMetadata: { order_id: order.id, tenant_id: order.tenant_id, uploaded_at: new Date(now * 1000).toISOString() },
   });
 
+  // Strict Lock: store proof but keep identity locked until agent confirms.
   const result = await c.env.DB
     .prepare(`UPDATE booking_orders
-              SET status            = 'PROOF_UPLOADED',
-                  identity_unlocked = 1,
-                  proof_r2_key      = ?,
-                  proof_content_type = ?,
-                  proof_uploaded_at = ?
+              SET status              = 'PROOF_UPLOADED',
+                  proof_r2_key        = ?,
+                  proof_content_type  = ?,
+                  proof_uploaded_at   = ?
               WHERE id = ? AND secure_token = ? AND status = 'AWAITING_PROOF'`)
     .bind(r2Key, ct, now, order.id, token)
     .run();
@@ -811,7 +840,7 @@ bookings.post('/public/:secure_token/proof', async (c) => {
     return c.json({ error: 'Order status changed before upload could be saved. Please refresh.' }, 409);
   }
 
-  console.info(`[GUEST_PROOF_UPLOADED] order=${order.id} tenant=${order.tenant_id} at=${new Date(now * 1000).toISOString()}`);
+  console.info(`[GUEST_PROOF_UPLOADED] order=${order.id} tenant=${order.tenant_id} identity_locked=STRICT at=${new Date(now * 1000).toISOString()}`);
 
   // Notify agent — non-blocking
   c.executionCtx.waitUntil(
@@ -879,6 +908,21 @@ bookings.post('/order/:orderId/manual-unlock', async (c) => {
                   manual_unlock_at  = ?
               WHERE id = ? AND tenant_id = ? AND status = 'PENDING_ARRIVAL'`)
     .bind(now, orderId, tenantId)
+    .run();
+
+  // Audit log — record manual unlock with ghosting-risk flag
+  const connIp = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown';
+  await c.env.DB
+    .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
+              VALUES (?, ?, ?, 'MANUAL_UNLOCK_ARRIVAL', 'booking_order', ?, ?, ?)`)
+    .bind(
+      nanoid(),
+      tenantId,
+      `agent:${connIp}`,
+      orderId,
+      JSON.stringify({ payment_method: 'PAY_ON_ARRIVAL', risk: 'ghosting' }),
+      now
+    )
     .run();
 
   console.warn(
