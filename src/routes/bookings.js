@@ -4,6 +4,8 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { calculateTourPrice } from './pricing.js';
 import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
+import { notifyAgent } from '../lib/notifications.js';
+import { isInstantProvider, ALL_PROVIDERS } from './payments.js';
 
 const bookings = new Hono();
 
@@ -156,39 +158,48 @@ const PROOF_ALLOWED_TYPES = new Set([
 const PROOF_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Identity mask ─────────────────────────────────────────────────────────────
-// Agent API response: identity fields only visible once proof is uploaded.
+// Agent API response:
+//   identity_unlocked = 1 → full guest data visible
+//   identity_unlocked = 0 → guest data masked as *** (Anti-Ghosting shield)
+// Both Group A (PAID webhook) and Group B (proof upload) set identity_unlocked = 1.
 function maskOrder(row) {
+  const unlocked = !!row.identity_unlocked;
+
   const base = {
-    id:                row.id,
-    tour_id:           row.tour_id,
-    travel_date:       row.travel_date,
-    segment_id:        row.segment_id,
-    status:            row.status,
-    payment_method:    row.payment_method,
-    payment_deadline:  row.payment_deadline,
-    grand_total_usd:   row.grand_total_usd,
+    id:               row.id,
+    tour_id:          row.tour_id,
+    travel_date:      row.travel_date,
+    segment_id:       row.segment_id,
+    status:           row.status,
+    payment_method:   row.payment_method,
+    payment_deadline: row.payment_deadline,
+    grand_total_usd:  row.grand_total_usd,
     pax: {
       shared:   row.pax_shared,
       private:  row.pax_private,
       children: row.pax_children,
       infants:  row.pax_infants,
     },
-    identity_unlocked: !!row.identity_unlocked,
+    identity_locked:   !unlocked,
+    identity_unlocked: unlocked,
     proof_uploaded_at: row.proof_uploaded_at ?? null,
     created_at:        row.created_at,
   };
 
-  if (row.identity_unlocked) {
-    base.guest = {
-      name:  row.guest_name,
-      email: row.guest_email,
-      phone: row.guest_phone,
-    };
-    // Signal to the agent UI that the Confirm Receipt button should appear
+  // [SEC] Identity Shield: always include guest field but mask when locked.
+  // Agent sees *** until payment is confirmed, preventing ghosting.
+  base.guest = {
+    name:  unlocked ? row.guest_name  : '***',
+    email: unlocked ? row.guest_email : '***',
+    phone: unlocked ? row.guest_phone : '***',
+  };
+
+  if (unlocked) {
+    // Signal actions available in this state
     base.confirm_receipt_available = row.status === 'PROOF_UPLOADED';
   } else {
     base.identity_note =
-      'Guest identity is locked. It will be revealed once proof of payment is uploaded.';
+      'Identity locked. It will be revealed once payment is confirmed or proof is uploaded.';
   }
 
   return base;
@@ -203,8 +214,6 @@ bookings.post('/order', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   // [LEGAL FIREWALL] Only live (ACTIVE) tenants may accept bookings.
-  // Platform subdomain visitors see Preview Mode — this guard catches any
-  // attempts to call the API directly on preview/trial subscriptions.
   const tenantRow = await c.env.DB
     .prepare('SELECT subscription_status FROM tenants WHERE id = ?')
     .bind(tenantId)
@@ -232,6 +241,16 @@ bookings.post('/order', async (c) => {
     return c.json({ error: `Missing required guest fields: ${guestMissing.join(', ')}.` }, 400);
   }
 
+  // ── Payment method classification ──────────────────────────────────────────
+  const rawMethod    = (body.payment_method ?? 'BANK_TRANSFER').toUpperCase();
+  if (!ALL_PROVIDERS.has(rawMethod)) {
+    return c.json({
+      error:   `Invalid payment_method: "${body.payment_method}".`,
+      allowed: [...ALL_PROVIDERS],
+    }, 400);
+  }
+  const instant = isInstantProvider(rawMethod);
+
   const { tour_id, travel_date, segment_id, pax = {}, guest, draft_id = null } = body;
   const tenantConfig = c.get('tenantConfig') ?? {};
 
@@ -255,11 +274,15 @@ bookings.post('/order', async (c) => {
     return c.json({ error: priceResult.error, hint: priceResult.hint }, 422);
   }
 
-  const orderId      = nanoid();
-  const secureToken  = nanoid(32);           // Guest portal access token — single-use URL
-  const now          = Math.floor(Date.now() / 1000);
-  const deadline     = computePaymentDeadline(now);
-  const deadlineHours = deadline === now + 72 * 3600 ? 72 : 48;
+  const orderId     = nanoid();
+  const secureToken = nanoid(32);
+  const now         = Math.floor(Date.now() / 1000);
+
+  // Group A (Instant): status = AWAITING_PAYMENT, no real deadline
+  // Group B (Manual):  status = AWAITING_PROOF,   deadline = 48/72h
+  const initialStatus = instant ? 'AWAITING_PAYMENT' : 'AWAITING_PROOF';
+  const deadline      = instant ? 0 : computePaymentDeadline(now);
+  const deadlineHours = !instant && deadline === now + 72 * 3600 ? 72 : 48;
 
   try {
     await c.env.DB
@@ -282,19 +305,54 @@ bookings.post('/order', async (c) => {
         guest.phone?.toString().slice(0, 50)  ?? null,
         priceResult.totals.grand_total,
         JSON.stringify({ ...priceResult, saved_at: now }),
-        'BANK_TRANSFER',
+        rawMethod,
         deadline,
-        'AWAITING_PROOF',
+        initialStatus,
         secureToken,
         now
       )
       .run();
 
+    // Fire booking notification — non-blocking
+    c.executionCtx.waitUntil(
+      notifyAgent(c.env, tenantId,
+        instant ? 'INSTANT_PAID' : 'MANUAL_BOOKING',
+        {
+          order_id:    orderId,
+          provider:    rawMethod,
+          guest_name:  null,  // identity still locked at this point
+          grand_total: priceResult.totals.grand_total,
+          tour_id,
+        }
+      )
+    );
+
+    if (instant) {
+      // Instant payment channel: return a payment initiation payload.
+      // The agent's front-end uses this to redirect the guest to the provider.
+      return c.json({
+        ok:                  true,
+        order_id:            orderId,
+        status:              initialStatus,
+        payment_method:      rawMethod,
+        grand_total_usd:     priceResult.totals.grand_total,
+        segment_name:        priceResult.segment_name,
+        // Guest portal — guest can check status after payment
+        guest_portal_token:  secureToken,
+        guest_portal_url:    `/api/bookings/public/${secureToken}`,
+        // Webhook confirmation URL to register with the payment provider
+        webhook_confirm_url: `/api/payments/webhook/${rawMethod.toLowerCase()}`,
+        // The provider must pass order_id back in their payload for webhook lookup
+        provider_order_ref:  orderId,
+        note: `Redirect guest to ${rawMethod} checkout. Set merchant order ID = ${orderId}. Webhook will auto-unlock identity on payment success.`,
+      }, 201);
+    }
+
     return c.json({
       ok:              true,
       order_id:        orderId,
       status:          'AWAITING_PROOF',
-      payment_method:  'BANK_TRANSFER',
+      payment_method:  rawMethod,
       payment_deadline: deadline,
       deadline_hours:  deadlineHours,
       deadline_note:   deadlineHours === 72
@@ -302,7 +360,6 @@ bookings.post('/order', async (c) => {
         : 'Payment required within 48 hours.',
       grand_total_usd: priceResult.totals.grand_total,
       segment_name:    priceResult.segment_name,
-      // Guest portal: send this URL to the guest so they can upload their proof
       guest_portal_token: secureToken,
       guest_portal_url:   `/api/bookings/public/${secureToken}`,
     }, 201);
@@ -311,6 +368,41 @@ bookings.post('/order', async (c) => {
     console.error('[BOOKING_ORDER_ERROR] POST /order', err);
     return c.json({ error: 'Internal server error while creating order.' }, 500);
   }
+});
+
+// ── GET /api/bookings/orders ──────────────────────────────────────────────────
+// List all orders for the agent's tenant, newest first.
+// Identity Shield applied: masked fields show *** when identity_unlocked = 0.
+// [SEC] WHERE tenant_id = ? — cross-tenant reads are impossible.
+bookings.get('/orders', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  // Optional filters via query params
+  const statusFilter = c.req.query('status');
+  const limit        = Math.min(Number(c.req.query('limit') ?? 50), 200);
+
+  let sql = `SELECT * FROM booking_orders WHERE tenant_id = ?`;
+  const binds = [tenantId];
+
+  if (statusFilter) {
+    sql += ` AND status = ?`;
+    binds.push(statusFilter.toUpperCase());
+  }
+
+  sql += ` ORDER BY created_at DESC LIMIT ?`;
+  binds.push(limit);
+
+  const { results } = await c.env.DB
+    .prepare(sql)
+    .bind(...binds)
+    .all();
+
+  return c.json({
+    ok:     true,
+    count:  results.length,
+    orders: results.map(maskOrder),
+  });
 });
 
 // ── GET /api/bookings/order/:orderId ─────────────────────────────────────────
@@ -668,6 +760,15 @@ bookings.post('/public/:secure_token/proof', async (c) => {
 
   console.info(`[GUEST_PROOF_UPLOADED] order=${order.id} tenant=${order.tenant_id} at=${new Date(now * 1000).toISOString()}`);
 
+  // Notify agent — non-blocking
+  c.executionCtx.waitUntil(
+    notifyAgent(c.env, order.tenant_id, 'PROOF_UPLOADED', {
+      order_id:    order.id,
+      provider:    order.payment_method,
+      grand_total: null, // not fetched in this query for performance
+    })
+  );
+
   return c.json({
     ok:      true,
     status:  'PROOF_UPLOADED',
@@ -699,7 +800,8 @@ export async function purgeExpiredOrders(env) {
                     guest_name  = NULL,
                     guest_email = NULL,
                     guest_phone = NULL
-                WHERE status = 'AWAITING_PROOF'
+                WHERE status IN ('AWAITING_PROOF', 'AWAITING_PAYMENT')
+                  AND payment_deadline > 0
                   AND payment_deadline < ?`)
       .bind(nowUnix)
       .run();

@@ -12,7 +12,7 @@ const tenants = new Hono();
 // đến toàn bộ DB và cần migration riêng.
 const ALLOWED_SETTINGS_COLUMNS = [
   'exchange_rate', 'target_currency', 'pricing_policy', 'infant_policy_text',
-  'custom_domain', 'subscription_status', 'payment_config_json',
+  'custom_domain', 'subscription_status', 'payment_config_json', 'notification_config',
 ];
 
 const VALID_PRICING_POLICIES    = new Set(['PRIORITY_HIGH_SEASON', 'PRIORITY_LOW_SEASON']);
@@ -104,6 +104,15 @@ function validateSettings(data) {
     }
   }
 
+  if ('notification_config' in data) {
+    const nc = data.notification_config;
+    if (nc !== null) {
+      if (typeof nc !== 'object' || Array.isArray(nc)) {
+        errors.push('notification_config phải là JSON object hoặc null để xóa.');
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -155,6 +164,13 @@ tenants.patch('/settings', async (c) => {
   if ('payment_config_json' in safeData) {
     safeData.payment_config_json = safeData.payment_config_json !== null
       ? JSON.stringify(safeData.payment_config_json)
+      : null;
+  }
+
+  // Serialize notification_config object → TEXT for D1
+  if ('notification_config' in safeData) {
+    safeData.notification_config = safeData.notification_config !== null
+      ? JSON.stringify(safeData.notification_config)
       : null;
   }
 
