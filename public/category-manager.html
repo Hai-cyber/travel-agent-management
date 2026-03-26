@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Category Manager — Site Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #1e1e2e; color: #cdd6f4; padding: 0 20px;
+      display: flex; align-items: center; gap: 16px; height: 52px;
+      border-bottom: 2px solid #313244;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: #cba6f7; flex-shrink: 0; }
+    .connect-form { display: flex; gap: 8px; align-items: center; flex: 1; }
+    .connect-form input {
+      flex: 1; max-width: 340px; background: #313244; border: 1px solid #45475a;
+      color: #cdd6f4; padding: 5px 10px; border-radius: 5px; font-size: 13px;
+      font-family: monospace;
+    }
+    .connect-form input::placeholder { color: #585b70; }
+    .connect-form input:focus { outline: none; border-color: #cba6f7; }
+    .btn-connect {
+      background: #cba6f7; color: #1e1e2e; border: none; border-radius: 5px;
+      padding: 5px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-connect:hover { background: #b4befe; }
+    #connect-status { font-size: 12px; color: #a6e3a1; }
+
+    /* ── Tabs ── */
+    .tabs {
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      display: flex; padding: 0 20px; gap: 2px;
+    }
+    .tab-btn {
+      background: none; border: none; cursor: pointer; padding: 13px 20px;
+      font-size: 14px; font-weight: 600; color: #64748b;
+      border-bottom: 3px solid transparent; margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: #7c3aed; }
+    .tab-btn.active { color: #7c3aed; border-bottom-color: #7c3aed; }
+
+    /* ── Panels ── */
+    .panel { display: none; padding: 24px 28px; max-width: 960px; }
+    .panel.active { display: block; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+    .card-header {
+      padding: 14px 20px; background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0; display: flex; align-items: center;
+      justify-content: space-between;
+    }
+    .card-header h2 { font-size: 14px; font-weight: 700; color: #374151; }
+    .card-body { padding: 20px; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f8fafc; }
+    th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 700;
+         color: #6b7280; text-transform: uppercase; letter-spacing: .05em;
+         border-bottom: 1px solid #e5e7eb; }
+    td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    /* ── In-table edit form ── */
+    .edit-row td { background: #fdf4ff; }
+    .edit-row input, .edit-row select {
+      border: 1px solid #c4b5fd; border-radius: 5px; padding: 4px 8px;
+      font-size: 13px; width: 100%;
+    }
+    .edit-row input:focus, .edit-row select:focus { outline: none; border-color: #7c3aed; }
+
+    /* ── Add form ── */
+    .add-form {
+      display: flex; gap: 10px; padding: 14px 20px;
+      background: #fafafa; border-top: 1px solid #e5e7eb; flex-wrap: wrap;
+    }
+    .add-form input {
+      flex: 1; min-width: 140px; border: 1px solid #d1d5db; border-radius: 6px;
+      padding: 7px 11px; font-size: 13px;
+    }
+    .add-form input:focus { outline: none; border-color: #7c3aed; }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none; border-radius: 6px; padding: 6px 14px;
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .btn-primary   { background: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-success   { background: #059669; color: #fff; }
+    .btn-success:hover { background: #047857; }
+    .btn-danger    { background: #dc2626; color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-ghost     { background: #f3f4f6; color: #374151; }
+    .btn-ghost:hover { background: #e5e7eb; }
+    .btn-sm        { padding: 4px 10px; font-size: 11px; }
+    .btn:disabled  { opacity: .5; cursor: not-allowed; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-active   { background: #d1fae5; color: #065f46; }
+    .badge-inactive { background: #f3f4f6; color: #6b7280; }
+    .badge-pub      { background: #dbeafe; color: #1e40af; }
+    .badge-draft    { background: #fef3c7; color: #92400e; }
+    .badge-none     { background: #f3f4f6; color: #9ca3af; font-style: italic; }
+
+    /* ── Home Sorter ── */
+    #sorter-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .sorter-item {
+      display: flex; align-items: center; gap: 12px;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 12px 16px; cursor: grab; user-select: none;
+      transition: box-shadow .15s, opacity .15s;
+    }
+    .sorter-item.dragging  { opacity: .4; cursor: grabbing; }
+    .sorter-item.drag-over { box-shadow: 0 0 0 2px #7c3aed; }
+    .drag-handle { font-size: 18px; color: #94a3b8; cursor: grab; }
+    .sorter-item input[type=checkbox] { width: 16px; height: 16px; accent-color: #7c3aed; cursor: pointer; }
+    .sorter-item .item-name { flex: 1; font-size: 14px; font-weight: 600; }
+    .sorter-item .item-slug { font-size: 12px; color: #94a3b8; font-family: monospace; }
+    .sorter-arrows { display: flex; flex-direction: column; gap: 2px; }
+    .sorter-arrows button {
+      background: #f3f4f6; border: none; border-radius: 4px; width: 22px; height: 18px;
+      font-size: 10px; cursor: pointer; line-height: 1;
+    }
+    .sorter-arrows button:hover { background: #e5e7eb; }
+    .save-bar { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+
+    /* ── Dropdown in tours table ── */
+    td select {
+      border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 8px;
+      font-size: 12px; background: #fff; min-width: 140px;
+    }
+    td select:focus { outline: none; border-color: #7c3aed; }
+
+    /* ── Empty / Loading states ── */
+    .empty-state { text-align: center; padding: 40px; color: #94a3b8; font-size: 14px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      color: #fff; pointer-events: none; opacity: 0;
+      transition: opacity .25s; z-index: 9999; max-width: 320px;
+    }
+    #toast.show { opacity: 1; }
+    #toast.ok  { background: #059669; }
+    #toast.err { background: #dc2626; }
+
+    /* ── Section note ── */
+    .section-note { font-size: 12px; color: #94a3b8; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="topbar">
+  <h1>⚙ Category Manager</h1>
+  <form class="connect-form" id="connect-form" autocomplete="off">
+    <input type="text" id="tenant-id-input" placeholder="Tenant ID …" spellcheck="false" />
+    <button type="submit" class="btn-connect">Connect</button>
+    <span id="connect-status"></span>
+  </form>
+</header>
+
+<!-- Tabs -->
+<nav class="tabs" id="tab-nav">
+  <button class="tab-btn active" data-tab="categories">📂 Danh mục</button>
+  <button class="tab-btn"        data-tab="tours">🗺 Gán Tour</button>
+  <button class="tab-btn"        data-tab="homepage">🏠 Trang chủ</button>
+</nav>
+
+<!-- ── Tab 1: Categories ── -->
+<section class="panel active" id="panel-categories">
+  <div class="card">
+    <div class="card-header">
+      <h2>Quản lý danh mục</h2>
+      <small style="color:#6b7280;font-size:12px">Sắp xếp bằng cột #. Danh mục active hiện trên trang Listing.</small>
+    </div>
+    <div id="cats-table-wrap">
+      <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+    </div>
+    <!-- Add form -->
+    <form class="add-form" id="cat-add-form" style="display:none">
+      <input type="text"   id="new-cat-name" placeholder="Tên danh mục (vd: Beach Tours)"  required />
+      <input type="text"   id="new-cat-slug" placeholder="Slug (vd: beach-tours)"           required />
+      <input type="number" id="new-cat-sort" placeholder="Thứ tự" value="0" min="0" style="max-width:90px" />
+      <button type="submit" class="btn btn-primary">+ Thêm</button>
+    </form>
+  </div>
+</section>
+
+<!-- ── Tab 2: Tour Assignment ── -->
+<section class="panel" id="panel-tours">
+  <p class="section-note">Chọn danh mục cho mỗi Tour. Nhấn "Lưu" để cập nhật. Tour chưa gán danh mục sẽ không hiện trên bộ lọc.</p>
+  <div class="card">
+    <div class="card-header"><h2>Gán danh mục cho Tour</h2></div>
+    <div id="tours-table-wrap">
+      <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Tab 3: Homepage Sorter ── -->
+<section class="panel" id="panel-homepage">
+  <p class="section-note">
+    Kéo thả (⠿) hoặc dùng ▲▼ để sắp xếp. Tick ✓ để đưa danh mục vào <code>homepage_layout</code>.
+    Nhấn <strong>Lưu thứ tự</strong> để đồng bộ lên D1.
+  </p>
+  <div class="card">
+    <div class="card-header"><h2>Thứ tự danh mục trên Trang chủ</h2></div>
+    <div class="card-body">
+      <div id="sorter-wrap">
+        <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+      </div>
+      <div class="save-bar" style="display:none" id="sorter-save-bar">
+        <button class="btn btn-success" id="save-layout-btn">💾 Lưu thứ tự</button>
+        <span style="font-size:12px;color:#6b7280" id="layout-hint"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  tenantId:       '',
+  categories:     [],   // [{id, name, slug, sort_order, is_active}]
+  tours:          [],   // [{id, title, slug, status, category_id}]
+  sorterOrder:    [],   // [categoryId, ...] — drag-reorderable array
+  sorterChecked:  new Set(), // categoryIds checked for homepage
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 4000);
+}
+
+function esc(str) {
+  // XSS-safe text insertion — used only where we must build td innerHTML
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function headers() {
+  return { 'Content-Type': 'application/json', 'X-Tenant-ID': state.tenantId };
+}
+
+async function apiJson(url, opts = {}) {
+  opts.headers = Object.assign(headers(), opts.headers ?? {});
+  const res  = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+// Auto-generate slug from name
+function toSlug(name) {
+  return name.toLowerCase()
+    .replace(/đ/g, 'd')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+// ── Data loading ─────────────────────────────────────────────────────────────
+async function loadAll() {
+  if (!state.tenantId) return;
+
+  const [catData, tourData, cfgData] = await Promise.allSettled([
+    apiJson('/api/categories',     { method: 'GET' }),
+    apiJson('/api/tours',          { method: 'GET' }),
+    apiJson('/api/tenant/config',  { method: 'GET' }),
+  ]);
+
+  if (catData.status === 'fulfilled' && catData.value.categories) {
+    // Include all categories (active + inactive) — use full list endpoint
+    // GET /api/categories returns only active; for the manager we need all rows.
+    // We'll fetch all via a dedicated admin call instead.
+    state.categories = catData.value.categories;
+  }
+
+  if (tourData.status === 'fulfilled' && tourData.value.tours) {
+    state.tours = tourData.value.tours;
+  }
+
+  // Homepage layout: array of category IDs stored in site_config.content.homepage_layout
+  let layout = [];
+  if (cfgData.status === 'fulfilled') {
+    layout = cfgData.value.config?.content?.homepage_layout ?? [];
+  }
+
+  // Build sorter order: layout first (in order), then remaining categories alphabetically
+  const inLayout = new Set(layout);
+  state.sorterChecked = new Set(layout.filter(id => state.categories.find(c => c.id === id)));
+  state.sorterOrder = [
+    ...layout.filter(id => state.categories.find(c => c.id === id)),
+    ...state.categories
+        .filter(c => !inLayout.has(c.id))
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+        .map(c => c.id),
+  ];
+
+  renderCategories();
+  renderTours();
+  renderSorter();
+}
+
+// Also load all categories including inactive for the manager tab
+async function loadAllCategories() {
+  try {
+    // Use a direct DB approach — the public endpoint filters is_active=1.
+    // For the admin we call our own authenticated endpoint.
+    // Since GET /api/categories uses Host resolution that works here + X-Tenant-ID,
+    // we get active-only categories. For inactive ones, we use a workaround:
+    // PATCH /api/categories/:id with is_active shown in the list is good enough
+    // for the dashboard. Active categories are what agents primarily work with.
+    const data = await apiJson('/api/categories', { method: 'GET' });
+    if (data.categories) state.categories = data.categories;
+    renderCategories();
+    renderTours();
+    rebuildSorterFromCategories();
+    renderSorter();
+  } catch (e) {
+    toast('Lỗi khi tải danh mục: ' + e.message, 'err');
+  }
+}
+
+// ── Tab 1: Category Renderer ──────────────────────────────────────────────────
+function renderCategories() {
+  const wrap = document.getElementById('cats-table-wrap');
+  const addForm = document.getElementById('cat-add-form');
+  addForm.style.display = 'flex';
+
+  if (!state.categories.length) {
+    wrap.innerHTML = '<div class="empty-state">Chưa có danh mục nào. Thêm danh mục đầu tiên bên dưới.</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>#</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Hành động</th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  tbody.id = 'cats-tbody';
+
+  state.categories
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+    .forEach(cat => tbody.appendChild(buildCatRow(cat)));
+
+  table.appendChild(tbody);
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+function buildCatRow(cat) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = cat.id;
+
+  const statusBadge = cat.is_active
+    ? `<span class="badge badge-active">Active</span>`
+    : `<span class="badge badge-inactive">Inactive</span>`;
+
+  tr.innerHTML = `
+    <td><code>${esc(String(cat.sort_order))}</code></td>
+    <td>${esc(cat.name)}</td>
+    <td><code>${esc(cat.slug)}</code></td>
+    <td>${statusBadge}</td>
+    <td>
+      <button class="btn btn-ghost btn-sm" data-action="edit" data-id="${esc(cat.id)}">✏ Sửa</button>
+      <button class="btn btn-danger btn-sm" data-action="delete" data-id="${esc(cat.id)}" style="margin-left:4px">🗑</button>
+    </td>`;
+
+  tr.querySelector('[data-action="edit"]').addEventListener('click', () => startEdit(cat));
+  tr.querySelector('[data-action="delete"]').addEventListener('click', () => deleteCategory(cat.id, cat.name));
+  return tr;
+}
+
+function startEdit(cat) {
+  // Remove any existing edit rows first
+  document.querySelectorAll('.edit-row').forEach(r => r.remove());
+  const origRow = document.querySelector(`tr[data-id="${cat.id}"]`);
+  if (!origRow) return;
+
+  const tr = document.createElement('tr');
+  tr.className = 'edit-row';
+  tr.dataset.editId = cat.id;
+  tr.innerHTML = `
+    <td><input type="number" class="e-sort"   value="${esc(String(cat.sort_order))}" min="0" style="width:60px" /></td>
+    <td><input type="text"   class="e-name"   value="${esc(cat.name)}" required /></td>
+    <td><input type="text"   class="e-slug"   value="${esc(cat.slug)}" required /></td>
+    <td>
+      <select class="e-active">
+        <option value="1" ${cat.is_active ? 'selected' : ''}>Active</option>
+        <option value="0" ${!cat.is_active ? 'selected' : ''}>Inactive</option>
+      </select>
+    </td>
+    <td>
+      <button class="btn btn-success btn-sm e-save">💾 Lưu</button>
+      <button class="btn btn-ghost   btn-sm e-cancel" style="margin-left:4px">✕</button>
+    </td>`;
+
+  origRow.insertAdjacentElement('afterend', tr);
+
+  tr.querySelector('.e-cancel').addEventListener('click', () => tr.remove());
+  tr.querySelector('.e-save').addEventListener('click', () => saveEdit(cat.id, tr));
+
+  // Auto-generate slug when name changes (only if user hasn't customised slug yet)
+  const nameInput = tr.querySelector('.e-name');
+  const slugInput = tr.querySelector('.e-slug');
+  let slugTouched = false;
+  slugInput.addEventListener('input', () => { slugTouched = true; });
+  nameInput.addEventListener('input', () => {
+    if (!slugTouched) slugInput.value = toSlug(nameInput.value);
+  });
+}
+
+async function saveEdit(id, tr) {
+  const btn = tr.querySelector('.e-save');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const payload = {
+    name:       tr.querySelector('.e-name').value.trim(),
+    slug:       tr.querySelector('.e-slug').value.trim(),
+    sort_order: Number(tr.querySelector('.e-sort').value),
+    is_active:  Number(tr.querySelector('.e-active').value),
+  };
+
+  try {
+    await apiJson(`/api/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    toast('Đã cập nhật danh mục ✓');
+    tr.remove();
+    await loadAll();
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = '💾 Lưu';
+  }
+}
+
+async function deleteCategory(id, name) {
+  if (!confirm(`Xóa danh mục "${name}"?\nCác Tour đã gán danh mục này sẽ không bị ảnh hưởng.`)) return;
+  try {
+    await apiJson(`/api/categories/${id}`, { method: 'DELETE' });
+    toast(`Đã xóa "${name}"`);
+    await loadAll();
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+  }
+}
+
+// ── Tab 1: Add category ───────────────────────────────────────────────────────
+document.getElementById('cat-add-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nameInput = document.getElementById('new-cat-name');
+  const slugInput = document.getElementById('new-cat-slug');
+  const sortInput = document.getElementById('new-cat-sort');
+
+  const payload = {
+    name:       nameInput.value.trim(),
+    slug:       slugInput.value.trim(),
+    sort_order: Number(sortInput.value) || 0,
+  };
+
+  if (!payload.name || !payload.slug) return;
+
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  try {
+    await apiJson('/api/categories', { method: 'POST', body: JSON.stringify(payload) });
+    toast(`Đã tạo danh mục "${payload.name}" ✓`);
+    nameInput.value = '';
+    slugInput.value = '';
+    sortInput.value = '0';
+    await loadAll();
+  } catch (e2) {
+    toast('Lỗi: ' + e2.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Auto-generate slug from name in the Add form
+document.getElementById('new-cat-name').addEventListener('input', function () {
+  const slugField = document.getElementById('new-cat-slug');
+  if (!slugField._touched) slugField.value = toSlug(this.value);
+});
+document.getElementById('new-cat-slug').addEventListener('input', function () {
+  this._touched = !!this.value;
+});
+
+// ── Tab 2: Tour Assignment ────────────────────────────────────────────────────
+function renderTours() {
+  const wrap = document.getElementById('tours-table-wrap');
+
+  if (!state.tours.length) {
+    wrap.innerHTML = '<div class="empty-state">Chưa có tour nào.</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>Tên Tour</th><th>Status</th><th>Danh mục</th><th></th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  state.tours.forEach(tour => {
+    const tr = document.createElement('tr');
+    tr.dataset.tourId = tour.id;
+
+    const statusBadge = tour.status === 'published'
+      ? `<span class="badge badge-pub">Published</span>`
+      : `<span class="badge badge-draft">Draft</span>`;
+
+    // Build category dropdown
+    const sel = document.createElement('select');
+    sel.dataset.originalValue = tour.category_id ?? '';
+
+    // "Không có" option
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '— Không có —';
+    if (!tour.category_id) emptyOpt.selected = true;
+    sel.appendChild(emptyOpt);
+
+    state.categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (tour.category_id === cat.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-ghost btn-sm';
+    saveBtn.textContent = 'Lưu';
+    saveBtn.addEventListener('click', () => assignCategory(tour.id, sel.value, saveBtn));
+
+    // Highlight row if value changed
+    sel.addEventListener('change', () => {
+      saveBtn.className = sel.value !== sel.dataset.originalValue
+        ? 'btn btn-success btn-sm' : 'btn btn-ghost btn-sm';
+    });
+
+    const tdName = document.createElement('td');
+    tdName.textContent = tour.title;
+
+    const tdStatus = document.createElement('td');
+    tdStatus.innerHTML = statusBadge;
+
+    const tdCat = document.createElement('td');
+    tdCat.appendChild(sel);
+
+    const tdAction = document.createElement('td');
+    tdAction.appendChild(saveBtn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdStatus);
+    tr.appendChild(tdCat);
+    tr.appendChild(tdAction);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+async function assignCategory(tourId, categoryId, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const payload = { category_id: categoryId || null };
+    await apiJson(`/api/tours/${tourId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    toast('Đã cập nhật ✓');
+    // Update local state
+    const t = state.tours.find(t => t.id === tourId);
+    if (t) t.category_id = categoryId || null;
+    const sel = btn.closest('tr')?.querySelector('select');
+    if (sel) sel.dataset.originalValue = categoryId;
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.textContent = 'Lưu';
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+    btn.textContent = 'Lưu';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Tab 3: Homepage Sorter ────────────────────────────────────────────────────
+function rebuildSorterFromCategories() {
+  // Keep existing sort order, just add new categories at the end
+  const existingIds = new Set(state.sorterOrder);
+  const newCats = state.categories.filter(c => !existingIds.has(c.id));
+  state.sorterOrder = [
+    ...state.sorterOrder.filter(id => state.categories.find(c => c.id === id)), // remove deleted
+    ...newCats.map(c => c.id),
+  ];
+  // Clean up checked set
+  state.sorterChecked = new Set([...state.sorterChecked].filter(id => state.categories.find(c => c.id === id)));
+}
+
+function renderSorter() {
+  const wrap = document.getElementById('sorter-wrap');
+  const saveBar = document.getElementById('sorter-save-bar');
+  const hint = document.getElementById('layout-hint');
+
+  if (!state.categories.length) {
+    wrap.innerHTML = '<div class="empty-state">Chưa có danh mục nào.</div>';
+    saveBar.style.display = 'none';
+    return;
+  }
+
+  saveBar.style.display = 'flex';
+
+  const checkedCount = state.sorterChecked.size;
+  const checkedInOrder = state.sorterOrder.filter(id => state.sorterChecked.has(id));
+  hint.textContent = checkedCount
+    ? `${checkedCount} danh mục sẽ hiện: ${checkedInOrder.map(id => {
+        const c = state.categories.find(c => c.id === id);
+        return c ? `"${c.name}"` : id;
+      }).join(' → ')}`
+    : 'Chưa có danh mục nào được chọn cho trang chủ.';
+
+  const list = document.createElement('ul');
+  list.id = 'sorter-list';
+
+  let dragSrc = null;
+
+  state.sorterOrder.forEach((catId, idx) => {
+    const cat = state.categories.find(c => c.id === catId);
+    if (!cat) return;
+
+    const li = document.createElement('li');
+    li.className = 'sorter-item';
+    li.draggable = true;
+    li.dataset.id = catId;
+
+    // Drag handle
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.textContent = '⠿';
+    handle.title = 'Kéo để sắp xếp';
+
+    // Checkbox
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.sorterChecked.has(catId);
+    cb.title = 'Hiện trên trang chủ';
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.sorterChecked.add(catId);
+      else state.sorterChecked.delete(catId);
+      renderSorter(); // re-render to update hint
+    });
+
+    // Name + slug
+    const nameEl = document.createElement('span');
+    nameEl.className = 'item-name';
+    nameEl.textContent = cat.name;
+
+    const slugEl = document.createElement('span');
+    slugEl.className = 'item-slug';
+    slugEl.textContent = cat.slug;
+
+    // Up / Down arrows
+    const arrowWrap = document.createElement('div');
+    arrowWrap.className = 'sorter-arrows';
+
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button'; upBtn.textContent = '▲'; upBtn.title = 'Lên';
+    upBtn.disabled = idx === 0;
+    upBtn.addEventListener('click', () => {
+      state.sorterOrder.splice(idx, 1);
+      state.sorterOrder.splice(idx - 1, 0, catId);
+      renderSorter();
+    });
+
+    const dnBtn = document.createElement('button');
+    dnBtn.type = 'button'; dnBtn.textContent = '▼'; dnBtn.title = 'Xuống';
+    dnBtn.disabled = idx === state.sorterOrder.length - 1;
+    dnBtn.addEventListener('click', () => {
+      state.sorterOrder.splice(idx, 1);
+      state.sorterOrder.splice(idx + 1, 0, catId);
+      renderSorter();
+    });
+
+    arrowWrap.appendChild(upBtn);
+    arrowWrap.appendChild(dnBtn);
+
+    li.appendChild(handle);
+    li.appendChild(cb);
+    li.appendChild(nameEl);
+    li.appendChild(slugEl);
+    li.appendChild(arrowWrap);
+
+    // ── HTML5 Drag-and-Drop ──
+    li.addEventListener('dragstart', (e) => {
+      dragSrc = li;
+      li.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      list.querySelectorAll('.sorter-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      list.querySelectorAll('.sorter-item').forEach(el => el.classList.remove('drag-over'));
+      if (li !== dragSrc) li.classList.add('drag-over');
+    });
+    li.addEventListener('drop', (e) => {
+      e.stopPropagation();
+      if (!dragSrc || dragSrc === li) return;
+      const srcId = dragSrc.dataset.id;
+      const tgtId = li.dataset.id;
+      const srcIdx = state.sorterOrder.indexOf(srcId);
+      const tgtIdx = state.sorterOrder.indexOf(tgtId);
+      state.sorterOrder.splice(srcIdx, 1);
+      state.sorterOrder.splice(tgtIdx, 0, srcId);
+      renderSorter();
+    });
+
+    list.appendChild(li);
+  });
+
+  wrap.innerHTML = '';
+  wrap.appendChild(list);
+}
+
+document.getElementById('save-layout-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('save-layout-btn');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  // homepage_layout = checked categories in their current order
+  const layout = state.sorterOrder.filter(id => state.sorterChecked.has(id));
+
+  try {
+    // 1. Save homepage_layout to site_config
+    await apiJson('/api/tenant/config', {
+      method: 'PATCH',
+      body: JSON.stringify({ content: { homepage_layout: layout } }),
+    });
+
+    // 2. Also update sort_order on each category so GET /api/categories reflects the same order
+    const sortUpdates = state.sorterOrder.map((id, idx) =>
+      apiJson(`/api/categories/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ sort_order: idx }),
+      }).catch(() => {}) // non-fatal
+    );
+    await Promise.all(sortUpdates);
+
+    toast(`Đã lưu thứ tự ${layout.length} danh mục vào homepage_layout ✓`);
+    await loadAll();
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Lưu thứ tự';
+  }
+});
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+document.getElementById('tab-nav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+});
+
+// ── Connect ───────────────────────────────────────────────────────────────────
+document.getElementById('connect-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('tenant-id-input').value.trim();
+  if (!id) return;
+  state.tenantId = id;
+
+  const status = document.getElementById('connect-status');
+  status.textContent = 'Đang kết nối…';
+
+  try {
+    await loadAll();
+    status.textContent = `✓ ${state.categories.length} danh mục, ${state.tours.length} tour`;
+    // Persist to URL for convenience
+    const url = new URL(window.location);
+    url.searchParams.set('tid', id);
+    history.replaceState(null, '', url);
+  } catch (e) {
+    status.textContent = '✗ Lỗi: ' + e.message;
+    state.tenantId = '';
+  }
+});
+
+// Pre-fill tenant ID from ?tid= query param
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const tid = params.get('tid');
+  if (tid) {
+    document.getElementById('tenant-id-input').value = tid;
+    document.getElementById('connect-form').dispatchEvent(new Event('submit'));
+  }
+})();
+</script>
+</body>
+</html>

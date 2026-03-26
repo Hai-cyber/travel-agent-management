@@ -294,11 +294,21 @@ const publicConfig = new Hono();
 
 publicConfig.get('/config', async (c) => {
   const host = c.req.header('host') ?? '';
-  if (!host) return c.json({ ok: false, error: 'Cannot determine tenant from request.' }, 400);
 
   let tenant = null;
   try {
-    tenant = await resolveTenantByHost(host, c.env.DB);
+    // Admin bypass: X-Tenant-ID header allows direct lookup (for Dashboard/localhost).
+    // Public pages (inject.js) never send this header — they resolve via Host.
+    const adminId = c.req.header('X-Tenant-ID')?.trim();
+    if (adminId) {
+      tenant = await c.env.DB
+        .prepare('SELECT id, site_config FROM tenants WHERE id = ?')
+        .bind(adminId)
+        .first();
+    } else {
+      if (!host) return c.json({ ok: false, error: 'Cannot determine tenant from request.' }, 400);
+      tenant = await resolveTenantByHost(host, c.env.DB);
+    }
   } catch (err) {
     console.error('[TENANT_CONFIG_RESOLVE_ERROR]', err);
     return c.json({ error: 'Internal server error.' }, 500);

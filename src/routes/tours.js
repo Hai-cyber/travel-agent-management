@@ -225,7 +225,7 @@ tours.get('/', async (c) => {
 
   const { results } = await c.env.DB
     .prepare(
-      `SELECT id, title, slug, template_id, status,
+      `SELECT id, title, slug, template_id, status, category_id,
               published_at, published_url, lang, duration_text, start_date, created_at
        FROM tours WHERE tenant_id = ? ORDER BY created_at DESC`
     )
@@ -314,7 +314,7 @@ tours.patch('/:id', async (c) => {
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
   // Whitelist prevents column-injection; tenant_id / id / created_at are immutable
-  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug'];
+  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug', 'category_id'];
   const updates  = {};
   for (const key of ALLOWED) {
     if (!(key in body)) continue;
@@ -326,6 +326,19 @@ tours.patch('/:id', async (c) => {
       updates.template_id = safeId(body.template_id);
     } else if (key === 'slug') {
       updates.slug = safeId(slugify(body.slug));
+    } else if (key === 'category_id') {
+      // Accept null (clear assignment) or a non-empty string
+      if (body.category_id === null) {
+        updates.category_id = null;
+      } else if (typeof body.category_id === 'string' && body.category_id.trim()) {
+        // [SEC] Verify category belongs to this tenant before assigning
+        const cat = await c.env.DB
+          .prepare('SELECT id FROM tour_categories WHERE id = ? AND tenant_id = ?')
+          .bind(body.category_id.trim(), tenantId)
+          .first();
+        if (!cat) return c.json({ error: 'category_id not found for this tenant.' }, 404);
+        updates.category_id = body.category_id.trim();
+      }
     } else {
       updates[key] = body[key];
     }
