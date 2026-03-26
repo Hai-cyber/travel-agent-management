@@ -240,6 +240,13 @@ tours.post('/', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
+  // Validate tenant exists before any INSERT to avoid FK constraint 500
+  const tenant = await c.env.DB
+    .prepare('SELECT id FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: `Tenant "${tenantId}" not found. Check your Tenant ID.` }, 404);
+
   let body;
   try { body = await c.req.json(); }
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }

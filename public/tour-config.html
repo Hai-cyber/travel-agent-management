@@ -280,7 +280,7 @@
                 <input type="text" id="new-duration" placeholder="3 days 2 nights" />
               </div>
             </div>
-            <div class="field-row cols-3">
+            <div class="field-row cols-2">
               <div class="field">
                 <label>Language</label>
                 <select id="new-lang">
@@ -288,10 +288,6 @@
                   <option value="en">English (en)</option>
                   <option value="zh">Chinese (zh)</option>
                 </select>
-              </div>
-              <div class="field">
-                <label>Start Date</label>
-                <input type="date" id="new-start-date" />
               </div>
               <div class="field">
                 <label>Status</label>
@@ -320,7 +316,6 @@
             <div><strong>Slug</strong><br><code id="tour-detail-slug"></code></div>
             <div><strong>Language</strong><br><span id="tour-detail-lang"></span></div>
             <div><strong>Duration</strong><br><span id="tour-detail-duration"></span></div>
-            <div><strong>Start Date</strong><br><span id="tour-detail-startdate"></span></div>
             <div><strong>Published</strong><br><span id="tour-detail-published"></span></div>
           </div>
           <hr />
@@ -365,7 +360,7 @@
             <input type="text" id="meta-duration" placeholder="3 ngày 2 đêm" />
           </div>
         </div>
-        <div class="field-row cols-3">
+        <div class="field-row cols-2">
           <div class="field">
             <label>Status</label>
             <select id="meta-status">
@@ -380,10 +375,6 @@
               <option value="en">en</option>
               <option value="zh">zh</option>
             </select>
-          </div>
-          <div class="field">
-            <label>Start Date</label>
-            <input type="date" id="meta-start-date" />
           </div>
         </div>
         <div class="btn-row">
@@ -707,7 +698,6 @@ function selectTour(t) {
   document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '—';
   document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '—';
   document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '—';
-  document.getElementById('tour-detail-startdate').textContent   = t.start_date    ?? '—';
   document.getElementById('tour-detail-published').textContent   = t.published_at
     ? new Date(t.published_at * 1000).toLocaleDateString() : 'Not yet';
 
@@ -737,7 +727,6 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
     title:         document.getElementById('new-title').value.trim(),
     duration_text: document.getElementById('new-duration').value.trim() || undefined,
     lang:          document.getElementById('new-lang').value,
-    start_date:    document.getElementById('new-start-date').value || undefined,
     status:        document.getElementById('new-status').value,
   };
   try {
@@ -772,7 +761,6 @@ function prefillContent(tour) {
   document.getElementById('meta-duration').value    = tour.duration_text ?? '';
   document.getElementById('meta-status').value      = tour.status    ?? 'draft';
   document.getElementById('meta-lang').value        = tour.lang      ?? 'vi';
-  document.getElementById('meta-start-date').value  = tour.start_date ?? '';
 
   // content_data
   let cd = {};
@@ -847,8 +835,6 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
   if (dur)    body.duration_text = dur;
   body.status     = document.getElementById('meta-status').value;
   body.lang       = document.getElementById('meta-lang').value;
-  const sd = document.getElementById('meta-start-date').value;
-  if (sd) body.start_date = sd;
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
     Object.assign(S.tour, body);
