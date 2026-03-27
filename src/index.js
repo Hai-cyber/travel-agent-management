@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { formatMoney, formatDateTime, translate, resolveLocaleFromAcceptLanguage } from './utils/formatter.js';
 import {
   handleCreateServiceItem,
@@ -53,7 +54,22 @@ const UNDER_CONSTRUCTION_HTML = `<!DOCTYPE html>
 
 const app = new Hono();
 
-// ── UTF-8 enforcement middleware ─────────────────────────────────────────────
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// Allow the admin dashboard (any origin) to call /api/* — handles OPTIONS
+// preflights that browsers send when X-Tenant-ID or Content-Type headers are
+// present, or when the page origin differs from the worker origin.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Tenant-ID, Authorization',
+  'Access-Control-Max-Age':       '86400',
+};
+app.use('/api/*', cors({
+  origin:         '*',
+  allowMethods:   ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders:   ['Content-Type', 'X-Tenant-ID', 'Authorization'],
+  maxAge:          86400,
+}));
 // Annotates all JSON responses with charset=utf-8 — critical for Vietnamese
 // place names and special characters sent to international clients.
 app.use('*', async (c, next) => {
@@ -218,7 +234,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ── Domain-based tenant routing ──────────────────────────────────────────
+    // ── CORS preflight for URLPattern routes (patterns[]) ────────────────────
+    // Hono's cors middleware covers app.route() handlers, but the manual
+    // patterns[] loop is matched BEFORE Hono. Return 204 for any OPTIONS hit.
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     // Handles requests arriving on a tenant's custom domain OR platform subdomain.
     // API calls (/api/*) always bypass this block and route normally below.
     //
@@ -273,7 +295,11 @@ export default {
     for (const p of patterns) {
       const match = p.pattern.exec(url.pathname);
       if (match && request.method === p.method) {
-        return p.handler(request, env, match);
+        const res = await p.handler(request, env, match);
+        // Attach CORS headers so browser receives them on the actual response too
+        const headers = new Headers(res.headers);
+        Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));
+        return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
       }
     }
 

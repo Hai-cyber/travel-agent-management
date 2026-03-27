@@ -27,6 +27,8 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R07 | Canonical itinerary entity: tour_stops | done | `tour_stops` exists and demo row confirmed | 2026-03-24 | canonical itinerary direction locked |
 | CHK-R08 | Canonical docs reset | in_progress | docs being reset from legacy reality to rescue reality | 2026-03-24 | `01_CURRENT_STATE`, `03_PROGRESS_LEDGER`, `04_SESSION_HANDOFF` being regenerated |
 | CHK-R09 | Service Items CRUD | done | All 5 groups (accommodations, meals, guides, local-transports, intercity-legs) implemented. POST/GET/PATCH fully working, schema-aligned, validated. | 2026-03-25 | 100% complete. |
+| CHK-R25 | Booking View UX — Phase 1/2 conversational flow | done | Conversational sentence inputs, room-based pax distribution, live price calculator, compact mode, sticky scrollable layout, Pricing Definitions | 2026-03-27 | `public/tour-config.html` only, no backend changes |
+| CHK-R26 | Booking View — Surplus Room Pricing Logic | done | Sole-occupancy supplement auto-applied; ±2 shared stepper; two-way sync table↔sentence; surplus hint below table | 2026-03-27 | `public/tour-config.html` only |
 
 ### 2026-03-25
 - CHK‑R09 (Service Items CRUD) completed 100%: routing, service layer, schema alignment, D1 integration, manual testing. All groups (accommodations, meals, guides, local transports, intercity legs) fully CRUD-able via Worker API. No Node modules, no require(), no schema errors. Foundation is robust and clean.
@@ -160,6 +162,84 @@ curl -X POST http://localhost:8787/api/bookings/order/{ORDER_ID}/confirm-receipt
 npx wrangler dev --test-scheduled
 curl "http://localhost:8787/__scheduled?cron=*/15+*+*+*+*"
 ```
+
+### CHK-R26 — Booking View: Surplus Room Pricing Logic (2026-03-27)
+
+**File:** `public/tour-config.html` (JS/CSS/HTML changes only, no backend migrations)
+
+**Rule:** A double room is only billed at the *Shared Rate* when **fully occupied by 2 people**. Any double with sole occupancy is billed at the **Private/Single Supplement rate**.
+
+**Formula:**
+```
+totalRooms = doubles + singles
+IF totalRooms >= adults  →  sharedPax = 0,  privatePax = adults          (everyone gets own room)
+ELSE                     →  fullyOccupied = min(doubles, adults − totalRooms)
+                             sharedPax = fullyOccupied × 2,  privatePax = adults − sharedPax
+```
+
+**Example:** 3 adults + 3 double rooms → `totalRooms(3) ≥ adults(3)` → Shared = 0, Private = 3 ✓
+
+**Changes implemented:**
+| Function | Change |
+|---|---|
+| `syncPhase1ToPax()` | Rewritten — applies surplus rule; sharedPax always even |
+| `syncTableToPax()` | Snaps shared qty to nearest even; maps privatePax → singles in sentence |
+| `renderPaxRows()` | Shared row stepper uses delta ±2 (must move in pairs) |
+| `updateRoomStatusPill()` | Rewritten — shows `N shared doubles + M private rooms → X adults confirmed` |
+| `updateSurplusHint()` | **New function** — shows amber note below table when sole-occupancy supplement applies |
+| `runCalc()` | Calls `updateSurplusHint()` after local total is set |
+| `validateRooms()` | Updated messaging — surplus rooms show blue informational note |
+
+**BigTotal guarantee:**
+```
+BigTotal = (shared_qty × shared_price) + (private_qty × private_price) + (child_qty × child_price)
+```
+Always a strict local sum — never derived from backend `grand_total`.
+
+**UI element added:** `#bv-surplus-hint` div below price table (amber banner, visible only when supplement applies).
+
+```bash
+# No migration required — frontend-only change
+# Verify in browser: http://127.0.0.1:8787/tour-config.html
+# Test: 3 adults + 3 doubles → table shows Adult (Shared)=0, Adult (Private)=3
+```
+
+---
+
+### CHK-R25 — Booking View UX: Phase 1/2 Conversational Flow (2026-03-27)
+
+**File:** `public/tour-config.html` (JS/CSS/HTML changes only)
+
+**Phase 1 — Conversational Sentence:**
+- Inline `.bv-conv-input` fields: travel date, adult count, child count, double rooms, single rooms
+- `autoSuggestRooms(adults)` — auto-fills room split on adult count change
+- `validateRooms()` — inline hint with capacity/shortage feedback
+- `btn-calc-price` CTA — disabled until pricing loaded; triggers `syncPhase1ToPax()` → Phase 2
+
+**Phase 2 — Results:**
+- Segment tier tab strip (`#seg-tabs`)
+- Full-height pax table (4 rows: Shared Adult, Private Adult, Child, Infant) with ± qty steppers
+- "Good to Know" section (`#bv-defs`) — Pricing Definitions rendered as fine print
+
+**Compact mode:** After CTA click → Phase 1 collapses to `#bv-compact` one-line summary bar with "Edit" button
+
+**Sticky layout:** `#bv-panel-inner` flex-column; `#bv-panel-body` scrollable; `#bv-panel-footer` pinned; grand total always visible
+
+**Two-way sync:** Table ± stepers call `syncTableToPax()` → updates sentence inputs + room counts; compact bar text rebuilds via `buildCompactSummary()`
+
+**Pricing Definitions:** Left-panel editor textarea (`#pricing-defs-editor`); 4 default rules; `localStorage` persistence with migration guard; rendered via `renderDefs()`
+
+**Math model:**
+- `_calcCurrency = 'EUR'`; `fmtMoney(n)` uses explicit `Intl.NumberFormat` with `de-DE` locale
+- Grand total = strict local sum; API call only fetches season/band labels (status pill), never overrides total
+- Stale-closure protection via `paxSnap` + segment ID guard on API response
+
+```bash
+# No migration required — frontend-only change
+# Verify: http://127.0.0.1:8787/tour-config.html → Price Config tab
+```
+
+---
 
 ### CHK-R15 — Preview/Whitelabel Identity Separation + Audit Trail (2026-03-26)
 

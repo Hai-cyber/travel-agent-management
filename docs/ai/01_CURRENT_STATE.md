@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-26 (CHK-R36b)
+Last updated: 2026-03-27 (CHK-R26)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -87,9 +87,17 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16): floating button, drawer, invoice panel, segment compare, draft save/load
 - `public/widget.js` — lightweight embed widget (CHK-R19): Book Now button, price-check modal, calls `/api/pricing/calculate`
-- `public/tour-config.html` — agent admin UI (CHK-R31/R33–R36): 5-tab workflow (Tour, Content, Stops, Price Config, Preview/Publish)
+- `public/tour-config.html` — agent admin UI (CHK-R25/R26): 5-tab workflow (Tour, Content, Stops, Price Config, Preview/Publish)
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
-  - **Price Config tab** (CHK-R36): Customer Booking View (segment tier tabs, 4-row pax table with ±qty controls, travel date → live season-aware grand total via `POST /api/pricing/calculate`); collapsible Admin section (Seasons with Add/Delete/editable dates, Pax Bands Add/Delete, Segments Add/Delete/rename, Tour Prices Add/Delete)
+  - **Price Config tab** (CHK-R25/R26): 
+    - **Left panel (65%)**: Season editor, Pax Bands, Segments, Tour Prices, Pricing Definitions editor (4 default rules, localStorage-persisted)
+    - **Right panel (35%) — Customer Booking View**:
+      - Phase 1: Conversational sentence inputs (travel date, adults, children, double rooms, single rooms); room auto-suggest + validation hint; "Calculate Final Price" CTA
+      - Phase 2: Segment tier tabs; full-height 4-row pax table (Shared Adult ×2, Private Adult ×1, Child ×1, Infant ×1) with ± qty steppers; "Good to Know" Pricing Definitions fine print
+      - Compact mode: Phase 1 collapses to one-line summary bar after CTA; "Edit" to re-expand
+      - Sticky layout: scrollable content area, pinned footer with grand total always visible
+      - **Surplus room logic (CHK-R26)**: sole-occupancy supplement auto-applied when `totalRooms ≥ adults`; amber note below table; ±2 shared stepper; full two-way sync table↔sentence
+      - Grand total = strict local sum `(shared×price)+(private×price)+(child×price)` — never from backend
 
 ### Test Scripts
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)

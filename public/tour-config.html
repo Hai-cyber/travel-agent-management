@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tour Config � Agent Dashboard</title>
+  <title>Tour Config - Agent Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #F1F5F9; color: #1a1a2e; min-height: 100vh; }
 
     /* -- Topbar -- */
     .topbar {
@@ -43,8 +45,8 @@
       font-size: 14px; font-weight: 600; color: #64748b;
       border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
     }
-    .tab-btn:hover { color: #7c3aed; }
-    .tab-btn.active { color: #7c3aed; border-bottom-color: #7c3aed; }
+    .tab-btn:hover { color: #6366F1; }
+    .tab-btn.active { color: #6366F1; border-bottom-color: #6366F1; }
     .tab-btn:disabled { opacity: .4; cursor: not-allowed; }
 
     /* -- Layout -- */
@@ -54,7 +56,7 @@
 
     /* -- Cards -- */
     .card {
-      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      background: #fff; border: 1px solid #E5E7EB; border-radius: 10px;
       margin-bottom: 24px; overflow: hidden;
     }
     .card-header {
@@ -73,7 +75,7 @@
       font-family: inherit;
     }
     .field input:focus, .field select:focus, .field textarea:focus {
-      outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.08);
+      outline: none; border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,.08);
     }
     .field textarea { resize: vertical; min-height: 80px; }
     .field-row { display: grid; gap: 12px; }
@@ -87,18 +89,30 @@
       border: none; border-radius: 6px; padding: 8px 16px;
       font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
       display: inline-flex; align-items: center; gap: 6px;
+      transition: all 0.2s;
     }
-    .btn-primary   { background: #7c3aed; color: #fff; }
-    .btn-primary:hover { background: #6d28d9; }
+    .btn-primary   { background: #6366F1; color: #fff; }
+    .btn-primary:hover { background: #4F46E5; }
     .btn-success   { background: #059669; color: #fff; }
     .btn-success:hover { background: #047857; }
-    .btn-danger    { background: #dc2626; color: #fff; }
-    .btn-danger:hover { background: #b91c1c; }
     .btn-ghost     { background: #f3f4f6; color: #374151; border: 1px solid #e2e8f0; }
     .btn-ghost:hover { background: #e5e7eb; }
     .btn-sm        { padding: 5px 10px; font-size: 12px; }
     .btn:disabled  { opacity: .5; cursor: not-allowed; }
     .btn-row       { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    /* -- Icon-only trash button (replaces red danger buttons) -- */
+    .btn-icon-del {
+      background: none; border: none; cursor: pointer; padding: 4px 5px;
+      border-radius: 5px; color: #94a3b8; display: inline-flex; align-items: center;
+      transition: all 0.2s;
+    }
+    .btn-icon-del:hover { color: #dc2626; background: #fef2f2; }
+    .btn-icon-copy {
+      background: none; border: none; cursor: pointer; padding: 4px 5px;
+      border-radius: 5px; color: #94a3b8; display: inline-flex; align-items: center;
+      transition: all 0.2s;
+    }
+    .btn-icon-copy:hover { color: #6366F1; background: #eef2ff; }
 
     /* -- Tour selector list -- */
     .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
@@ -107,8 +121,8 @@
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
       padding: 10px 14px; cursor: pointer; transition: all .15s;
     }
-    .tour-item:hover { border-color: #c4b5fd; background: #f5f3ff; }
-    .tour-item.selected { border-color: #7c3aed; background: #ede9fe; }
+    .tour-item:hover { border-color: #A5B4FC; background: #EEF2FF; }
+    .tour-item.selected { border-color: #6366F1; background: #EEF2FF; }
     .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; }
     .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; }
 
@@ -137,38 +151,40 @@
     .stop-nights-wrap { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; flex-shrink: 0; }
     .stop-nights-wrap input { width: 38px; padding: 3px 4px; border: 1px solid #e2e8f0; border-radius: 4px; text-align: center; font-size: 12px; font-family: monospace; }
     .stop-meal-group { display: flex; gap: 3px; flex-shrink: 0; }
-    .meal-toggle { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 7px; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all .1s; white-space: nowrap; }
-    .meal-toggle.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+    .meal-toggle { background: #f1f5f9; border: 1px solid #E5E7EB; border-radius: 5px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; color: #9CA3AF; transition: all .1s; white-space: nowrap; }
+    .meal-toggle.active { background: #EEF2FF; border-color: #6366F1; color: #6366F1; }
     .stop-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
     /* -- Quick add form -- */
-    .stop-quick-form { background: #f0f4ff; border-top: 2px solid #7c3aed; padding: 12px 16px; }
+    .stop-quick-form { background: #EEF2FF; border-top: 2px solid #6366F1; padding: 12px 16px; }
     .stop-quick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .stop-quick-row input[type=text] { flex: 1; min-width: 150px; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
-    .stop-quick-row input[type=text]:focus { outline: none; border-color: #7c3aed; }
+    .stop-quick-row input[type=text]:focus { outline: none; border-color: #6366F1; }
     .nights-pill { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #475569; flex-shrink: 0; }
     .nights-pill input { width: 44px; padding: 7px 4px; border: 1px solid #d1d5db; border-radius: 6px; text-align: center; font-size: 13px; font-family: monospace; }
-    .nights-pill input:focus { outline: none; border-color: #7c3aed; }
+    .nights-pill input:focus { outline: none; border-color: #6366F1; }
 
     /* -- Itinerary preview timeline -- */
     .itin-day-row { display: flex; padding: 12px 18px; gap: 14px; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
     .itin-day-row:last-of-type { border-bottom: none; }
     .itin-day-tag { flex-shrink: 0; width: 72px; padding-top: 1px; }
-    .itin-day-label { font-size: 11px; font-weight: 800; color: #7c3aed; background: #ede9fe; padding: 3px 6px; border-radius: 5px; text-align: center; display: block; }
+    .itin-day-label { font-size: 11px; font-weight: 800; color: #6366F1; background: #EEF2FF; padding: 3px 6px; border-radius: 5px; text-align: center; display: block; }
     .itin-stop-name { font-size: 14px; font-weight: 700; color: #1e293b; }
     .itin-stop-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
     .itin-nights-note { font-size: 11px; color: #94a3b8; }
-    .itin-meal-badge { font-size: 11px; font-weight: 700; color: #7c3aed; background: #ede9fe; padding: 2px 7px; border-radius: 99px; }
+    .itin-meal-badge { font-size: 11px; font-weight: 700; color: #6366F1; background: #EEF2FF; padding: 2px 7px; border-radius: 99px; }
     .itin-total-bar { padding: 12px 18px; background: #f8fafc; border-top: 2px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #475569; display: flex; justify-content: space-between; }
     /* -- Stop cards (inline service toggles) -- */
     .stop-card { border-bottom: 1px solid #f1f5f9; }
     .stop-card:last-child { border-bottom: none; }
     .stop-card-main { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
     .stop-card:hover .stop-card-main { background: #fafafa; }
-    .stop-svc-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 16px 6px 36px; }
-    .svc-toggle { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 700; cursor: pointer; color: #64748b; transition: all .1s; white-space: nowrap; }
-    .svc-toggle:hover { border-color: #a78bfa; color: #7c3aed; }
-    .svc-toggle.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+    .stop-svc-row { display: flex; flex-direction: column; gap: 5px; padding: 4px 16px 10px 36px; }
+    .svc-row-group { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+    .svc-row-group-label { font-size: 10px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: .06em; min-width: 110px; flex-shrink: 0; padding-top: 1px; }
+    .svc-toggle { background: #f1f5f9; border: 1px solid #E5E7EB; border-radius: 5px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6B7280; transition: all .1s; white-space: nowrap; }
+    .svc-toggle:hover { border-color: #818CF8; color: #6366F1; }
+    .svc-toggle.active { background: #EEF2FF; border-color: #6366F1; color: #6366F1; }
     .svc-div { width: 1px; background: #e2e8f0; height: 16px; margin: 0 4px; flex-shrink: 0; align-self: center; }
     .svc-grp-lbl { font-size: 11px; font-weight: 600; color: #94a3b8; flex-shrink: 0; line-height: 1; text-transform: uppercase; letter-spacing: .04em; }
     .svc-pub-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 0 16px 8px 36px; font-size: 11px; color: #94a3b8; }
@@ -177,26 +193,47 @@
     .pub-check { display: inline-flex; align-items: center; gap: 2px; cursor: pointer; }
     .stop-desc-row { padding: 2px 16px 8px 36px; }
     .stop-desc-inp { width: 100%; border: 1px solid #f1f5f9; border-radius: 5px; padding: 5px 8px; font-size: 12px; font-family: inherit; resize: none; overflow: hidden; min-height: 30px; color: #475569; background: transparent; box-sizing: border-box; line-height: 1.5; }
-    .stop-desc-inp:focus { outline: none; border-color: #a78bfa; background: #fefefe; }
+    .stop-desc-inp:focus { outline: none; border-color: #818CF8; background: #fefefe; }
     .stop-desc-inp::placeholder { color: #cbd5e1; font-style: italic; }
     /* -- Pricing tab -- */
     .price-matrix { width: 100%; border-collapse: collapse; font-size: 12px; }
     .price-matrix th { background: #f8fafc; padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-    .price-matrix td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+    .price-matrix td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
+    .price-matrix td.num { text-align: right; font-weight: 700; }
+    .price-matrix td.del-col { width: 66px; text-align: center; white-space: nowrap; vertical-align: middle; }
+    .price-matrix tr td { line-height: 1; }
     .price-matrix tr:last-child td { border-bottom: none; }
     .price-input { width: 90px; padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-family: monospace; text-align: right; }
-    .price-input:focus { outline: none; border-color: #7c3aed; }
+    .price-input:focus { outline: none; border-color: #6366F1; }
     .price-name-inp { border: none; background: transparent; font-size: 13px; font-weight: 700; color: #1e293b; width: 100%; padding: 2px 4px; border-radius: 3px; }
-    .price-name-inp:hover, .price-name-inp:focus { background: #f8fafc; border: 1px solid #e2e8f0; outline: none; }
+    .price-name-inp:hover, .price-name-inp:focus { background: #f8fafc; border: 1px solid #E5E7EB; outline: none; }
     /* -- Segment tabs -- */
     .seg-tab { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; color: #64748b; transition: all .1s; }
-    .seg-tab:hover { border-color: #a78bfa; color: #7c3aed; }
-    .seg-tab.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    .seg-tab:hover { border-color: #818CF8; color: #6366F1; }
+    .seg-tab.active { background: #6366F1; border-color: #6366F1; color: #fff; }
     /* -- Qty control -- */
     .qty-wrap { display: inline-flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
     .qty-btn { background: #f8fafc; border: none; padding: 3px 10px; font-size: 16px; font-weight: 700; cursor: pointer; color: #475569; line-height: 1.3; }
-    .qty-btn:hover { background: #ede9fe; color: #7c3aed; }
+    .qty-btn:hover { background: #EEF2FF; color: #6366F1; }
     .qty-val { padding: 3px 12px; font-size: 14px; font-weight: 700; color: #1e293b; min-width: 28px; text-align: center; background: #fff; }
+    @keyframes bvSlide { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+    .bv-slide-in { animation: bvSlide 0.22s ease-out both; }
+    /* -- Conversational sentence inputs -- */
+    .bv-conv-input { background:transparent; border:none; border-bottom:2px solid #6366F1; color:#6366F1; font-weight:800; font-family:'Inter',sans-serif; outline:none; padding:2px 4px; line-height:1.4; transition:background .15s,border-color .15s; }
+    .bv-conv-input:focus { background:#EEF2FF; border-color:#4338CA; border-radius:4px 4px 0 0; }
+    .bv-conv-input[type=date] { min-width:130px; font-size:14px; }
+    .bv-conv-input[type=number] { width:48px; font-size:18px; text-align:center; -moz-appearance:textfield; }
+    .bv-conv-input[type=number]::-webkit-inner-spin-button, .bv-conv-input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+    .bv-conv-input--sm[type=number] { width:38px; font-size:15px; }
+    /* -- Booking View: sticky layout / scrollable table -- */
+    #bv-panel-inner { display:flex; flex-direction:column; max-height:calc(100vh - 3rem); overflow:hidden; }
+    #bv-panel-body  { flex:1; overflow-y:auto; padding:16px 20px 0; scroll-behavior:smooth; }
+    #bv-panel-footer { padding:0 20px 16px; flex-shrink:0; }
+    #bv-table-wrap  { margin-bottom:0; }
+    /* -- Compact summary bar -- */
+    #bv-compact { display:none; background:#EEF2FF; border:1px solid #C7D2FE; border-radius:8px; padding:8px 13px; margin-bottom:14px; }
+    #bv-compact-text { font-size:12px; color:#3730A3; font-family:'Inter',sans-serif; font-weight:600; flex:1; line-height:1.5; }
+    #btn-edit-prefs { background:none; border:none; font-size:11px; color:#6366F1; cursor:pointer; font-family:'Inter',sans-serif; text-decoration:underline; white-space:nowrap; padding:0 0 0 8px; }
 
     /* -- Preview panel -- */
     #preview-frame {
@@ -225,16 +262,16 @@
 
     /* -- Copy badge -- */
     .copy-id {
-      font-family: monospace; font-size: 11px; color: #7c3aed;
-      background: #ede9fe; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+      font-family: monospace; font-size: 11px; color: #6366F1;
+      background: #EEF2FF; padding: 2px 7px; border-radius: 4px; cursor: pointer;
       border: none; transition: background .1s;
     }
-    .copy-id:hover { background: #ddd6fe; }
+    .copy-id:hover { background: #E0E7FF; }
 
     /* -- Section selected tour notice -- */
     .selected-notice {
-      background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 8px;
-      padding: 10px 16px; font-size: 13px; color: #5b21b6; margin-bottom: 20px;
+      background: #EEF2FF; border: 1px solid #A5B4FC; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; color: #3730A3; margin-bottom: 20px;
       display: flex; align-items: center; gap: 10px;
     }
     .selected-notice strong { font-weight: 700; }
@@ -251,7 +288,7 @@
     #toast.err { background: #dc2626; }
 
     /* -- Code pill -- */
-    code { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #7c3aed; }
+    code { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #6366F1; }
     hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
   </style>
 </head>
@@ -259,27 +296,30 @@
 
 <!-- -- Topbar -- -->
 <header class="topbar">
-  <h1>?? Tour Config</h1>
+  <h1>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+    Tour Config
+  </h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
     <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" />
-    <input type="text" id="input-tenant" placeholder="Tenant ID �"           spellcheck="false" />
+    <input type="text" id="input-tenant" placeholder="Tenant ID"            spellcheck="false" />
     <button type="submit" class="btn-connect">Connect</button>
     <span id="connect-status"></span>
   </form>
   <div class="topbar-right">
-    <a href="dashboard.html">? Dashboard</a>
+    <a href="dashboard.html">Dashboard</a>
     <a href="category-manager.html">Category Manager</a>
   </div>
 </header>
 
 <!-- -- Tabs -- -->
 <nav class="tabs" id="tab-nav">
-  <button class="tab-btn active" data-tab="tours">? Tour</button>
-  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>? Content</button>
-  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>? Stops</button>
-  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>? Price Config</button>
-  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>? Preview</button>
-  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>? Publish</button>
+  <button class="tab-btn active" data-tab="tours">Tours</button>
+  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>Content</button>
+  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>Stops</button>
+  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>Price Config</button>
+  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>Preview</button>
+  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>Publish</button>
 </nav>
 
 <!-- --------------------------------  TAB 1: TOUR  --------------------------- -->
@@ -306,14 +346,14 @@
       <div class="card" id="create-tour-card" style="display:none">
         <div class="card-header">
           <h2>Create New Tour</h2>
-          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">? Cancel</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">&larr; Cancel</button>
         </div>
         <div class="card-body">
           <form id="create-tour-form">
             <div class="field-row cols-2">
               <div class="field">
                 <label>Title *</label>
-                <input type="text" id="new-title" placeholder="H� N?i � H? Long 3N2�" required />
+                <input type="text" id="new-title" placeholder="e.g. Ha Long Bay 3D2N" required />
               </div>
               <div class="field">
                 <label>Duration Text</label>
@@ -338,7 +378,7 @@
               </div>
             </div>
             <div class="btn-row" style="margin-top:4px">
-              <button type="submit" class="btn btn-success">? Create Tour</button>
+              <button type="submit" class="btn btn-success">+ Create Tour</button>
             </div>
           </form>
         </div>
@@ -347,7 +387,7 @@
       <!-- Selected tour info -->
       <div class="card" id="tour-detail-card" style="display:none">
         <div class="card-header">
-          <h2 id="tour-detail-title">�</h2>
+          <h2 id="tour-detail-title">—</h2>
           <span class="badge badge-draft" id="tour-detail-badge">draft</span>
         </div>
         <div class="card-body">
@@ -360,9 +400,9 @@
           </div>
           <hr />
           <div class="btn-row">
-            <button class="btn btn-primary"   id="btn-goto-content">? Edit Content ?</button>
-            <button class="btn btn-ghost"     id="btn-goto-stops">? Stops ?</button>
-            <button class="btn btn-ghost"     id="btn-goto-preview">? Preview ?</button>
+            <button class="btn btn-primary"   id="btn-goto-content">Edit Content &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-stops">Stops &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-preview">Preview &rarr;</button>
           </div>
         </div>
       </div>
@@ -370,7 +410,7 @@
       <div class="card" id="tour-hint-card">
         <div class="card-body">
           <div class="empty-state" style="padding:20px">
-            ?? Select a tour from the list, or click <strong>+ New</strong> to create one.
+            Select a tour from the list, or click <strong>+ New</strong> to create one.
           </div>
         </div>
       </div>
@@ -382,7 +422,7 @@
 <section class="panel" id="panel-content">
   <div id="content-selected-notice" class="selected-notice" style="display:none">
     Editing: <strong id="content-tour-name-label"></strong>
-    <span style="margin-left:auto;font-size:11px;color:#7c3aed;font-family:monospace" id="content-tour-id-label"></span>
+    <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="content-tour-id-label"></span>
   </div>
 
   <!-- Basic fields (PATCH /api/tours/:id) -->
@@ -393,11 +433,11 @@
         <div class="field-row cols-2">
           <div class="field">
             <label>Title</label>
-            <input type="text" id="meta-title" placeholder="H� N?i � H? Long 3N2�" />
+            <input type="text" id="meta-title" placeholder="e.g. Ha Long Bay 3D2N" />
           </div>
           <div class="field">
             <label>Duration Text</label>
-            <input type="text" id="meta-duration" placeholder="3 ng�y 2 d�m" />
+            <input type="text" id="meta-duration" placeholder="e.g. 3 days 2 nights" />
           </div>
         </div>
         <div class="field-row cols-2">
@@ -418,7 +458,7 @@
           </div>
         </div>
         <div class="btn-row">
-          <button type="submit" class="btn btn-primary">?? Save Metadata</button>
+          <button type="submit" class="btn btn-primary">Save Metadata</button>
         </div>
       </form>
     </div>
@@ -431,7 +471,7 @@
       <div class="field-row cols-2">
         <div class="field">
           <label>Tour Name (display)</label>
-          <input type="text" id="cd-tour-name" placeholder="H� N?i � H? Long 3N2�" />
+          <input type="text" id="cd-tour-name" placeholder="e.g. Ha Long Bay 3D2N" />
         </div>
         <div class="field">
           <label>Tour Code</label>
@@ -440,7 +480,7 @@
       </div>
       <div class="field-row cols-2">
         <div class="field">
-          <label>Base Price (VND / display)</label>
+          <label>Base Price (display)</label>
           <input type="number" id="cd-base-price" placeholder="2500000" />
         </div>
         <div class="field">
@@ -484,7 +524,7 @@
         </div>
         <div class="field">
           <label>Description</label>
-          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at Noi Bai airport�"></textarea>
+          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at the airport, transfer to hotel..."></textarea>
         </div>
         <div class="btn-row">
           <button type="button" class="btn btn-primary btn-sm" id="btn-save-day">+ Add</button>
@@ -493,7 +533,7 @@
       </div>
 
       <div class="btn-row" style="margin-top:8px">
-        <button type="button" class="btn btn-success" id="btn-save-content">?? Save Content</button>
+        <button type="button" class="btn btn-success" id="btn-save-content">Save Content</button>
       </div>
     </div>
   </div>
@@ -503,7 +543,7 @@
 <section class="panel" id="panel-stops">
   <div class="selected-notice" id="stops-notice" style="display:none; margin-bottom:0">
     <span>Itinerary for: <strong id="stops-tour-label"></strong></span>
-    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date ? days auto-calculate from nights</span>
+    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date — days auto-calculate from nights</span>
   </div>
 
   <div class="stops-workspace" style="margin-top:20px">
@@ -513,7 +553,7 @@
         <div class="card-header">
           <h2>Stop Builder</h2>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">?</button>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">&#x21BA;</button>
             <button class="btn btn-primary btn-sm" id="btn-show-add-stop">+ Add Stop</button>
           </div>
         </div>
@@ -525,17 +565,17 @@
           <div class="stop-quick-row">
             <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" />
             <div class="nights-pill">
-              ??
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
               <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" />
               <span style="font-size:12px;color:#94a3b8">nights</span>
             </div>
             <div class="stop-meal-group">
-              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">?? B</button>
-              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">?? L</button>
-              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">?? D</button>
+              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">B</button>
+              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">L</button>
+              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">D</button>
             </div>
-            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add ?</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">?</button>
+            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add &rarr;</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">&times;</button>
           </div>
         </div>
       </div>
@@ -546,8 +586,11 @@
     <div>
       <div class="card">
         <div class="card-header">
-          <h2>?? Itinerary</h2>
-          <span id="total-days-badge" style="font-size:14px;font-weight:900;color:#7c3aed;margin-left:auto;letter-spacing:.05em"></span>
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Itinerary
+          </h2>
+          <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#6366F1;margin-left:auto;letter-spacing:.03em"></span>
         </div>
         <div id="itin-preview-panel">
           <div class="empty-state">Add stops to see preview.</div>
@@ -558,130 +601,246 @@
 </section>
 
 <!-- ----------------------------  TAB 4: PRICE CONFIG  ----------------------- -->
-<section class="panel" id="panel-pricing">
-  <div class="selected-notice" id="pricing-notice" style="display:none; margin-bottom:16px">
+<section class="panel" id="panel-pricing" style="max-width:1200px">
+  <div class="selected-notice" id="pricing-notice" style="display:none; margin-bottom:20px">
     <span>Pricing for: <strong id="pricing-tour-label"></strong></span>
     <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto">&#x21BA; Refresh</button>
   </div>
 
-  <!-- BOOKING VIEW -->
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-header">
-      <h2>Booking View</h2>
-      <span style="font-size:12px;color:#94a3b8;margin-left:8px">how customers select &amp; price this tour</span>
-    </div>
-    <div class="card-body">
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:8px">Price Tier</div>
-        <div id="seg-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
-          <span style="color:#94a3b8;font-size:13px">Select a tour to see pricing tiers.</span>
-        </div>
-      </div>
-      <table style="width:100%;border-collapse:collapse">
-        <thead>
-          <tr style="border-bottom:2px solid #e2e8f0">
-            <th style="text-align:left;padding:6px 0;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Type</th>
-            <th style="text-align:right;padding:6px 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Unit price</th>
-            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Qty</th>
-            <th style="text-align:right;padding:6px 0;font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody id="pax-rows-body">
-          <tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr>
-        </tbody>
-      </table>
-      <div style="display:flex;align-items:flex-end;gap:24px;margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9;flex-wrap:wrap">
-        <div>
-          <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Travel date <small style="font-weight:400">(determines season &amp; pricing)</small></label>
-          <input type="date" id="calc-date" />
-        </div>
-        <div style="margin-left:auto;text-align:right">
-          <div id="calc-total" style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1">&mdash;</div>
-          <div id="calc-meta" style="font-size:11px;color:#94a3b8;margin-top:3px">Add travellers to calculate</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- TWO-COLUMN GRID -->
+  <div style="display:grid;grid-template-columns:65fr 35fr;gap:24px;align-items:start">
 
-  <!-- ADMIN (collapsible) -->
-  <details id="pricing-admin-details">
-    <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#475569;padding:12px 0;user-select:none;display:flex;align-items:center;gap:6px;list-style:none">
-      <span id="pricing-admin-arrow" style="font-size:10px;display:inline-block;transition:transform .15s">&#9654;</span>
-      Manage Seasons &middot; Pax Bands &middot; Segments &middot; Tour Prices
-    </summary>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:8px">
-      <div class="card">
-        <div class="card-header"><h2>Seasons</h2></div>
-        <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Season</div>
-          <input id="sn-name" placeholder="Name (e.g. High Season)" style="width:100%;margin-bottom:4px" />
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:4px">
-            <input id="sn-smon" type="number" placeholder="From month" min="1" max="12" title="From month (1-12)" />
-            <input id="sn-sday" type="number" placeholder="From day"   min="1" max="31" title="From day (1-31)" />
-            <input id="sn-emon" type="number" placeholder="To month"   min="1" max="12" title="To month (1-12)" />
-            <input id="sn-eday" type="number" placeholder="To day"     min="1" max="31" title="To day (1-31)" />
+    <!-- ===== LEFT: MANAGEMENT (65%) ===== -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- Price Settings -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="padding:12px 16px;gap:12px">
+          <h2 style="font-size:13px">Price Settings</h2>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+            <label for="price-currency-sel" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#94a3b8">Display Currency</label>
+            <select id="price-currency-sel" style="border:1px solid #6366F1;border-radius:6px;padding:5px 12px;font-size:13px;font-weight:700;color:#6366F1;background:#EEF2FF;cursor:pointer;font-family:inherit">
+              <option value="EUR" selected>EUR &mdash; &euro; (de-DE)</option>
+              <option value="USD">USD &mdash; $ (en-US)</option>
+              <option value="VND">VND &mdash; &#x20AB; (vi-VN)</option>
+            </select>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-add-season" style="width:100%">+ Add Season</button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><h2>Pax Bands</h2></div>
-        <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
-          <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:4px" />
-          <div style="display:flex;gap:4px;margin-bottom:4px">
-            <input id="pb-min" type="number" placeholder="Min pax" style="flex:1" min="1" />
-            <input id="pb-max" type="number" placeholder="Max pax" style="flex:1" min="1" />
+
+      <!-- Seasons + Pax Bands row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header"><h2>Seasons</h2></div>
+          <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+          <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Season</div>
+            <input id="sn-name" placeholder="Name (e.g. High Season)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+              <input id="sn-smon" type="number" placeholder="From month" min="1" max="12" title="From month (1-12)" style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
+              <input id="sn-sday" type="number" placeholder="From day"   min="1" max="31" title="From day (1-31)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
+              <input id="sn-emon" type="number" placeholder="To month"   min="1" max="12" title="To month (1-12)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
+              <input id="sn-eday" type="number" placeholder="To day"     min="1" max="31" title="To day (1-31)"     style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-add-season" style="width:100%">+ Add Season</button>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header"><h2>Pax Bands</h2></div>
+          <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+          <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
+            <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <input id="pb-min" type="number" placeholder="Min pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" />
+              <input id="pb-max" type="number" placeholder="Max pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" />
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-header"><h2>Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto">Tenant-level &middot; rename inline</span></div>
-      <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-      <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Segment</div>
-        <div style="display:flex;gap:6px;margin-bottom:4px">
-          <input id="sg-name" placeholder="Label (e.g. Standard)" style="flex:2" />
-          <input id="sg-code" placeholder="Code (e.g. STD)" style="flex:1" />
+
+      <!-- Segments -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><h2>Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto">Tenant-level &middot; rename inline</span></div>
+        <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Segment</div>
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <input id="sg-name" placeholder="Label (e.g. Standard)" style="flex:2;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <input id="sg-code" placeholder="Code (e.g. STD)" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-add-segment" style="width:100%">+ Add Segment</button>
         </div>
-        <button class="btn btn-primary btn-sm" id="btn-add-segment" style="width:100%">+ Add Segment</button>
       </div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-header">
-        <h2>Tour Prices</h2>
-        <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; season &times; segment &times; pax band</span>
+
+      <!-- Tour Prices -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <h2>Tour Prices</h2>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; season &times; segment &times; pax band</span>
+        </div>
+        <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Add Price Row</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Season</label><select id="ap-season" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Segment</label><select id="ap-segment" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Pax Band</label><select id="ap-paxband" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Child</label><input id="ap-child"  type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
+        </div>
       </div>
-      <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
-      <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Add Price Row</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:11px;color:#64748b">Season</label><select id="ap-season" style="width:100%"><option value="">&mdash;</option></select></div>
-        <div><label style="font-size:11px;color:#64748b">Segment</label><select id="ap-segment" style="width:100%"><option value="">&mdash;</option></select></div>
-        <div><label style="font-size:11px;color:#64748b">Pax Band</label><select id="ap-paxband" style="width:100%"><option value="">&mdash;</option></select></div>
+
+      <!-- Pricing Definitions -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <h2>Pricing Definitions</h2>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Shown as fine print in Booking View</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:11.5px;color:#64748b;line-height:1.55;margin:0 0 10px;font-family:'Inter',sans-serif">One definition per line. These appear as a <em>Good to Know</em> section below the price total.</p>
+          <textarea id="pricing-defs-editor" rows="5" spellcheck="true"
+            style="width:100%;border:1px solid #E5E7EB;border-radius:7px;padding:8px 10px;font-size:12.5px;font-family:'Inter',sans-serif;color:#374151;line-height:1.65;resize:vertical;box-sizing:border-box"
+            placeholder="One rule per line&#10;e.g. Children: Ages 3-14, sharing a room with parents."></textarea>
+          <button class="btn btn-primary btn-sm" id="btn-save-defs" style="margin-top:8px">Apply Definitions</button>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:11px;color:#64748b">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
-        <div><label style="font-size:11px;color:#64748b">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
-        <div><label style="font-size:11px;color:#64748b">Child</label><input id="ap-child" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
-        <div><label style="font-size:11px;color:#64748b">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%" /></div>
+
+    </div><!-- /left column -->
+
+    <!-- ===== RIGHT: BOOKING VIEW (35%) ===== -->
+    <div style="position:sticky;top:1.5rem;align-self:start">
+      <div class="card" style="margin-bottom:0;background:#F8FAFC;border:1px solid #E2E8F0;overflow:hidden">
+        <div id="bv-panel-inner">
+
+        <div class="card-header" style="background:#fff;border-bottom:1px solid #E5E7EB;flex-shrink:0;padding:12px 20px">
+          <h2 style="color:#1e293b;font-family:'Inter',sans-serif">Booking View</h2>
+          <span style="font-size:12px;color:#94a3b8;margin-left:8px;font-family:'Inter',sans-serif">live price calculator</span>
+        </div>
+
+        <div id="bv-panel-body">
+
+          <!-- Disclaimer -->
+          <div style="display:flex;gap:9px;align-items:flex-start;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:7px;padding:10px 13px;margin-bottom:14px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <p style="margin:0;font-size:11.5px;color:#1D4ED8;line-height:1.6;font-family:'Inter',sans-serif">Prices are live and calculated based on your specific <strong>travel date</strong> and <strong>group size</strong>.</p>
+          </div>
+
+          <!-- Compact summary (shown after CTA clicked, replaces Phase 1 visually) -->
+          <div id="bv-compact">
+            <div style="display:flex;align-items:center;gap:4px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span id="bv-compact-text"></span>
+              <button id="btn-edit-prefs">Edit</button>
+            </div>
+          </div>
+
+          <!-- ===== PHASE 1: conversational inputs ===== -->
+          <div id="bv-phase1">
+            <p style="font-size:15px;line-height:2.4;color:#374151;font-family:'Inter',sans-serif;margin:0 0 6px;font-weight:500">
+              We plan to travel on
+              <input type="date" id="calc-date" class="bv-conv-input" />.<br>
+              We are
+              <input type="number" id="bv-adult-count" class="bv-conv-input" min="0" value="" placeholder="0" />
+              adults and
+              <input type="number" id="bv-child-count" class="bv-conv-input" min="0" value="0" />
+              children,<br>
+              staying in
+              <input type="number" id="bv-double-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
+              double&nbsp;rooms and
+              <input type="number" id="bv-single-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
+              single&nbsp;rooms.
+            </p>
+            <div id="bv-room-hint" style="display:none;font-size:11.5px;font-family:'Inter',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px"></div>
+            <button id="btn-calc-price" class="btn btn-primary" disabled
+              style="width:100%;padding:12px 0;font-size:14px;font-weight:700;font-family:'Inter',sans-serif;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Calculate Final Price for my Group
+            </button>
+          </div>
+
+          <!-- ===== PHASE 2: results (hidden until CTA clicked) ===== -->
+          <div id="bv-phase2" style="display:none">
+
+            <!-- Pricing Tier tabs -->
+            <div style="margin-bottom:12px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif">Pricing Tier</div>
+              <div id="seg-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
+                <span style="color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif">Select a tour to see pricing tiers.</span>
+              </div>
+            </div>
+
+            <!-- Scrollable pax table -->
+            <div id="bv-table-wrap">
+              <table style="width:100%;border-collapse:collapse">
+                <thead style="position:sticky;top:0;background:#F8FAFC;z-index:1">
+                  <tr style="border-bottom:2px solid #E5E7EB">
+                    <th style="text-align:left;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Traveller Type</th>
+                    <th style="text-align:right;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Price / person</th>
+                    <th style="text-align:center;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Qty</th>
+                    <th style="text-align:right;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="pax-rows-body">
+                  <tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif">Select a pricing tier above.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Surplus room supplement hint (shown when sole-occupancy supplement applies) -->
+            <div id="bv-surplus-hint" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:11.5px;font-family:'Inter',sans-serif;background:#FFF7ED;border:1px solid #FED7AA;color:#92400E"></div>
+
+            <!-- Good to Know / Pricing Definitions -->
+            <div id="bv-defs" style="display:none;margin-top:14px;padding-top:12px;border-top:1px dashed #E5E7EB">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif">Good to Know</div>
+              <ul id="bv-defs-list" style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px"></ul>
+            </div>
+
+          </div><!-- /bv-phase2 -->
+
+        </div><!-- /bv-panel-body -->
+
+        <!-- ===== FIXED FOOTER: room config status + grand total ===== -->
+        <div id="bv-panel-footer">
+
+          <div id="bv-phase2-footer" style="display:none">
+            <!-- Room validation pill (above total) -->
+            <div id="bv-room-status" style="display:none;font-size:11px;font-family:'Inter',sans-serif;padding:5px 10px;border-radius:6px;margin-bottom:10px;text-align:center"></div>
+
+            <!-- Grand total -->
+            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:13px 16px;text-align:center">
+              <div id="calc-total" style="font-size:36px;font-weight:900;color:#6366F1;line-height:1;letter-spacing:-.5px;font-family:'Inter',sans-serif">&mdash;</div>
+              <div id="calc-meta" style="font-size:11.5px;color:#64748b;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;font-family:'Inter',sans-serif">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span id="calc-meta-text">Calculating&hellip;</span>
+              </div>
+              <div id="calc-rate-status" style="display:none;margin-top:8px;padding:4px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;font-size:11px;font-weight:700;color:#15803D;font-family:'Inter',sans-serif;letter-spacing:.02em;display:inline-block"></div>
+            </div>
+          </div>
+
+        </div><!-- /bv-panel-footer -->
+
+        </div><!-- /bv-panel-inner -->
       </div>
-        <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
-      </div>
-    </div>
-  </details>
+    </div><!-- /right column -->
+
+  </div><!-- /two-column grid -->
 </section>
 
 <!-- ================================================================  TAB 5: PREVIEW  ================================================================ -->
 <section class="panel" id="panel-preview">
   <div class="preview-toolbar">
-    <span id="preview-url-label">�</span>
-    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">? Reload</button>
-    <button class="btn btn-primary btn-sm" id="btn-open-preview">? Open in tab</button>
+    <span id="preview-url-label" style="font-family:monospace;font-size:12px;color:#94a3b8">—</span>
+    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">&#x21BA; Reload</button>
+    <button class="btn btn-primary btn-sm" id="btn-open-preview">&#x2197; Open in tab</button>
   </div>
   <iframe id="preview-frame" src="about:blank" title="Tour Preview"></iframe>
 </section>
@@ -703,8 +862,8 @@
         <input type="text" id="pub-template-id" value="default" placeholder="default" />
       </div>
       <div class="btn-row">
-        <button class="btn btn-success" id="btn-publish" disabled>?? Publish Now</button>
-        <button class="btn btn-ghost"   id="btn-switch-template" disabled>?? Switch Template</button>
+        <button class="btn btn-success" id="btn-publish" disabled>Publish Now</button>
+        <button class="btn btn-ghost"   id="btn-switch-template" disabled>Switch Template</button>
       </div>
       <div class="publish-result" id="publish-result"></div>
     </div>
@@ -788,15 +947,15 @@ document.getElementById('connect-form').addEventListener('submit', async e => {
   localStorage.setItem('tc_tenant', S.tenantId);
 
   const status = document.getElementById('connect-status');
-  status.textContent = 'Connecting�';
+  status.textContent = 'Connecting…';
   try {
     const data = await api('/api/tours');
     S.tours = data.tours ?? [];
     renderTourList();
-    status.textContent = `? ${S.tours.length} tours`;
-    toast(`Connected � ${S.tours.length} tour(s) found`);
+    status.textContent = `✓ ${S.tours.length} tours`;
+    toast(`Connected — ${S.tours.length} tour(s) found`);
   } catch (err) {
-    status.textContent = '? error';
+    status.textContent = '✗ error';
     toast('Connect failed: ' + err.message, 'err');
   }
 });
@@ -820,7 +979,7 @@ function renderTourList() {
     li.innerHTML = `
       <div class="tour-item-title">${esc(t.title)}</div>
       <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
-      <div class="tour-item-meta">${esc(t.id.slice(0,8))}�</div>`;
+      <div class="tour-item-meta">${esc(t.id.slice(0,8))}&hellip;</div>`;
     li.addEventListener('click', () => selectTour(t));
     list.appendChild(li);
   });
@@ -828,6 +987,12 @@ function renderTourList() {
 
 function selectTour(t) {
   S.tour = t;
+  // Reset Booking View to Phase 1 when tour changes
+  _bvRevealed = false;
+  const ph2 = document.getElementById('bv-phase2');
+  if (ph2) ph2.style.display = 'none';
+  const calcBtn = document.getElementById('btn-calc-price');
+  if (calcBtn) calcBtn.disabled = true;
   renderTourList();
   unlockTabs();
 
@@ -843,9 +1008,9 @@ function selectTour(t) {
   idBtn.textContent = t.id;
   idBtn.onclick = () => copyText(t.id);
 
-  document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '�';
-  document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '�';
-  document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '�';
+  document.getElementById('tour-detail-slug').textContent        = t.slug     ?? '—';
+  document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '—';
+  document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '—';
   document.getElementById('tour-detail-published').textContent   = t.published_at
     ? new Date(t.published_at * 1000).toLocaleDateString() : 'Not yet';
 
@@ -939,7 +1104,9 @@ function renderItinerary() {
         <div class="itin-title">${esc(d.title)}</div>
         <div class="itin-desc">${esc(d.description ?? '')}</div>
       </div>
-      <button class="btn btn-danger btn-sm" data-index="${i}" title="Remove">?</button>`;
+      <button class="btn-icon-del" data-index="${i}" title="Remove">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>`;
     li.querySelector('[data-index]').addEventListener('click', () => {
       S.itinerary.splice(i, 1);
       renderItinerary();
@@ -986,7 +1153,7 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
     Object.assign(S.tour, body);
-    toast('Metadata saved ?');
+    toast('Metadata saved ✓');
     // Refresh list label
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) Object.assign(t, body);
@@ -1015,14 +1182,14 @@ document.getElementById('btn-save-content').addEventListener('click', async () =
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: cd }) });
     S.tour.content_data = cd;
-    toast('Content saved ?');
+    toast('Content saved ✓');
   } catch (err) {
     toast('Save failed: ' + err.message, 'err');
   }
 });
 
 /* ----------------------------  TAB 3: STOPS  ------------------------------- */
-/* ----------------------------  STOPS � SMART BUILDER  ---------------------- */
+/* ----------------------------  STOPS - SMART BUILDER  ---------------------- */
 
 // Day-range calculator � derives day_from / day_to purely from nights order
 function calcDays(stops) {
@@ -1046,12 +1213,12 @@ function renderItinPreview() {
   }
   const calc        = calcDays(S.stops);
   const totalNights = S.stops.reduce((s, x) => s + (Number(x.nights) || 0), 0);
-  badge.textContent = `${totalNights + 1}D�/�${totalNights}N`;
+  badge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${totalNights + 1}D / <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin:0 3px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>${totalNights}N`;
   let html = '';
   calc.forEach(s => {
     const dayLabel = s._dayFrom === s._dayTo
       ? `Day ${s._dayFrom}`
-      : `Day ${s._dayFrom}�${s._dayTo}`;
+      : `Day ${s._dayFrom}–${s._dayTo}`;
     const meals = [
       s.meal_breakfast && 'B',
       s.meal_lunch     && 'L',
@@ -1072,7 +1239,7 @@ function renderItinPreview() {
       iModes.length ? `Intercity:${iModes.join('/')}` : null,
     ].filter(Boolean);
     const svcBadge = svcParts.length
-      ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcParts.join(' � ')}</span>` : '';
+      ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcParts.join(' · ')}</span>` : '';
     html += `
       <div class="itin-day-row">
         <div class="itin-day-tag"><span class="itin-day-label">${esc(dayLabel)}</span></div>
@@ -1086,7 +1253,7 @@ function renderItinPreview() {
         </div>
       </div>`;
   });
-  html += `<div class="itin-total-bar"><span>Total</span><span>${totalNights + 1} days � ${totalNights} nights</span></div>`;
+  html += `<div class="itin-total-bar"><span>Total</span><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${totalNights + 1} days&nbsp;&nbsp;<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>${totalNights} nights</span></div>`;
   panel.innerHTML = html;
 }
 
@@ -1124,35 +1291,38 @@ function renderStopRows() {
           <span style="font-size:11px;color:#94a3b8">nights</span>
         </div>
         <div class="stop-row-actions">
-          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">?</button>` : `<span style="width:28px"></span>`}
-          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">?</button>` : `<span style="width:28px"></span>`}
-          <button class="btn btn-danger btn-sm del-stop-btn" data-sid="${esc(s.id)}" title="Delete">?</button>
+          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">&uarr;</button>` : `<span style="width:28px"></span>`}
+          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">&darr;</button>` : `<span style="width:28px"></span>`}
+          <button class="btn-icon-del del-stop-btn" data-sid="${esc(s.id)}" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div class="stop-svc-row">
-        <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel">Hotel</button>
-        <span class="svc-div"></span>
-        <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast">B</button>
-        <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch">L</button>
-        <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner">D</button>
-        <span class="svc-div"></span>
-        <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide">Guide</button>
-        <span class="svc-div"></span>
-        <span class="svc-grp-lbl">Local Transport</span>
-        ${lModes.map(m => `<button class="svc-toggle${local.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="local" data-mode="${m}">${m}</button>`).join('')}
-        <span class="svc-div"></span>
-        <span class="svc-grp-lbl">Intercity Transport</span>
-        ${iModes.map(m => `<button class="svc-toggle${icty.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="intercity" data-mode="${m}">${m}</button>`).join('')}
-        <span class="svc-div"></span>
-        <span class="svc-grp-lbl">Customer sees</span>
-        ${['hotel','guide','local','intercity'].map(k => {
-          const on = cfg.pub?.[k] ?? 1;
-          return `<label class="pub-check"><input type="checkbox" class="pub-toggle" data-sid="${esc(s.id)}" data-pub="${k}" ${on ? 'checked' : ''}>${k.charAt(0).toUpperCase()+k.slice(1)}</label>`;
-        }).join('')}
+        <div class="svc-row-group">
+          <span class="svc-row-group-label">Essentials</span>
+          <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel">Hotel</button>
+          <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast">B</button>
+          <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch">L</button>
+          <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner">D</button>
+          <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide">Guide</button>
+        </div>
+        <div class="svc-row-group">
+          <span class="svc-row-group-label">Local Transport</span>
+          ${lModes.map(m => `<button class="svc-toggle${local.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="local" data-mode="${m}">${m}</button>`).join('')}
+        </div>
+        <div class="svc-row-group">
+          <span class="svc-row-group-label">Intercity</span>
+          ${iModes.map(m => `<button class="svc-toggle${icty.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="intercity" data-mode="${m}">${m}</button>`).join('')}
+        </div>
+        <div class="svc-row-group">
+          <span class="svc-row-group-label">Customer Sees</span>
+          ${['hotel','guide','local','intercity'].map(k => {
+            const on = cfg.pub?.[k] ?? 1;
+            return `<label class="pub-check"><input type="checkbox" class="pub-toggle" data-sid="${esc(s.id)}" data-pub="${k}" ${on ? 'checked' : ''}>${k.charAt(0).toUpperCase()+k.slice(1)}</label>`;
+          }).join('')}
+        </div>
       </div>
-      <div style="padding:1px 16px 4px 36px;font-size:10px;color:#cbd5e1">B=Breakfast &middot; L=Lunch &middot; D=Dinner</div>
       <div class="stop-desc-row">
-        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop � activities, highlights, notes�">${esc(s.description || '')}</textarea>
+        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop — activities, highlights, notes…">${esc(s.description || '')}</textarea>
       </div>`;
     container.appendChild(card);
   });
@@ -1282,7 +1452,7 @@ async function loadStops() {
   document.getElementById('stops-notice').style.display   = '';
   document.getElementById('stops-tour-label').textContent = S.tour.title;
   const container = document.getElementById('stops-rows-container');
-  container.innerHTML = '<div class="loading">Loading�</div>';
+  container.innerHTML = '<div class="loading">Loading…</div>';
   try {
     const data = await api(`/api/tours/${S.tour.id}/stops`);
     S.stops = data.stops ?? [];
@@ -1403,9 +1573,214 @@ const PAX_TYPES = [
 let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
 let _calcState   = {
   segmentId: null,
-  pax: { adult_shared_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
+  pax: { adult_shared_room_count: 2, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
   date: new Date().toISOString().slice(0, 10),
 };
+let _bvRevealed   = false;
+
+// Pricing Definitions (editable by agent, shown as fine print in Booking View)
+const _defsDefault = [
+  'Infant: Ages 0\u20132 \u2014 must be accompanied by a parent or legal guardian.',
+  'Children: Ages 2\u201314, sharing a room with parents.',
+  'Teens: Ages 14 and up are treated as adults.',
+  'Note: If children stay in a separate room, adult shared rates will apply.',
+];
+let _pricingDefs;
+try { _pricingDefs = JSON.parse(localStorage.getItem('bv_pricing_defs')) || _defsDefault; } catch(_e) { _pricingDefs = _defsDefault; }
+// If stored version is missing the infant rule, reset to updated defaults
+if (_pricingDefs.length && !_pricingDefs.some(d => d.toLowerCase().includes('infant'))) {
+  _pricingDefs = _defsDefault;
+  try { localStorage.removeItem('bv_pricing_defs'); } catch(_e) {}
+}
+// Seed the editor textarea immediately (script runs after DOM)
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('pricing-defs-editor');
+  if (ta) ta.value = _pricingDefs.join('\n');
+});
+
+function renderDefs() {
+  const wrap = document.getElementById('bv-defs');
+  const list = document.getElementById('bv-defs-list');
+  if (!wrap || !list) return;
+  const items = _pricingDefs.filter(d => d.trim());
+  list.innerHTML = items.map(d =>
+    `<li style="display:flex;gap:7px;align-items:flex-start;font-size:11.5px;color:#64748b;font-family:'Inter',sans-serif;line-height:1.6">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:3px"><polyline points="20 6 9 17 4 12"/></svg>
+      <span>${d.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+    </li>`
+  ).join('');
+  wrap.style.display = items.length ? '' : 'none';
+}
+
+let _calcCurrency = 'EUR';
+const CURRENCY_CONFIG = {
+  EUR: { locale: 'de-DE', opts: { style: 'currency', currency: 'EUR' } },
+  USD: { locale: 'en-US', opts: { style: 'currency', currency: 'USD' } },
+  VND: { locale: 'vi-VN', opts: { style: 'currency', currency: 'VND', maximumFractionDigits: 0 } },
+};
+function fmtMoney(n) {
+  if (n == null || n === '') return '\u2014';
+  const cfg = CURRENCY_CONFIG[_calcCurrency] ?? CURRENCY_CONFIG.EUR;
+  return new Intl.NumberFormat(cfg.locale, cfg.opts).format(Number(n));
+}
+
+// Build a compact one-line summary from current Phase-1 inputs
+function buildCompactSummary() {
+  const d       = document.getElementById('calc-date')?.value || '';
+  const adults  = parseInt(document.getElementById('bv-adult-count')?.value)  || 0;
+  const children= parseInt(document.getElementById('bv-child-count')?.value)  || 0;
+  const doubles = parseInt(document.getElementById('bv-double-rooms')?.value) || 0;
+  const singles = parseInt(document.getElementById('bv-single-rooms')?.value) || 0;
+  const datePart = d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : 'no date';
+  return `${datePart} · ${adults} adult${adults !== 1 ? 's' : ''}, ${children} child${children !== 1 ? 'ren' : ''} · ${doubles} dbl + ${singles} sgl`;
+}
+
+function showCompact() {
+  document.getElementById('bv-compact-text').textContent = buildCompactSummary();
+  document.getElementById('bv-compact').style.display    = '';
+  document.getElementById('bv-phase1').style.display     = 'none';
+}
+
+function showExpanded() {
+  document.getElementById('bv-compact').style.display = 'none';
+  document.getElementById('bv-phase1').style.display  = '';
+}
+
+// Write table-qty changes back to sentence inputs (two-way sync)
+function syncTableToPax(key, newQty) {
+  // Shared room qty must stay even (rooms come in pairs of 2 occupants).
+  if (key === 'adult_shared_room_count') newQty = Math.max(0, Math.floor(newQty / 2) * 2);
+  _calcState.pax[key] = Math.max(0, newQty);
+
+  const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const privatePax = _calcState.pax.adult_single_room_count || 0;
+  const totalAdults = sharedPax + privatePax;
+
+  // Canonical sentence view: fully-occupied doubles + one room per private adult.
+  const doubles = sharedPax / 2;   // always integer (sharedPax is always even)
+  const singles = privatePax;       // each private adult counts as a sole-occupancy room
+
+  const dEl = document.getElementById('bv-double-rooms');
+  const sEl = document.getElementById('bv-single-rooms');
+  const aEl = document.getElementById('bv-adult-count');
+  const cEl = document.getElementById('bv-child-count');
+  if (dEl) dEl.value = doubles;
+  if (sEl) sEl.value = singles;
+  if (aEl) aEl.value = totalAdults;
+  if (cEl) cEl.value = _calcState.pax.child_count;
+
+  if (_bvRevealed) document.getElementById('bv-compact-text').textContent = buildCompactSummary();
+  updateRoomStatusPill();
+  updateSurplusHint();
+}
+
+function updateRoomStatusPill() {
+  const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const privatePax = _calcState.pax.adult_single_room_count || 0;
+  const adults     = sharedPax + privatePax;
+  const doubles    = sharedPax / 2;  // always integer
+  const pill       = document.getElementById('bv-room-status');
+  if (!pill) return;
+  if (adults < 1) { pill.style.display = 'none'; return; }
+  pill.style.cssText = 'display:block;font-size:11px;font-family:\'Inter\',sans-serif;padding:4px 10px;border-radius:6px;margin-bottom:8px;text-align:center;background:#F0FDF4;border:1px solid #BBF7D0;color:#15803D';
+  const parts = [];
+  if (doubles    > 0) parts.push(`${doubles} shared double${doubles > 1 ? 's' : ''}`);
+  if (privatePax > 0) parts.push(`${privatePax} private room${privatePax > 1 ? 's' : ''}`);
+  pill.textContent = `\u2713 ${parts.join(' + ')} \u2192 ${adults} adult${adults > 1 ? 's' : ''} confirmed`;
+}
+
+function updateSurplusHint() {
+  const hint = document.getElementById('bv-surplus-hint');
+  if (!hint) return;
+  const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const privatePax = _calcState.pax.adult_single_room_count || 0;
+  const adults     = sharedPax + privatePax;
+  if (adults < 1) { hint.style.display = 'none'; return; }
+  const doubles    = sharedPax / 2;
+  const totalRooms = doubles + privatePax;
+  const minRooms   = Math.ceil(adults / 2);
+  if (privatePax > 0 && totalRooms > minRooms) {
+    hint.style.display = '';
+    hint.textContent = '\u2139\uFE0F Note: Single supplement applied for rooms with sole occupancy.';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+// Auto-suggest rooms when adult count changes; also used on page load
+function autoSuggestRooms(adults) {
+  if (adults < 1) return;
+  const doubles = Math.floor(adults / 2);
+  const singles = adults % 2; // odd adult gets a single
+  const dEl = document.getElementById('bv-double-rooms');
+  const sEl = document.getElementById('bv-single-rooms');
+  if (dEl && !dEl.dataset.userOverride) dEl.value = doubles;
+  if (sEl && !sEl.dataset.userOverride) sEl.value = singles;
+}
+
+function validateRooms() {
+  const adults  = Math.max(0, parseInt(document.getElementById('bv-adult-count')?.value)  || 0);
+  const doubles = Math.max(0, parseInt(document.getElementById('bv-double-rooms')?.value) || 0);
+  const singles = Math.max(0, parseInt(document.getElementById('bv-single-rooms')?.value) || 0);
+  const capacity = doubles * 2 + singles;
+  const hint = document.getElementById('bv-room-hint');
+  if (!hint) return true;
+  if (adults === 0) { hint.style.display = 'none'; return true; }
+  if (capacity < adults) {
+    const shortage = adults - capacity;
+    hint.style.cssText = 'display:block;font-size:11.5px;font-family:\'Inter\',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C';
+    hint.textContent = `\u26A0\uFE0F Room shortage: ${capacity} capacity < ${adults} adults. ${shortage} traveller${shortage > 1 ? 's' : ''} will be charged at single room rate.`;
+    return false;
+  }
+  if (capacity > adults) {
+    hint.style.cssText = 'display:block;font-size:11.5px;font-family:\'Inter\',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8';
+    const surplus = capacity - adults;
+    hint.textContent = `\u2139\uFE0F ${surplus} extra room${surplus > 1 ? 's' : ''} booked \u2014 sole-occupancy supplement will apply.`;
+  } else {
+    hint.style.cssText = 'display:block;font-size:11.5px;font-family:\'Inter\',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#15803D';
+    hint.textContent = `\u2713 ${doubles} double + ${singles} single = exactly ${capacity} adults.`;
+  }
+  return true;
+}
+
+function syncPhase1ToPax() {
+  const adults   = Math.max(0, parseInt(document.getElementById('bv-adult-count')?.value)  || 0);
+  const children = Math.max(0, parseInt(document.getElementById('bv-child-count')?.value)  || 0);
+  const doubles  = Math.max(0, parseInt(document.getElementById('bv-double-rooms')?.value) || 0);
+  const singles  = Math.max(0, parseInt(document.getElementById('bv-single-rooms')?.value) || 0);
+  const totalRooms = doubles + singles;
+
+  // Surplus Rule: a double is only priced at 'Shared' rate when FULLY occupied by 2 people.
+  // Any double with sole occupancy → private/single supplement rate.
+  //
+  // Case A (totalRooms >= adults): every adult can have their own room → 0 sharing.
+  // Case B (adults > totalRooms):  doubles must be fully packed to fit everyone.
+  let sharedPax, privatePax;
+  if (adults <= 0) {
+    sharedPax = 0; privatePax = 0;
+  } else if (totalRooms >= adults) {
+    // Enough rooms for sole occupancy — no one needs to share a double.
+    sharedPax  = 0;
+    privatePax = adults;
+  } else {
+    // Pack doubles first; remaining adults overflow to private (single supplement).
+    const fullyOccupied = Math.min(doubles, adults - totalRooms);
+    sharedPax  = fullyOccupied * 2;
+    privatePax = adults - sharedPax;
+  }
+
+  _calcState.pax = {
+    adult_shared_room_count: sharedPax,
+    adult_single_room_count: privatePax,
+    child_count:             children,
+    infant_count:            0,
+  };
+  const upd = (k, v) => { const el = document.getElementById(`qv-${k}`); if (el) el.textContent = v; };
+  upd('adult_shared_room_count', sharedPax);
+  upd('adult_single_room_count', privatePax);
+  upd('child_count', children);
+  upd('infant_count', 0);
+}
 
 function findBasePrice(segId) {
   const totalPax = Object.values(_calcState.pax).reduce((a, b) => a + b, 0);
@@ -1429,23 +1804,24 @@ function renderPaxRows(priceRow) {
     tbody.innerHTML = '<tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr>';
     return;
   }
-  const fmtN = n => (n != null && n !== '') ? Number(n).toLocaleString() : '\u2014';
   let html = '';
   PAX_TYPES.forEach(t => {
     const qty       = _calcState.pax[t.key] || 0;
     const unitPrice = priceRow ? priceRow[t.priceField] : null;
     const subtotal  = (unitPrice != null && qty > 0) ? unitPrice * qty : null;
+    // Shared-room steps in pairs of 2 (a double must be fully occupied to count as shared).
+    const delta     = t.key === 'adult_shared_room_count' ? 2 : 1;
     html += `<tr style="border-bottom:1px solid #f1f5f9">
-      <td style="padding:10px 0;color:#1e293b;font-size:14px">${t.label}</td>
-      <td style="text-align:right;padding:10px 8px;color:#475569;font-family:monospace;font-size:13px">${fmtN(unitPrice)}</td>
+      <td style="padding:10px 0;color:#1e293b;font-size:14px;font-family:'Inter',sans-serif">${t.label}</td>
+      <td style="text-align:right;padding:10px 8px;color:#475569;font-size:13px;font-family:'Inter',sans-serif">${fmtMoney(unitPrice)}</td>
       <td style="text-align:center;padding:10px 8px">
         <div class="qty-wrap">
-          <button class="qty-btn" data-key="${t.key}" data-delta="-1">&minus;</button>
+          <button class="qty-btn" data-key="${t.key}" data-delta="-${delta}">&minus;</button>
           <span class="qty-val" id="qv-${t.key}">${qty}</span>
-          <button class="qty-btn" data-key="${t.key}" data-delta="1">+</button>
+          <button class="qty-btn" data-key="${t.key}" data-delta="${delta}">+</button>
         </div>
       </td>
-      <td style="text-align:right;padding:10px 0;font-weight:700;font-size:14px;color:${subtotal != null ? '#1e293b' : '#cbd5e1'}">${fmtN(subtotal)}</td>
+      <td style="text-align:right;padding:10px 0;font-weight:700;font-size:14px;color:${subtotal != null ? '#1e293b' : '#cbd5e1'};font-family:'Inter',sans-serif">${fmtMoney(subtotal)}</td>
     </tr>`;
   });
   tbody.innerHTML = html;
@@ -1453,38 +1829,70 @@ function renderPaxRows(priceRow) {
 
 async function runCalc() {
   if (!S.tour) return;
-  const priceRow = _calcState.segmentId ? findBasePrice(_calcState.segmentId) : null;
-  renderPaxRows(priceRow);
 
-  const totalEl  = document.getElementById('calc-total');
-  const metaEl   = document.getElementById('calc-meta');
-  const totalPax = Object.values(_calcState.pax).reduce((a, b) => a + b, 0);
+  // Snapshot pax at call time — avoids any stale-closure issue with async continuations
+  const paxSnap   = { ..._calcState.pax };
+  const segId     = _calcState.segmentId;
+  const travelDate = _calcState.date;
 
-  if (!_calcState.segmentId || totalPax === 0) {
+  const priceRow  = segId ? findBasePrice(segId) : null;
+  renderPaxRows(priceRow);       // table always uses this exact priceRow
+
+  const totalEl   = document.getElementById('calc-total');
+  const metaEl    = document.getElementById('calc-meta-text');
+  const statusEl  = document.getElementById('calc-rate-status');
+  const totalPax  = Object.values(paxSnap).reduce((a, b) => a + b, 0);
+
+  const hideStatus = () => { if (statusEl) statusEl.style.display = 'none'; };
+  const showStatus = text => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.style.display = 'inline-block';
+  };
+
+  if (!segId || totalPax === 0) {
     totalEl.textContent = '\u2014';
-    metaEl.textContent  = totalPax === 0 ? 'Add travellers to calculate' : 'Select a tier';
+    metaEl.textContent  = totalPax === 0 ? 'Add travellers above to calculate' : 'Select a pricing tier';
+    hideStatus();
     return;
   }
 
+  // ── CRITICAL: grand total is ALWAYS the strict sum of the visible subtotals ──
+  // This guarantees BigTotal === sum(row subtotals), with no backend ghost-fees.
+  const localTotal = PAX_TYPES.reduce(
+    (sum, t) => sum + (paxSnap[t.key] || 0) * (priceRow ? (Number(priceRow[t.priceField]) || 0) : 0),
+    0
+  );
+  totalEl.textContent = fmtMoney(localTotal);
+  metaEl.textContent  = 'Total for your group';
+  updateSurplusHint();
+
+  // Show local pax-band immediately, then try to upgrade with season name from API
+  const localPb = [..._pricingData.paxBands]
+    .sort((a, b) => a.min_pax - b.min_pax)
+    .find(b => totalPax >= b.min_pax && totalPax <= b.max_pax);
+  if (localPb) showStatus(`Band: ${localPb.name} (${localPb.min_pax}\u2013${localPb.max_pax} pax)`);
+  else hideStatus();
+
+  // Fire API in background — used ONLY to fetch season/band labels, never to override the total
   try {
     const result = await api('/api/pricing/calculate', {
       method: 'POST',
       body: JSON.stringify({
         tour_id:     S.tour.id,
-        segment_id:  _calcState.segmentId,
-        travel_date: _calcState.date,
-        ..._calcState.pax,
+        segment_id:  segId,
+        travel_date: travelDate,
+        ...paxSnap,
       }),
     });
-    const disp = result?.invoice?.grand_total_display;
-    totalEl.textContent = disp?.local?.formatted ?? disp?.formatted ?? String(result?.invoice?.grand_total ?? '\u2014');
-    const season = result.applied_season_name ? `Season: ${result.applied_season_name}` : '';
-    const band   = result.pax_band_name        ? `\u00b7 Band: ${result.pax_band_name}` : '';
-    metaEl.textContent  = [season, band].filter(Boolean).join(' ') || 'Calculated';
-  } catch (e) {
-    const raw = PAX_TYPES.reduce((sum, t) => sum + (_calcState.pax[t.key] || 0) * (priceRow?.[t.priceField] || 0), 0);
-    totalEl.textContent = raw.toLocaleString();
-    metaEl.textContent  = 'Season not matched \u2014 base price shown';
+    // If pax changed while the request was in flight, drop stale result
+    if (segId !== _calcState.segmentId) return;
+    const seasonLabel = result.applied_season_name ? `Current Rate: ${result.applied_season_name}` : '';
+    const bandLabel   = result.pax_band_name        ? `Band: ${result.pax_band_name}` : '';
+    const statusText  = [seasonLabel, bandLabel].filter(Boolean).join('  \u2502  ');
+    statusText ? showStatus(statusText) : hideStatus();
+  } catch (_e) {
+    // API failure is non-fatal — total is already correct, status pill stays on local band
   }
 }
 
@@ -1493,6 +1901,8 @@ async function loadPricing() {
   document.getElementById('pricing-notice').style.display   = '';
   document.getElementById('pricing-tour-label').textContent = S.tour.title;
   document.getElementById('calc-date').value = _calcState.date;
+  const _pcs = document.getElementById('price-currency-sel');
+  if (_pcs) _pcs.value = _calcCurrency;
 
   const [seasonsRes, segmentsRes, paxRes, pricesRes] = await Promise.all([
     api('/api/pricing/tenant-seasons').catch(() => ({})),
@@ -1543,7 +1953,7 @@ async function loadPricing() {
           <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.end_day}" title="Day"
             onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','end_day',this.value,${s.end_day})" onkeydown="if(event.key==='Enter')this.blur()" />
         </td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')">&times;</button></td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')" title="Delete season"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
@@ -1555,8 +1965,8 @@ async function loadPricing() {
         <td><input class="price-name-inp" value="${esc(p.name)}" data-orig="${esc(p.name)}"
           onblur="updatePricingItem('pax-bands','${esc(p.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
-        <td style="font-size:11px;color:#64748b">${p.min_pax}&ndash;${p.max_pax} pax</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pax-bands','${esc(p.id)}')">&times;</button></td>
+        <td style="font-size:12px;color:#475569">${p.min_pax} - ${p.max_pax} pax</td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pax-bands','${esc(p.id)}')" title="Delete pax band"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
@@ -1569,14 +1979,14 @@ async function loadPricing() {
           onblur="updatePricingItem('pricing-segments','${esc(g.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
         <td><code style="font-size:11px">${esc(g.code)}</code></td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')">&times;</button></td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')" title="Delete segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
   // Admin -- Tour Prices
   const seasonMap  = Object.fromEntries(seasons.map(s => [s.id, s.name]));
   const segmentMap = Object.fromEntries(segments.map(g => [g.id, g.name]));
-  const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax}\u2013${p.max_pax})`]));
+  const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax} - ${p.max_pax})`]));
   const pBody = document.getElementById('pricing-prices-body');
   pBody.innerHTML = !prices.length
     ? '<div class="empty-state">No prices yet. Add them below.</div>'
@@ -1586,11 +1996,11 @@ async function loadPricing() {
           <td>${esc(seasonMap[p.season_id]  ?? p.season_id)}</td>
           <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
           <td style="font-size:11px">${esc(paxMap[p.pax_band_id] ?? p.pax_band_id)}</td>
-          <td>${p.adult_shared_room_price ?? 0}</td>
-          <td>${p.adult_single_room_price ?? 0}</td>
-          <td>${p.child_shared_with_parents_price ?? 0}</td>
-          <td>${p.infant_price ?? 0}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="deletePricingItem('tour-prices','${esc(p.id)}')">&times;</button></td>
+          <td class="num">${fmtMoney(p.adult_shared_room_price ?? 0)}</td>
+          <td class="num">${fmtMoney(p.adult_single_room_price ?? 0)}</td>
+          <td class="num">${fmtMoney(p.child_shared_with_parents_price ?? 0)}</td>
+          <td class="num">${fmtMoney(p.infant_price ?? 0)}</td>
+          <td class="del-col"><span style="display:inline-flex;align-items:center;gap:2px"><button class="btn-icon-copy" onclick="copyPriceRow('${esc(p.season_id)}','${esc(p.segment_id)}','${esc(p.pax_band_id)}',${p.adult_shared_room_price??0},${p.adult_single_room_price??0},${p.child_shared_with_parents_price??0},${p.infant_price??0})" title="Copy to form"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="btn-icon-del" onclick="deletePricingItem('tour-prices','${esc(p.id)}')" title="Delete price"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></span></td>
         </tr>`).join('')}
         </tbody></table></div>`;
 
@@ -1603,12 +2013,38 @@ async function loadPricing() {
   };
   setSel('ap-season',  seasons,  s => s.name);
   setSel('ap-segment', segments, g => g.name);
-  setSel('ap-paxband', paxBands, p => `${p.name} (${p.min_pax}\u2013${p.max_pax})`);
+  setSel('ap-paxband', paxBands, p => `${p.name} (${p.min_pax} - ${p.max_pax})`);
 
-  runCalc();
+  // Enable the CTA button now that pricing data is loaded
+  const calcBtn = document.getElementById('btn-calc-price');
+  if (calcBtn) calcBtn.disabled = false;
+
+  // If already in Phase 2 (e.g. after currency change), refresh live totals
+  if (_bvRevealed) runCalc();
 }
 
 document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
+
+document.getElementById('price-currency-sel').addEventListener('change', e => {
+  _calcCurrency = e.target.value;
+  loadPricing();
+});
+
+function copyPriceRow(seasonId, segmentId, paxBandId, shared, single, child, infant) {
+  document.getElementById('ap-season').value  = seasonId;
+  document.getElementById('ap-segment').value = segmentId;
+  document.getElementById('ap-paxband').value = paxBandId;
+  document.getElementById('ap-shared').value  = shared;
+  document.getElementById('ap-single').value  = single;
+  document.getElementById('ap-child').value   = child;
+  document.getElementById('ap-infant').value  = infant;
+  const form = document.getElementById('pricing-add-form');
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  form.style.outline = '2px solid #6366F1';
+  form.style.borderRadius = '8px';
+  setTimeout(() => { form.style.outline = ''; form.style.borderRadius = ''; }, 1400);
+  toast('Row copied to form — adjust and save ✓');
+}
 
 document.getElementById('seg-tabs').addEventListener('click', e => {
   const btn = e.target.closest('.seg-tab');
@@ -1624,7 +2060,8 @@ document.getElementById('pax-rows-body').addEventListener('click', e => {
   if (!btn || !S.tour) return;
   const key   = btn.dataset.key;
   const delta = Number(btn.dataset.delta);
-  _calcState.pax[key] = Math.max(0, (_calcState.pax[key] || 0) + delta);
+  const newQty = Math.max(0, (_calcState.pax[key] || 0) + delta);
+  syncTableToPax(key, newQty);        // two-way sync → updates sentence inputs
   const priceRow = findBasePrice(_calcState.segmentId);
   renderPaxRows(priceRow);
   runCalc();
@@ -1632,11 +2069,63 @@ document.getElementById('pax-rows-body').addEventListener('click', e => {
 
 document.getElementById('calc-date').addEventListener('change', e => {
   _calcState.date = e.target.value;
-  runCalc();
+  // Only recalc live if Phase 2 is already visible
+  if (_bvRevealed) runCalc();
 });
 
-document.getElementById('pricing-admin-details').addEventListener('toggle', e => {
-  document.getElementById('pricing-admin-arrow').style.transform = e.target.open ? 'rotate(90deg)' : '';
+document.getElementById('btn-calc-price').addEventListener('click', () => {
+  if (!S.tour) return;
+  _bvRevealed = true;
+  syncPhase1ToPax();
+  showCompact();
+  updateRoomStatusPill();
+  const ph2 = document.getElementById('bv-phase2');
+  ph2.style.display = '';
+  ph2.classList.remove('bv-slide-in');
+  void ph2.offsetWidth;
+  ph2.classList.add('bv-slide-in');
+  document.getElementById('bv-phase2-footer').style.display = '';
+  runCalc();
+  renderDefs();
+});
+
+document.getElementById('btn-recalculate')?.addEventListener('click', () => {
+  _bvRevealed = false;
+  document.getElementById('bv-phase2').style.display = 'none';
+  document.getElementById('bv-phase2-footer').style.display = 'none';
+  showExpanded();
+});
+
+document.getElementById('btn-edit-prefs').addEventListener('click', () => {
+  showExpanded();
+  document.getElementById('bv-phase1').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+// Auto-suggest rooms when adult count is typed; mark manual override on room inputs
+(function wireRoomInputs() {
+  const adultEl   = document.getElementById('bv-adult-count');
+  const doubleEl  = document.getElementById('bv-double-rooms');
+  const singleEl  = document.getElementById('bv-single-rooms');
+  if (!adultEl) return;
+  adultEl.addEventListener('input', () => {
+    if (doubleEl) delete doubleEl.dataset.userOverride;
+    if (singleEl) delete singleEl.dataset.userOverride;
+    const n = parseInt(adultEl.value) || 0;
+    autoSuggestRooms(n);
+    validateRooms();
+  });
+  if (doubleEl) doubleEl.addEventListener('input', () => { doubleEl.dataset.userOverride = '1'; validateRooms(); });
+  if (singleEl) singleEl.addEventListener('input', () => { singleEl.dataset.userOverride = '1'; validateRooms(); });
+  const childEl = document.getElementById('bv-child-count');
+  if (childEl) childEl.addEventListener('input', validateRooms);
+})();
+
+document.getElementById('btn-save-defs').addEventListener('click', () => {
+  const ta = document.getElementById('pricing-defs-editor');
+  _pricingDefs = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+  try { localStorage.setItem('bv_pricing_defs', JSON.stringify(_pricingDefs)); } catch(_e) {}
+  if (_bvRevealed) renderDefs();
+  toast('Pricing definitions updated \u2713');
 });
 
 document.getElementById('btn-add-season').addEventListener('click', async () => {
@@ -1759,12 +2248,12 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
     result.className   = 'publish-result';
     result.style.display = '';
     result.innerHTML   = `
-      <h4>? Published Successfully</h4>
+      <h4>✓ Published Successfully</h4>
       <p><strong>Slug:</strong> <code>${esc(data.slug)}</code></p>
       <p><strong>R2 Key:</strong> <code>${esc(data.r2_key)}</code></p>
       <p><strong>Template:</strong> <code>${esc(data.template_id)}</code></p>
       <p><strong>Published at:</strong> ${esc(data.published_at)}</p>`;
-    toast('Published ?');
+    toast('Published ✓');
     S.tour.status = 'on_sale';
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) t.status = 'on_sale';
@@ -1772,7 +2261,7 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
   } catch (err) {
     result.className   = 'publish-result err';
     result.style.display = '';
-    result.innerHTML   = `<h4>? Publish Failed</h4><p>${esc(err.message)}</p>`;
+    result.innerHTML   = `<h4>✗ Publish Failed</h4><p>${esc(err.message)}</p>`;
     toast('Publish failed: ' + err.message, 'err');
   }
 });

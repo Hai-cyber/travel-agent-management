@@ -283,11 +283,27 @@ export async function handleCreatePricing(req, env, { group }) {
 
     return Response.json({ ok: true, id }, { status: 201 });
   } catch (err) {
-    console.error('Lá»–I CHI TIáº¾T Tá»ª D1:', err.message, err.cause);
-    return Response.json({ error: err.message, cause: err.cause ?? null }, { status: 500 });
+    // [SEC] Never leak raw SQLite internals (table/column names, constraints) to client
+    console.error('[CREATE_PRICING_ERROR]', err.message, err.cause);
+    const msg = err.message ?? '';
+    if (msg.includes('UNIQUE constraint failed')) {
+      if (msg.includes('pricing_segments')) {
+        return Response.json({ error: 'A segment with this code already exists for your account' }, { status: 409 });
+      }
+      if (msg.includes('tour_prices')) {
+        return Response.json({ error: 'A price row already exists for this season / segment / pax band combination' }, { status: 409 });
+      }
+      return Response.json({ error: 'Duplicate entry — this record already exists' }, { status: 409 });
+    }
+    if (msg.includes('CHECK constraint failed')) {
+      if (msg.includes('pax_bands') || msg.includes('min_pax')) {
+        return Response.json({ error: 'Invalid pax band: min pax must be less than max pax' }, { status: 400 });
+      }
+      return Response.json({ error: 'Validation failed — check your input values' }, { status: 400 });
+    }
+    return Response.json({ error: 'Internal server error. Please try again later.' }, { status: 500 });
   }
 }
-
 // GET /api/pricing/metadata
 // Tráº£ vá» pricing_segments + pax_bands cá»§a tenant trong 1 request.
 // DÃ¹ng Ä‘á»ƒ populate dropdown khi táº¡o/sá»­a tour_prices trÃªn UI.
@@ -581,19 +597,36 @@ export async function handleDeletePricing(req, env, { group, itemId }) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group` }, { status: 400 });
 
-  // [SEC-FIX] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header â€” khÃ´ng tin query param
-  // TODO: thay báº±ng JWT/session khi auth middleware Ä‘Æ°á»£c triá»ƒn khai
+  // [SEC] tenant_id from header only
   const tenant_id = req.headers.get('X-Tenant-ID')?.trim();
   if (!tenant_id) {
     return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
   }
 
+  // D1 enforces FOREIGN KEY constraints. tour_prices references tenant_seasons,
+  // pax_bands, and pricing_segments - cascade-delete child rows first, then
+  // the parent, all in one atomic batch.
+  const CHILD_FK_COLUMN = {
+    'tenant-seasons':   'season_id',
+    'pax-bands':        'pax_band_id',
+    'pricing-segments': 'segment_id',
+  };
+
   try {
-    // [SEC-FIX] WHERE id = ? AND tenant_id = ? â€” ngÄƒn xÃ³a record cá»§a tenant khÃ¡c
-    await env.DB
-      .prepare(`DELETE FROM ${table} WHERE id = ? AND tenant_id = ?`)
-      .bind(itemId, tenant_id)
-      .run();
+    const fkCol = CHILD_FK_COLUMN[group];
+    if (fkCol) {
+      // Batch: [0] wipe dependent tour_prices, [1] delete parent - atomic
+      await env.DB.batch([
+        env.DB.prepare(`DELETE FROM tour_prices WHERE ${fkCol} = ? AND tenant_id = ?`).bind(itemId, tenant_id),
+        env.DB.prepare(`DELETE FROM ${table}     WHERE id = ?        AND tenant_id = ?`).bind(itemId, tenant_id),
+      ]);
+    } else {
+      // tour-prices: direct delete, no FK children
+      await env.DB
+        .prepare(`DELETE FROM ${table} WHERE id = ? AND tenant_id = ?`)
+        .bind(itemId, tenant_id)
+        .run();
+    }
     return Response.json({ ok: true });
   } catch (err) {
     return dbError(err, `handleDeletePricing:${group}`);
@@ -734,8 +767,7 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
       tenantId,
     });
     return Response.json({
-      error:  'Internal server error while copying season.',
-      detail: err.message,
+      error: 'Internal server error while copying season.',
     }, { status: 500 });
   }
 }
