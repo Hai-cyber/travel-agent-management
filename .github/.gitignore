@@ -1,0 +1,7 @@
+# .copilotignore
+/templates/**
+/public/assets/**
+*.png
+*.jpg
+*.svg
+/node_modules/**
