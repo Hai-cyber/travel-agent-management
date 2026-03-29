@@ -116,15 +116,26 @@
 
     /* -- Tour selector list -- */
     .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-    .tour-item {
-      display: flex; align-items: center; gap: 12px;
+.tour-item {
+      display: flex; align-items: center; gap: 10px;
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-      padding: 10px 14px; cursor: pointer; transition: all .15s;
+      padding: 10px 12px 10px 14px; cursor: pointer; transition: all .15s;
     }
     .tour-item:hover { border-color: #A5B4FC; background: #EEF2FF; }
     .tour-item.selected { border-color: #6366F1; background: #EEF2FF; }
-    .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; }
-    .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; }
+    .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; flex-shrink: 0; }
+    .tour-item-actions { display: flex; gap: 3px; flex-shrink: 0; opacity: 0; transition: opacity .15s; }
+    .tour-item:hover .tour-item-actions,
+    .tour-item.selected .tour-item-actions { opacity: 1; }
+    .tour-item-actions button {
+      background: none; border: 1px solid transparent; border-radius: 5px;
+      padding: 3px 5px; cursor: pointer; display: flex; align-items: center; color: #64748b;
+      transition: all .12s; line-height: 1;
+    }
+    .tour-item-actions button:hover { border-color: #cbd5e1; background: #fff; }
+    .tour-item-actions button.act-copy:hover { color: #6366F1; border-color: #a5b4fc; background: #eef2ff; }
+    .tour-item-actions button.act-del:hover  { color: #ef4444; border-color: #fca5a5; background: #fff1f2; }
 
     /* -- Badge -- */
     .badge {
@@ -139,6 +150,16 @@
     /* -- Stops workspace (two-col) -- */
     .stops-workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
     @media (max-width: 800px) { .stops-workspace { grid-template-columns: 1fr; } }
+
+    /* Tours tab 50/50 split */
+    .tours-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+      width: 100%;
+    }
+    @media (max-width: 720px) { .tours-split { grid-template-columns: 1fr; } }
 
     /* -- Stop builder rows -- */
     .stop-row {
@@ -302,7 +323,7 @@
   </h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
     <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" />
-    <input type="text" id="input-tenant" placeholder="Tenant ID"            spellcheck="false" />
+    <input type="text" id="input-tenant" placeholder="e.g. ten-demo-001"    spellcheck="false" />
     <button type="submit" class="btn-connect">Connect</button>
     <span id="connect-status"></span>
   </form>
@@ -324,7 +345,7 @@
 
 <!-- --------------------------------  TAB 1: TOUR  --------------------------- -->
 <section class="panel active" id="panel-tours">
-  <div class="page-body" style="display:grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; max-width: 960px">
+  <div class="tours-split">
 
     <!-- Left: existing tours -->
     <div>
@@ -879,7 +900,7 @@
 /* --------------------------------  STATE  ---------------------------------- */
 const S = {
   tenantId: localStorage.getItem('tc_tenant') ?? '',
-  baseUrl:  localStorage.getItem('tc_base')   ?? 'http://127.0.0.1:8787',
+  baseUrl:  localStorage.getItem('tc_base')   ?? window.location.origin,
   tour:     null,    // selected tour full object
   tours:    [],
   stops:    [],
@@ -936,8 +957,24 @@ function badgeClass(status) {
 }
 
 /* ----------------------------  CONNECT  ------------------------------------ */
+// Auto-connect if tenantId already saved in localStorage
 document.getElementById('input-base').value   = S.baseUrl;
 document.getElementById('input-tenant').value = S.tenantId;
+
+if (S.tenantId) {
+  (async () => {
+    const status = document.getElementById('connect-status');
+    status.textContent = 'Reconnecting…';
+    try {
+      const data = await api('/api/tours');
+      S.tours = data.tours ?? [];
+      renderTourList();
+      status.textContent = `✓ ${S.tours.length} tours`;
+    } catch (err) {
+      status.textContent = '✗ ' + err.message;
+    }
+  })();
+}
 
 document.getElementById('connect-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -977,10 +1014,24 @@ function renderTourList() {
     const li = document.createElement('li');
     li.className = 'tour-item' + (S.tour?.id === t.id ? ' selected' : '');
     li.innerHTML = `
-      <div class="tour-item-title">${esc(t.title)}</div>
+      <div class="tour-item-title" title="${esc(t.title)}">${esc(t.title)}</div>
       <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
-      <div class="tour-item-meta">${esc(t.id.slice(0,8))}&hellip;</div>`;
-    li.addEventListener('click', () => selectTour(t));
+      <div class="tour-item-meta">${esc(t.id.slice(0,8))}&hellip;</div>
+      <div class="tour-item-actions">
+        <button class="act-copy" title="Copy tour" data-id="${esc(t.id)}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+        <button class="act-del" title="Delete tour" data-id="${esc(t.id)}" data-title="${esc(t.title)}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>`;
+    li.addEventListener('click', e => {
+      // Don't select when clicking action buttons
+      if (e.target.closest('.tour-item-actions')) return;
+      selectTour(t);
+    });
+    li.querySelector('.act-copy').addEventListener('click', e => { e.stopPropagation(); copyTour(t); });
+    li.querySelector('.act-del').addEventListener('click',  e => { e.stopPropagation(); deleteTour(t); });
     list.appendChild(li);
   });
 }
@@ -1061,6 +1112,46 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
 document.getElementById('btn-goto-content').addEventListener('click', () => switchTab('content'));
 document.getElementById('btn-goto-stops').addEventListener('click',   () => { switchTab('stops'); loadStops(); });
 document.getElementById('btn-goto-preview').addEventListener('click', () => { switchTab('preview'); loadPreview(); });
+
+/* ----------------------------  COPY TOUR  ---------------------------------- */
+async function copyTour(t) {
+  try {
+    const data = await api(`/api/tours/${t.id}/copy`, { method: 'POST', body: JSON.stringify({}) });
+    toast(`Copied: "${data.title}" (${data.copied_stops} stops, ${data.copied_prices} prices)`);
+    const listData = await api('/api/tours');
+    S.tours = listData.tours ?? [];
+    const newTour = S.tours.find(x => x.id === data.id) ??
+      { id: data.id, title: data.title, slug: data.slug, status: 'draft', lang: t.lang };
+    renderTourList();
+    selectTour(newTour);
+  } catch (err) {
+    toast('Copy failed: ' + err.message, 'err');
+  }
+}
+
+/* ----------------------------  DELETE TOUR  --------------------------------- */
+async function deleteTour(t) {
+  const confirmed = confirm(
+    `Delete "${t.title}"?\n\nThis removes the tour, all its stops, all its prices, and the published page.\n\nThis cannot be undone.`
+  );
+  if (!confirmed) return;
+  try {
+    await api(`/api/tours/${t.id}`, { method: 'DELETE' });
+    toast(`"${t.title}" deleted.`);
+    if (S.tour?.id === t.id) {
+      S.tour = null;
+      S.stops = [];
+      document.getElementById('tour-detail-card').style.display = 'none';
+      document.getElementById('tour-hint-card').style.display   = '';
+      unlockTabs();
+    }
+    const listData = await api('/api/tours');
+    S.tours = listData.tours ?? [];
+    renderTourList();
+  } catch (err) {
+    toast('Delete failed: ' + err.message, 'err');
+  }
+}
 
 /* ----------------------------  TAB 2: CONTENT  ----------------------------- */
 function prefillContent(tour) {

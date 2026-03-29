@@ -1,0 +1,50 @@
+@font-face {
+    font-family: 'Aspekta';
+    font-weight: 350;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/Aspekta-350.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Aspekta';
+    font-weight: 500;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/Aspekta-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Aspekta';
+    font-weight: 700;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/Aspekta-700.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Cabinet Grotesk';
+    font-weight: 500;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/CabinetGrotesk-Medium.woff2') format('woff2'),
+        url('fonts/CabinetGrotesk-Medium.woff') format('woff');
+}
+
+@font-face {
+    font-family: 'Cabinet Grotesk';
+    font-weight: 700;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/CabinetGrotesk-Bold.woff2') format('woff2'),
+        url('fonts/CabinetGrotesk-Bold.woff') format('woff');
+}
+
+@font-face {
+    font-family: 'Cabinet Grotesk';
+    font-weight: 800;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/CabinetGrotesk-Extrabold.woff2') format('woff2'),
+        url('fonts/CabinetGrotesk-Extrabold.woff') format('woff');
+}

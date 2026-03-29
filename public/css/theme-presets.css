@@ -1,0 +1,358 @@
+/**
+ * theme-presets.css — Travel Theme Presets
+ *
+ * Architecture (updated):
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ACCENT LAYER  — controlled by data-theme="<key>" on <html>
+ *   --p          Primary action colour (buttons, links, accents)
+ *   --s          Secondary / hover colour
+ *   --t          Body text colour
+ *   --glass-bg   Frosted-glass overlay tint
+ *
+ * BACKGROUND LAYER  — fully independent from theme, controlled by:
+ *   --bg-h   Hue        (0–360, integer)  ← set by BG palette swatch
+ *   --bg-s   Saturation (0–100, %)        ← set by BG palette swatch
+ *   --bg-l   Lightness  (0–100, %)        ← set by Luminance slider
+ *   --bg     hsl(--bg-h, --bg-s, --bg-l)  ← computed, drives body background
+ *   --bg2    slightly lighter surface     ← computed, drives card/panel bg
+ *
+ * Separation is intentional:
+ *   • Switching the accent theme never changes the background.
+ *   • Moving the Luminance slider never changes the accent color.
+ *   • Both can be changed independently by the tenant.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BACKGROUND DEFAULTS  —  :root
+   These are the *only* place --bg-h/s/l are defined in CSS.
+   The JS (BG palette swatch + Luminance slider) overrides them at runtime
+   via element.style.setProperty(), and the server emits a matching
+   <style>:root{--bg-h:X;--bg-s:X%;--bg-l:X%;}</style> for persisted values.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Default background: deep slate-navy (neutral dark) */
+  --bg-h:     215;
+  --bg-s:     40%;
+  --bg-l:     8%;                          /* Luminance slider target */
+  --bg:       hsl(var(--bg-h), var(--bg-s), var(--bg-l));
+  --bg2:      hsl(var(--bg-h), calc(var(--bg-s) - 5%), calc(var(--bg-l) + 5%));
+
+  /* Default accent (overridden by data-theme) */
+  --p:        #2563eb;
+  --s:        #3b82f6;
+  --t:        #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCENT THEMES  —  only --p, --s, --t, --glass-bg
+   Background (--bg-h/s/l) deliberately not set here — it's controlled
+   entirely by the BG palette swatch and Luminance slider.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Ocean Blue ──────────────────────────────────────────────────────── */
+[data-theme="ocean-blue"] {
+  --p:        #38bdf8 !important;
+  --s:        #7dd3fc !important;
+  --t:        #caf0f8 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 2. Royal Wine ──────────────────────────────────────────────────────── */
+[data-theme="royal-wine"] {
+  --p:        #f4829a !important;
+  --s:        #fbb6c8 !important;
+  --t:        #fce4ec !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 3. Golden Sand ─────────────────────────────────────────────────────── */
+[data-theme="golden-sand"] {
+  --p:        #fbbf24 !important;
+  --s:        #fde68a !important;
+  --t:        #fef3c7 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 4. Jungle Trek ─────────────────────────────────────────────────────── */
+[data-theme="jungle-trek"] {
+  --p:        #4ade80 !important;
+  --s:        #86efac !important;
+  --t:        #dcfce7 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 5. Passion Red ─────────────────────────────────────────────────────── */
+[data-theme="passion-red"] {
+  --p:        #f87171 !important;
+  --s:        #fca5a5 !important;
+  --t:        #fee2e2 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 6. Modern Purple ───────────────────────────────────────────────────── */
+[data-theme="modern-purple"] {
+  --p:        #818cf8 !important;
+  --s:        #a5b4fc !important;
+  --t:        #e0e7ff !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 7. Ocean Night ─────────────────────────────────────────────────────── */
+[data-theme="ocean-night"] {
+  --p:        #38bdf8 !important;
+  --s:        #7dd3fc !important;
+  --t:        #e0f2fe !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 8. Midnight Vineyard ───────────────────────────────────────────────── */
+[data-theme="midnight-vineyard"] {
+  --p:        #c084fc !important;
+  --s:        #d8b4fe !important;
+  --t:        #f3e8ff !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 9. Deep Forest ─────────────────────────────────────────────────────── */
+[data-theme="deep-forest"] {
+  --p:        #4ade80 !important;
+  --s:        #86efac !important;
+  --t:        #dcfce7 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 10. Desert Dusk ────────────────────────────────────────────────────── */
+[data-theme="desert-dusk"] {
+  --p:        #fb923c !important;
+  --s:        #fdba74 !important;
+  --t:        #ffedd5 !important;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 11. Volcanic Ash ───────────────────────────────────────────────────── */
+[data-theme="volcanic-ash"] {
+  --p:        #94a3b8 !important;
+  --s:        #cbd5e1 !important;
+  --t:        #f1f5f9 !important;
+  --glass-bg: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Background always uses the HSL model ────────────────────────────────────
+   Written directly as hsl() so it responds instantly when JS sets --bg-h/s/l
+   via element.style.setProperty().  The [data-theme] variant adds text color.
+   Both rules use !important to beat Cruip's bg-gray-950 utility class.     */
+body {
+  background-color: hsl(var(--bg-h), var(--bg-s), var(--bg-l)) !important;
+}
+[data-theme] body {
+  background-color: hsl(var(--bg-h), var(--bg-s), var(--bg-l)) !important;
+  color: var(--t) !important;
+}
+
+/* ── Override Cruip's bg-gray-950 / bg-gray-900 utilities ───────────────────
+   On deep dark backgrounds these map to --bg / --bg2 so Cruip's own dark
+   palette becomes part of our depth layering instead of fighting it.        */
+[data-theme] .bg-gray-950 { background-color: var(--bg)  !important; }
+[data-theme] .bg-gray-900 { background-color: var(--bg2) !important; }
+[data-theme] .text-gray-200,
+[data-theme] .text-gray-300,
+[data-theme] .text-gray-400 { color: var(--t) !important; }
+
+/* ── Brand-token bridge: sync --p into Cruip's --brand-primary ──────────────
+   Any template CSS using --brand-primary automatically follows the theme. */
+[data-theme] {
+  --brand-primary:   var(--p);
+  --brand-secondary: var(--s);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FROSTED GLASS LAYER
+   On deep-dark backgrounds, Cruip's light semi-transparent utilities
+   (.bg-white/80, .backdrop-blur-*, .bg-white/5 …) must use --glass-bg
+   instead of their literal colour so the frosted effect stands out against
+   the dark canvas rather than creating hard white patches.
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Specificity rationale:
+     [data-theme] .bg-white\/80          → [0,2,0]  (attr + class)
+     All rules below share [0,2,0]; !important resolves any remaining tie.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Solid-white panels → thin glass membrane */
+[data-theme] .bg-white\/80,
+[data-theme] .bg-white\/70,
+[data-theme] .bg-white\/60,
+[data-theme] .bg-white\/50,
+[data-theme] .bg-white\/20,
+[data-theme] .bg-white\/10,
+[data-theme] .bg-white\/5,
+[data-theme] .bg-white {
+  background-color: var(--glass-bg) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter:         blur(12px) saturate(1.4);
+}
+
+/* Tailwind v4 opacity-modifier classes (Cruip uses these for hero overlays) */
+[data-theme] [class*="bg-white/"] {
+  background-color: var(--glass-bg) !important;
+}
+
+/* backdrop-blur utilities — boost blur strength on dark bg for depth        */
+[data-theme] .backdrop-blur,
+[data-theme] .backdrop-blur-sm,
+[data-theme] .backdrop-blur-md,
+[data-theme] .backdrop-blur-lg,
+[data-theme] .backdrop-blur-xl,
+[data-theme] .backdrop-blur-2xl,
+[data-theme] .backdrop-blur-3xl,
+[data-theme] [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(1.08);
+  backdrop-filter:         blur(16px) saturate(1.6) brightness(1.08);
+}
+
+/* bg-black/X navbar overlays — use deep --bg with slight transparency       */
+[data-theme] .bg-black\/80,
+[data-theme] .bg-black\/70,
+[data-theme] .bg-black\/60,
+[data-theme] .bg-black\/50,
+[data-theme] [class*="bg-black/"] {
+  background-color: color-mix(in srgb, var(--bg) 85%, transparent) !important;
+}
+
+/* border-white/X — soften to a barely-visible glass rim                     */
+[data-theme] .border-white\/20,
+[data-theme] .border-white\/10,
+[data-theme] .border-white\/5,
+[data-theme] [class*="border-white/"] {
+  border-color: color-mix(in srgb, var(--t) 18%, transparent) !important;
+}
+
+/* Navbar / header that uses bg-gray-800/50 or similar translucent dark shade */
+[data-theme] .bg-gray-800\/50,
+[data-theme] .bg-gray-900\/80,
+[data-theme] .bg-gray-900\/90 {
+  background-color: color-mix(in srgb, var(--bg2) 80%, transparent) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter:         blur(14px) saturate(1.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMPLATE OVERRIDE LAYER
+   These rules are intentionally high-specificity + !important so they beat
+   Cruip's utility classes (.bg-gray-950, .text-gray-200, etc.) and any
+   section-level inline styles regardless of template source.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── [NUCLEAR] Force ALL text in any themed page to --t ─────────────────────
+   --t is now a LIGHT colour on all dark-bg themes, so this rule lifts all
+   Cruip text-gray-XXX overrides to the readable pale/cream tones defined
+   per theme above.  Specificity [0,1,0] — more-specific rules below win.   */
+[data-theme] * {
+  color: var(--t) !important;
+}
+
+/* ── Section / block background ─────────────────────────────────────────────
+   Alternate sections use --bg2 (the slightly lighter panel tone) so the
+   page gains natural depth without any extra CSS on the section itself.     */
+[data-theme] [data-ve-section],
+[data-theme] .cruip-section,
+[data-theme] section {
+  background-color: var(--bg) !important;
+  color: var(--t) !important;
+}
+[data-theme] [data-ve-section]:nth-child(even),
+[data-theme] section:nth-child(even) {
+  background-color: var(--bg2) !important;
+}
+
+/* ── Headings — use --p for brand impact on h1, --t for readability on h2-h3 ———
+   On dark backgrounds bright --p accents pop beautifully as hero titles.   */
+[data-theme] h1 {
+  color: var(--p) !important;
+}
+[data-theme] h2,
+[data-theme] h3 {
+  color: var(--t) !important;
+}
+
+/* ── Links — primary colour, darken on hover ─────────────────────────────────
+   Plain text links use --p; visited state is muted with 80% opacity.        */
+[data-theme] a {
+  color: var(--p) !important;
+}
+[data-theme] a:hover,
+[data-theme] a:focus {
+  color: var(--s) !important;
+  text-decoration: underline;
+}
+[data-theme] a:visited {
+  opacity: 0.8;
+}
+
+/* ── Navigation links — inherit --t so they stay readable in nav bars ────────
+   Nav links typically appear on a dark/coloured nav background, so we let
+   them keep their existing colour rather than forcing --p on them.
+   The parent picks up background-color via the section rule above.           */
+[data-theme] nav a,
+[data-theme] header a {
+  color: inherit !important;
+}
+[data-theme] nav a:hover,
+[data-theme] header a:hover {
+  color: var(--p) !important;
+  text-decoration: none;
+}
+
+/* ── CTA / Primary buttons → --p background, white text ─────────────────────
+   Only targets elements that already look like action buttons (btn classes).
+   Does not override every <button> to avoid breaking icon-only buttons.
+   Specificity [0,2,0] › [data-theme] * [0,1,0] — wins even with !important. */
+[data-theme] .btn-primary,
+[data-theme] [class*="btn-p"],
+[data-theme] a.btn,
+[data-theme] button.btn {
+  background-color: var(--p) !important;
+  border-color: var(--p) !important;
+  color: #ffffff !important;
+}
+[data-theme] .btn-primary:hover,
+[data-theme] [class*="btn-p"]:hover,
+[data-theme] a.btn:hover,
+[data-theme] button.btn:hover {
+  background-color: var(--s) !important;
+  border-color: var(--s) !important;
+}
+
+/* ── SVG icons and img elements — do not force text colour on them ───────────
+   SVG `fill` / `stroke` are NOT `color`, so the wildcard rule doesn't touch
+   them.  But if a template uses `fill: currentColor`, those icons will also
+   pick up --t — which is intentional and provides good contrast.             */
+[data-theme] img { color: transparent !important; }   /* alt-text colour only */
+
+/* ── Tailwind card / inner-section variants ───────────────────────────────────
+   bg-gray-800 / bg-gray-700 map to the card-surface layer (--bg2).         */
+[data-theme] .bg-gray-800,
+[data-theme] .bg-gray-700 {
+  background-color: var(--bg2) !important;
+  color: var(--t) !important;
+}
+
+/* ── Borders and dividers — soften to --t at low opacity ────────────────────
+   On dark backgrounds a 15% --t border reads as a subtle light rim.        */
+[data-theme] .border-gray-800,
+[data-theme] .border-gray-700 {
+  border-color: color-mix(in srgb, var(--t) 15%, transparent) !important;
+}
+
+/* ── Active / focused inline-edit element highlight ─────────────────────────
+   The editor-bridge sets data-ve-active on the currently focused element;
+   we use a neon box-shadow in --p colour so the indicator works across all
+   6 themes without Bridge having to know what the current --p is.           */
+[data-theme] [data-ve-active] {
+  outline: 2px solid var(--p) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--p) 25%, transparent) !important;
+  border-radius: 3px;
+}

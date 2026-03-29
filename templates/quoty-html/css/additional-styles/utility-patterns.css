@@ -1,0 +1,84 @@
+/* Typography */
+.h1 {
+    @apply text-5xl font-bold;
+}
+
+.h2 {
+    @apply text-2xl font-bold;
+}
+
+.h3 {
+    @apply text-xl font-bold;
+}
+
+@media (width >= theme(--breakpoint-md)) {
+    .h1 {
+        @apply text-6xl;
+    }
+
+    .h2 {
+        @apply text-3xl;
+    }
+
+    .h3 {
+        @apply text-2xl;
+    }
+}
+
+/* Buttons */
+.btn,
+.btn-sm {
+    @apply text-sm font-medium inline-flex items-center justify-center border border-transparent rounded-lg transition duration-150 ease-in-out;
+}
+
+.btn {
+    @apply px-4 py-2;
+}
+
+.btn-sm {
+    @apply px-3 py-1.5;
+}
+
+.form-input,
+.form-textarea,
+.form-multiselect,
+.form-select,
+.form-checkbox,
+.form-radio {
+    @apply border border-slate-200 focus:ring-0 focus:ring-offset-0 dark:text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600;
+}
+
+.form-input,
+.form-textarea,
+.form-multiselect,
+.form-select {
+    @apply bg-white rounded-sm text-sm px-3 py-2 focus:border-blue-500;
+}
+
+.form-input,
+.form-textarea {
+    @apply placeholder-slate-400;
+}
+
+.form-select {
+    @apply pr-10;
+}
+
+.form-checkbox,
+.form-radio {
+    @apply bg-white checked:bg-blue-500 checked:border-transparent text-blue-600 focus-visible:not-checked:border-blue-500;
+}
+
+.form-checkbox {
+    @apply rounded-xs;
+}
+
+/* Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

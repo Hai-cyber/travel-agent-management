@@ -58,5 +58,12 @@
 		"crons": [
 			"*/15 * * * *"
 		]
+	},
+	// Stripe billing vars — override with real values in .dev.vars (local) or
+	// wrangler secret put STRIPE_SECRET_KEY (production).
+	// NEVER commit real keys here — these are placeholder strings only.
+	"vars": {
+		"STRIPE_PRICE_ID":      "price_REPLACE_ME",
+		"PLATFORM_BASE_URL":    "http://localhost:8787"
 	}
 }

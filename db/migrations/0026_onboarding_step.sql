@@ -1,0 +1,32 @@
+-- Migration 0026: Add onboarding_step tracking column to tenants
+--
+-- Context:
+--   The following columns were already added in earlier migrations:
+--     subdomain          TEXT UNIQUE — added in 0018_site_studio_foundation.sql
+--     terms_accepted     INTEGER     — added in 0025_add_publish_fields.sql
+--     terms_accepted_at  INTEGER     — added in 0025_add_publish_fields.sql
+--     stripe_customer_id TEXT        — added in 0025_add_publish_fields.sql
+--
+--   This migration adds the ONE remaining column from the onboarding audit:
+--     onboarding_step    TEXT        — tracks current onboarding progress
+--
+-- onboarding_step valid values (enforced at application layer, not constraint):
+--   NULL               — not started / account just created
+--   'SANDBOX_INIT'     — sandbox initialized, visual editor ready
+--   'TEMPLATE_SELECTED'— tenant has selected a site template
+--   'CONTENT_CREATED'  — site_config populated via visual editor
+--   'TOUR_CREATED'     — at least one tour (draft) has been created
+--   'PAYMENT_PENDING'  — payment method scaffold loaded, awaiting gateway setup
+--   'PAYMENT_READY'    — ≥1 electronic gateway enabled
+--   'DOMAIN_SET'       — subdomain or custom_domain is configured
+--   'TERMS_ACCEPTED'   — terms_accepted = 1
+--   'BILLING_PENDING'  — Stripe Checkout Session created, awaiting completion
+--   'COMPLETE'         — all publish-gate checks pass, site is LIVE
+--
+-- The step is a human-readable progress marker for the dashboard UI.
+-- It does NOT gate any API — the publish gate (publishGuard.js) is the
+-- authoritative enforcement layer.
+--
+-- ⚠ Additive only — no existing columns, indexes, or data are modified.
+
+ALTER TABLE tenants ADD COLUMN onboarding_step TEXT;

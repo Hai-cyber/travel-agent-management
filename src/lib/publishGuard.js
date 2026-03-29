@@ -3,55 +3,156 @@
 //
 // Usage:
 //   const guard = await checkPublishPermission(env, tenantId);
-//   if (!guard.ok) return c.json({ error: guard.error, code: guard.code }, 403);
+//   if (!guard.ok) return c.json({ error: guard.error, code: guard.code, checklist: guard.checklist }, 403);
+
+// Electronic gateways — BANK_TRANSFER and manual methods are excluded.
+// A tenant must have at least ONE of these enabled to publish.
+const ELECTRONIC_GATEWAY_IDS = new Set([
+  'STRIPE', 'MOMO', 'VNPAY', 'ZALOPAY', 'CREDIT_CARD', 'PAYPAL', 'GRABPAY',
+]);
 
 /**
  * Checks whether a tenant is allowed to publish / re-render tour pages.
  *
- * Rules (in order):
- *   1. Tenant must exist.
- *   2. subscription_status must be 'ACTIVE'.
- *   3. payment_config_json must be present and contain at least one usable key.
+ * Four gates (all must pass):
+ *   1. subscription_status === 'ACTIVE'
+ *   2. terms_accepted === 1
+ *   3. At least one electronic gateway in payment_methods has enabled: true
+ *   4. subdomain OR custom_domain is set (not NULL / empty)
  *
- * @param {object} env - Cloudflare Workers env (must have env.DB)
+ * @param {object} env      - Cloudflare Workers env (must have env.DB)
  * @param {string} tenantId
- * @returns {Promise<{ ok: boolean, error?: string, code?: string, tenant?: object }>}
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   checklist: object,      // always present — UI renders this as a checklist
+ *   blocks: string[],       // error codes for each failing gate
+ *   error?: string,         // human-readable summary when ok=false
+ *   code?: string,          // primary blocking code (first failure)
+ *   tenant?: object,        // present when ok=true
+ *   paymentConfig?: object  // parsed payment_config_json (may be null)
+ * }>}
  */
 export async function checkPublishPermission(env, tenantId) {
   const tenant = await env.DB
     .prepare(
-      'SELECT id, subscription_status, payment_config_json FROM tenants WHERE id = ?'
+      `SELECT id, subscription_status, terms_accepted,
+              custom_domain, subdomain, payment_methods, payment_config_json,
+              template_id, published_template_id, site_published_at
+         FROM tenants WHERE id = ?`
     )
     .bind(tenantId)
     .first();
 
   if (!tenant) {
-    return { ok: false, code: 'TENANT_NOT_FOUND', error: 'Tenant not found.' };
-  }
-
-  if (tenant.subscription_status !== 'ACTIVE') {
     return {
-      ok:          false,
-      code:        'SUBSCRIPTION_INACTIVE',
-      error:       `Publishing requires an active subscription. Current status: ${tenant.subscription_status}.`,
-      upgrade_url: '/billing/upgrade',
+      ok:        false,
+      code:      'TENANT_NOT_FOUND',
+      error:     'Tenant not found.',
+      blocks:    ['TENANT_NOT_FOUND'],
+      checklist: {},
     };
   }
 
-  // payment_config_json is optional for publishing — tours can be free.
-  // We parse it here so callers don't have to.
+  // ── Gate 1: Active subscription ──────────────────────────────────────────
+  const isActive = tenant.subscription_status === 'ACTIVE';
+
+  // ── Gate 2: Terms & Conditions accepted ──────────────────────────────────
+  const hasTerms = tenant.terms_accepted === 1;
+
+  // ── Gate 3: ≥1 electronic gateway enabled ────────────────────────────────
+  let hasGateway = false;
+  let enabledGateway = null;
+  try {
+    const methods = tenant.payment_methods ? JSON.parse(tenant.payment_methods) : [];
+    if (Array.isArray(methods)) {
+      const found = methods.find(
+        m => m.enabled === true && ELECTRONIC_GATEWAY_IDS.has((m.id ?? '').toUpperCase())
+      );
+      if (found) { hasGateway = true; enabledGateway = found.id; }
+    }
+  } catch {
+    // Malformed JSON — treat as not configured
+  }
+
+  // ── Gate 4: Domain configured ─────────────────────────────────────────────
+  const hasDomain = !!(
+    (tenant.subdomain    && String(tenant.subdomain).trim())    ||
+    (tenant.custom_domain && String(tenant.custom_domain).trim())
+  );
+  const domainValue = tenant.subdomain || tenant.custom_domain || null;
+
+  // ── Build checklist object ────────────────────────────────────────────────
+  const checklist = {
+    subscription_active: {
+      pass:    isActive,
+      label:   'Subscription aktif',
+      detail:  isActive
+        ? `Status: ${tenant.subscription_status}`
+        : `Status hiện tại: ${tenant.subscription_status}. Cần nâng cấp lên ACTIVE.`,
+      action_url: isActive ? null : '/billing/upgrade',
+    },
+    terms_accepted: {
+      pass:    hasTerms,
+      label:   'Đã đồng ý Điều khoản dịch vụ',
+      detail:  hasTerms
+        ? 'T&C đã được chấp nhận.'
+        : 'Chưa đồng ý T&C. Gọi POST /api/tenant/accept-terms để xác nhận.',
+      action_url: hasTerms ? null : '/dashboard.html#terms',
+    },
+    has_electronic_gateway: {
+      pass:    hasGateway,
+      label:   'Cổng thanh toán điện tử',
+      detail:  hasGateway
+        ? `Gateway đang hoạt động: ${enabledGateway}`
+        : 'Chưa có cổng điện tử nào được bật (MoMo, VNPay, Stripe, v.v.). Bank Transfer không tính.',
+      action_url: hasGateway ? null : '/dashboard.html#payments',
+    },
+    has_domain: {
+      pass:    hasDomain,
+      label:   'Tên miền đã cấu hình',
+      detail:  hasDomain
+        ? `Domain: ${domainValue}`
+        : 'Chưa đặt subdomain hoặc custom_domain. Gọi POST /api/tenant/claim-subdomain.',
+      action_url: hasDomain ? null : '/dashboard.html#domain',
+    },
+  };
+
+  // ── Collect failing gates ─────────────────────────────────────────────────
+  const blocks = [];
+  if (!isActive)   blocks.push('SUBSCRIPTION_INACTIVE');
+  if (!hasTerms)   blocks.push('TERMS_NOT_ACCEPTED');
+  if (!hasGateway) blocks.push('NO_ELECTRONIC_GATEWAY');
+  if (!hasDomain)  blocks.push('NO_DOMAIN');
+
+  if (blocks.length > 0) {
+    const labels = blocks.map(b => ({
+      SUBSCRIPTION_INACTIVE:   'subscription chưa ACTIVE',
+      TERMS_NOT_ACCEPTED:      'chưa đồng ý T&C',
+      NO_ELECTRONIC_GATEWAY:   'chưa có cổng thanh toán điện tử',
+      NO_DOMAIN:               'chưa cấu hình tên miền',
+    }[b] ?? b));
+
+    return {
+      ok:        false,
+      code:      blocks[0],           // primary blocking code
+      error:     `Không thể publish: ${labels.join(', ')}.`,
+      blocks,
+      checklist,
+    };
+  }
+
+  // ── All gates pass ────────────────────────────────────────────────────────
   let paymentConfig = null;
   if (tenant.payment_config_json) {
-    try {
-      paymentConfig = JSON.parse(tenant.payment_config_json);
-    } catch {
-      // Malformed JSON in DB — treat as missing but don't block publishing.
+    try { paymentConfig = JSON.parse(tenant.payment_config_json); }
+    catch {
       console.warn(`[PUBLISH_GUARD] tenant=${tenantId} has malformed payment_config_json — ignoring.`);
     }
   }
 
-  return { ok: true, tenant, paymentConfig };
+  return { ok: true, checklist, blocks: [], tenant, paymentConfig };
 }
+
 
 /**
  * Builds the pay-button HTML block to inject into a tour page.

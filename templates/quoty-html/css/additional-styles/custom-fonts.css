@@ -1,0 +1,7 @@
+@font-face {
+    font-family: 'Orbiter';
+    font-weight: 700;
+    font-style: normal;
+    font-display: fallback;
+    src: url('fonts/OrbiterDisplay-Bold.woff') format('woff2');
+}

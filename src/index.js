@@ -12,6 +12,9 @@ import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js'
 import registerTourRoutes from './routes/tours.js';
 import registerCategoryRoutes from './routes/categories.js';
 import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.js';
+import registerAdminRoutes from './routes/admin.js';
+import registerOnboardingRoutes from './routes/onboarding.js';
+import registerBillingRoutes from './routes/billing.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -61,13 +64,13 @@ const app = new Hono();
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Tenant-ID, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Tenant-ID, Authorization, X-Admin-Secret',
   'Access-Control-Max-Age':       '86400',
 };
 app.use('/api/*', cors({
   origin:         '*',
   allowMethods:   ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders:   ['Content-Type', 'X-Tenant-ID', 'Authorization'],
+  allowHeaders:   ['Content-Type', 'X-Tenant-ID', 'Authorization', 'X-Admin-Secret'],
   maxAge:          86400,
 }));
 // Annotates all JSON responses with charset=utf-8 — critical for Vietnamese
@@ -149,6 +152,7 @@ app.use('*', async (c, next) => {
 });
 
 // Đăng ký các route cho Hono (Task, Pricing, Tenants)
+registerOnboardingRoutes && registerOnboardingRoutes(app);
 registerTaskRoutes && registerTaskRoutes(app);
 registerPricingRoutes && registerPricingRoutes(app);
 registerTenantRoutes && registerTenantRoutes(app);
@@ -156,6 +160,8 @@ registerBookingRoutes && registerBookingRoutes(app);
 registerTourRoutes && registerTourRoutes(app);
 registerCategoryRoutes && registerCategoryRoutes(app);
 registerPaymentRoutes && registerPaymentRoutes(app);
+registerAdminRoutes && registerAdminRoutes(app);
+registerBillingRoutes && registerBillingRoutes(app);
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
 const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];

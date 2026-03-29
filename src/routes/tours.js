@@ -98,6 +98,179 @@ function applyPlaceholders(html, vars) {
   );
 }
 
+// ── HTML escape (SEC: user-supplied strings injected via HTMLRewriter) ─────────
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderAndSaveDraftPage
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Reads the sandbox detail template (`sandbox/{tenantId}/detail.html`) from
+ * TOUR_PAGES R2, applies an HTMLRewriter pipeline to inject tour metadata, and
+ * saves the result as a draft static page at
+ * `sandbox/{tenantId}/tours/{slug}.html`.
+ *
+ * The draft page is clearly marked with a fixed amber ribbon and carries a
+ * `<script type="application/json" id="__tour__">` data-island so inject.js
+ * and the booking widget can consume the tour data client-side.
+ *
+ * Non-fatal by design: if the sandbox has not been initialised (no detail.html)
+ * the function returns { ok: false, reason } without throwing, allowing tour
+ * creation to succeed regardless.
+ *
+ * HTMLRewriter targets (generic selectors that work for any HTML template):
+ *   <title>                    → "{tourName} (Draft)"
+ *   <meta name="description">  → tour description (setAttribute)
+ *   <meta property="og:title"> → tour name (setAttribute)
+ *   first <article h2>         → tour name (setInnerContent)
+ *   first <article p>          → tour description (setInnerContent)
+ *   <body>                     → prepend draft ribbon, append data island
+ *
+ * @param {object} env       - Worker env bindings (needs TOUR_PAGES)
+ * @param {string} tenantId  - Tenant primary key
+ * @param {object} tour      - { id, slug, title, content_data (string|null) }
+ * @returns {Promise<{ok: true, r2_key: string} | {ok: false, reason: string}>}
+ */
+async function renderAndSaveDraftPage(env, tenantId, tour) {
+  if (!env.TOUR_PAGES) return { ok: false, reason: 'TOUR_PAGES binding not configured' };
+
+  const templateKey = `sandbox/${tenantId}/detail.html`;
+  const tmplObj     = await env.TOUR_PAGES.get(templateKey);
+  if (!tmplObj) {
+    return {
+      ok:     false,
+      reason: `Sandbox template not found at "${templateKey}". Run initializeTenantSandbox first.`,
+    };
+  }
+
+  // Parse content_data — graceful fallback to empty object on missing/malformed JSON.
+  let content = {};
+  try {
+    if (tour.content_data) {
+      content = typeof tour.content_data === 'string'
+        ? JSON.parse(tour.content_data)
+        : tour.content_data;
+    }
+  } catch { /* keep empty content */ }
+
+  const tourName  = escHtml(content.tour_name ?? tour.title ?? '');
+  const tourDesc  = escHtml(content.hero_desc ?? content.description ?? content.tour_desc ?? '');
+  const tourPrice = content.base_price != null ? String(content.base_price) : '';
+
+  // ── Draft ribbon — fixed, amber, visible without JS ─────────────────────
+  // Inlined styles so the ribbon works even when assets/css fails to load.
+  const DRAFT_RIBBON =
+    `<div id="__draft-ribbon__" style="position:fixed;top:0;left:0;right:0;z-index:9999;` +
+    `background:#f59e0b;color:#1c1917;font:700 13px/36px system-ui,sans-serif;` +
+    `text-align:center;letter-spacing:.05em;">` +
+    `&#9679; DRAFT &#8212; Not published yet` +
+    `</div>` +
+    // Push page content down so ribbon doesn't overlap the header.
+    `<style>body{padding-top:36px!important}</style>`;
+
+  // ── JSON data island ─────────────────────────────────────────────────────
+  // Consumed by inject.js and the booking widget client-side.
+  // [SEC] JSON.stringify is used — no manual concatenation of user values.
+  const DATA_ISLAND =
+    `<script type="application/json" id="__tour__">` +
+    JSON.stringify({
+      id:         tour.id,
+      slug:       tour.slug,
+      title:      tour.title,
+      status:     'draft',
+      base_price: content.base_price ?? null,
+      tour_code:  content.tour_code  ?? null,
+      duration:   tour.duration_text ?? content.duration ?? null,
+    }) +
+    `</script>`;
+
+  // ── HTMLRewriter pipeline ─────────────────────────────────────────────────
+  // Closure flags: HTMLRewriter fires the handler for EVERY matching element;
+  // flags gate injection to first-match-only where appropriate.
+  let firstArticleH2Done = false;
+  let firstArticlePDone  = false;
+
+  const rewriter = new HTMLRewriter()
+
+    // Page title
+    .on('title', {
+      element(el) {
+        el.setInnerContent(tourName ? `${tourName} (Draft)` : 'Tour Draft');
+      },
+    })
+
+    // SEO / social meta — setInnerContent not applicable; use setAttribute.
+    .on('meta[name="description"]', {
+      element(el) {
+        if (tourDesc) el.setAttribute('content', tourDesc);
+      },
+    })
+    .on('meta[property="og:title"]', {
+      element(el) {
+        if (tourName) el.setAttribute('content', tourName);
+      },
+    })
+    .on('meta[property="og:description"]', {
+      element(el) {
+        if (tourDesc) el.setAttribute('content', tourDesc);
+      },
+    })
+
+    // Primary content heading inside <article> — first match only.
+    .on('article h2', {
+      element(el) {
+        if (!firstArticleH2Done && tourName) {
+          firstArticleH2Done = true;
+          el.setInnerContent(tourName);
+        }
+      },
+    })
+
+    // First descriptive paragraph inside <article>.
+    .on('article p', {
+      element(el) {
+        if (!firstArticlePDone && tourDesc) {
+          firstArticlePDone = true;
+          el.setInnerContent(tourDesc);
+        }
+      },
+    })
+
+    // <body>: prepend draft ribbon + append data island.
+    .on('body', {
+      element(el) {
+        el.prepend(DRAFT_RIBBON, { html: true });
+        el.append(DATA_ISLAND,   { html: true });
+      },
+    });
+
+  // Stream-transform the template response.
+  const transformed = rewriter.transform(
+    new Response(tmplObj.body, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  );
+  const html = await transformed.text();
+
+  // Save the rendered draft file to R2.
+  const destKey = `sandbox/${tenantId}/tours/${tour.slug}.html`;
+  await env.TOUR_PAGES.put(destKey, html, {
+    httpMetadata:   { contentType: 'text/html; charset=utf-8', cacheControl: 'no-store' },
+    customMetadata: {
+      tour_id:    tour.id,
+      tenant_id:  tenantId,
+      status:     'draft',
+      created_at: new Date().toISOString(),
+    },
+  });
+
+  return { ok: true, r2_key: destKey };
+}
+
 // ── generateTourPage ──────────────────────────────────────────────────────────
 /**
  * Core publishing function.
@@ -290,7 +463,34 @@ tours.post('/', async (c) => {
     )
     .run();
 
-  return c.json({ ok: true, id, slug, template_id: tmplId }, 201);
+  // ── Non-blocking sandbox draft page render ──────────────────────────────
+  // Attempt to generate a draft static page from the tenant's sandbox template.
+  // Non-fatal: tour creation succeeds even if the sandbox template is absent
+  // (initializeTenantSandbox has not been called yet for this tenant).
+  let draftPage = null;
+  try {
+    draftPage = await renderAndSaveDraftPage(c.env, tenantId, {
+      id,
+      slug,
+      title: body.title,
+      content_data:  contentData,
+      duration_text: body.duration_text ?? null,
+    });
+  } catch (err) {
+    // Never block tour creation for a draft-render error — log and continue.
+    console.warn(`[DRAFT_RENDER_WARN] tour=${id} tenant=${tenantId}`, err?.message);
+  }
+
+  return c.json({
+    ok:          true,
+    id,
+    slug,
+    template_id: tmplId,
+    status:      'draft',
+    ...(draftPage?.ok
+      ? { draft_page_key: draftPage.r2_key }
+      : { draft_page_note: draftPage?.reason ?? 'Draft page not generated.' }),
+  }, 201);
 });
 
 // GET /api/tours/:id — Read a single tour (content_data auto-parsed)
@@ -407,7 +607,7 @@ tours.post('/:id/publish', async (c) => {
 
   // Subscription + payment configuration check
   const guard = await checkPublishPermission(c.env, tenantId);
-  if (!guard.ok) return c.json({ error: guard.error, code: guard.code, upgrade_url: guard.upgrade_url ?? null }, 403);
+  if (!guard.ok) return c.json({ error: guard.error, code: guard.code, blocks: guard.blocks, checklist: guard.checklist }, 403);
 
   const tour = await c.env.DB
     .prepare('SELECT * FROM tours WHERE id = ? AND tenant_id = ?')
@@ -455,7 +655,7 @@ tours.post('/:id/switch-template', async (c) => {
 
   // Subscription check — template swap re-renders the page so it needs the same gate
   const guard = await checkPublishPermission(c.env, tenantId);
-  if (!guard.ok) return c.json({ error: guard.error, code: guard.code, upgrade_url: guard.upgrade_url ?? null }, 403);
+  if (!guard.ok) return c.json({ error: guard.error, code: guard.code, blocks: guard.blocks, checklist: guard.checklist }, 403);
 
   let body;
   try { body = await c.req.json(); }
@@ -511,6 +711,142 @@ tours.post('/:id/switch-template', async (c) => {
     published_at:    new Date(now * 1000).toISOString(),
     note:            'Published URL unchanged. content_data preserved.',
   });
+});
+
+// DELETE /api/tours/:id — Hard-delete a tour and all child rows for this tenant.
+// Cascade order:  tour_prices → tour_stops → tours  (FK-safe, all scoped by tenant_id)
+// R2 published page is deleted best-effort (non-blocking; failure does not 500).
+tours.delete('/:id', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const tourId = c.req.param('id');
+
+  // Confirm ownership before touching anything
+  const tour = await c.env.DB
+    .prepare('SELECT id, slug, published_url FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(tourId, tenantId)
+    .first();
+  if (!tour) return c.json({ error: 'Tour not found.' }, 404);
+
+  // Atomic cascade delete via D1 batch
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM tour_prices WHERE tour_id = ? AND tenant_id = ?').bind(tourId, tenantId),
+    c.env.DB.prepare('DELETE FROM tour_stops  WHERE tour_id = ? AND tenant_id = ?').bind(tourId, tenantId),
+    c.env.DB.prepare('DELETE FROM tours        WHERE id      = ? AND tenant_id = ?').bind(tourId, tenantId),
+  ]);
+
+  // Best-effort R2 cleanup — non-blocking
+  if (c.env.TOUR_PAGES && tour.published_url) {
+    c.env.TOUR_PAGES.delete(tour.published_url).catch(() => {});
+  }
+
+  return c.json({ ok: true, deleted: tourId });
+});
+
+// POST /api/tours/:id/copy — Deep-clone a tour for this tenant.
+// Creates:  new tour row (draft, new id+slug, clears published_*)
+//           new tour_stops rows (new IDs, same content)
+//           new tour_prices rows (new IDs, pointing at new tour_id)
+tours.post('/:id/copy', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const sourceId = c.req.param('id');
+
+  // Confirm source ownership
+  const source = await c.env.DB
+    .prepare('SELECT * FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(sourceId, tenantId)
+    .first();
+  if (!source) return c.json({ error: 'Tour not found.' }, 404);
+
+  let body = {};
+  try { body = await c.req.json(); } catch { /* title override is optional */ }
+
+  const newId    = nanoid();
+  const now      = Math.floor(Date.now() / 1000);
+  const newTitle = (body.title?.trim()) || `${source.title} (copy)`;
+  const newSlug  = safeId(slugify(newTitle)) + '-' + newId.slice(0, 6);
+
+  // --- Fetch child rows ---
+  const [{ results: sourceStops }, { results: sourcePrices }] = await c.env.DB.batch([
+    c.env.DB.prepare('SELECT * FROM tour_stops  WHERE tour_id = ? AND tenant_id = ?').bind(sourceId, tenantId),
+    c.env.DB.prepare('SELECT * FROM tour_prices WHERE tour_id = ? AND tenant_id = ?').bind(sourceId, tenantId),
+  ]);
+
+  // --- Build INSERT statements ---
+  const stmtTour = c.env.DB.prepare(
+    `INSERT INTO tours
+       (id, tenant_id, title, lang, duration_text, start_date, status,
+        slug, content_data, template_id, category_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`
+  ).bind(
+    newId, tenantId, newTitle,
+    source.lang          ?? 'vi',
+    source.duration_text ?? null,
+    source.start_date    ?? null,
+    newSlug,
+    source.content_data  ?? null,
+    source.template_id   ?? 'default',
+    source.category_id   ?? null,
+    now
+  );
+
+  const stmtStops = sourceStops.map(s => c.env.DB.prepare(
+    `INSERT INTO tour_stops
+       (id, tenant_id, tour_id, label, day_from, day_to, nights,
+        meal_breakfast, meal_lunch, meal_dinner, description,
+        services_config, sort_order, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    nanoid(), tenantId, newId,
+    s.label,
+    s.day_from        ?? 1,
+    s.day_to          ?? 1,
+    s.nights          ?? 0,
+    s.meal_breakfast  ?? 0,
+    s.meal_lunch      ?? 0,
+    s.meal_dinner     ?? 0,
+    s.description     ?? null,
+    s.services_config ?? null,
+    s.sort_order      ?? 0,
+    now
+  ));
+
+  const stmtPrices = sourcePrices.map(p => c.env.DB.prepare(
+    `INSERT INTO tour_prices
+       (id, tenant_id, tour_id, season_id, segment_id, pax_band_id,
+        base_currency, adult_shared_room_price, adult_single_room_price,
+        child_shared_with_parents_price, infant_price, notes, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    nanoid(), tenantId, newId,
+    p.season_id,
+    p.segment_id,
+    p.pax_band_id,
+    p.base_currency                   ?? 'USD',
+    p.adult_shared_room_price         ?? null,
+    p.adult_single_room_price         ?? null,
+    p.child_shared_with_parents_price ?? null,
+    p.infant_price                    ?? 0,
+    p.notes                           ?? null,
+    p.is_active                       ?? 1,
+    now
+  ));
+
+  // Atomic batch — all or nothing
+  await c.env.DB.batch([stmtTour, ...stmtStops, ...stmtPrices]);
+
+  return c.json({
+    ok:             true,
+    id:             newId,
+    title:          newTitle,
+    slug:           newSlug,
+    status:         'draft',
+    copied_stops:   stmtStops.length,
+    copied_prices:  stmtPrices.length,
+  }, 201);
 });
 
 // ── Tour Stops CRUD ───────────────────────────────────────────────────────────

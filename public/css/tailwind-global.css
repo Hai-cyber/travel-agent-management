@@ -1,0 +1,116 @@
+/*
+ * tailwind-global.css
+ *
+ * Global stylesheet injected into every Site Studio preview page by
+ * HTMLRewriter (serveSitePage → <head> append).
+ *
+ * Purpose:
+ *   1. Load Tailwind CSS from CDN so all Cruip "Lego block" snippets render
+ *      correctly without needing a build step.
+ *   2. Provide Visual Editor utility classes (editor chrome, section overlays,
+ *      inline-edit indicators) that must be available in every template,
+ *      regardless of which tailwind.css the template ships.
+ *   3. Reset / normalise any conflict between HTML5 UP legacy CSS and Tailwind.
+ *
+ * Loading order (injected by siteStudio.js before </head>):
+ *   1. Template's own CSS      ← from R2, already in <head>
+ *   2. This file               ← /css/tailwind-global.css  (injected)
+ *   3. editor-bridge.js        ← injected before </body>
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * NOTE: The CDN import below is safe for preview / editor mode.
+ *       For published (live) sites, a build-step output should replace this
+ *       with a purged, minified tailwind.css uploaded to SITE_TEMPLATES R2.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/* ── 1. Tailwind CSS via CDN (Play CDN — preview / editor mode) ───────────── */
+/* The <script> tag for the Tailwind Play CDN is injected by siteStudio.js     */
+/* (not here) so it can be stripped in production builds. This comment is a    */
+/* reminder of the dependency.                                                  */
+
+/* ── 2. CSS custom properties — brand tokens ─────────────────────────────── */
+/*
+ * These variables are overridden at runtime by the inline <style> block that
+ * siteStudio.js injects from site_config.brand.primary_color.
+ * Keeping sensible defaults here ensures snippets look correct even before
+ * the tenant config is applied.
+ */
+:root {
+  --brand-primary:    #2563eb;   /* Tailwind blue-600 */
+  --brand-secondary:  #1e40af;   /* blue-800 */
+  --brand-accent:     #f59e0b;   /* amber-400 */
+  --brand-text:       #1e293b;   /* slate-800 */
+  --brand-bg:         #ffffff;
+  --brand-muted:      #64748b;   /* slate-500 */
+  --brand-border:     #e2e8f0;   /* slate-200 */
+}
+
+/* ── 3. Snippet / block layout resets ────────────────────────────────────── */
+/*
+ * Cruip blocks are designed to be full-width sections.  Ensure they stack
+ * correctly when appended as custom_sections inside any parent template.
+ */
+[data-ve-section] {
+  display: block;
+  width: 100%;
+  position: relative; /* required for floating editor toolbars */
+}
+
+/* ── 4. Visual Editor chrome ─────────────────────────────────────────────── */
+/*
+ * These styles are applied in editor/preview mode only.
+ * They complement editor-bridge.js inline style assignments and provide
+ * hover/focus states via CSS so JS doesn't need to touch the cascade.
+ */
+
+/* Contenteditable placeholder text */
+[data-ve-inline][contenteditable][data-ve-placeholder]:empty::before {
+  content: attr(data-ve-placeholder);
+  color: #94a3b8;       /* slate-400 */
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Section hover ring (set by editor-bridge.js but matched here for specificity) */
+[data-ve-section]:focus-within {
+  outline: 2px solid rgba(99, 102, 241, 0.4);
+  outline-offset: 2px;
+}
+
+/* "Add Block Here" divider targets */
+[data-ve-add-divider] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  margin: 4px 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+[data-ve-add-divider]:hover {
+  opacity: 1;
+}
+
+/* Image replace hover overlay (set via JS, CSS handles transition) */
+[data-ve-user-replaceable] {
+  transition: opacity 0.15s;
+}
+
+/* ── 5. Tailwind @layer overrides ─────────────────────────────────────────── */
+/*
+ * Place any global overrides that must survive Tailwind's cascade here.
+ * Example: ensure brand primary colour variables flow through to Tailwind
+ * utilities via the arbitrary value syntax  bg-[var(--brand-primary)].
+ */
+
+/* smooth scroll — enhances section-tree navigation */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent horizontal overflow from wide Cruip sections in narrow iframes */
+body {
+  overflow-x: hidden;
+}

@@ -28,7 +28,7 @@ const payments = new Hono();
 
 // ── Group classification ──────────────────────────────────────────────────────
 export const INSTANT_PROVIDERS = new Set([
-  'CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY',
+  'STRIPE', 'CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY',
 ]);
 export const MANUAL_PROVIDERS = new Set([
   'BANK_TRANSFER', 'CASH_AT_OFFICE', 'PAY_ON_ARRIVAL',
@@ -43,15 +43,19 @@ export function isInstantProvider(method) {
 // Populated into tenants.payment_methods on first PATCH /api/payments/settings.
 // Agents toggle enabled/disabled — only enabled methods appear in inject.js checkout.
 const DEFAULT_PAYMENT_METHODS = [
-  { id: 'BANK_TRANSFER',  label: 'Chuyển khoản',         enabled: true,  category: 'manual'  },
-  { id: 'MOMO',           label: 'MoMo',                  enabled: false, category: 'instant' },
-  { id: 'ZALOPAY',        label: 'ZaloPay',               enabled: false, category: 'instant' },
-  { id: 'VNPAY',          label: 'VNPay',                 enabled: false, category: 'instant' },
-  { id: 'CREDIT_CARD',    label: 'Thẻ tín dụng',         enabled: false, category: 'instant' },
-  { id: 'PAYPAL',         label: 'PayPal',                enabled: false, category: 'instant' },
-  { id: 'GRABPAY',        label: 'GrabPay',               enabled: false, category: 'instant' },
-  { id: 'CASH_AT_OFFICE', label: 'Thanh toán trực tiếp', enabled: false, category: 'manual'  },
-  { id: 'PAY_ON_ARRIVAL', label: 'Trả khi gặp mặt',      enabled: false, category: 'manual', risk: 'ghosting' },
+  // ── Manual (always safe, no API key needed) ──────────────────────────────
+  { id: 'BANK_TRANSFER',  label: 'Chuyển khoản ngân hàng', enabled: true,  category: 'manual'  },
+  // ── Electronic gateways — DISABLED until API key is configured ───────────
+  { id: 'MOMO',           label: 'MoMo',                    enabled: false, category: 'instant', requires_key: true },
+  { id: 'VNPAY',          label: 'VNPay',                   enabled: false, category: 'instant', requires_key: true },
+  { id: 'STRIPE',         label: 'Stripe',                  enabled: false, category: 'instant', requires_key: true },
+  { id: 'ZALOPAY',        label: 'ZaloPay',                 enabled: false, category: 'instant', requires_key: true },
+  { id: 'CREDIT_CARD',    label: 'Thẻ tín dụng (Stripe)',  enabled: false, category: 'instant', requires_key: true },
+  { id: 'PAYPAL',         label: 'PayPal',                  enabled: false, category: 'instant', requires_key: true },
+  { id: 'GRABPAY',        label: 'GrabPay',                 enabled: false, category: 'instant', requires_key: true },
+  // ── Offline (low-risk manual methods) ────────────────────────────────────
+  { id: 'CASH_AT_OFFICE', label: 'Thanh toán tại văn phòng', enabled: false, category: 'manual' },
+  { id: 'PAY_ON_ARRIVAL', label: 'Trả khi gặp mặt',          enabled: false, category: 'manual', risk: 'ghosting' },
 ];
 
 export { DEFAULT_PAYMENT_METHODS };
@@ -68,7 +72,7 @@ export { DEFAULT_PAYMENT_METHODS };
 //   vnpay    → VNPAY
 //   grabpay  → GRABPAY
 export const ALLOWED_E_GATEWAYS = ['stripe', 'paypal', 'momo', 'zalopay', 'vnpay', 'grabpay'];
-const E_GATEWAY_METHOD_IDS = new Set(['CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY']);
+const E_GATEWAY_METHOD_IDS = new Set(['STRIPE', 'CREDIT_CARD', 'MOMO', 'ZALOPAY', 'VNPAY', 'PAYPAL', 'GRABPAY']);
 
 /**
  * Returns true if the tenant has at least one electronic gateway enabled.
@@ -387,9 +391,71 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+// ── GET /api/payments/settings ──────────────────────────────────────────────
+// Returns the tenant's current payment method configuration.
+// AUTO-SEED: if payment_methods is NULL or empty, inserts DEFAULT_PAYMENT_METHODS
+// so the first-visit UI always has a populated list to display.
+// Electronic gateways default to disabled until API keys are configured.
+// [SEC] Requires X-Tenant-ID header — tenant isolation enforced.
+payments.get('/settings', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const tenant = await c.env.DB
+    .prepare('SELECT payment_methods FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  let methods;
+  let seeded = false;
+
+  try {
+    const parsed = tenant.payment_methods ? JSON.parse(tenant.payment_methods) : null;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // Existing config — merge-in any new methods added to DEFAULT since last save
+      const existingIds = new Set(parsed.map(m => m.id.toUpperCase()));
+      const missing = DEFAULT_PAYMENT_METHODS.filter(d => !existingIds.has(d.id.toUpperCase()));
+      methods = missing.length ? [...parsed, ...missing] : parsed;
+    } else {
+      // First visit — seed with defaults (electronic gateways disabled)
+      methods = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));
+      seeded  = true;
+    }
+  } catch {
+    methods = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));
+    seeded  = true;
+  }
+
+  if (seeded) {
+    // Persist the scaffold so subsequent GETs are consistent
+    await c.env.DB
+      .prepare('UPDATE tenants SET payment_methods = ? WHERE id = ?')
+      .bind(JSON.stringify(methods), tenantId)
+      .run();
+  }
+
+  const hasGateway = checkTenantCompliance(methods);
+
+  return c.json({
+    ok:              true,
+    seeded,
+    payment_methods: methods,
+    compliance: {
+      has_electronic_gateway: hasGateway,
+      message: hasGateway
+        ? 'Tenant có ít nhất một cổng điện tử đang hoạt động.'
+        : 'Chưa có cổng điện tử nào được bật. Hãy cấu hình API Key để kích hoạt.',
+    },
+  });
+});
+
 // ── PATCH /api/payments/settings ─────────────────────────────────────────────
 // Agent toggles which payment channels are enabled/disabled for their tenant.
-// Accepts an array of { id, enabled } update objects.
+// Accepts:
+//   • Array [ { id, enabled } ]  — explicit toggle list
+//   • { methods: [...] }          — same, wrapped
+//   • Empty body / {}             — treated as "initialize if empty, return current"
 // Merges with DEFAULT_PAYMENT_METHODS so unmentioned entries keep their state.
 // [VALIDATION] At least one method must remain enabled — blocks full disable.
 // [SEC] Only the tenant identified by X-Tenant-ID may modify their own config.
@@ -399,12 +465,31 @@ payments.patch('/settings', async (c) => {
 
   let body;
   try { body = await c.req.json(); }
-  catch { return c.json({ error: 'Invalid JSON body.' }, 400); }
+  catch { body = null; }
 
   // Accept array [ { id, enabled }, ... ] or object { methods: [...] }
-  const updates = Array.isArray(body) ? body : (Array.isArray(body?.methods) ? body.methods : null);
-  if (!updates) {
-    return c.json({ error: 'Body must be an array of { id, enabled } objects, or { methods: [...] }.' }, 400);
+  // Empty body / {} → treat as "initialize if empty, return current state"
+  const updates = Array.isArray(body) ? body
+    : (Array.isArray(body?.methods) ? body.methods : null);
+
+  // ── Empty-body init ───────────────────────────────────────────────────────
+  // No updates provided: delegate to the same auto-seed logic as GET.
+  // Useful when UI calls PATCH to "touch" settings on first visit.
+  if (updates === null || (Array.isArray(updates) && updates.length === 0)) {
+    const tenant0 = await c.env.DB
+      .prepare('SELECT payment_methods FROM tenants WHERE id = ?')
+      .bind(tenantId).first();
+    if (!tenant0) return c.json({ error: 'Tenant not found.' }, 404);
+    let methods0;
+    try {
+      const p = tenant0.payment_methods ? JSON.parse(tenant0.payment_methods) : null;
+      methods0 = (Array.isArray(p) && p.length) ? p : DEFAULT_PAYMENT_METHODS.map(m => ({ ...m }));
+    } catch { methods0 = DEFAULT_PAYMENT_METHODS.map(m => ({ ...m })); }
+    await c.env.DB
+      .prepare('UPDATE tenants SET payment_methods = ? WHERE id = ?')
+      .bind(JSON.stringify(methods0), tenantId).run();
+    return c.json({ ok: true, seeded: true, payment_methods: methods0,
+      compliance: { has_electronic_gateway: checkTenantCompliance(methods0) } });
   }
 
   // Validate each update entry

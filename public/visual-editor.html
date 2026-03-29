@@ -1,483 +1,1705 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Visual Editor — Site Studio</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-      background: #0f172a;
-      color: #e2e8f0;
-      overflow: hidden;
-    }
-
-    /* ── Layout ─────────────────────────────────────────────────────────── */
-    .layout { display: flex; height: 100vh; }
-
-    /* ── Sidebar ─────────────────────────────────────────────────────────── */
-    .sidebar {
-      width: 300px;
-      min-width: 300px;
-      background: #1e293b;
-      border-right: 1px solid #334155;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .sidebar-header {
-      padding: 14px 16px;
-      border-bottom: 1px solid #334155;
-      background: #0f172a;
-    }
-    .sidebar-header h1 { font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: -.01em; }
-    .sidebar-header p  { color: #475569; font-size: 11px; margin-top: 2px; }
-
-    .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .field-label {
-      display: block;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: #64748b;
-      margin-bottom: 4px;
-    }
-
-    input[type="text"], textarea {
-      width: 100%;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      color: #e2e8f0;
-      padding: 8px 10px;
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color .15s;
-    }
-    input[type="text"]:focus, textarea:focus { border-color: #6366f1; }
-    textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
-
-    .btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      width: 100%;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      border: none;
-      cursor: pointer;
-      transition: background .15s, opacity .15s, border-color .15s;
-      font-family: inherit;
-    }
-    .btn:disabled { opacity: .38; cursor: not-allowed; }
-
-    .btn-primary  { background: #6366f1; color: #fff; }
-    .btn-primary:hover:not(:disabled)  { background: #4f46e5; }
-
-    .btn-success  { background: #10b981; color: #fff; }
-    .btn-success:hover:not(:disabled)  { background: #059669; }
-
-    .btn-select   { background: transparent; border: 1px solid #334155; color: #94a3b8; }
-    .btn-select:hover:not(:disabled)   { border-color: #6366f1; color: #818cf8; }
-    .btn-select.active { border-color: #f97316; color: #f97316; background: #f9731610; }
-
-    .btn-ghost    { background: transparent; border: 1px solid #ef444430; color: #f87171; }
-    .btn-ghost:hover:not(:disabled)    { background: #f8717110; }
-
-    .divider { border: none; border-top: 1px solid #1e293b; }
-
-    /* Mode badge */
-    .mode-row   { display: flex; align-items: center; justify-content: space-between; }
-    .mode-badge {
-      font-size: 10px; font-weight: 700; letter-spacing: .04em;
-      padding: 3px 9px; border-radius: 999px;
-    }
-    .mode-badge.idle   { background: #1e293b; color: #475569; border: 1px solid #334155; }
-    .mode-badge.active { background: #f9731612; color: #fb923c; border: 1px solid #f97316;
-                         animation: pulse 1.4s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
-
-    /* Selected panel */
-    .selected-panel {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .selector-code {
-      display: block;
-      font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
-      font-size: 11px;
-      color: #34d399;
-      background: #020d0a;
-      border: 1px solid #14532d40;
-      border-radius: 4px;
-      padding: 7px 9px;
-      word-break: break-all;
-      max-height: 70px;
-      overflow-y: auto;
-      line-height: 1.5;
-    }
-
-    /* Status toast */
-    #status {
-      font-size: 12px;
-      border-radius: 6px;
-      padding: 8px 10px;
-      line-height: 1.5;
-      display: none;
-    }
-    #status.ok  { display: block; background: #052e16; color: #6ee7b7; border: 1px solid #10b98150; }
-    #status.err { display: block; background: #2d0707; color: #fca5a5; border: 1px solid #ef444450; }
-
-    .help-text { font-size: 11px; color: #475569; line-height: 1.6; }
-
-    /* ── Preview Pane ────────────────────────────────────────────────────── */
-    .preview-pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .preview-toolbar {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 7px 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      color: #475569;
-      flex-shrink: 0;
-    }
-
-    .preview-toolbar span { white-space: nowrap; }
-
-    .preview-url {
-      flex: 1;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 4px;
-      padding: 4px 8px;
-      color: #64748b;
-      font-size: 11px;
-      font-family: 'Cascadia Code', 'Fira Mono', monospace;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .btn-toolbar {
-      background: transparent;
-      border: 1px solid #334155;
-      border-radius: 4px;
-      color: #64748b;
-      padding: 4px 8px;
-      font-size: 11px;
-      cursor: pointer;
-      white-space: nowrap;
-      font-family: inherit;
-    }
-    .btn-toolbar:hover:not(:disabled) { border-color: #6366f1; color: #818cf8; }
-    .btn-toolbar:disabled { opacity: .38; cursor: not-allowed; }
-
-    #preview-frame {
-      flex: 1;
-      border: none;
-      background: #fff;
-    }
-
-    #empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: #334155;
-    }
-    #empty-state svg { opacity: .3; }
-    #empty-state p   { font-size: 13px; color: #475569; text-align: center; max-width: 260px; line-height: 1.6; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Site Studio</title>
+<style>
+/* ── Variables ─────────────────────────────────────────────────────── */
+:root {
+  --bg0: #06080f; --bg1: #0a0f1e; --bg2: #0f172a; --bg3: #1e293b;
+  --bd:  #1e293b; --bd2: #334155;
+  --acc: #6366f1; --acc2: #5253cc;
+  --grn: #10b981; --amb: #f59e0b; --red: #ef4444;
+  --tx:  #e2e8f0; --tx2: #94a3b8; --tx3: #475569;
+  --r:   7px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg0);
+             color: var(--tx); font: 13px/1.5 ui-sans-serif,system-ui,sans-serif; }
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.app          { display: flex; flex-direction: column; height: 100vh; }
+.mgmt-bar     { flex-shrink: 0; background: var(--bg2); border-bottom: 1px solid var(--bd); }
+.mgmt-row     { display: flex; align-items: center; gap: 8px; padding: 0 14px; }
+.mgmt-row-1   { height: 48px; }
+.mgmt-row-2   { height: 36px; border-top: 1px solid var(--bd);
+                overflow: hidden; transition: height .18s; }
+.mgmt-row-2.collapsed { height: 0; }
+.workspace    { display: flex; flex: 1; overflow: hidden; }
+/* ── Sidebar ────────────────────────────────────────────────────────── */
+.sidebar      { width: 272px; min-width: 272px; background: var(--bg1);
+                border-right: 1px solid var(--bd); display: flex;
+                flex-direction: column; overflow: hidden; }
+.sb-tabs      { display: flex; flex-shrink: 0; border-bottom: 1px solid var(--bd);
+                background: var(--bg2); }
+.sb-tab       { flex: 1; padding: 8px 4px; font-size: 11px; font-weight: 700;
+                text-align: center; cursor: pointer; user-select: none;
+                border: none; background: transparent; color: var(--tx3);
+                border-bottom: 2px solid transparent; transition: all .12s; }
+.sb-tab:hover { color: var(--tx); }
+.sb-tab.active{ color: var(--acc); border-bottom-color: var(--acc); }
+.sb-body      { flex: 1; overflow-y: auto; }
+.sb-body::-webkit-scrollbar { width: 4px; }
+.sb-body::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+/* ── Canvas ─────────────────────────────────────────────────────────── */
+.canvas       { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+/* Drag-and-drop overlay — shows over the iframe while dragging a snippet card  */
+.dnd-overlay  { display: none; position: absolute; inset: 0; z-index: 500;
+                flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+                background: rgba(99,102,241,.14); border: 3px dashed var(--acc);
+                border-radius: 6px; margin: 4px; pointer-events: none;
+                transition: background .12s; }
+.dnd-overlay.active { display: flex; pointer-events: auto; }
+.dnd-overlay.over   { background: rgba(99,102,241,.30); }
+.dnd-overlay__icon  { font-size: 56px; line-height: 1; }
+.dnd-overlay__txt   { font: 800 20px ui-sans-serif,system-ui,sans-serif; color: var(--acc); }
+.dnd-overlay__sub   { font-size: 12px; color: var(--tx3); }
+.snip-card.dragging { opacity: .45; transform: scale(.96); box-shadow: 0 8px 24px rgba(99,102,241,.4); }
+.canvas-bar   { height: 34px; min-height: 34px; display: flex; align-items: center;
+                gap: 8px; padding: 0 12px; background: var(--bg2);
+                border-bottom: 1px solid var(--bd); flex-shrink: 0; }
+.canvas-url   { flex: 1; font-size: 11px; color: var(--tx3);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-empty { flex: 1; display: flex; flex-direction: column; align-items: center;
+                justify-content: center; gap: 14px; color: var(--tx3); }
+.canvas-empty svg { opacity: .25; }
+#frame        { flex: 1; border: none; display: none; background: #fff; }
+/* ── Components ─────────────────────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--r);
+       cursor: pointer; font: 600 12px/1 ui-sans-serif,system-ui,sans-serif;
+       padding: 6px 14px; border: none; transition: all .12s; white-space: nowrap; }
+.btn:disabled { opacity: .4; pointer-events: none; }
+.btn-p  { background: var(--acc); color: #fff; }
+.btn-p:hover  { background: var(--acc2); }
+.btn-g  { background: var(--grn); color: #fff; }
+.btn-g:hover  { background: #059669; }
+.btn-o  { background: transparent; border: 1px solid var(--bd2); color: var(--tx2); }
+.btn-o:hover  { border-color: var(--acc); color: #c7d2fe; }
+.btn-d  { background: transparent; border: 1px solid var(--red); color: var(--red); font-size: 11px; padding: 5px 10px; }
+.btn-d:hover  { background: rgba(239,68,68,.12); }
+.btn-sm { font-size: 11px; padding: 4px 10px; }
+.inp  { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r);
+        color: var(--tx); font: 12px ui-sans-serif,system-ui,sans-serif;
+        padding: 6px 9px; outline: none; transition: border-color .12s; }
+.inp:focus { border-color: var(--acc); }
+.inp-full { width: 100%; }
+select.inp { cursor: pointer; appearance: none; }
+textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
+.sep { width: 1px; height: 22px; background: var(--bd); margin: 0 2px; flex-shrink: 0; }
+.badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+         background: var(--bg3); color: var(--tx2); border: 1px solid var(--bd2); }
+.badge.amber { background: #451a03; color: var(--amb); border-color: var(--amb); }
+.badge.green { background: #052e16; color: var(--grn); border-color: var(--grn); }
+/* ── Toast ──────────────────────────────────────────────────────────── */
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+         padding: 9px 18px; border-radius: 10px; font-size: 12px; font-weight: 600;
+         z-index: 9999; display: none; white-space: nowrap;
+         box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+#toast.ok  { background: #052e16; color: #6ee7b7; border: 1px solid var(--grn); }
+#toast.err { background: #1f0a0a; color: #fca5a5; border: 1px solid var(--red); }
+#toast.inf { background: var(--bg2); color: var(--tx2); border: 1px solid var(--bd2); }
+/* ── Snippet accordion ───────────────────────────────────────────────── */
+.acc-group { border-bottom: 1px solid var(--bd); }
+.acc-hdr   { display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+             background: var(--bg1); border: none; width: 100%; text-align: left;
+             cursor: pointer; user-select: none; }
+.acc-hdr:hover { background: var(--bg2); }
+.acc-hdr-title { flex: 1; font-size: 10px; font-weight: 800; text-transform: uppercase;
+                  letter-spacing: .07em; color: var(--tx3); }
+.acc-hdr-count { font-size: 9px; font-weight: 700; background: #1e3060;
+                  color: #93c5fd; border-radius: 10px; padding: 1px 6px; }
+.acc-arrow     { font-size: 9px; color: var(--tx3); transition: transform .18s; }
+.acc-group.open .acc-hdr        { background: var(--bg2); }
+.acc-group.open .acc-hdr-title  { color: #c7d2fe; }
+.acc-group.open .acc-arrow      { transform: rotate(90deg); color: var(--acc); }
+.acc-body  { display: none; padding: 8px; }
+.acc-group.open .acc-body { display: block; }
+/* ── Snippet cards (2-col grid) ─────────────────────────────────────── */
+.snip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.snip-card { background: var(--bg2); border: 1.5px solid var(--bd2); border-radius: 8px;
+             overflow: hidden; cursor: pointer; user-select: none;
+             transition: border-color .12s, transform .12s, box-shadow .12s;
+             display: flex; flex-direction: column; }
+.snip-card:hover { border-color: var(--acc); transform: translateY(-1px);
+                    box-shadow: 0 4px 14px rgba(99,102,241,.22); }
+.snip-card.inserting { opacity: .4; pointer-events: none; }
+.snip-card.inserted  { border-color: var(--grn); box-shadow: 0 0 0 2px rgba(16,185,129,.25); }
+.snip-thumb  { width: 100%; height: 60px; object-fit: cover; display: block; background: var(--bg3); }
+.snip-ph     { width: 100%; height: 60px; display: flex; align-items: center;
+               justify-content: center; font-size: 20px;
+               background: linear-gradient(135deg, #1e3a5f, var(--bg1)); }
+.snip-foot   { padding: 5px 7px 6px; display: flex; align-items: center; gap: 4px; }
+.snip-lbl    { font-size: 9px; font-weight: 700; color: var(--tx2);
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ── Image editor panel ─────────────────────────────────────────────── */
+.img-panel   { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.img-panel--hidden { display: none; }
+.field       { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 10px; font-weight: 600; color: var(--tx3); }
+.range-row   { display: flex; align-items: center; gap: 8px; }
+.range-row input[type=range] { flex: 1; accent-color: var(--acc); cursor: pointer; }
+.range-row .range-val { font-size: 11px; color: var(--tx2); width: 32px; text-align: right; }
+/* ── Nav builder row ────────────────────────────────────────────────── */
+.nav-items   { display: flex; align-items: center; gap: 6px; flex: 1;
+               overflow-x: auto; padding: 4px 0; }
+.nav-items::-webkit-scrollbar { height: 3px; }
+.nav-items::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+.nav-chip    { display: inline-flex; align-items: center; gap: 4px;
+               background: var(--bg3); border: 1px solid var(--bd2); border-radius: 20px;
+               padding: 2px 8px; font-size: 11px; white-space: nowrap; }
+.nav-chip-del{ background: transparent; border: none; color: var(--red);
+               cursor: pointer; font-size: 12px; line-height: 1; padding: 0 2px; }
+.nav-chip-del:hover { color: #fca5a5; }
+/* ── Status rows ────────────────────────────────────────────────────── */
+.status-line { font-size: 10px; padding: 4px 8px; border-radius: 5px; display: none; }
+.status-line.ok  { background: #052e16; color: #6ee7b7; border: 1px solid var(--grn); display: block; }
+.status-line.err { background: #1f0a0a; color: #fca5a5; border: 1px solid var(--red); display: block; }
+/* ── Modal ──────────────────────────────────────────────────────────── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.7);
+                   z-index: 1000; display: none; align-items: center; justify-content: center; }
+.modal-backdrop.open { display: flex; }
+.modal-box   { background: var(--bg2); border: 1px solid var(--bd2); border-radius: 12px;
+               padding: 22px 24px; width: 360px; display: flex; flex-direction: column; gap: 14px; }
+.modal-title { font-size: 14px; font-weight: 700; }
+.modal-foot  { display: flex; gap: 8px; justify-content: flex-end; }
+/* ── Template picker cards ───────────────────────────────────────────── */
+.tpl-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+.tpl-card    { background: var(--bg2); border: 1.5px solid var(--bd2); border-radius: 8px;
+               overflow: hidden; cursor: pointer; user-select: none;
+               transition: border-color .12s, transform .12s, box-shadow .12s;
+               display: flex; flex-direction: column; position: relative; }
+.tpl-card:hover { border-color: var(--acc); transform: translateY(-1px);
+                  box-shadow: 0 4px 14px rgba(99,102,241,.22); }
+.tpl-card.active  { border-color: var(--grn);
+                    box-shadow: 0 0 0 2px rgba(16,185,129,.3); }
+.tpl-card.applying{ opacity: .4; pointer-events: none; }
+.tpl-card.unavailable { opacity: .45; }
+.tpl-thumb   { width: 100%; height: 68px; object-fit: cover; display: block; background: var(--bg3); }
+.tpl-ph      { width: 100%; height: 68px; display: flex; align-items: center;
+               justify-content: center; font-size: 22px;
+               background: linear-gradient(135deg, #1a2744, var(--bg1)); }
+.tpl-foot    { padding: 5px 7px 7px; }
+.tpl-name    { font-size: 10px; font-weight: 800; color: var(--tx2); margin-bottom: 1px;
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-desc    { font-size: 9px; color: var(--tx3); line-height: 1.4;
+               display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+               overflow: hidden; }
+.tpl-cur-badge { position: absolute; top: 4px; right: 4px; background: var(--grn);
+                  color: #fff; font-size: 8px; font-weight: 800; padding: 1px 5px;
+                  border-radius: 8px; text-transform: uppercase; letter-spacing: .05em; }
+/* ── Style Panel (Background palette + Luminance slider) ─────────────── */
+.style-section      { padding: 14px 14px 16px; border-bottom: 1px solid var(--bd); }
+.style-hdr          { font-size: 10px; font-weight: 800; text-transform: uppercase;
+                       letter-spacing: .08em; color: var(--tx3); margin-bottom: 10px; }
+.style-lbl          { font-size: 10px; color: var(--tx3); margin-top: 10px; line-height: 1.5; }
+/* BG swatches — 3-column grid, large tiles with colour area + label */
+.bg-pal             { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bg-swatch          { position: relative; border: 2px solid var(--bd2); border-radius: 9px;
+                       cursor: pointer; overflow: hidden; padding: 0; background: transparent;
+                       display: flex; flex-direction: column;
+                       transition: border-color .15s, transform .12s, box-shadow .12s; }
+.bg-swatch:hover    { border-color: var(--acc); transform: translateY(-2px);
+                       box-shadow: 0 4px 14px rgba(99,102,241,.35); }
+.bg-swatch.active   { border-color: var(--grn);
+                       box-shadow: 0 0 0 3px rgba(16,185,129,.4); }
+.bg-swatch.active::after { content: '✓'; position: absolute; top: 4px; right: 5px;
+                       font-size: 11px; font-weight: 900; color: #fff;
+                       text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+.bg-swatch__color   { display: block; height: 56px; width: 100%; flex-shrink: 0; }
+.bg-swatch__label   { display: block; padding: 4px 4px 5px;
+                       font-size: 9px; font-weight: 700; color: var(--tx2);
+                       text-align: center; white-space: nowrap;
+                       overflow: hidden; text-overflow: ellipsis;
+                       background: var(--bg2); line-height: 1.3; }
+/* Luminance slider row */
+.lum-row            { display: flex; align-items: center; gap: 9px; }
+.lum-row .lum-icon  { font-size: 15px; flex-shrink: 0; line-height: 1; }
+.lum-row input[type=range] { flex: 1; accent-color: var(--acc); cursor: pointer; }
+.lum-row .lum-val   { font-size: 12px; font-weight: 700; color: var(--acc);
+                       min-width: 36px; text-align: right; flex-shrink: 0; }
+/* ── Preview FAB ──────────────────────────────────────────────────────── */
+#edit-fab    { position: fixed; top: 14px; right: 14px; z-index: 900;
+               background: var(--acc); color: #fff; border: none; border-radius: 30px;
+               padding: 8px 18px; font: 700 13px ui-sans-serif,system-ui,sans-serif;
+               cursor: pointer; box-shadow: 0 4px 20px rgba(99,102,241,.45);
+               display: none; transition: all .15s; }
+#edit-fab:hover { background: var(--acc2); transform: scale(1.04); }
+/* ── Preview mode overlay ─────────────────────────────────────────────── */
+.app.preview-mode .mgmt-bar { display: none; }
+.app.preview-mode .sidebar  { display: none; }
+.app.preview-mode .canvas   { width: 100%; }
+.app.preview-mode #frame    { display: block !important; }
+.app.preview-mode #edit-fab { display: block; }
+</style>
 </head>
 <body>
-<div class="layout">
+<div class="app" id="app">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <h1>⬡ Visual Editor</h1>
-      <p>Site Studio — click to customise any element</p>
+  <!-- ═══ Top Management Bar ═════════════════════════════════════════════ -->
+  <div class="mgmt-bar" id="mgmt-bar">
+
+    <!-- Row 1: Tenant | Pages | Actions -->
+    <div class="mgmt-row mgmt-row-1">
+
+      <!-- Zone: Branding + Tenant -->
+      <span style="font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.04em;margin-right:4px">⚡ Studio</span>
+      <input class="inp" id="tenant-input" placeholder="Tenant ID" autocomplete="off" style="width:160px">
+      <button class="btn btn-p btn-sm" id="load-btn">▶ Load</button>
+
+      <div class="sep"></div>
+
+      <!-- Zone: Page Manager -->
+      <select class="inp" id="page-select" disabled style="width:160px">
+        <option value="">🏠 Homepage</option>
+      </select>
+      <button class="btn btn-o btn-sm" id="new-page-btn" disabled title="New page">+ Page</button>
+      <button class="btn btn-d btn-sm" id="del-page-btn" disabled title="Delete page">✕</button>
+
+      <div class="sep"></div>
+
+      <!-- Zone: Auto-menu tick -->
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;white-space:nowrap">
+        <input type="checkbox" id="auto-menu-chk" style="accent-color:var(--acc);" checked>
+        <span style="font-size:11px;color:var(--tx2)">Auto Menu</span>
+      </label>
+      <button class="btn btn-o btn-sm" id="nav-toggle-btn" title="Toggle Menu Builder">☰ Menu</button>
+
+      <div class="sep"></div>
+
+      <!-- Zone: Theme Picker (accent color only, bg is now in Style panel) -->
+      <select id="theme-select" class="inp" style="width:140px;font-size:11px" title="Accent color theme">
+        <option value="">🎨 Default Accent</option>
+        <optgroup label="Classic">
+          <option value="ocean-blue">🌊 Ocean Blue</option>
+          <option value="royal-wine">🍷 Royal Wine</option>
+          <option value="golden-sand">🏜 Golden Sand</option>
+          <option value="jungle-trek">🌿 Jungle Trek</option>
+          <option value="passion-red">🔥 Passion Red</option>
+          <option value="modern-purple">💜 Modern Purple</option>
+        </optgroup>
+        <optgroup label="Deep Travel">
+          <option value="ocean-night">🌑 Ocean Night</option>
+          <option value="midnight-vineyard">🍇 Midnight Vineyard</option>
+          <option value="deep-forest">🌳 Deep Forest</option>
+          <option value="desert-dusk">🌅 Desert Dusk</option>
+          <option value="volcanic-ash">🌋 Volcanic Ash</option>
+        </optgroup>
+      </select>
+
+      <div class="sep"></div>
+
+      <!-- Zone: Save / Publish -->
+      <span class="badge" id="mode-badge">● Idle</span>
+      <button class="btn btn-o btn-sm" id="save-draft-btn" disabled>💾 Save Draft</button>
+      <button class="btn btn-g btn-sm" id="publish-btn" disabled>▶ Publish</button>
     </div>
 
-    <div class="sidebar-body">
-
-      <!-- Tenant ID ─────────────────────────────────── -->
-      <div>
-        <label class="field-label" for="tenant-id">Tenant ID</label>
-        <input type="text" id="tenant-id" placeholder="ten-demo-001"
-               autocomplete="off" spellcheck="false" />
+    <!-- Row 2: Menu / Nav Builder -->
+    <div class="mgmt-row mgmt-row-2 collapsed" id="nav-row">
+      <span style="font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap">Nav:</span>
+      <div class="nav-items" id="nav-items-list">
+        <span style="font-size:11px;color:var(--tx3);font-style:italic">No items yet</span>
       </div>
-      <button class="btn btn-primary" id="load-btn">Load Preview</button>
+      <button class="btn btn-o btn-sm" id="nav-add-btn">+ Add</button>
+      <button class="btn btn-g btn-sm" id="nav-save-btn">Save Menu</button>
 
-      <hr class="divider">
+      <div class="sep"></div>
 
-      <!-- Select mode ────────────────────────────────── -->
-      <div class="mode-row">
-        <span class="field-label" style="margin:0">Selection Mode</span>
-        <span class="mode-badge idle" id="mode-badge">● Idle</span>
-      </div>
-
-      <button class="btn btn-select" id="select-btn" disabled>
-        ⊕ Click to Select Element
-      </button>
-
-      <p class="help-text" id="select-hint">
-        Load a preview first, then activate Selection Mode and click any element on the page.
-      </p>
-
-      <hr class="divider">
-
-      <!-- Selected element panel ──────────────────────── (hidden until selection) -->
-      <div id="selected-panel" hidden>
-        <div class="selected-panel">
-          <label class="field-label">CSS Selector</label>
-          <code class="selector-code" id="selector-display"></code>
-        </div>
-
-        <div>
-          <label class="field-label" for="new-value">
-            New Value <span id="value-hint" style="font-weight:400;text-transform:none;letter-spacing:0;color:#64748b">(text content)</span>
-          </label>
-          <textarea id="new-value" placeholder="Enter new text or image URL…"></textarea>
-        </div>
-
-        <button class="btn btn-success" id="save-btn">Save to Config</button>
-        <button class="btn btn-ghost" id="cancel-btn" style="margin-top:6px">
-          Cancel Selection
-        </button>
-      </div>
-
-      <div id="status"></div>
-
-    </div><!-- /sidebar-body -->
-  </aside>
-
-  <!-- ── Preview Pane ─────────────────────────────────────────────────────── -->
-  <div class="preview-pane">
-    <div class="preview-toolbar">
-      <span>Preview</span>
-      <span class="preview-url" id="preview-url-display">—</span>
-      <button class="btn-toolbar" id="reload-btn" disabled>↺ Reload</button>
+      <!-- Header UI toggles -->
+      <span style="font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap">Header:</span>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show phone link in header">
+        <input type="checkbox" id="nav-phone-chk" style="accent-color:var(--acc)">
+        <span style="font-size:11px;color:var(--tx2)">📞 Phone</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show cart icon in header">
+        <input type="checkbox" id="nav-cart-chk" style="accent-color:var(--acc)">
+        <span style="font-size:11px;color:var(--tx2)">🛒 Cart</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show contact button in header">
+        <input type="checkbox" id="nav-contact-chk" style="accent-color:var(--acc)">
+        <span style="font-size:11px;color:var(--tx2)">✉ Contact</span>
+      </label>
+      <button class="btn btn-o btn-sm" id="nav-ui-save-btn">Save Header</button>
     </div>
-
-    <!-- Empty state (shown before first load) -->
-    <div id="empty-state">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-        <rect x="3" y="3" width="18" height="18" rx="2"/>
-        <path d="M3 9h18M9 21V9"/>
-      </svg>
-      <p>Enter a Tenant ID and click <strong>Load Preview</strong> to display the site template here.</p>
-    </div>
-
-    <iframe id="preview-frame" style="display:none"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            src="about:blank"></iframe>
   </div>
 
-</div><!-- /layout -->
+  <!-- ═══ Workspace ══════════════════════════════════════════════════════ -->
+  <div class="workspace">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-tabs">
+        <button class="sb-tab active" id="tab-snip" data-tab="snip">📦 Snippets</button>
+        <button class="sb-tab" id="tab-tpl"  data-tab="tpl">🎨 Templates</button>
+        <button class="sb-tab" id="tab-img"  data-tab="img">🖼 Image</button>
+        <button class="sb-tab" id="tab-style" data-tab="style">💡 Style</button>
+      </div>
+      <div class="sb-body" id="sb-body">
+
+        <!-- Panel: Snippets accordion -->
+        <div id="panel-snip">
+          <div style="padding:12px;font-size:11px;color:var(--tx3)">
+            Load a tenant to browse snippets.
+          </div>
+        </div>
+
+        <!-- Panel: Template Picker -->
+        <div id="panel-tpl" style="display:none">
+          <div style="padding:10px 12px 4px;font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em">
+            Choose Template
+          </div>
+          <div style="padding:0 12px 8px;font-size:10px;color:var(--tx3)">
+            Switching replaces the sandbox layout while keeping your content &amp; images.
+          </div>
+          <div class="tpl-grid" id="tpl-grid">
+            <div style="grid-column:1/-1;padding:4px;font-size:11px;color:var(--tx3)">
+              Load a tenant to browse templates.
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel: Image editor -->
+        <div id="panel-img" class="img-panel img-panel--hidden">
+          <div style="font-size:11px;font-weight:700;color:var(--tx2)">🖼 Image Editor</div>
+          <div class="field">
+            <label>Image URL</label>
+            <input class="inp inp-full" type="text" id="img-url" placeholder="https://…">
+          </div>
+          <div class="field">
+            <label>Position X</label>
+            <div class="range-row">
+              <input type="range" id="img-pos-x" min="0" max="100" value="50">
+              <span class="range-val" id="img-pos-x-val">50%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Position Y</label>
+            <div class="range-row">
+              <input type="range" id="img-pos-y" min="0" max="100" value="50">
+              <span class="range-val" id="img-pos-y-val">50%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Scale</label>
+            <div class="range-row">
+              <input type="range" id="img-scale" min="50" max="200" value="100">
+              <span class="range-val" id="img-scale-val">100%</span>
+            </div>
+          </div>
+          <button class="btn btn-p" id="img-apply-btn" style="width:100%">Apply &amp; Preview</button>
+          <button class="btn btn-g" id="img-save-btn"  style="width:100%">💾 Save Image</button>
+          <button class="btn btn-o btn-sm" id="img-cancel-btn" style="width:100%">← Back to Snippets</button>
+          <div class="status-line" id="img-status"></div>
+          <div style="padding:6px 0;font-size:10px;color:var(--tx3);line-height:1.6">
+            Click any image in the preview to edit it here.
+          </div>
+        </div>
+
+        <!-- Panel: Button / Link editor — shown when user clicks a [data-ve-btn] -->
+        <div id="panel-btn" class="img-panel img-panel--hidden">
+          <div style="font-size:11px;font-weight:700;color:var(--tx2)">🔗 Button / Link Editor</div>
+          <div class="field">
+            <label>Button Text</label>
+            <input class="inp inp-full" type="text" id="btn-text" placeholder="Book Now">
+          </div>
+          <div class="field">
+            <label>Link (URL)</label>
+            <input class="inp inp-full" type="url" id="btn-href" placeholder="https://…">
+          </div>
+          <button class="btn btn-p" id="btn-apply-btn"  style="width:100%">Apply</button>
+          <button class="btn btn-o btn-sm" id="btn-cancel-btn" style="width:100%">← Back to Snippets</button>
+          <div style="padding:6px 0;font-size:10px;color:var(--tx3);line-height:1.6">
+            Click any button or link in the preview to edit its text and URL.
+          </div>
+        </div>
+
+        <!-- Panel: Style (Background palette + Luminance slider) -->
+        <!--
+          Architecture:
+          • BG is INDEPENDENT of the accent Theme dropdown in the top bar.
+            Themes control --p/--s/--t (accent, hover, text) only.
+          • Swatches set --bg-h + --bg-s (the colour family of the background).
+          • Luminance slider sets --bg-l (0 % = pitch black → 100 % = white).
+          • --bg = hsl(--bg-h, --bg-s, --bg-l) in theme-presets.css :root.
+          • All three values saved to brand.bg_h / bg_s / bg_l via PATCH.
+        -->
+        <div id="panel-style" style="display:none">
+
+          <!-- BG Palette:
+               Swatches shown at lightness ~30% so the hue is clearly visible
+               in the dark sidebar, even though actual page bg defaults to 8%.
+               data-h  = hue (0-360)
+               data-s  = saturation % (0-100)
+               Clicking sets --bg-h + --bg-s and triggers live preview.
+               Luminance slider below then independently controls --bg-l.
+          -->
+          <div class="style-section">
+            <div class="style-hdr">🎨 Tông màu nền</div>
+            <div style="font-size:10px;color:var(--tx3);margin-bottom:10px;line-height:1.6">
+              Chọn tông màu, sau đó dùng thanh trượt bên dưới để tinh chỉnh độ sáng.
+            </div>
+            <div class="bg-pal" id="bg-pal">
+              <button class="bg-swatch" id="bgs-0" data-h="210" data-s="90">
+                <span class="bg-swatch__color" style="background:hsl(210,90%,30%)"></span>
+                <span class="bg-swatch__label">Xanh đại dương</span>
+              </button>
+              <button class="bg-swatch" id="bgs-1" data-h="270" data-s="70">
+                <span class="bg-swatch__color" style="background:hsl(270,70%,30%)"></span>
+                <span class="bg-swatch__label">Tím sẫm</span>
+              </button>
+              <button class="bg-swatch" id="bgs-2" data-h="340" data-s="80">
+                <span class="bg-swatch__color" style="background:hsl(340,80%,25%)"></span>
+                <span class="bg-swatch__label">Đỏ rượu vang</span>
+              </button>
+              <button class="bg-swatch" id="bgs-3" data-h="150" data-s="65">
+                <span class="bg-swatch__color" style="background:hsl(150,65%,22%)"></span>
+                <span class="bg-swatch__label">Xanh lá thông</span>
+              </button>
+              <button class="bg-swatch" id="bgs-4" data-h="25" data-s="65">
+                <span class="bg-swatch__color" style="background:hsl(25,65%,25%)"></span>
+                <span class="bg-swatch__label">Nâu đất</span>
+              </button>
+              <button class="bg-swatch" id="bgs-5" data-h="220" data-s="10">
+                <span class="bg-swatch__color" style="background:hsl(220,10%,28%)"></span>
+                <span class="bg-swatch__label">Xám trung tính</span>
+              </button>
+            </div>
+            <div class="style-lbl">Tông hiện tại — Hue: <span id="bg-hue-val">210</span>°&nbsp; Sat: <span id="bg-sat-val">90</span>%</div>
+          </div>
+
+          <!-- Luminance Slider -->
+          <div class="style-section">
+            <div class="style-hdr">☀️ Độ sáng (Lightness)</div>
+            <div style="font-size:10px;color:var(--tx3);margin-bottom:8px;line-height:1.6">
+              0% = Đen tuyệt đối &nbsp;→&nbsp; 100% = Trắng.<br>
+              Đề xuất cho trang tối: 5–15%.
+            </div>
+            <div class="lum-row">
+              <span class="lum-icon">🌑</span>
+              <input type="range" id="bg-lum-slider" min="0" max="100" value="8">
+              <span class="lum-icon">☀️</span>
+              <span class="lum-val" id="bg-lum-val">8%</span>
+            </div>
+          </div>
+
+        </div><!-- /panel-style -->
+      </div>
+    </aside>
+
+    <!-- Canvas -->
+    <div class="canvas">
+      <div class="canvas-bar">
+        <span style="font-size:10px;color:var(--tx3);white-space:nowrap">Preview</span>
+        <span class="canvas-url" id="canvas-url">—</span>
+        <button class="btn btn-o btn-sm" id="canvas-reload-btn" disabled>↺</button>
+      </div>
+      <div class="canvas-empty" id="canvas-empty">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
+        <p style="font-size:12px">Enter a Tenant ID and press <strong>▶ Load</strong></p>
+      </div>
+      <iframe id="frame" sandbox="allow-scripts allow-same-origin allow-forms" src="about:blank"></iframe>
+      <!-- Drag-and-drop target: covers the full canvas (incl. iframe) while dragging -->
+      <div class="dnd-overlay" id="dnd-overlay">
+        <div class="dnd-overlay__icon">⬇</div>
+        <div class="dnd-overlay__txt">Thả Snippet vào đây</div>
+        <div class="dnd-overlay__sub">Thả để chèn vào trang</div>
+      </div>
+    </div>
+  </div><!-- /workspace -->
+
+  <!-- Preview FAB -->
+  <button id="edit-fab">✏ Exit Preview</button>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Modal: New Page -->
+  <div class="modal-backdrop" id="modal-new">
+    <div class="modal-box">
+      <div class="modal-title">+ New Page</div>
+      <div class="field">
+        <label for="np-title">Page Title</label>
+        <input class="inp inp-full" type="text" id="np-title" placeholder="About Us">
+      </div>
+      <div class="field">
+        <label for="np-slug">URL Slug</label>
+        <input class="inp inp-full" type="text" id="np-slug" placeholder="about-us">
+      </div>
+      <div class="status-line" id="np-status"></div>
+      <div class="modal-foot">
+        <button class="btn btn-o" id="np-cancel">Cancel</button>
+        <button class="btn btn-p" id="np-create">Create Page</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
 
 <script>
 (function () {
   'use strict';
 
+  var API = window.location.origin;  // 'http://localhost:8787'
+
+  // ── State ───────────────────────────────────────────────────────────────
+  var S = {
+    tenantId:       '',
+    pages:          [],       // [{slug,title}]
+    activePage:     null,     // null = homepage, else slug
+    navigation:     [],       // [{label,url}]
+    autoMenu:       true,
+    snippets:       null,     // null = not loaded
+    snipOpen:       { essential: true, commerce: false, trust: false, contact: false },
+    customSections: [],       // current custom_sections
+    sectionHtml:    {},       // { id: html } updated via iframe
+    dirty:          {},       // { selector: value } inline changes
+    imgEdit:        null,     // current image being edited
+    currentTheme:   '',       // current_theme key (accent only)
+    bgH:            210,      // brand.bg_h — background hue   (0-360)  default: Ocean Blue
+    bgS:            90,       // brand.bg_s — background sat   (0-100)
+    bgL:            8,        // brand.bg_l — background light (0-100)
+    templateId:     '',       // active template_id (from DB)
+    templates:      null,     // null = not loaded
+    navConfig:      { showPhone: false, showCart: false, showContactForm: false },
+    frameReady:     false,
+    previewMode:    false,
+    headerHeight:   0,        // measured by editor-bridge, persisted to cfg.header_height
+    dragSnip:       null,     // snippet being dragged
+    dragCard:       null,      // card element being dragged
+    btnEdit:        null       // button/link being edited
+  };
+
   // ── DOM refs ─────────────────────────────────────────────────────────────
-  var tenantInput      = document.getElementById('tenant-id');
-  var loadBtn          = document.getElementById('load-btn');
-  var selectBtn        = document.getElementById('select-btn');
-  var modeBadge        = document.getElementById('mode-badge');
-  var selectedPanel    = document.getElementById('selected-panel');
-  var selectorDisplay  = document.getElementById('selector-display');
-  var newValueInput    = document.getElementById('new-value');
-  var valueHint        = document.getElementById('value-hint');
-  var saveBtn          = document.getElementById('save-btn');
-  var cancelBtn        = document.getElementById('cancel-btn');
-  var statusEl         = document.getElementById('status');
-  var previewFrame     = document.getElementById('preview-frame');
-  var previewUrlDisplay = document.getElementById('preview-url-display');
-  var reloadBtn        = document.getElementById('reload-btn');
-  var emptyState       = document.getElementById('empty-state');
+  var app            = document.getElementById('app');
+  var tenantInput    = document.getElementById('tenant-input');
+  var loadBtn        = document.getElementById('load-btn');
+  var pageSelect     = document.getElementById('page-select');
+  var newPageBtn     = document.getElementById('new-page-btn');
+  var delPageBtn     = document.getElementById('del-page-btn');
+  var autoMenuChk    = document.getElementById('auto-menu-chk');
+  var navToggleBtn   = document.getElementById('nav-toggle-btn');
+  var navRow         = document.getElementById('nav-row');
+  var navItemsList   = document.getElementById('nav-items-list');
+  var navAddBtn      = document.getElementById('nav-add-btn');
+  var navSaveBtn     = document.getElementById('nav-save-btn');
+  var navPhoneChk    = document.getElementById('nav-phone-chk');
+  var navCartChk     = document.getElementById('nav-cart-chk');
+  var navContactChk  = document.getElementById('nav-contact-chk');
+  var navUiSaveBtn   = document.getElementById('nav-ui-save-btn');
+  var modeBadge      = document.getElementById('mode-badge');
+  var saveDraftBtn   = document.getElementById('save-draft-btn');
+  var publishBtn     = document.getElementById('publish-btn');
+  var frame          = document.getElementById('frame');
+  var dndOverlay     = document.getElementById('dnd-overlay');
+  var canvasEmpty    = document.getElementById('canvas-empty');
+  var canvasUrl      = document.getElementById('canvas-url');
+  var canvasReload   = document.getElementById('canvas-reload-btn');
+  var tabSnip        = document.getElementById('tab-snip');
+  var tabTpl         = document.getElementById('tab-tpl');
+  var tabImg         = document.getElementById('tab-img');
+  var tabStyle       = document.getElementById('tab-style');
+  var panelSnip      = document.getElementById('panel-snip');
+  var panelTpl       = document.getElementById('panel-tpl');
+  var panelImg       = document.getElementById('panel-img');
+  var panelStyle     = document.getElementById('panel-style');
+  var tplGrid        = document.getElementById('tpl-grid');
+  var imgUrl         = document.getElementById('img-url');
+  var imgPosX        = document.getElementById('img-pos-x');
+  var imgPosY        = document.getElementById('img-pos-y');
+  var imgScale       = document.getElementById('img-scale');
+  var imgPosXVal     = document.getElementById('img-pos-x-val');
+  var imgPosYVal     = document.getElementById('img-pos-y-val');
+  var imgScaleVal    = document.getElementById('img-scale-val');
+  var imgApplyBtn    = document.getElementById('img-apply-btn');
+  var imgSaveBtn     = document.getElementById('img-save-btn');
+  var imgCancelBtn   = document.getElementById('img-cancel-btn');
+  var imgStatus      = document.getElementById('img-status');
+  var panelBtn       = document.getElementById('panel-btn');
+  var btnText        = document.getElementById('btn-text');
+  var btnHref        = document.getElementById('btn-href');
+  var btnApplyBtn    = document.getElementById('btn-apply-btn');
+  var btnCancelBtn   = document.getElementById('btn-cancel-btn');
+  var themeSelect    = document.getElementById('theme-select');
+  var bgLumSlider    = document.getElementById('bg-lum-slider');
+  var bgLumVal       = document.getElementById('bg-lum-val');
+  var bgHueVal       = document.getElementById('bg-hue-val');
+  var bgSatVal       = document.getElementById('bg-sat-val');
+  var bgPal          = document.getElementById('bg-pal');
+  var editFab        = document.getElementById('edit-fab');
+  var toast          = document.getElementById('toast');
+  var modalNew       = document.getElementById('modal-new');
+  var npTitle        = document.getElementById('np-title');
+  var npSlug         = document.getElementById('np-slug');
+  var npStatus       = document.getElementById('np-status');
+  var npCancel       = document.getElementById('np-cancel');
+  var npCreate       = document.getElementById('np-create');
 
-  var tenantId   = '';
-  var selectMode = false;
-  var currentSel = null;
-  var frameReady = false;
-
-  // ── Status helpers ────────────────────────────────────────────────────────
-  var _statusTimer;
-  function showStatus(msg, isError) {
-    statusEl.textContent = msg;
-    statusEl.className   = isError ? 'err' : 'ok';
-    clearTimeout(_statusTimer);
-    _statusTimer = setTimeout(function () { statusEl.className = ''; }, 5000);
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Load preview ──────────────────────────────────────────────────────────
-  loadBtn.addEventListener('click', function () {
-    tenantId = tenantInput.value.trim();
-    if (!tenantId) { showStatus('Enter a Tenant ID first.', true); return; }
-
-    var url = '/api/tenant/preview?tid=' + encodeURIComponent(tenantId);
-    previewUrlDisplay.textContent = url;
-    previewUrlDisplay.title       = url;
-
-    // Show iframe, hide empty state
-    emptyState.style.display    = 'none';
-    previewFrame.style.display  = '';
-    frameReady = false;
-
-    previewFrame.onload = function () {
-      frameReady = true;
-      // Re-send activate if select mode was on during reload
-      if (selectMode) sendToFrame('EDITOR_ACTIVATE');
-    };
-    previewFrame.src = url;
-
-    reloadBtn.disabled  = false;
-    selectBtn.disabled  = false;
-  });
-
-  reloadBtn.addEventListener('click', function () {
-    if (previewFrame.src === 'about:blank') return;
-    frameReady = false;
-    previewFrame.contentWindow.location.reload();
-  });
-
-  // ── Select mode toggle ────────────────────────────────────────────────────
-  selectBtn.addEventListener('click', function () {
-    if (selectMode) deactivateSelectMode();
-    else            activateSelectMode();
-  });
-
-  function activateSelectMode() {
-    selectMode = true;
-    selectBtn.textContent = '✕ Exit Select Mode';
-    selectBtn.classList.add('active');
-    modeBadge.className   = 'mode-badge active';
-    modeBadge.textContent = '● Selecting…';
-    if (frameReady) sendToFrame('EDITOR_ACTIVATE');
+  function showToast(msg, type) {
+    // type: 'ok' | 'err' | 'inf'
+    toast.textContent = msg;
+    toast.className   = 'toast ' + (type || 'ok');  // Note: class "toast" not defined = still hidden? We handle display
+    toast.style.display = 'block';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { toast.style.display = 'none'; }, 3200);
   }
 
-  function deactivateSelectMode() {
-    selectMode = false;
-    selectBtn.textContent = '⊕ Click to Select Element';
-    selectBtn.classList.remove('active');
-    modeBadge.className   = 'mode-badge idle';
-    modeBadge.textContent = '● Idle';
-    if (frameReady) sendToFrame('EDITOR_DEACTIVATE');
+  function setStatus(el, msg, isErr) {
+    el.textContent = msg;
+    el.className   = 'status-line ' + (isErr ? 'err' : 'ok');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.className = 'status-line'; }, 4000);
   }
 
-  function sendToFrame(msg) {
+  function hdr() {
+    return { 'Content-Type': 'application/json', 'X-Tenant-ID': S.tenantId };
+  }
+
+  function sendFrame(msg) {
+    try { frame.contentWindow && frame.contentWindow.postMessage(msg, '*'); } catch (_) {}
+  }
+
+  function setEnabled(buttons, enabled) {
+    buttons.forEach(function (b) { b.disabled = !enabled; });
+  }
+
+  function slugify(str) {
+    return str.toLowerCase().trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  // ── Load tenant ───────────────────────────────────────────────────────────
+  loadBtn.addEventListener('click', loadTenant);
+  tenantInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') loadTenant(); });
+
+  async function loadTenant() {
+    var id = tenantInput.value.trim();
+    if (!id) { tenantInput.focus(); return; }
+    S.tenantId  = id;
+    S.snippets  = null;    // force reload on tenant change
+    S.templates = null;    // force reload on tenant change
+    loadBtn.disabled    = true;
+    loadBtn.textContent = '…';
     try {
-      previewFrame.contentWindow.postMessage(msg, window.location.origin);
-    } catch (_) {}
-  }
-
-  cancelBtn.addEventListener('click', function () {
-    deactivateSelectMode();
-    selectedPanel.hidden = true;
-    currentSel = null;
-  });
-
-  // ── Receive selection from iframe ─────────────────────────────────────────
-  window.addEventListener('message', function (e) {
-    // [SEC] Validate origin — only accept same-origin postMessages
-    if (e.origin !== window.location.origin) return;
-    if (!e.data || e.data.type !== 'ELEMENT_SELECTED') return;
-
-    var sel = e.data.selector;
-    var tag = e.data.tagName;
-    var val = e.data.currentValue || '';
-
-    currentSel = sel;
-    selectorDisplay.textContent = sel;
-    newValueInput.value         = val;
-
-    var isImg = tag === 'IMG';
-    newValueInput.placeholder = isImg
-      ? 'https://cdn.example.com/new-logo.png'
-      : 'Enter new text content…';
-    valueHint.textContent = isImg ? '(image URL)' : '(text content)';
-
-    selectedPanel.hidden = false;
-    deactivateSelectMode();
-    newValueInput.focus();
-    newValueInput.select();
-  });
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-  saveBtn.addEventListener('click', async function () {
-    if (!currentSel) { showStatus('No element selected.', true); return; }
-    if (!tenantId)   { showStatus('No tenant loaded.',    true); return; }
-
-    var value = newValueInput.value;
-    saveBtn.disabled    = true;
-    saveBtn.textContent = 'Saving…';
-
-    try {
-      var res  = await fetch('/api/tenant/config', {
-        method:  'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID':  tenantId,
-        },
-        body: JSON.stringify({ custom_selectors: { [currentSel]: value } }),
-      });
-      var data = await res.json();
-
-      if (res.ok && data.ok) {
-        showStatus('✓ Saved. Click ↺ Reload to see the change.', false);
-        selectedPanel.hidden = true;
-        currentSel = null;
-      } else {
-        showStatus('Error: ' + (data.error || 'Unknown error'), true);
-      }
+      await Promise.all([fetchConfig(), fetchPages()]);
+      setEnabled([newPageBtn, delPageBtn, saveDraftBtn, publishBtn, canvasReload], true);
+      loadFrame(null);
+      await Promise.all([loadSnippets(), loadTemplates()]);
     } catch (err) {
-      showStatus('Network error: ' + err.message, true);
+      showToast('Load failed: ' + err.message, 'err');
     } finally {
-      saveBtn.disabled    = false;
-      saveBtn.textContent = 'Save to Config';
+      loadBtn.disabled    = false;
+      loadBtn.textContent = '▶ Load';
+    }
+  }
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  async function fetchConfig() {
+    var res = await fetch(API + '/api/tenant/config', { headers: hdr() });
+    if (!res.ok) throw new Error('Config ' + res.status);
+    var data = await res.json();
+    var cfg  = data.config || {};
+    S.navigation     = Array.isArray(cfg.navigation)      ? cfg.navigation      : [];
+    S.customSections = Array.isArray(cfg.custom_sections) ? cfg.custom_sections : [];
+    S.currentTheme   = typeof cfg.current_theme === 'string' ? cfg.current_theme : '';
+    S.templateId     = typeof cfg.template_id   === 'string' ? cfg.template_id   : '';
+    // Background HSL from brand sub-object (independent of accent theme)
+    var brandCfg = cfg.brand || {};
+    S.bgH = (typeof brandCfg.bg_h === 'number') ? Math.max(0, Math.min(360, Math.round(brandCfg.bg_h)))  : 210;
+    S.bgS = (typeof brandCfg.bg_s === 'number') ? Math.max(0, Math.min(100, Math.round(brandCfg.bg_s)))  : 90;
+    S.bgL = (typeof brandCfg.bg_l === 'number') ? Math.max(0, Math.min(100, Math.round(brandCfg.bg_l)))  : 8;
+    // Restore persisted header height (measured by editor-bridge on previous load)
+    S.headerHeight = (typeof cfg.header_height === 'number') ? Math.round(cfg.header_height) : 0;
+    bgLumSlider.value    = S.bgL;
+    bgLumVal.textContent = S.bgL + '%';
+    if (bgHueVal) bgHueVal.textContent = S.bgH;
+    _syncBgSwatchActive();
+    // Header UI toggles
+    var nc = cfg.navigation_config || {};
+    S.navConfig = {
+      showPhone:       !!nc.showPhone,
+      showCart:        !!nc.showCart,
+      showContactForm: !!nc.showContactForm,
+    };
+    // Reflect theme in the picker without triggering the change handler.
+    themeSelect.value      = S.currentTheme;
+    navPhoneChk.checked    = S.navConfig.showPhone;
+    navCartChk.checked     = S.navConfig.showCart;
+    navContactChk.checked  = S.navConfig.showContactForm;
+    renderNavItems();
+  }
+
+  // ── BG Palette + Luminance Slider ──────────────────────────────────────────────────────────────────
+  //
+  // Architecture:
+  //   Swatches  (← data-h, data-s attributes) → set S.bgH + S.bgS
+  //   Slider    (← #bg-lum-slider)             → set S.bgL
+  //   Both paths call _applyBgLive() (zero iframe reload) and
+  //   _scheduleBgSave() (debounced PATCH { brand: { bg_h, bg_s, bg_l } }).
+  //
+  // --bg-h, --bg-s, --bg-l are written as inline styles on the iframe <html>
+  // element so they override the :root defaults without a full page reload.
+
+  // BG palette swatch definitions — must match the HTML data-h/data-s attributes above
+  var BG_PALETTE = [
+    { h: 210, s: 90, label: 'Xanh đại dương' },
+    { h: 270, s: 70, label: 'Tím sẫm'        },
+    { h: 340, s: 80, label: 'Đỏ rượu vang'   },
+    { h: 150, s: 65, label: 'Xanh lá thông'  },
+    { h: 25,  s: 65, label: 'Nâu đất'        },
+    { h: 220, s: 10, label: 'Xám trung tính' },
+  ];
+
+  function _applyBgLive() {
+    try {
+      var iDoc = frame.contentDocument || frame.contentWindow.document;
+      if (!iDoc || !iDoc.documentElement) return;
+      var root = iDoc.documentElement;
+      root.style.setProperty('--bg-h', String(S.bgH));
+      root.style.setProperty('--bg-s', S.bgS + '%');
+      root.style.setProperty('--bg-l', S.bgL + '%');
+    } catch (_) { /* cross-origin guard — safe no-op */ }
+  }
+
+  function _syncBgSwatchActive() {
+    if (!bgPal) return;
+    bgPal.querySelectorAll('.bg-swatch').forEach(function (btn) {
+      var bh = parseInt(btn.dataset.h, 10);
+      var bs = parseInt(btn.dataset.s, 10);
+      btn.classList.toggle('active', bh === S.bgH && bs === S.bgS);
+    });
+    if (bgHueVal) bgHueVal.textContent = S.bgH;
+    if (bgSatVal) bgSatVal.textContent = S.bgS;
+  }
+
+  var _bgSaveTimer = null;
+  function _scheduleBgSave() {
+    if (!S.tenantId) return;
+    clearTimeout(_bgSaveTimer);
+    _bgSaveTimer = setTimeout(async function () {
+      modeBadge.textContent = '● Saving…';
+      modeBadge.className   = 'badge amber';
+      try {
+        await patchConfig({ brand: { bg_h: S.bgH, bg_s: S.bgS, bg_l: S.bgL } });
+        modeBadge.textContent = '● Saved';
+        modeBadge.className   = 'badge green';
+      } catch (err) {
+        modeBadge.textContent = '● Error';
+        modeBadge.className   = 'badge';
+        showToast('Background save failed: ' + err.message, 'err');
+      }
+    }, 400);
+  }
+
+  // Swatch clicks — set colour family (H + S), keep current lightness
+  if (bgPal) {
+    bgPal.addEventListener('click', function (e) {
+      var btn = e.target.closest('.bg-swatch');
+      if (!btn) return;
+      S.bgH = parseInt(btn.dataset.h, 10);
+      S.bgS = parseInt(btn.dataset.s, 10);
+      _syncBgSwatchActive();
+      _applyBgLive();
+      _scheduleBgSave();
+    });
+  }
+
+  // Luminance slider — 0 (pitch black) → 100 (white)
+  bgLumSlider.addEventListener('input', function () {
+    S.bgL = parseInt(bgLumSlider.value, 10);
+    bgLumVal.textContent = S.bgL + '%';
+    _applyBgLive();
+  });
+
+  bgLumSlider.addEventListener('change', function () {
+    _scheduleBgSave();
+  });
+
+  // Open Style tab automatically when tenant loads (first time)
+  var _styleTabAutoOpened = false;
+  function _openStyleTabOnce() {
+    if (!_styleTabAutoOpened) return;
+    // intentional no-op — keep current tab; user can switch manually
+  }
+
+  // ── Theme Picker ─────────────────────────────────────────────────────────
+  themeSelect.addEventListener('change', async function () {
+    if (!S.tenantId) { themeSelect.value = S.currentTheme; return; }
+    var chosen = themeSelect.value;      // '' or one of the 6 keys
+    var prev   = S.currentTheme;
+    S.currentTheme = chosen;
+    modeBadge.textContent = '● Saving…';
+    modeBadge.className   = 'badge amber';
+    try {
+      await patchConfig({ current_theme: chosen });
+      modeBadge.textContent = '● Saved';
+      modeBadge.className   = 'badge green';
+      showToast('Theme: ' + (chosen || 'default'), 'ok');
+      // Reload the frame so theme-presets.css picks up the new data-theme value.
+      loadFrame(S.activePage);
+    } catch (err) {
+      S.currentTheme      = prev;
+      themeSelect.value   = prev;
+      modeBadge.textContent = '● Idle';
+      modeBadge.className   = 'badge';
+      showToast('Theme save failed: ' + err.message, 'err');
     }
   });
 
-  // Pre-fill Tenant ID from ?tenant= query param (handy deep-link from admin)
-  var qs = new URLSearchParams(location.search);
-  if (qs.get('tenant')) {
-    tenantInput.value = qs.get('tenant');
+  async function patchConfig(payload) {
+    var res = await fetch(API + '/api/tenant/config', {
+      method: 'PATCH', headers: hdr(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) { var t = await res.text(); throw new Error(t); }
+    return res.json();
   }
+
+  // ── Pages ─────────────────────────────────────────────────────────────────
+  async function fetchPages() {
+    var res = await fetch(API + '/api/tenant/pages', { headers: hdr() });
+    if (!res.ok) throw new Error('Pages ' + res.status);
+    var data = await res.json();
+    S.pages = Array.isArray(data.pages) ? data.pages : [];
+    renderPageSelect();
+  }
+
+  function renderPageSelect() {
+    pageSelect.disabled = false;
+    pageSelect.innerHTML = '<option value="">🏠 Homepage</option>';
+    S.pages.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value       = p.slug;
+      opt.textContent = p.title || p.slug;
+      if (S.activePage === p.slug) opt.selected = true;
+      pageSelect.appendChild(opt);
+    });
+  }
+
+  pageSelect.addEventListener('change', function () {
+    S.activePage = pageSelect.value || null;
+    loadFrame(S.activePage);
+  });
+
+  newPageBtn.addEventListener('click', function () {
+    npTitle.value = ''; npSlug.value = ''; npStatus.className = 'status-line';
+    modalNew.classList.add('open');
+    npTitle.focus();
+  });
+
+  npTitle.addEventListener('input', function () {
+    npSlug.value = slugify(npTitle.value);
+  });
+
+  npCancel.addEventListener('click', function () { modalNew.classList.remove('open'); });
+  modalNew.addEventListener('click', function (e) {
+    if (e.target === modalNew) modalNew.classList.remove('open');
+  });
+
+  npCreate.addEventListener('click', async function () {
+    var title = npTitle.value.trim();
+    var slug  = npSlug.value.trim();
+    if (!title || !slug) { setStatus(npStatus, 'Title and slug required.', true); return; }
+    npCreate.disabled = true;
+    try {
+      var res = await fetch(API + '/api/tenant/pages', {
+        method: 'POST', headers: hdr(),
+        body: JSON.stringify({ title: title, slug: slug })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      showToast('Page "' + title + '" created', 'ok');
+      modalNew.classList.remove('open');
+      await fetchPages();
+      if (S.autoMenu) autoSyncMenu();
+    } catch (err) {
+      setStatus(npStatus, 'Error: ' + err.message, true);
+    } finally {
+      npCreate.disabled = false;
+    }
+  });
+
+  delPageBtn.addEventListener('click', async function () {
+    var slug = S.activePage;
+    if (!slug) { showToast('Select a sub-page to delete (cannot delete homepage)', 'inf'); return; }
+    if (!confirm('Delete page "' + slug + '"? This cannot be undone.')) return;
+    try {
+      var res = await fetch(API + '/api/tenant/pages/' + encodeURIComponent(slug), {
+        method: 'DELETE', headers: hdr()
+      });
+      if (!res.ok) throw new Error(await res.text());
+      showToast('Page deleted', 'ok');
+      S.activePage = null;
+      await fetchPages();
+      loadFrame(null);
+      if (S.autoMenu) autoSyncMenu();
+    } catch (err) {
+      showToast('Delete failed: ' + err.message, 'err');
+    }
+  });
+
+  // ── Navigation builder ────────────────────────────────────────────────────
+  navToggleBtn.addEventListener('click', function () {
+    navRow.classList.toggle('collapsed');
+  });
+  autoMenuChk.addEventListener('change', function () {
+    S.autoMenu = autoMenuChk.checked;
+  });
+
+  function renderNavItems() {
+    if (!S.navigation.length) {
+      navItemsList.innerHTML = '<span style="font-size:11px;color:var(--tx3);font-style:italic">No items</span>';
+      return;
+    }
+    navItemsList.innerHTML = '';
+    S.navigation.forEach(function (item, i) {
+      var chip = document.createElement('div');
+      chip.className = 'nav-chip';
+      chip.innerHTML =
+        '<span>' + esc(item.label) + '</span>' +
+        '<span style="color:var(--tx3);font-size:10px">' + esc(item.url) + '</span>' +
+        '<button class="nav-chip-del" data-idx="' + i + '" title="Remove">✕</button>';
+      navItemsList.appendChild(chip);
+    });
+  }
+
+  navItemsList.addEventListener('click', function (e) {
+    var btn = e.target.closest('.nav-chip-del');
+    if (!btn) return;
+    var idx = parseInt(btn.dataset.idx, 10);
+    S.navigation.splice(idx, 1);
+    renderNavItems();
+  });
+
+  navAddBtn.addEventListener('click', function () {
+    var label = prompt('Link label:');
+    if (!label) return;
+    var url   = prompt('URL (e.g. /about-us or https://…):');
+    if (!url) return;
+    S.navigation.push({ label: label.slice(0,80), url: url.slice(0,200) });
+    renderNavItems();
+  });
+
+  navSaveBtn.addEventListener('click', async function () {
+    navSaveBtn.disabled = true;
+    try {
+      await patchConfig({ navigation: S.navigation });
+      showToast('Menu saved', 'ok');
+    } catch (err) {
+      showToast('Save failed: ' + err.message, 'err');
+    } finally {
+      navSaveBtn.disabled = false;
+    }
+  });
+
+  // ── Header UI config save ─────────────────────────────────────────────────
+  navUiSaveBtn.addEventListener('click', async function () {
+    if (!S.tenantId) { showToast('Load a tenant first', 'inf'); return; }
+    navUiSaveBtn.disabled = true;
+    var nc = {
+      showPhone:       navPhoneChk.checked,
+      showCart:        navCartChk.checked,
+      showContactForm: navContactChk.checked,
+    };
+    var prev = Object.assign({}, S.navConfig);
+    S.navConfig = nc;
+    modeBadge.textContent = '● Saving…';
+    modeBadge.className   = 'badge amber';
+    try {
+      await patchConfig({ navigation_config: nc });
+      modeBadge.textContent = '● Saved';
+      modeBadge.className   = 'badge green';
+      showToast('Header config saved', 'ok');
+      // Reload frame so header re-renders with the new toggles.
+      loadFrame(S.activePage);
+    } catch (err) {
+      S.navConfig = prev;
+      navPhoneChk.checked   = prev.showPhone;
+      navCartChk.checked    = prev.showCart;
+      navContactChk.checked = prev.showContactForm;
+      modeBadge.textContent = '● Idle';
+      modeBadge.className   = 'badge';
+      showToast('Header save failed: ' + err.message, 'err');
+    } finally {
+      navUiSaveBtn.disabled = false;
+    }
+  });
+
+  function autoSyncMenu() {
+    S.navigation = [{ label: 'Home', url: '/' }];
+    S.pages.forEach(function (p) {
+      S.navigation.push({ label: p.title || p.slug, url: '/' + p.slug });
+    });
+    renderNavItems();
+  }
+
+  // ── Frame loading ─────────────────────────────────────────────────────────
+  function frameUrl(slug) {
+    if (!slug) return API + '/api/tenant/preview?tid=' + encodeURIComponent(S.tenantId);
+    return API + '/api/tenant/pages/' + encodeURIComponent(slug) + '/preview?tid=' + encodeURIComponent(S.tenantId);
+  }
+
+  function loadFrame(slug) {
+    S.activePage   = slug || null;
+    S.frameReady   = false;
+    var url        = frameUrl(slug);
+    frame.src      = url;
+    frame.style.display  = 'block';
+    canvasEmpty.style.display = 'none';
+    canvasUrl.textContent = url;
+    canvasReload.disabled = false;
+    modeBadge.textContent = '● Loading…';
+    modeBadge.className   = 'badge';
+  }
+
+  canvasReload.addEventListener('click', function () {
+    if (S.tenantId) loadFrame(S.activePage);
+  });
+
+  // ── Sidebar tabs ──────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    [tabSnip, tabTpl, tabImg, tabStyle].forEach(function (t) { t.classList.remove('active'); });
+    panelSnip.style.display  = 'none';
+    panelTpl.style.display   = 'none';
+    panelStyle.style.display = 'none';
+    panelImg.classList.add('img-panel--hidden');
+    panelBtn.classList.add('img-panel--hidden');
+    if (tab === 'snip') {
+      tabSnip.classList.add('active');
+      panelSnip.style.display = 'block';
+    } else if (tab === 'tpl') {
+      tabTpl.classList.add('active');
+      panelTpl.style.display = 'block';
+    } else if (tab === 'style') {
+      tabStyle.classList.add('active');
+      panelStyle.style.display = 'block';
+    } else {
+      // 'img' tab — show whichever sub-editor is active (image or button)
+      tabImg.classList.add('active');
+      if (S.btnEdit) {
+        panelBtn.classList.remove('img-panel--hidden');
+      } else {
+        panelImg.classList.remove('img-panel--hidden');
+      }
+    }
+  }
+  tabSnip.addEventListener('click',  function () { switchTab('snip'); });
+  tabTpl.addEventListener('click',   function () { switchTab('tpl'); });
+  tabImg.addEventListener('click',   function () { switchTab('img'); });
+  tabStyle.addEventListener('click', function () { switchTab('style'); });
+  imgCancelBtn.addEventListener('click', function () { switchTab('snip'); S.imgEdit = null; });
+
+  // ── Button / Link editor ──────────────────────────────────────────────────
+  // Opened when user clicks a [data-ve-btn] element in the iframe.
+  function openButtonEditor(data) {
+    S.btnEdit = data;
+    btnText.value = data.text || '';
+    btnHref.value = data.href || '';
+    // Show the btn panel by hiding all others in the img-panel region
+    panelImg.classList.add('img-panel--hidden');
+    panelBtn.classList.remove('img-panel--hidden');
+    switchTab('img');  // reuse the 🖼 Image tab slot to stay in sidebar context
+  }
+
+  btnApplyBtn.addEventListener('click', function () {
+    if (!S.btnEdit) return;
+    sendFrame({
+      type:     'APPLY_BTN',
+      selector: S.btnEdit.selector,
+      text:     btnText.value,
+      href:     btnHref.value
+    });
+    // If the button belongs to a section, capture updated HTML asynchronously
+    // via the SECTION_HTML_UPDATED message that editor-bridge will send back.
+    showToast('Button updated', 'ok');
+  });
+
+  btnCancelBtn.addEventListener('click', function () {
+    panelBtn.classList.add('img-panel--hidden');
+    panelImg.classList.remove('img-panel--hidden');
+    S.btnEdit = null;
+    switchTab('snip');
+  });
+
+  // ── Snippet library ───────────────────────────────────────────────────────
+  // Loads from GET /api/tenant/snippets — server reads the template (R2),
+  // extracts <section> blocks and returns JSON with thumbnail metadata.
+  async function loadSnippets() {
+    if (S.snippets !== null) { renderSnippets(); return; }
+    panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:var(--tx3)">⏳ Loading snippets…</div>';
+    try {
+      var url = API + '/api/tenant/snippets';
+      var res = await fetch(url, { headers: hdr() });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).slice(0, 80));
+      var data = await res.json();
+      S.snippets = Array.isArray(data.snippets) ? data.snippets : [];
+      if (data.templateId) panelSnip.setAttribute('data-template', data.templateId);
+      renderSnippets();
+    } catch (err) {
+      panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:#ef4444">⚠ Failed to load snippets: ' + esc(err.message) + '</div>';
+    }
+  }
+
+  var CAT_META = {
+    essential: { label: 'Essential',  icon: '✅' },
+    commerce:  { label: 'Commerce',   icon: '💰' },
+    trust:     { label: 'Trust',      icon: '⭐' },
+    contact:   { label: 'Contact',    icon: '📬' }
+  };
+
+  function renderSnippets() {
+    if (!S.snippets || !S.snippets.length) {
+      panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:var(--tx3)">No snippets found.</div>';
+      return;
+    }
+    panelSnip.innerHTML = '';
+
+    // Group by category; fall back to a single "Blocks" group for categories
+    // not in CAT_META (e.g. all-'essential' API snippets land in one group).
+    var groups = {};
+    var order  = [];
+    S.snippets.forEach(function (snip) {
+      var cat = snip.category || 'essential';
+      if (!groups[cat]) { groups[cat] = []; order.push(cat); }
+      groups[cat].push(snip);
+    });
+
+    order.forEach(function (catKey, gi) {
+      var meta  = CAT_META[catKey] || { label: catKey.charAt(0).toUpperCase() + catKey.slice(1), icon: '▦' };
+      var items = groups[catKey];
+
+      var group = document.createElement('div');
+      group.className = 'acc-group';
+      if (gi === 0 || S.snipOpen[catKey]) group.classList.add('open');
+      group.setAttribute('data-cat', catKey);
+
+      var hdr = document.createElement('button');
+      hdr.className = 'acc-hdr';
+      hdr.innerHTML =
+        '<span style="font-size:14px">' + meta.icon + '</span>' +
+        '<span class="acc-hdr-title">' + esc(meta.label) + '</span>' +
+        '<span class="acc-hdr-count">' + items.length + '</span>' +
+        '<span class="acc-arrow">▶</span>';
+      hdr.addEventListener('click', function () {
+        var open = group.classList.toggle('open');
+        S.snipOpen[catKey] = open;
+      });
+
+      var body = document.createElement('div');
+      body.className = 'acc-body';
+      var grid = document.createElement('div');
+      grid.className = 'snip-grid';
+
+      items.forEach(function (snip) {
+        var card = document.createElement('div');
+        card.className = 'snip-card';
+        card.title     = snip.desc || snip.label;
+
+        var thumbHtml = snip.thumbnail
+          ? '<img class="snip-thumb" src="' + esc(snip.thumbnail) + '" alt="" loading="lazy">'
+          : '<div class="snip-ph">' + snip.icon + '</div>';
+
+        card.innerHTML =
+          thumbHtml +
+          '<div class="snip-foot">' +
+            '<span style="font-size:13px">' + snip.icon + '</span>' +
+            '<span class="snip-lbl">' + esc(snip.label) + '</span>' +
+          '</div>';
+
+        card.addEventListener('click', function () { insertSnippet(snip, card); });
+
+        // ── Drag-and-drop: drag card onto canvas to insert snippet ───────
+        card.setAttribute('draggable', 'true');
+        card.addEventListener('dragstart', function (e) {
+          S.dragSnip = snip;
+          S.dragCard = card;
+          e.dataTransfer.effectAllowed = 'copy';
+          e.dataTransfer.setData('text/plain', snip.type || snip.label || '');
+          // Delay ghost-image capture: add .dragging on next tick so the
+          // browser screenshots the card in its normal state.
+          setTimeout(function () { card.classList.add('dragging'); }, 0);
+          if (dndOverlay) dndOverlay.classList.add('active');
+        });
+        card.addEventListener('dragend', function () {
+          card.classList.remove('dragging');
+          if (dndOverlay) dndOverlay.classList.remove('active', 'over');
+          // dragend fires AFTER drop — safe to clear here.
+          S.dragSnip = null;
+          S.dragCard = null;
+        });
+
+        grid.appendChild(card);
+      });
+
+      body.appendChild(grid);
+      group.appendChild(hdr);
+      group.appendChild(body);
+      panelSnip.appendChild(group);
+    });
+  }
+
+  // Insert snippet:
+  //   1. postMessage APPEND_SECTION → iframe injects it live via insertAdjacentHTML
+  //   2. PATCH /api/tenant/config to persist the section (no frame reload)
+  async function insertSnippet(snip, card) {
+    if (!S.tenantId) { showToast('Load a tenant first', 'inf'); return; }
+    if (!S.frameReady) { showToast('Preview not ready — wait for frame to load', 'inf'); return; }
+    card.classList.add('inserting');
+    var newSec = {
+      id:   'sec-' + Date.now().toString(36),
+      type: snip.type,
+      html: snip.html
+    };
+    try {
+      // 1. Live injection into the iframe (instant, no reload).
+      sendFrame({ type: 'APPEND_SECTION', sectionId: newSec.id, html: snip.html });
+
+      // 2. Persist to config.
+      S.customSections.push(newSec);
+      await patchConfig({ custom_sections: S.customSections });
+
+      card.classList.remove('inserting');
+      card.classList.add('inserted');
+      setTimeout(function () { card.classList.remove('inserted'); }, 1500);
+      showToast('"' + snip.label + '" added', 'ok');
+    } catch (err) {
+      S.customSections.pop();
+      card.classList.remove('inserting');
+      showToast('Insert failed: ' + err.message, 'err');
+    }
+  }
+
+  // ── Drag-and-drop overlay events ─────────────────────────────────────────
+  if (dndOverlay) {
+    dndOverlay.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      dndOverlay.classList.add('over');
+    });
+    dndOverlay.addEventListener('dragleave', function (e) {
+      // Only hide 'over' when the cursor truly leaves the overlay element.
+      if (!dndOverlay.contains(e.relatedTarget)) {
+        dndOverlay.classList.remove('over');
+      }
+    });
+    dndOverlay.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dndOverlay.classList.remove('active', 'over');
+      var snip = S.dragSnip;
+      var card = S.dragCard;
+      S.dragSnip = null;
+      S.dragCard = null;
+      if (snip && card) insertSnippet(snip, card);
+    });
+  }
+
+  // ── Template Picker ───────────────────────────────────────────────────────
+  async function loadTemplates() {
+    if (S.templates !== null) { renderTemplates(); return; }
+    tplGrid.innerHTML = '<div style="grid-column:1/-1;padding:8px;font-size:11px;color:var(--tx3)">⏳ Loading templates…</div>';
+    try {
+      var res  = await fetch(API + '/api/tenant/templates', { headers: hdr() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      // [FILTER] Client-side Cruip-only guard — strips any html5up-*, html5up-forty,
+      // html5up-massively, html5up-dimension, or other non-Cruip entries that may
+      // exist in R2 storage but must not appear in the template picker UI.
+      // A valid Cruip template ID always ends with "-html" (e.g. open-pro-html).
+      var allTpls = Array.isArray(data.templates) ? data.templates : [];
+      S.templates = allTpls.filter(function (t) { return /^[a-z0-9-]+-html$/.test(t.id); });
+      // Sync templateId in case GET /templates has fresher data (e.g. first load
+      // before fetchConfig returns — they run in parallel).
+      if (data.current_template_id) S.templateId = data.current_template_id;
+      renderTemplates();
+    } catch (err) {
+      tplGrid.innerHTML = '<div style="grid-column:1/-1;padding:8px;font-size:11px;color:#ef4444">⚠ ' + esc(err.message) + '</div>';
+    }
+  }
+
+  function renderTemplates() {
+    if (!S.templates) return;
+    tplGrid.innerHTML = '';
+    if (!S.templates.length) {
+      tplGrid.innerHTML = '<div style="grid-column:1/-1;font-size:11px;color:var(--tx3)">No templates found in storage.</div>';
+      return;
+    }
+    S.templates.forEach(function (tpl) {
+      var card = document.createElement('div');
+      card.className = 'tpl-card' +
+        (tpl.id === S.templateId ? ' active' : '') +
+        (!tpl.available ? ' unavailable' : '');
+      card.title = tpl.available ? tpl.description : '(not uploaded yet)';
+
+      if (tpl.thumbnail) {
+        var img = document.createElement('img');
+        img.className = 'tpl-thumb';
+        img.loading   = 'lazy';
+        img.src       = tpl.thumbnail;
+        img.alt       = tpl.label;
+        img.onerror   = function () { this.style.display='none'; };
+        card.appendChild(img);
+      } else {
+        var ph = document.createElement('div');
+        ph.className   = 'tpl-ph';
+        ph.textContent = '🖼';
+        card.appendChild(ph);
+      }
+
+      var foot = document.createElement('div');
+      foot.className = 'tpl-foot';
+      foot.innerHTML = '<div class="tpl-name">' + esc(tpl.label) + '</div>' +
+                       '<div class="tpl-desc">' + esc(tpl.description || '') + '</div>';
+      card.appendChild(foot);
+
+      if (tpl.id === S.templateId) {
+        var badge = document.createElement('span');
+        badge.className   = 'tpl-cur-badge';
+        badge.textContent = 'Active';
+        card.appendChild(badge);
+      }
+
+      if (tpl.available && tpl.id !== S.templateId) {
+        card.addEventListener('click', function () { applyTemplate(tpl, card); });
+      }
+
+      tplGrid.appendChild(card);
+    });
+  }
+
+  async function applyTemplate(tpl, card) {
+    if (!S.tenantId) return;
+    if (!confirm(
+      'Switch to "' + tpl.label + '"?\n\n' +
+      'The visual style and header/footer chrome will change to the new template.\n' +
+      'Your existing page sections and content are kept exactly as they are.\n\n' +
+      'To add new sections, drag blocks from the Snippets panel.'
+    )) return;
+    card.classList.add('applying');
+    modeBadge.textContent = '● Switching…';
+    modeBadge.className   = 'badge amber';
+    try {
+      var res = await fetch(API + '/api/tenant/switch-template', {
+        method:  'POST',
+        headers: hdr(),
+        body:    JSON.stringify({ template_id: tpl.id }),
+      });
+      if (!res.ok) {
+        var errData = await res.json().catch(function () { return {}; });
+        throw new Error(errData.error || 'HTTP ' + res.status);
+      }
+      S.templateId = tpl.id;
+      // Force snippets cache to reload (new template = new snippet set).
+      S.snippets   = null;
+      S.templates  = null;   // re-fetch to update isCurrent flags
+      modeBadge.textContent = '● Saved';
+      modeBadge.className   = 'badge green';
+      showToast('Template: ' + tpl.label + ' activated 🎉', 'ok');
+      // Reload frame + re-fetch template list to refresh Active badge.
+      loadFrame(S.activePage);
+      await loadTemplates();
+    } catch (err) {
+      card.classList.remove('applying');
+      modeBadge.textContent = '● Idle';
+      modeBadge.className   = 'badge';
+      showToast('Switch failed: ' + err.message, 'err');
+    }
+  }
+
+  // ── Inline change queue ───────────────────────────────────────────────────
+  var _flushTimer = null;
+
+  function queueDirty(selector, value) {
+    S.dirty[selector] = value;
+    modeBadge.textContent = '● Unsaved';
+    modeBadge.className   = 'badge amber';
+    clearTimeout(_flushTimer);
+    _flushTimer = setTimeout(flushDirty, 2500);
+  }
+
+  async function flushDirty() {
+    if (!Object.keys(S.dirty).length) return;
+    var payload = { custom_selectors: Object.assign({}, S.dirty) };
+    try {
+      await patchConfig(payload);
+      S.dirty = {};
+      modeBadge.textContent = '● Saved';
+      modeBadge.className   = 'badge green';
+      setTimeout(function () {
+        modeBadge.textContent = '● Idle';
+        modeBadge.className   = 'badge';
+      }, 2000);
+    } catch (err) {
+      showToast('Auto-save failed: ' + err.message, 'err');
+    }
+  }
+
+  // ── Image editor ──────────────────────────────────────────────────────────
+  function openImageEditor(data) {
+    S.imgEdit = data;
+    imgUrl.value       = data.src || '';
+    imgPosX.value  = 50; imgPosXVal.textContent = '50%';
+    imgPosY.value  = 50; imgPosYVal.textContent = '50%';
+    imgScale.value = 100; imgScaleVal.textContent = '100%';
+    imgStatus.className = 'status-line';
+    switchTab('img');
+  }
+
+  function rangeSync(inp, display, suffix) {
+    inp.addEventListener('input', function () {
+      display.textContent = inp.value + suffix;
+      if (S.imgEdit) previewImgLive();
+    });
+  }
+  rangeSync(imgPosX, imgPosXVal, '%');
+  rangeSync(imgPosY, imgPosYVal, '%');
+  rangeSync(imgScale, imgScaleVal, '%');
+  imgUrl.addEventListener('input', function () { if (S.imgEdit) previewImgLive(); });
+
+  function previewImgLive() {
+    if (!S.imgEdit) return;
+    sendFrame({
+      type:     'APPLY_IMG',
+      selector: S.imgEdit.selector,
+      src:      imgUrl.value,
+      posX:     parseInt(imgPosX.value, 10),
+      posY:     parseInt(imgPosY.value, 10),
+      scale:    parseInt(imgScale.value, 10)
+    });
+  }
+
+  imgApplyBtn.addEventListener('click', previewImgLive);
+
+  imgSaveBtn.addEventListener('click', async function () {
+    if (!S.imgEdit) return;
+    imgSaveBtn.disabled = true;
+    try {
+      var src = imgUrl.value.trim();
+      // 1. Save URL via custom_imgs if it changed
+      if (src && src.startsWith('https://')) {
+        var imgsPatch = {};
+        imgsPatch[S.imgEdit.selector] = src;
+        await patchConfig({ custom_imgs: imgsPatch });
+      }
+      // 2. If it belongs to a section, update section HTML
+      if (S.imgEdit.sectionId && S.sectionHtml[S.imgEdit.sectionId]) {
+        var updatedSections = S.customSections.map(function (sec) {
+          if (sec.id === S.imgEdit.sectionId) {
+            return Object.assign({}, sec, { html: S.sectionHtml[S.imgEdit.sectionId] });
+          }
+          return sec;
+        });
+        S.customSections = updatedSections;
+        await patchConfig({ custom_sections: S.customSections });
+      }
+      setStatus(imgStatus, 'Image saved ✓', false);
+      showToast('Image saved', 'ok');
+    } catch (err) {
+      setStatus(imgStatus, 'Error: ' + err.message, true);
+    } finally {
+      imgSaveBtn.disabled = false;
+    }
+  });
+
+  // ── Save Draft ────────────────────────────────────────────────────────────
+  saveDraftBtn.addEventListener('click', async function () {
+    saveDraftBtn.disabled = true;
+    try {
+      // 1. Flush inline text changes
+      clearTimeout(_flushTimer);
+      if (Object.keys(S.dirty).length) await flushDirty();
+
+      // 2. If auto-menu is on, save navigation from pages
+      if (S.autoMenu) {
+        autoSyncMenu();
+        await patchConfig({ navigation: S.navigation });
+      }
+
+      // 3. Tell frame to enter preview mode (strips all editing UI)
+      sendFrame('PREVIEW_MODE');
+
+      // 4. Enter preview mode in shell
+      S.previewMode = true;
+      app.classList.add('preview-mode');
+      showToast('Draft saved — preview mode active', 'ok');
+
+    } catch (err) {
+      showToast('Save failed: ' + err.message, 'err');
+    } finally {
+      saveDraftBtn.disabled = false;
+    }
+  });
+
+  // ── Publish ───────────────────────────────────────────────────────────────
+  // Strategy:
+  //   1. Try full publish  → POST /api/tenant/publish-site  (subscription gates)
+  //   2. On 403/404/503    → Soft publish → POST /api/tenant/soft-publish
+  //      (copies sandbox→live in R2, no subscription check)
+  publishBtn.addEventListener('click', async function () {
+    publishBtn.disabled    = true;
+    publishBtn.textContent = '⏳ Publishing…';
+    try {
+      clearTimeout(_flushTimer);
+      if (Object.keys(S.dirty).length) await flushDirty();
+
+      var res = await fetch(API + '/api/tenant/publish-site', {
+        method: 'POST', headers: hdr(), body: JSON.stringify({})
+      });
+
+      if (res.ok) {
+        showToast('Published ✓', 'ok');
+        return;
+      }
+
+      // Full publish blocked — fall through to soft-publish
+      var softRes = await fetch(API + '/api/tenant/soft-publish', {
+        method: 'POST', headers: hdr(), body: JSON.stringify({})
+      });
+
+      if (softRes.ok) {
+        var data = await softRes.json();
+        showToast('Soft-published ✓ (' + data.files_copied + ' files)', 'ok');
+      } else {
+        var errText = await softRes.text();
+        showToast('Publish failed: ' + errText.slice(0, 120), 'err');
+      }
+    } catch (err) {
+      showToast('Publish error: ' + err.message, 'err');
+    } finally {
+      publishBtn.disabled    = false;
+      publishBtn.textContent = '▶ Publish';
+    }
+  });
+
+  // ── Exit preview mode ─────────────────────────────────────────────────────
+  editFab.addEventListener('click', function () {
+    S.previewMode = false;
+    app.classList.remove('preview-mode');
+    // Reload frame fresh with editing enabled
+    loadFrame(S.activePage);
+  });
+
+  // ── iframe messages ───────────────────────────────────────────────────────
+  window.addEventListener('message', function (e) {
+    var msg = e.data;
+    if (!msg || typeof msg !== 'object') return;
+
+    if (msg.type === 'EDITOR_READY') {
+      S.frameReady = true;
+      modeBadge.textContent = '● Editing';
+      modeBadge.className   = 'badge green';
+
+    } else if (msg.type === 'INLINE_CHANGE') {
+      // Bridge now sends htmlValue (sanitized innerHTML) to preserve <strong>,
+      // <em>, <span>, <br> etc.  Fall back to msg.value for older bridge versions.
+      queueDirty(msg.selector, msg.htmlValue != null ? msg.htmlValue : (msg.value || ''));
+
+    } else if (msg.type === 'IMAGE_CLICK') {
+      openImageEditor(msg);
+
+    } else if (msg.type === 'BUTTON_CLICK') {
+      openButtonEditor(msg);
+
+    } else if (msg.type === 'SECTION_HTML_UPDATED') {
+      S.sectionHtml[msg.sectionId] = msg.html;
+
+    } else if (msg.type === 'SECTION_APPENDED') {
+      // Bridge confirmed the section was injected into the iframe DOM.
+      modeBadge.textContent = '● Unsaved';
+      modeBadge.className   = 'badge amber';
+
+    } else if (msg.type === 'HEADER_HEIGHT_MEASURED') {
+      // editor-bridge.js measured the rendered header height and reports it
+      // so we can persist it as cfg.header_height.  On the next page load
+      // siteStudio.js will inject `#canvas { padding-top: Xpx }` directly
+      // into the HTML — zero JS timing dependency / zero FOUC.
+      var measuredH = typeof msg.height === 'number' ? Math.round(msg.height) : 0;
+      if (measuredH > 0 && measuredH !== S.headerHeight) {
+        S.headerHeight = measuredH;
+        patchConfig({ header_height: measuredH }).catch(function () {
+          // Non-fatal — the CSS guard in siteStudio already handles most cases.
+        });
+      }
+
+    } else if (msg.type === 'SECTION_DELETED') {
+      // Bridge deleted the section from iframe DOM — persist to config.
+      var deletedId = msg.sectionId;
+      S.customSections = S.customSections.filter(function (s) {
+        return s.id !== deletedId && s.type !== deletedId;
+      });
+      patchConfig({ custom_sections: S.customSections })
+        .then(function () {
+          showToast('Section removed', 'ok');
+          modeBadge.textContent = '● Saved';
+          modeBadge.className   = 'badge green';
+        })
+        .catch(function (err) {
+          showToast('Remove failed: ' + err.message, 'err');
+        });
+
+    } else if (msg.type === 'MOVE_SECTION') {
+      // Bridge requests reorder — swap section in S.customSections, PATCH,
+      // then reload the frame (DOM order matches array order after reload).
+      var moveId  = msg.sectionId;
+      var dir     = msg.direction;    // 'up' | 'down'
+      var arr     = S.customSections;
+      var idx     = arr.findIndex(function (s) {
+        return s.id === moveId || s.type === moveId;
+      });
+      var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+      if (idx === -1 || swapIdx < 0 || swapIdx >= arr.length) return;
+
+      // Swap in place.
+      var tmp        = arr[idx];
+      arr[idx]       = arr[swapIdx];
+      arr[swapIdx]   = tmp;
+      S.customSections = arr.slice();
+
+      modeBadge.textContent = '● Saving…';
+      modeBadge.className   = 'badge amber';
+      patchConfig({ custom_sections: S.customSections })
+        .then(function () {
+          modeBadge.textContent = '● Saved';
+          modeBadge.className   = 'badge green';
+          // Reload frame so the section order in the DOM matches the new array.
+          loadFrame(S.activePage);
+        })
+        .catch(function (err) {
+          // Rollback the local swap on failure.
+          var t2         = arr[idx];
+          arr[idx]       = arr[swapIdx];
+          arr[swapIdx]   = t2;
+          S.customSections = arr.slice();
+          modeBadge.textContent = '● Idle';
+          modeBadge.className   = 'badge';
+          showToast('Move failed: ' + err.message, 'err');
+        });
+
+    } else if (msg.type === 'PREVIEW_MODE_ACTIVE') {
+      // Iframe confirmed preview mode
+      modeBadge.textContent = '● Preview';
+      modeBadge.className   = 'badge';
+    }
+  });
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (!S.previewMode && S.tenantId) saveDraftBtn.click();
+    }
+    if (e.key === 'Escape' && S.previewMode) {
+      editFab.click();
+    }
+  });
 
 }());
 </script>

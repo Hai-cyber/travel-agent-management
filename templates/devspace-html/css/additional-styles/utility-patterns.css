@@ -1,0 +1,98 @@
+/* Typography */
+.h1 {
+    @apply text-4xl font-[650];
+}
+
+.h2 {
+    @apply text-2xl font-[650];
+}
+
+.h3 {
+    @apply text-xl font-[650];
+}
+
+.h4 {
+    @apply text-lg font-[650];
+}
+
+@media (width >= theme(--breakpoint-md)) {
+    .h1 {
+        @apply text-5xl;
+    }
+
+    .h2 {
+        @apply text-3xl;
+    }
+
+    .h3 {
+        @apply text-2xl;
+    }    
+}
+
+/* Buttons */
+.btn,
+.btn-sm {
+    @apply font-aspekta text-sm font-medium inline-flex items-center justify-center rounded-full leading-5 whitespace-nowrap transition duration-150 ease-in-out;
+}
+
+.btn {
+    @apply px-4 py-2;
+}
+
+.btn-sm {
+    @apply px-3 py-1.5;
+}
+
+/* Forms */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
+
+.form-input,
+.form-textarea,
+.form-multiselect,
+.form-select,
+.form-checkbox,
+.form-radio {
+    @apply border border-slate-100 focus:ring-0 focus:ring-offset-0;
+}
+
+.form-input,
+.form-textarea,
+.form-multiselect,
+.form-select {
+    @apply bg-slate-100 dark:bg-slate-700 text-sm px-3 py-2 rounded-full focus:border-sky-500 dark:border-slate-700 dark:focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:focus:ring-0;
+}
+
+.form-input,
+.form-textarea {
+    @apply placeholder-slate-400 dark:placeholder-slate-500;
+}
+
+.form-select {
+    @apply pr-10;
+}
+
+.form-checkbox,
+.form-radio {
+    @apply checked:bg-sky-600 checked:border-transparent text-sky-500 bg-slate-100 focus-visible:not-checked:border-sky-500 dark:border-slate-700 dark:focus-visible:not-checked:border-sky-500 focus-visible:not-checked:ring-2 focus-visible:not-checked:ring-sky-200 dark:focus-visible:not-checked:ring-0;
+}
+
+.form-checkbox {
+    @apply rounded-xs;
+}
+
+/* Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}

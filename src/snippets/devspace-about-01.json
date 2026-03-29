@@ -1,0 +1,13 @@
+{
+  "id": "devspace-about-01",
+  "name": "Devspace — I write about coding and being a full-time maker.",
+  "label": "Devspace — I write about coding and being a full-time maker.",
+  "category": "about",
+  "tags": [
+    "about",
+    "devspace",
+    "cruip"
+  ],
+  "thumbnail": "",
+  "html": "<section>\n                        <div class=\"max-w-[700px]\">\n                            <div class=\"pt-8 pb-10\">\n                                <img class=\"rounded-full mb-5\" src=\"./images/me.jpg\" width=\"56\" height=\"56\" alt=\"Me\" />\n                                <h1 class=\"h1 font-aspekta mb-5\">I write about coding and being a <span class=\"inline-flex relative text-sky-500 before:absolute before:inset-0 before:bg-sky-200 dark:before:bg-sky-500 before:opacity-30 before:-z-10 before:-rotate-2 before:translate-y-1/4\">full-time</span> maker.</h1>\n                                <p class=\"text-lg text-slate-500 dark:text-slate-400\">Writer, Speaker, Developer, and Co-Founder of Code.co, and AppForYou. I write about coding, startups, and my journey as a full-time maker.</p>\n                            </div>\n                        </div>\n                    </section>"
+}

@@ -1043,7 +1043,7 @@ export async function calculateTourPrice(env, {
           'Check (3): Does tour_prices have a record for this segment_id?',
           'Check (4): Are all related records active (is_active = 1)?',
         ],
-        params_used: { tenant_id, tour_id, date, month_day: monthDay, adults, children, infants, segment_id },
+        params_used: { tenant_id, tour_id, date, month_day: monthDay, adults: totalAdults, children, infants, segment_id },
       };
     }
 

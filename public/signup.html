@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng ký — TravelAgent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+    .logo { font-size: 28px; font-weight: 800; color: #7c3aed; margin-bottom: 6px; }
+    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 32px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; margin-top: 16px; }
+    input, select {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid #e2e8f0; border-radius: 8px;
+      font-size: 14px; color: #1e293b;
+      outline: none; transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: #7c3aed; }
+    .btn {
+      display: block; width: 100%; margin-top: 28px;
+      padding: 13px; background: #7c3aed; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn:hover:not(:disabled) { background: #6d28d9; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .error-msg  { color: #dc2626; font-size: 13px; margin-top: 12px; display: none; }
+    .success-msg { color: #16a34a; font-size: 13px; margin-top: 12px; display: none; }
+    .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: #64748b; }
+    .login-link a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+    .template-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;
+    }
+    .tmpl-btn {
+      border: 2px solid #e2e8f0; border-radius: 8px;
+      padding: 10px 8px; text-align: center; cursor: pointer;
+      font-size: 12px; font-weight: 600; color: #475569;
+      background: #f8fafc; transition: all .15s; user-select: none;
+    }
+    .tmpl-btn:hover  { border-color: #a78bfa; background: #faf5ff; }
+    .tmpl-btn.active { border-color: #7c3aed; background: #ede9fe; color: #7c3aed; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .6s linear infinite; vertical-align: -3px; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🧭 TravelAgent</div>
+  <div class="subtitle">Tạo nền tảng quản lý tour của bạn — miễn phí 14 ngày</div>
+
+  <form id="signup-form" novalidate>
+    <label for="f-email">Email của bạn</label>
+    <input id="f-email" type="email" placeholder="agency@example.com" required autocomplete="email" />
+
+    <label for="f-name">Tên công ty / đại lý</label>
+    <input id="f-name" type="text" placeholder="Sunset Travel Agency" required maxlength="80" />
+
+    <label>Chọn giao diện website</label>
+    <div class="template-grid" id="tmpl-grid">
+      <!-- populated by JS -->
+    </div>
+    <input type="hidden" id="f-template" />
+
+    <button class="btn" id="submit-btn" type="submit">Bắt đầu dùng thử miễn phí</button>
+
+    <div class="error-msg"   id="error-msg"></div>
+    <div class="success-msg" id="success-msg">✅ Đang khởi tạo workspace của bạn…</div>
+  </form>
+
+  <div class="login-link">Đã có tài khoản? <a href="/dashboard.html">Vào Dashboard →</a></div>
+</div>
+
+<script>
+(async () => {
+  // If tenant already exists in storage, skip signup
+  if (localStorage.getItem('tam_tenant_id')) {
+    location.replace('/dashboard.html');
+    return;
+  }
+
+  const grid    = document.getElementById('tmpl-grid');
+  const hidden  = document.getElementById('f-template');
+  const form    = document.getElementById('signup-form');
+  const errEl   = document.getElementById('error-msg');
+  const okEl    = document.getElementById('success-msg');
+  const btn     = document.getElementById('submit-btn');
+
+  // ── Load available templates ──────────────────────────────────────────
+  const FALLBACK_TEMPLATES = [
+    { id: 'html5up-aerial',           name: 'Aerial' },
+    { id: 'html5up-dimension',        name: 'Dimension' },
+    { id: 'html5up-forty',            name: 'Forty' },
+    { id: 'html5up-future-imperfect', name: 'Future Imperfect' },
+    { id: 'html5up-massively',        name: 'Massively' },
+    { id: 'html5up-story',            name: 'Story' },
+    { id: 'html5up-solid-state',      name: 'Solid State' },
+    { id: 'html5up-ethereal',         name: 'Ethereal' },
+    { id: 'html5up-lens',             name: 'Lens' },
+    { id: 'test-v1',                  name: 'Test V1' },
+  ];
+
+  let templates = FALLBACK_TEMPLATES;
+  try {
+    const r = await fetch('/api/site-templates?active=1');
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data.templates) && data.templates.length) templates = data.templates;
+    }
+  } catch (_) { /* use fallback */ }
+
+  // pre-select first
+  renderTemplates(templates, templates[0]?.id ?? '');
+
+  function renderTemplates(list, selectedId) {
+    grid.innerHTML = '';
+    list.forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'tmpl-btn' + (t.id === selectedId ? ' active' : '');
+      div.textContent = t.name;
+      div.dataset.id  = t.id;
+      div.addEventListener('click', () => {
+        grid.querySelectorAll('.tmpl-btn').forEach(b => b.classList.remove('active'));
+        div.classList.add('active');
+        hidden.value = t.id;
+      });
+      grid.appendChild(div);
+    });
+    hidden.value = selectedId;
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.style.display = 'none';
+
+    const email    = document.getElementById('f-email').value.trim();
+    const name     = document.getElementById('f-name').value.trim();
+    const tmplId   = hidden.value;
+
+    if (!email || !name || !tmplId) {
+      showError('Vui lòng điền đầy đủ thông tin và chọn giao diện.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Đang khởi tạo…';
+
+    try {
+      const res = await fetch('/api/auth/signup-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, tenant_name: name, selected_template_id: tmplId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || `Lỗi ${res.status}. Vui lòng thử lại.`);
+        resetBtn();
+        return;
+      }
+
+      // Success — persist tenant, redirect
+      localStorage.setItem('tam_tenant_id', data.tenant_id);
+      okEl.style.display = 'block';
+      setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 800);
+
+    } catch (err) {
+      showError('Lỗi kết nối. Vui lòng thử lại.');
+      resetBtn();
+    }
+  });
+
+  function showError(msg) {
+    errEl.textContent    = msg;
+    errEl.style.display  = 'block';
+  }
+  function resetBtn() {
+    btn.disabled     = false;
+    btn.textContent  = 'Bắt đầu dùng thử miễn phí';
+  }
+})();
+</script>
+</body>
+</html>

@@ -184,7 +184,7 @@
             <div class="sidebar-section">
               <h4 data-i18n="sidebar.manage">Manage</h4>
               <ul class="nav-list">
-                <li><a href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours_destinations">Tours &amp; Destinations</span></a></li>
+                <li><a id="sidebar-tours" href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours_destinations">Tours &amp; Destinations</span></a></li>
                 <li><a href="#"><span class="icon">💲</span> <span data-i18n="sidebar.pricing">Pricing</span></a></li>
                 <li><a href="#"><span class="icon">📦</span> <span data-i18n="sidebar.add_ons">Add-ons</span></a></li>
                 <li><a href="#"><span class="icon">👥</span> <span data-i18n="sidebar.customers">Customers</span></a></li>
@@ -195,8 +195,8 @@
               <h4 data-i18n="sidebar.system">System</h4>
               <ul class="nav-list">
                 <li><a href="category-manager.html"><span class="icon">🎨</span> Site Studio</a></li>
-                <li><a href="visual-editor.html"><span class="icon">✏️</span> Visual Editor</a></li>
-                <li><a href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
+                <li><a id="sidebar-visual-editor" href="visual-editor.html"><span class="icon">✏️</span> Visual Editor</a></li>
+                <li><a id="sidebar-payments" href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
                 <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
               </ul>
             </div>
@@ -208,6 +208,13 @@
         <div class="col-9 col-12-medium imp-medium">
           <div id="content">
 
+            <!-- Trial Status Banner -->
+            <div id="trial-banner" style="display:none; background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-bottom:16px; align-items:center; gap:12px; font-size:13px; color:#713f12;">
+              <span style="font-size:18px">⏳</span>
+              <span id="trial-banner-text">Trial mode</span>
+              <a href="#" id="btn-upgrade" style="margin-left:auto;font-size:12px;font-weight:700;color:#7c3aed;text-decoration:none;">Upgrade →</a>
+            </div>
+
             <!-- Compliance Banner -->
             <div class="compliance-banner" id="compliance-banner" style="display:none">
               ⚠️ <strong data-i18n="compliance.warning_title">Warning:</strong>
@@ -217,9 +224,9 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-              <a href="#" class="button icon solid fa-plus-circle" data-i18n="action.new_order">New Order</a>
-              <a href="#" class="button icon solid fa-file-invoice-dollar" data-i18n="action.view_reports">View Reports</a>
-              <a href="#" class="button alt icon solid fa-cog" data-i18n="action.payment_settings">Payment Settings</a>
+              <a href="#" id="btn-tour-config"     class="button icon solid fa-map">Cấu hình Tour</a>
+              <a href="#" id="btn-visual-editor"   class="button icon solid fa-paint-brush">Thiết kế Website</a>
+              <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="action.payment_settings">Cài đặt thanh toán</a>
             </div>
 
             <!-- Stat Cards -->
@@ -377,6 +384,24 @@
 </div><!-- /page-wrapper -->
 
 <!-- Scripts -->
+<!-- [ANTI-FLICKER] Ẩn trang ngay đồng bộ trước khi bất kỳ render nào xảy ra.
+     Script này chạy inline (blocking), đảm bảo #page-wrapper bị ẩn trước
+     khi browser vẽ lần đầu. Nếu tenant_id có sẵn trong localStorage hoặc URL,
+     trang sẽ fade-in sau khi init xong. Nếu không, redirect ngay lập tức.
+ -->
+<script>
+  (function() {
+    var params   = new URLSearchParams(location.search);
+    var tenantId = params.get('tenant') || localStorage.getItem('tam_tenant_id');
+    if (!tenantId) {
+      // Redirect ngay — không render gì cả (signup page không redirect ngược lại)
+      location.replace('/signup.html');
+    } else {
+      // Ẩn nội dung cho đến khi init async hoàn tất
+      document.documentElement.style.visibility = 'hidden';
+    }
+  })();
+</script>
 <script src="assets/js/jquery.min.js"></script>
 <script src="assets/js/jquery.dropotron.min.js"></script>
 <script src="assets/js/browser.min.js"></script>
@@ -673,6 +698,97 @@ const i18n = (() => {
 })();
 
 document.addEventListener('DOMContentLoaded', () => i18n.init());
+</script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   Dashboard Init — Tenant context, dynamic links, trial status
+════════════════════════════════════════════════════════════════ */
+(async () => {
+  const TRIAL_DAYS  = 14;
+  const SIGNUP_PAGE = '/signup.html';
+
+  // ── 1. Resolve tenant_id ─────────────────────────────────────────────
+  const params    = new URLSearchParams(location.search);
+  const urlTenant = params.get('tenant');
+  const tenantId  = urlTenant || localStorage.getItem('tam_tenant_id');
+
+  // Inline anti-flicker script đã xử lý redirect nếu !tenantId,
+  // nhưng guard lại ở đây phòng trường hợp script bị block.
+  if (!tenantId) { location.replace(SIGNUP_PAGE); return; }
+
+  // Persist & clean URL
+  localStorage.setItem('tam_tenant_id', tenantId);
+  if (params.has('tenant') || params.has('token')) {
+    history.replaceState({}, '', '/dashboard.html');
+  }
+
+  // ── 2. Wire dynamic links (trước khi reveal) ─────────────────────────
+  const tid = encodeURIComponent(tenantId);
+
+  document.getElementById('btn-tour-config').href      = `tour-config.html?tid=${tid}`;
+  document.getElementById('btn-visual-editor').href    = `visual-editor.html?tid=${tid}`;
+  document.getElementById('btn-payment-settings').href = `#payments`;
+
+  const sidebarTours   = document.getElementById('sidebar-tours');
+  const sidebarEditor  = document.getElementById('sidebar-visual-editor');
+  const sidebarPayment = document.getElementById('sidebar-payments');
+  if (sidebarTours)   sidebarTours.href   = `tour-config.html?tid=${tid}`;
+  if (sidebarEditor)  sidebarEditor.href  = `visual-editor.html?tid=${tid}`;
+  if (sidebarPayment) sidebarPayment.href = `#payments`;
+
+  // ── 3. Fetch tenant settings → trial banner ───────────────────────────
+  try {
+    const res = await fetch('/api/tenants/settings', {
+      headers: { 'X-Tenant-ID': tenantId }
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        localStorage.removeItem('tam_tenant_id');
+        location.replace(SIGNUP_PAGE);
+        return;
+      }
+      // Lỗi khác (5xx) — vẫn hiện trang, chỉ không có trial banner
+    } else {
+      const { settings } = await res.json();
+
+      const nameEl = document.getElementById('tenant-name-display');
+      if (nameEl && settings.name) nameEl.textContent = settings.name;
+
+      if (settings.subscription_status === 'TRIAL' && settings.created_at) {
+        const elapsed  = Math.floor(Date.now() / 1000 - settings.created_at);
+        const daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
+        const banner   = document.getElementById('trial-banner');
+        const text     = document.getElementById('trial-banner-text');
+
+        if (daysLeft > 0) {
+          text.textContent       = `Trial mode — ${daysLeft} ngày còn lại / ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+          banner.style.background  = daysLeft > 3 ? '#fef9c3' : '#fee2e2';
+          banner.style.borderColor = daysLeft > 3 ? '#fde68a' : '#fca5a5';
+          banner.style.color       = daysLeft > 3 ? '#713f12' : '#991b1b';
+        } else {
+          text.textContent       = '⚠️ Trial đã hết hạn — vui lòng nâng cấp để tiếp tục';
+          banner.style.background  = '#fee2e2';
+          banner.style.borderColor = '#fca5a5';
+          banner.style.color       = '#991b1b';
+        }
+        banner.style.display = 'flex';
+      }
+    }
+  } catch (err) {
+    console.warn('[dashboard:init] Could not load tenant settings:', err.message);
+  }
+
+  // ── 4. Reveal page (fade-in) ─────────────────────────────────────────
+  // Chỉ gọi sau khi links đã được gán và trial banner đã render xong.
+  document.documentElement.style.transition  = 'opacity .18s ease';
+  document.documentElement.style.opacity     = '0';
+  document.documentElement.style.visibility  = 'visible';
+  requestAnimationFrame(() => {
+    document.documentElement.style.opacity = '1';
+  });
+})();
 </script>
 </body>
 </html>

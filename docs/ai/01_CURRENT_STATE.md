@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-27 (CHK-R26)
+Last updated: 2026-03-30 (CHK-R33)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -64,6 +64,15 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `GET /api/tenants/settings` — includes read-only: `total_revenue_tracked`, `commission_threshold`
 - `GET /api/tenants/audit-log` — last 100 entries for `custom_domain` / `payment_config_json` changes
 
+**Site Studio (CHK-R20 to R24/R29-R33)**
+- `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline
+- `GET /api/tenant/config` — public site config endpoint
+- `PATCH /api/tenant/config` — deep-merge, selector validation, tenant-scoped
+- `GET /api/tenant/snippets` — extracts all `<section>` blocks from R2 template
+- `GET /api/tenant/preview` — live re-render without R2 cache (`?tid=`)
+- Canvas page: siteStudio.js injects VE Canvas Layout Guard CSS (sticky header, flex body, #canvas flex-grow)
+- `cfg.header_height` — server-side `padding-top` injection on `#canvas`
+
 **Tour Publishing (CHK-R13/R14/R15)**
 - `POST /api/tours/:id/publish` — subscription gate, renders HTML to R2 `TOUR_PAGES`
 - `POST /api/tours/:id/switch-template`
@@ -85,11 +94,33 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 
 ### Frontend Assets
 - `public/templates/default.html` — tour page template with all placeholders
-- `public/booking-widget.js` — full booking flow widget (CHK-R16): floating button, drawer, invoice panel, segment compare, draft save/load
-- `public/widget.js` — lightweight embed widget (CHK-R19): Book Now button, price-check modal, calls `/api/pricing/calculate`
-- `public/tour-config.html` — agent admin UI (CHK-R25/R26): 5-tab workflow (Tour, Content, Stops, Price Config, Preview/Publish)
+- `public/booking-widget.js` — full booking flow widget (CHK-R16)
+- `public/widget.js` — lightweight embed widget (CHK-R19)
+- `public/tour-config.html` — agent admin UI (CHK-R25/R26)
+- `public/inject.js` — Site Studio client injection layer (CHK-R22)
+- `public/visual-editor.html` — Visual Editor split-layout shell (CHK-R23/R29-R33)
+  - Drag-and-drop snippets from sidebar onto canvas iframe (CHK-R31)
+  - Button/Link editor panel: click any `<a>` in preview → text+URL fields (CHK-R33)
+  - Drop zone: animated empty-state, auto-hides on first snippet insert (CHK-R30)
+- `public/editor-bridge.js` — iframe postMessage bridge (CHK-R23/R29-R33)
+  - CSS-first header overlap fix: `body>header{position:sticky!important}` guard (CHK-R29)
+  - `HEADER_HEIGHT_MEASURED` → parent persists to `cfg.header_height` (CHK-R29)
+  - `wireBtns()` + `BUTTON_CLICK` + `applyBtn()` for link editing (CHK-R33)
+
+### Scripts
+- `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
+  - 24 deep categories: hero-video, gallery-grid, booking-form, travel-itinerary, map-section + originals
+  - Hybrid multi-label tagging (one snippet → N categories)
+  - Image path: relative → R2 absolute URL; empty src → Unsplash by category
+  - Hero padding: `padding-top:80px` injected into `<section>` opening tag
+  - Editable markers: `data-ve-text` on headings/paragraphs; `data-ve-btn` on anchors
+  - Run: `node scripts/syncAllSnippets.mjs --r2-base https://pub-xxx.r2.dev [--clear]`
+- `scripts/seed-site-templates.mjs` — uploads template files to SITE_TEMPLATES R2
+- `scripts/seed-snippets-from-templates.mjs` — legacy extractor (superseded by syncAllSnippets.mjs)
+
+### tour-config.html detail (CHK-R25/R26)
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
-  - **Price Config tab** (CHK-R25/R26): 
+  - **Price Config tab**:
     - **Left panel (65%)**: Season editor, Pax Bands, Segments, Tour Prices, Pricing Definitions editor (4 default rules, localStorage-persisted)
     - **Right panel (35%) — Customer Booking View**:
       - Phase 1: Conversational sentence inputs (travel date, adults, children, double rooms, single rooms); room auto-suggest + validation hint; "Calculate Final Price" CTA
@@ -108,7 +139,6 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - Domain onboarding flow (automated DNS verification)
 - Publish gate checklist endpoints
 - Billing/invoicing status endpoints
-- Site studio API baseline
 - Growth/SEO API baseline
 - Mobile ops surface
 - Allotment / seat management (referenced in purge cron TODO)
