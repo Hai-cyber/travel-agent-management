@@ -349,6 +349,153 @@ function injectHeaderUiControls(headerHtml, navConfig = {}) {
   return headerHtml.replace(/<\/header\s*>/i, widgetsHtml + '\n</header>');
 }
 
+export function normalizeChromeConfig(value) {
+  const chrome = value && typeof value === 'object' ? value : {};
+  return {
+    useMinimalHeader: chrome.useMinimalHeader !== false,
+    useMinimalFooter: chrome.useMinimalFooter !== false,
+    showFooterMenu: chrome.showFooterMenu === true,
+    showLogo: chrome.showLogo !== false,
+    effectStyle: typeof chrome.effectStyle === 'string'
+      && ['glass', 'frost', 'shadow', 'outline'].includes(chrome.effectStyle)
+      ? chrome.effectStyle
+      : 'glass',
+    shapeStyle: typeof chrome.shapeStyle === 'string'
+      && ['bar', 'rounded', 'capsule', 'floating'].includes(chrome.shapeStyle)
+      ? chrome.shapeStyle
+      : 'bar',
+    menuFontStyle: typeof chrome.menuFontStyle === 'string'
+      && ['clean', 'elegant', 'compact'].includes(chrome.menuFontStyle)
+      ? chrome.menuFontStyle
+      : 'clean',
+    logoFontStyle: typeof chrome.logoFontStyle === 'string'
+      && ['brand', 'floral', 'luxe', 'script'].includes(chrome.logoFontStyle)
+      ? chrome.logoFontStyle
+      : 'brand',
+    logoSize: typeof chrome.logoSize === 'string'
+      && ['sm', 'md', 'lg', 'xl'].includes(chrome.logoSize)
+      ? chrome.logoSize
+      : 'md',
+    ornamentStyle: typeof chrome.ornamentStyle === 'string'
+      && ['none', 'glow', 'divider', 'dots'].includes(chrome.ornamentStyle)
+      ? chrome.ornamentStyle
+      : 'none',
+  };
+}
+
+export function buildMinimalHeaderHtml({
+  brandName,
+  logoUrl,
+  navItems,
+  navConfig = {},
+  contactPhone,
+  effectStyle = 'glass',
+  shapeStyle = 'bar',
+  menuFontStyle = 'clean',
+  logoFontStyle = 'brand',
+  logoSize = 'md',
+  ornamentStyle = 'none',
+  showLogo = true,
+}) {
+  const menuHtml = navItems.length > 0
+    ? navItems
+        .map(({ label, url }) =>
+          `<li><a href="${escAttr(String(url ?? '/'))}">${escAttr(String(label ?? ''))}</a></li>`
+        )
+        .join('')
+    : '<li><a href="/">Home</a></li>';
+
+  const logoImg = showLogo && logoUrl
+    ? `<img src="${escAttr(logoUrl)}" alt="${escAttr(brandName || 'Brand')}" class="site-chrome-logo">`
+    : '';
+
+  const actions = [];
+  if (navConfig.showPhone) {
+    const href = contactPhone ? `tel:${escAttr(String(contactPhone).replace(/\s+/g, ''))}` : 'tel:';
+    actions.push(`<a href="${href}" class="chrome-action chrome-action-link" data-ve-nav-phone>Phone</a>`);
+  }
+  if (navConfig.showContactForm) {
+    actions.push('<a href="#contact" class="chrome-action chrome-action-primary" data-ve-nav-contact>Contact Us</a>');
+  }
+  if (navConfig.showCart) {
+    actions.push('<button type="button" class="chrome-action chrome-action-icon" data-ve-nav-cart aria-label="Cart">Cart</button>');
+  }
+
+  const ornament = ornamentStyle === 'dots'
+    ? '<div class="site-chrome-ornament site-chrome-ornament-dots" aria-hidden="true"><span></span><span></span><span></span></div>'
+    : ornamentStyle === 'divider'
+      ? '<div class="site-chrome-ornament site-chrome-ornament-divider" aria-hidden="true"></div>'
+      : ornamentStyle === 'glow'
+        ? '<div class="site-chrome-ornament site-chrome-ornament-glow" aria-hidden="true"></div>'
+        : '';
+
+  return `<header class="site-chrome site-chrome-header site-chrome-effect-${escAttr(effectStyle)} site-chrome-shape-${escAttr(shapeStyle)} site-chrome-font-${escAttr(menuFontStyle)} site-chrome-logo-font-${escAttr(logoFontStyle)} site-chrome-logo-size-${escAttr(logoSize)} site-chrome-ornament-${escAttr(ornamentStyle)}" data-ve-chrome="minimal-header">
+  <div class="site-chrome-inner">
+    <a href="/" class="site-chrome-brand">${logoImg}<span class="site-chrome-brand-text">${escAttr(brandName || 'Brand')}</span></a>
+    <button type="button" class="site-chrome-menu-toggle" data-chrome-menu-toggle aria-expanded="false" aria-label="Open menu">
+      <span class="site-chrome-menu-toggle-icon">☰</span>
+      <span class="site-chrome-menu-toggle-label">Menu</span>
+    </button>
+    <div class="site-chrome-panel">
+      <nav class="site-chrome-nav" aria-label="Primary">
+        <ul>${menuHtml}</ul>
+      </nav>
+      <div class="site-chrome-actions">${actions.join('')}</div>
+    </div>
+  </div>
+  ${ornament}
+</header>`;
+}
+
+export function buildChromeMenuScript() {
+  return `<script>
+(function(){
+  document.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-chrome-menu-toggle]');
+    if (!btn) return;
+    var header = btn.closest('.site-chrome-header');
+    if (!header) return;
+    var isOpen = header.getAttribute('data-mobile-menu-open') === '1';
+    header.setAttribute('data-mobile-menu-open', isOpen ? '0' : '1');
+    btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  });
+}());
+</script>`;
+}
+
+export function buildMinimalFooterHtml({
+  brandName,
+  logoUrl,
+  navItems,
+  showFooterMenu,
+  effectStyle = 'glass',
+  shapeStyle = 'bar',
+  menuFontStyle = 'clean',
+  logoFontStyle = 'brand',
+  logoSize = 'md',
+  ornamentStyle = 'none',
+  showLogo = true,
+}) {
+  const year = new Date().getFullYear();
+  const menuHtml = showFooterMenu && navItems.length > 0
+    ? `<nav class="site-chrome-footer-nav" aria-label="Footer"><ul>${navItems
+        .map(({ label, url }) =>
+          `<li><a href="${escAttr(String(url ?? '/'))}">${escAttr(String(label ?? ''))}</a></li>`
+        )
+        .join('')}</ul></nav>`
+    : '';
+  const logoImg = showLogo && logoUrl
+    ? `<img src="${escAttr(logoUrl)}" alt="${escAttr(brandName || 'Brand')}" class="site-chrome-logo site-chrome-logo-sm">`
+    : '';
+
+  return `<footer class="site-chrome site-chrome-footer site-chrome-effect-${escAttr(effectStyle)} site-chrome-shape-${escAttr(shapeStyle)} site-chrome-font-${escAttr(menuFontStyle)} site-chrome-logo-font-${escAttr(logoFontStyle)} site-chrome-logo-size-${escAttr(logoSize)} site-chrome-ornament-${escAttr(ornamentStyle)}" data-ve-chrome="minimal-footer">
+  <div class="site-chrome-inner site-chrome-footer-inner">
+    <div class="site-chrome-footer-copy">${logoImg}<span class="site-chrome-brand-text">${escAttr(brandName || 'Brand')} · ${year}</span></div>
+    ${menuHtml}
+  </div>
+</footer>`;
+}
+
 // Script stripping for appended HTML strings (editor / preview mode only)
 // ─────────────────────────────────────────────────────────────────────────────
 // HTMLRewriter's .on('script') handler only processes the original template
@@ -511,11 +658,14 @@ function injectStockImages(html, travelImages) {
 async function serveCanvasPage({
   templateId,
   brandName,
+  logoUrl,
   heroDesc,
   themeColor,
   themeClass,
   navItems,
   navConfig,          // { showPhone, showCart, showContactForm }
+  chromeConfig,
+  contactPhone,
   customSections,
   travelImagesPromise,
   injectScript,
@@ -543,6 +693,39 @@ async function serveCanvasPage({
     if (footerHtml) footerHtml = stripHtmlScripts(footerHtml);
   }
 
+  const normalizedChrome = normalizeChromeConfig(chromeConfig);
+  if (normalizedChrome.useMinimalHeader) {
+    headerHtml = buildMinimalHeaderHtml({
+      brandName,
+      logoUrl,
+      navItems,
+      navConfig: navConfig ?? {},
+      contactPhone,
+      effectStyle: normalizedChrome.effectStyle,
+      shapeStyle: normalizedChrome.shapeStyle,
+      menuFontStyle: normalizedChrome.menuFontStyle,
+      logoFontStyle: normalizedChrome.logoFontStyle,
+      logoSize: normalizedChrome.logoSize,
+      ornamentStyle: normalizedChrome.ornamentStyle,
+      showLogo: normalizedChrome.showLogo,
+    });
+  }
+  if (normalizedChrome.useMinimalFooter) {
+    footerHtml = buildMinimalFooterHtml({
+      brandName,
+      logoUrl,
+      navItems,
+      showFooterMenu: normalizedChrome.showFooterMenu,
+      effectStyle: normalizedChrome.effectStyle,
+      shapeStyle: normalizedChrome.shapeStyle,
+      menuFontStyle: normalizedChrome.menuFontStyle,
+      logoFontStyle: normalizedChrome.logoFontStyle,
+      logoSize: normalizedChrome.logoSize,
+      ornamentStyle: normalizedChrome.ornamentStyle,
+      showLogo: normalizedChrome.showLogo,
+    });
+  }
+
   // ── Build nav links HTML (same escaping logic as serveSitePage) ───────────
   // Applies the tenant’s site_config.navigation items to the extracted header.
   // Falls back gracefully: empty navLinksHtml → template’s original links kept.
@@ -556,12 +739,12 @@ async function serveCanvasPage({
     : '';
 
   // Inject tenant nav items into the extracted header’s first <nav><ul>.
-  if (headerHtml && navLinksHtml) {
+  if (!normalizedChrome.useMinimalHeader && headerHtml && navLinksHtml) {
     headerHtml = injectMenuIntoHeader(headerHtml, navLinksHtml);
   }
 
   // Inject conditional UI controls (phone / cart / contact) into the header.
-  if (headerHtml && navConfig) {
+  if (!normalizedChrome.useMinimalHeader && headerHtml && navConfig) {
     headerHtml = injectHeaderUiControls(headerHtml, navConfig);
   }
 
@@ -645,6 +828,381 @@ async function serveCanvasPage({
   <link rel="stylesheet" href="/css/cruip-global.css">${styleLinkHtml ? `\n  ${styleLinkHtml}` : ''}
   <link rel="stylesheet" href="/css/theme-presets.css">${themeStyle}
   <style>
+    html {
+      background: var(--bg);
+    }
+    .site-chrome {
+      width: 100%;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      position: relative;
+      isolation: isolate;
+      background: color-mix(in srgb, var(--bg, #0f172a) 84%, white 16%);
+    }
+    .site-chrome-header {
+      border-bottom: none;
+    }
+    .site-chrome-footer {
+      border-top: none;
+      margin-top: 3rem;
+    }
+    .site-chrome-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: row !important;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .site-chrome-brand {
+      flex: 0 0 auto;
+      display: inline-flex;
+      flex-direction: row !important;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--t, #e5e7eb);
+      text-decoration: none;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-brand span {
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-brand-text {
+      display: inline-block;
+      white-space: nowrap !important;
+      line-height: 1;
+      transform-origin: left center;
+    }
+    .site-chrome-logo {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--brand-primary, #2563eb) 14%, white 86%);
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+    }
+    .site-chrome-logo-sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .site-chrome-nav {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-panel {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .site-chrome-menu-toggle {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 20%, white 80%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: 700 0.82rem/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .site-chrome-menu-toggle-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .site-chrome-nav ul,
+    .site-chrome-footer-nav ul {
+      display: flex;
+      flex-direction: row !important;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-nav a,
+    .site-chrome-footer-nav a {
+      color: color-mix(in srgb, var(--t, #e5e7eb) 85%, white 15%);
+      text-decoration: none;
+      font-size: 0.92rem;
+      white-space: nowrap !important;
+    .site-chrome-panel {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .site-chrome-menu-toggle {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 20%, white 80%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: 700 0.82rem/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .site-chrome-menu-toggle-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-actions {
+      display: flex;
+      flex-direction: row !important;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex: 0 0 auto;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .chrome-action {
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 22%, white 78%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .chrome-action-primary {
+      background: var(--brand-primary, #2563eb);
+      color: white;
+      border-color: transparent;
+    }
+    .chrome-action-icon {
+      min-width: 52px;
+    }
+    .site-chrome-footer-inner {
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      color: color-mix(in srgb, var(--t, #e5e7eb) 72%, white 28%);
+      font-size: 0.86rem;
+    }
+    .site-chrome-footer-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+    }
+    .site-chrome-nav a,
+    .site-chrome-footer-nav a,
+    .site-chrome-brand,
+    .chrome-action {
+      transition: color .18s ease, background-color .18s ease, transform .18s ease;
+    }
+    .site-chrome-font-clean .site-chrome-nav a,
+    .site-chrome-font-clean .site-chrome-footer-nav a {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.01em;
+      font-weight: 600;
+    }
+    .site-chrome-font-elegant .site-chrome-nav a,
+    .site-chrome-font-elegant .site-chrome-footer-nav a {
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+      text-transform: none;
+    }
+    .site-chrome-font-compact .site-chrome-nav a,
+    .site-chrome-font-compact .site-chrome-footer-nav a {
+      font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      letter-spacing: 0.08em;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-brand .site-chrome-brand-text {
+      font-family: 'Avenir Next', 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-floral .site-chrome-brand-text {
+      font-family: 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', cursive;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .site-chrome-logo-font-luxe .site-chrome-brand-text {
+      font-family: 'Didot', 'Bodoni 72', 'Times New Roman', serif;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-script .site-chrome-brand-text {
+      font-family: 'Brush Script MT', 'Segoe Script', cursive;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: none;
+    }
+    .site-chrome-logo-size-sm .site-chrome-brand-text {
+      font-size: 0.95rem;
+    }
+    .site-chrome-logo-size-md .site-chrome-brand-text {
+      font-size: 1.15rem;
+    }
+    .site-chrome-logo-size-lg .site-chrome-brand-text {
+      font-size: 1.38rem;
+    }
+    .site-chrome-logo-size-xl .site-chrome-brand-text {
+      font-size: 1.68rem;
+    }
+    .site-chrome-shape-rounded {
+      margin: 14px auto 0;
+      max-width: min(1220px, calc(100% - 28px));
+      border-radius: 24px;
+      overflow: hidden;
+    }
+    .site-chrome-shape-capsule {
+      margin: 16px auto 0;
+      max-width: min(1180px, calc(100% - 40px));
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .site-chrome-shape-floating {
+      margin: 18px auto 0;
+      max-width: min(1140px, calc(100% - 48px));
+      border-radius: 28px;
+      overflow: hidden;
+      transform: translateY(0);
+    }
+    .site-chrome-shape-bar {
+      margin: 0;
+      max-width: none;
+      border-radius: 0;
+    }
+    .site-chrome-header.site-chrome-shape-bar + #canvas {
+      margin-top: 0;
+    }
+    .site-chrome-ornament {
+      position: absolute;
+      inset: auto 20px 0 20px;
+      pointer-events: none;
+    }
+    .site-chrome-ornament-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+      bottom: 0;
+    }
+    .site-chrome-ornament-glow {
+      height: 28px;
+      bottom: -12px;
+      filter: blur(18px);
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--brand-primary, #2563eb) 36%, white 64%), transparent 70%);
+      opacity: .35;
+    }
+    .site-chrome-ornament-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      bottom: 10px;
+    }
+    .site-chrome-ornament-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.38);
+      display: inline-block;
+    }
+    .site-chrome-effect-glass {
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+    }
+    .site-chrome-effect-frost {
+      background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.12));
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
+    }
+    .site-chrome-effect-shadow {
+      background: color-mix(in srgb, var(--bg, #0f172a) 72%, white 28%);
+      box-shadow: 0 24px 60px rgba(2, 6, 23, 0.28);
+    }
+    .site-chrome-effect-outline {
+      background: color-mix(in srgb, var(--bg, #0f172a) 88%, white 12%);
+      box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+    }
+    @media (max-width: 900px) {
+      .site-chrome-inner {
+        flex-wrap: wrap;
+      }
+      .site-chrome-menu-toggle {
+        display: inline-flex;
+      }
+      .site-chrome-panel {
+        display: none;
+        order: 3;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding-top: 12px;
+      }
+      .site-chrome-header[data-mobile-menu-open="1"] .site-chrome-panel {
+        display: flex;
+      }
+      .site-chrome-nav,
+      .site-chrome-actions {
+        width: 100%;
+      }
+      .site-chrome-nav ul {
+        flex-direction: column !important;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .site-chrome-actions {
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .site-chrome-footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+    @media (max-width: 520px) {
+      .site-chrome-menu-toggle-label {
+        display: none;
+      }
+      .site-chrome-menu-toggle {
+        padding-inline: 10px;
+      }
+    }
     /*
      * VE Canvas Layout Guard
      * ──────────────────────────────────────────────────────────────────────
@@ -669,6 +1227,9 @@ async function serveCanvasPage({
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--t);
     }
     body > header {
       position: sticky !important;
@@ -681,7 +1242,13 @@ async function serveCanvasPage({
       flex-grow: 1;
       position: relative;
       z-index: 1;
-${headerHeight != null ? `      padding-top: ${headerHeight}px; /* server-injected from cfg.header_height */` : ''}
+    }
+    #canvas > [data-ve-section]:first-child {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+    #canvas > [data-ve-section]:first-child > *:first-child {
+      margin-top: 0 !important;
     }
   </style>
 </head>
@@ -691,6 +1258,7 @@ ${headerHtml || fallbackNavHtml}
 ${sectionsHtml || '  <!-- empty canvas — add sections via the Visual Editor -->'}
 </main>
 ${footerHtml}
+${buildChromeMenuScript()}
 <script src="${escAttr(injectScript)}"></script>
 </body>
 </html>`;
@@ -765,9 +1333,12 @@ export async function serveSitePage(tenant, env, options = {}) {
         showContactForm: cfg.navigation_config.showContactForm === true,
       }
     : null;
+  const chromeConfig = normalizeChromeConfig(cfg.chrome_config);
 
   const brandName  = brand.name          ?? '';
+  const logoUrl    = brand.logo_url      ?? '';
   const heroDesc   = content.hero_desc   ?? '';
+  const contactPhone = content.contact_phone ?? '';
   const themeColor = brand.primary_color ?? '';
   // [SEC] HSL background components — independent of accent theme.
   //       Stored in site_config.brand as bg_h / bg_s / bg_l by the VE.
@@ -815,11 +1386,14 @@ export async function serveSitePage(tenant, env, options = {}) {
   return serveCanvasPage({
     templateId,
     brandName,
+    logoUrl,
     heroDesc,
     themeColor,
     themeClass,
     navItems,
     navConfig,
+    chromeConfig,
+    contactPhone,
     customSections,
     travelImagesPromise,
     injectScript,
@@ -859,6 +1433,18 @@ const DEFAULT_SITE_CONFIG = {
     whatsapp_toggle:     true,
     review_toggle:       true,
     hotel_module_active: false,
+  },
+  chrome_config: {
+    useMinimalHeader: true,
+    useMinimalFooter: true,
+    showFooterMenu:   false,
+    showLogo:         true,
+    effectStyle:      'glass',
+    shapeStyle:       'bar',
+    menuFontStyle:    'clean',
+    logoFontStyle:    'brand',
+    logoSize:         'md',
+    ornamentStyle:    'none',
   },
   custom_selectors: {},
   custom_imgs:      {},

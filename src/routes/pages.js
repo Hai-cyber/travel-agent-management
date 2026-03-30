@@ -28,6 +28,7 @@
 
 import { Hono }   from 'hono';
 import { nanoid } from 'nanoid';
+import { buildChromeMenuScript, buildMinimalFooterHtml, buildMinimalHeaderHtml, normalizeChromeConfig } from '../lib/siteStudio.js';
 
 const pages = new Hono();
 
@@ -351,17 +352,12 @@ pages.post('/', async (c) => {
     return c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503);
   }
 
-  // ── 1. Verify tenant exists + load branding ──────────────────────────────
+  // ── 1. Verify tenant exists ───────────────────────────────────────────────
   const tenant = await c.env.DB
     .prepare('SELECT id, site_config FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
-
-  let cfg = {};
-  try { if (tenant.site_config) cfg = JSON.parse(tenant.site_config); } catch (_) {}
-  const brandName    = cfg?.brand?.name         ?? tenantId;
-  const primaryColor = cfg?.brand?.primary_color ?? '#2563eb';
 
   // ── 2. Ensure slug uniqueness — auto-append suffix -1, -2 … on conflict ───
   {
@@ -382,31 +378,7 @@ pages.post('/', async (c) => {
     slug = candidate;
   }
 
-  // ── 3. Render page HTML ───────────────────────────────────────────────────
-  const tmpl   = await loadBlankTemplate(templateType, c.env);
-  const rendered = renderPageTemplate(tmpl, {
-    title,
-    brand_name:    brandName,
-    primary_color: primaryColor,
-    content_html:  contentHtml || '<p>Add your content here.</p>',
-  });
-
-  // ── 4. Write to R2 sandbox ────────────────────────────────────────────────
-  const r2Key = `sandbox/${tenantId}/pages/${slug}.html`;
-  await c.env.TOUR_PAGES.put(r2Key, rendered, {
-    httpMetadata: {
-      contentType: 'text/html; charset=utf-8',
-      cacheControl: 'no-store',
-    },
-    customMetadata: {
-      tenant_id:     tenantId,
-      template_type: templateType,
-      title,
-      slug,
-    },
-  });
-
-  // ── 4b. Write empty sections JSON — new pages always start blank ──────────
+  // ── 3. Write empty sections JSON — new pages always start blank ───────────
   // Ensures GET /:slug/sections always returns { sections: [] } immediately
   // after creation without relying on the "missing file = empty array" fallback.
   // The Visual Editor uses this to distinguish "page has no sections yet" from
@@ -417,7 +389,7 @@ pages.post('/', async (c) => {
     customMetadata: { tenant_id: tenantId, slug },
   });
 
-  // ── 5. Insert tenant_pages record ─────────────────────────────────────────
+  // ── 4. Insert tenant_pages record ─────────────────────────────────────────
   const pageId = nanoid();
   const ts     = now();
   await c.env.DB
@@ -428,6 +400,15 @@ pages.post('/', async (c) => {
     )
     .bind(pageId, tenantId, slug, title, contentHtml, templateType, ts, ts)
     .run();
+
+  // ── 5. Render inherited shell into sandbox ───────────────────────────────
+  const { r2Key } = await rebuildTenantPageRender(c.env, tenantId, {
+    slug,
+    title,
+    content_html: contentHtml,
+    template_type: templateType,
+    sections: [],
+  });
 
   // ── 6. Inject nav link into sandbox/index.html ────────────────────────────
   const navResult = await injectNavLinkIntoSandbox(tenantId, slug, title, c.env);
@@ -534,59 +515,498 @@ function rewriteRelativePaths(html, templateId) {
 
 /**
  * Extract the shell fragments needed to wrap a sub-page.
- * Returns { headInner, headerEl, footerEl, bodyAttrs }.
+ * Returns { htmlAttrs, headInner, headerEl, footerEl, bodyAttrs }.
  *
  * Uses targeted regex — safe for "known-good" HTML template output where
  * header/footer tags are well-formed and not deeply nested inside each other.
  */
 function extractTemplateShell(indexHtml) {
-  const headInner = indexHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1]   ?? '';
-  const headerEl  = indexHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0] ?? '';
-  const footerEl  = indexHtml.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/i)?.[0] ?? '';
-  // Some templates add class="is-preload" etc. on <body> — preserve it.
+  const htmlAttrs = indexHtml.match(/<html([^>]*)>/i)?.[1] ?? '';
+  const headInner = indexHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';
+  const headerEl = indexHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0] ?? '';
+  const footerEl = indexHtml.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/i)?.[0] ?? '';
   const bodyAttrs = indexHtml.match(/<body([^>]*)>/i)?.[1] ?? '';
-  return { headInner, headerEl, footerEl, bodyAttrs };
+  return { htmlAttrs, headInner, headerEl, footerEl, bodyAttrs };
 }
 
-/**
- * Assemble the full page HTML from template shell + page content.
- * All tenant-supplied strings are HTML-escaped in attributes.
- * content_html is rendered as raw HTML (tenant-controlled, stored in D1).
- */
-function buildPageShellHtml({
-  templateId, title, slug, tenantId, contentHtml,
-  headInner, headerEl, footerEl, bodyAttrs, primaryColor,
-}) {
-  const safeTitle    = escHtml(title);
-  const safeSlug     = escHtml(slug);
-  const safeTenant   = escHtml(tenantId);
-  const safePrimary  = escHtml(primaryColor);
+function mergeAttribute(attrs, attrName, appendValue, separator) {
+  const source = String(attrs ?? '').trim();
+  const re = new RegExp(`\\b${attrName}=(['"])(.*?)\\1`, 'i');
+  const match = source.match(re);
+  if (!match) return `${source}${source ? ' ' : ''}${attrName}="${appendValue}"`;
+  const current = match[2].trim();
+  const next = current ? `${current}${separator}${appendValue}` : appendValue;
+  return source.replace(re, `${attrName}="${next}"`);
+}
 
-  const rewrittenHead   = rewriteRelativePaths(
-    // Strip tags we inject ourselves to avoid duplicates
+function buildHtmlOpenTag(htmlAttrs, themeClass) {
+  let attrs = String(htmlAttrs ?? '').replace(/\sdata-theme=(['"])[^'"]*\1/gi, '').trim();
+  if (!/\blang=/.test(attrs)) attrs = `lang="vi"${attrs ? ' ' + attrs : ''}`;
+  if (themeClass) attrs += ` data-theme="${escHtml(themeClass)}"`;
+  return `<html ${attrs.trim()}>`;
+}
+
+function buildBodyOpenTag(bodyAttrs) {
+  let attrs = String(bodyAttrs ?? '').trim();
+  attrs = mergeAttribute(attrs, 'class', 'font-inter antialiased overflow-x-hidden', ' ');
+  attrs = mergeAttribute(attrs, 'style', 'background-color:var(--bg);color:var(--t)', '; ');
+  return `<body${attrs ? ' ' + attrs : ''}>`;
+}
+
+function buildThemeTokensStyle({ themeColor, bgH, bgS, bgL }) {
+  const tokens = [];
+  if (themeColor && /^#[0-9a-fA-F]{3,6}$/.test(themeColor)) {
+    tokens.push(`--brand-primary:${themeColor}`);
+    tokens.push(`--brand-secondary:${themeColor}dd`);
+  }
+  if (bgH != null) tokens.push(`--bg-h:${bgH}`);
+  if (bgS != null) tokens.push(`--bg-s:${bgS}%`);
+  if (bgL != null) tokens.push(`--bg-l:${bgL}%`);
+  return tokens.length ? `<style>:root{${tokens.join(';')};}</style>` : '';
+}
+
+function buildPageCanvasHtml({ title, slug, tenantId, contentHtml, sections }) {
+  if (Array.isArray(sections) && sections.length > 0) {
+    return sections
+      .map((section, index) => {
+        const safeId = escHtml(String(section?.id ?? `sec-${index}`));
+        const html = String(section?.html ?? '').trim();
+        if (!html) return '';
+        return `<div data-ve-section="${safeId}" data-ve-section-index="${index}">\n${html}\n</div>`;
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  const inner = String(contentHtml ?? '').trim() || '<p>Add your content here.</p>';
+  return `<section class="ve-page-shell" data-ve-section="page-content">\n  <div class="ve-page-copy">\n    <h1 class="ve-page-headline">${escHtml(title)}</h1>\n    <div class="ve-page-divider"></div>\n    <div id="page-content" data-ve-page-slug="${escHtml(slug)}" data-ve-tenant-id="${escHtml(tenantId)}">\n${inner}\n    </div>\n  </div>\n</section>`;
+}
+
+function buildManagedChromeStyle() {
+  return `<style>
+html {
+  background: var(--bg);
+}
+.site-chrome {
+  width: 100%;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  position: relative;
+  isolation: isolate;
+  background: color-mix(in srgb, var(--bg, #0f172a) 84%, white 16%);
+}
+.site-chrome-header {
+  border-bottom: none;
+}
+.site-chrome-footer {
+  border-top: none;
+  margin-top: 3rem;
+}
+.site-chrome-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: row !important;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.site-chrome-brand {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t, #e5e7eb);
+  text-decoration: none;
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.site-chrome-brand span {
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.site-chrome-brand-text {
+  display: inline-block;
+  white-space: nowrap !important;
+  line-height: 1;
+  transform-origin: left center;
+}
+.site-chrome-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-primary, #2563eb) 14%, white 86%);
+  padding: 6px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+}
+.site-chrome-logo-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  padding: 4px;
+}
+.site-chrome-nav {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+}
+.site-chrome-panel {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.site-chrome-menu-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 20%, white 80%);
+  background: transparent;
+  color: var(--t, #e5e7eb);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: 700 0.82rem/1 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.site-chrome-menu-toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+.site-chrome-nav ul,
+.site-chrome-footer-nav ul {
+  display: flex;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: auto !important;
+  max-width: none !important;
+}
+.site-chrome-nav a,
+.site-chrome-footer-nav a {
+  color: color-mix(in srgb, var(--t, #e5e7eb) 85%, white 15%);
+  text-decoration: none;
+  font-size: 0.92rem;
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.site-chrome-actions {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.chrome-action {
+  border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 22%, white 78%);
+  background: transparent;
+  color: var(--t, #e5e7eb);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.chrome-action-primary {
+  background: var(--brand-primary, #2563eb);
+  color: white;
+  border-color: transparent;
+}
+.chrome-action-icon {
+  min-width: 52px;
+}
+.site-chrome-footer-inner {
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  color: color-mix(in srgb, var(--t, #e5e7eb) 72%, white 28%);
+  font-size: 0.86rem;
+}
+.site-chrome-footer-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.site-chrome-nav a,
+.site-chrome-footer-nav a,
+.site-chrome-brand,
+.chrome-action {
+  transition: color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.site-chrome-font-clean .site-chrome-nav a,
+.site-chrome-font-clean .site-chrome-footer-nav a {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+.site-chrome-font-elegant .site-chrome-nav a,
+.site-chrome-font-elegant .site-chrome-footer-nav a {
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+  text-transform: none;
+}
+.site-chrome-font-compact .site-chrome-nav a,
+.site-chrome-font-compact .site-chrome-footer-nav a {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  letter-spacing: 0.08em;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+}
+.site-chrome-logo-font-brand .site-chrome-brand-text {
+  font-family: 'Avenir Next', 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.site-chrome-logo-font-floral .site-chrome-brand-text {
+  font-family: 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', cursive;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.site-chrome-logo-font-luxe .site-chrome-brand-text {
+  font-family: 'Didot', 'Bodoni 72', 'Times New Roman', serif;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.site-chrome-logo-font-script .site-chrome-brand-text {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+.site-chrome-logo-size-sm .site-chrome-brand-text {
+  font-size: 0.95rem;
+}
+.site-chrome-logo-size-md .site-chrome-brand-text {
+  font-size: 1.15rem;
+}
+.site-chrome-logo-size-lg .site-chrome-brand-text {
+  font-size: 1.38rem;
+}
+.site-chrome-logo-size-xl .site-chrome-brand-text {
+  font-size: 1.68rem;
+}
+.site-chrome-shape-rounded {
+  margin: 14px auto 0;
+  max-width: min(1220px, calc(100% - 28px));
+  border-radius: 24px;
+  overflow: hidden;
+}
+.site-chrome-shape-capsule {
+  margin: 16px auto 0;
+  max-width: min(1180px, calc(100% - 40px));
+  border-radius: 999px;
+  overflow: hidden;
+}
+.site-chrome-shape-floating {
+  margin: 18px auto 0;
+  max-width: min(1140px, calc(100% - 48px));
+  border-radius: 28px;
+  overflow: hidden;
+  transform: translateY(0);
+}
+.site-chrome-shape-bar {
+  margin: 0;
+  max-width: none;
+  border-radius: 0;
+}
+.site-chrome-header.site-chrome-shape-bar + #canvas {
+  margin-top: 0;
+}
+.site-chrome-ornament {
+  position: absolute;
+  inset: auto 20px 0 20px;
+  pointer-events: none;
+}
+.site-chrome-ornament-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  bottom: 0;
+}
+.site-chrome-ornament-glow {
+  height: 28px;
+  bottom: -12px;
+  filter: blur(18px);
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--brand-primary, #2563eb) 36%, white 64%), transparent 70%);
+  opacity: .35;
+}
+.site-chrome-ornament-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  bottom: 10px;
+}
+.site-chrome-ornament-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.38);
+  display: inline-block;
+}
+.site-chrome-effect-glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+}
+.site-chrome-effect-frost {
+  background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.12));
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
+}
+.site-chrome-effect-shadow {
+  background: color-mix(in srgb, var(--bg, #0f172a) 72%, white 28%);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.28);
+}
+.site-chrome-effect-outline {
+  background: color-mix(in srgb, var(--bg, #0f172a) 88%, white 12%);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+}
+@media (max-width: 900px) {
+  .site-chrome-inner {
+    flex-wrap: wrap;
+  }
+  .site-chrome-menu-toggle {
+    display: inline-flex;
+  }
+  .site-chrome-panel {
+    display: none;
+    order: 3;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding-top: 12px;
+  }
+  .site-chrome-header[data-mobile-menu-open="1"] .site-chrome-panel {
+    display: flex;
+  }
+  .site-chrome-nav,
+  .site-chrome-actions {
+    width: 100%;
+  }
+  .site-chrome-nav ul {
+    flex-direction: column !important;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .site-chrome-actions {
+    margin-left: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .site-chrome-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  .site-chrome-menu-toggle-label {
+    display: none;
+  }
+  .site-chrome-menu-toggle {
+    padding-inline: 10px;
+  }
+}
+</style>`;
+}
+
+function buildPageShellHtml({
+  templateId, title, slug, tenantId, contentHtml, sections,
+  htmlAttrs, headInner, headerEl, footerEl, bodyAttrs,
+  brandName, metaDescription, themeColor, themeClass, bgH, bgS, bgL,
+}) {
+  const safeTitle = escHtml(title);
+  const safeBrand = escHtml(brandName || tenantId);
+  const safeDesc = escHtml(metaDescription || title);
+  const rewrittenHead = rewriteRelativePaths(
     headInner
       .replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, '')
       .replace(/<meta\s+charset[^>]*>/gi, '')
       .replace(/<meta\s+name=["']viewport["'][^>]*>/gi, ''),
     templateId
   );
-  const rewrittenHeader = rewriteRelativePaths(headerEl,   templateId);
-  const rewrittenFooter = rewriteRelativePaths(footerEl,   templateId);
-  const bodyOpen        = bodyAttrs.trim() ? `<body ${bodyAttrs.trim()}>` : '<body>';
+  const rewrittenHeader = rewriteRelativePaths(headerEl, templateId);
+  const rewrittenFooter = rewriteRelativePaths(footerEl, templateId);
+  const themeStyle = buildThemeTokensStyle({ themeColor, bgH, bgS, bgL });
+  const htmlOpen = buildHtmlOpenTag(htmlAttrs, themeClass);
+  const bodyOpen = buildBodyOpenTag(bodyAttrs);
+  const canvasHtml = buildPageCanvasHtml({ title, slug, tenantId, contentHtml, sections });
+  const chromeStyle = buildManagedChromeStyle();
 
   return `<!DOCTYPE html>
-<html lang="vi">
+${htmlOpen}
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${safeTitle}</title>
+<title>${safeTitle} - ${safeBrand}</title>
+<meta name="description" content="${safeDesc}">
+<meta property="og:title" content="${safeTitle} - ${safeBrand}">
+<meta property="og:description" content="${safeDesc}">
+<meta name="theme-color" content="${escHtml(themeColor || '#2563eb')}">
 ${rewrittenHead}
+<link rel="stylesheet" href="/css/theme-presets.css">
+${themeStyle}
+${chromeStyle}
 <style>
-/* ── Visual Editor: page shell overrides ─────────────────────────── */
-.ve-page-shell {
+html, body {
+  background: var(--bg);
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+body > header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 9999 !important;
+}
+#canvas {
+  min-height: 40vh;
+  padding-bottom: 4rem;
+}
+#canvas > [data-ve-section]:first-child,
+#canvas > .ve-page-shell:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+#canvas > [data-ve-section]:first-child > *:first-child,
+#canvas > .ve-page-shell:first-child > *:first-child {
+  margin-top: 0 !important;
+}
+.ve-page-shell,
+.ve-page-copy {
   max-width: 820px;
   margin: 3.5rem auto;
-  padding: 0 1.5rem 6rem;
+  padding: 0 1.5rem;
+  color: var(--t, #e5e7eb);
 }
 .ve-page-headline {
   font-size: 2rem;
@@ -594,11 +1014,12 @@ ${rewrittenHead}
   line-height: 1.2;
   letter-spacing: -.02em;
   margin-bottom: 0.5rem;
+  color: var(--t, #e5e7eb);
 }
 .ve-page-divider {
   width: 48px;
   height: 3px;
-  background: ${safePrimary};
+  background: var(--brand-primary, ${escHtml(themeColor || '#2563eb')});
   border-radius: 2px;
   margin-bottom: 2rem;
 }
@@ -614,21 +1035,150 @@ ${rewrittenHead}
 </head>
 ${bodyOpen}
 ${rewrittenHeader}
-<div class="ve-page-shell">
-  <h1 class="ve-page-headline">${safeTitle}</h1>
-  <div class="ve-page-divider"></div>
-  <div id="page-content"
-       data-ve-page-slug="${safeSlug}"
-       data-ve-tenant-id="${safeTenant}">
-${contentHtml}
-  </div>
-</div>
+<main id="canvas">
+${canvasHtml}
+</main>
 ${rewrittenFooter}
-<script src="/editor-bridge.js"></script>
+${buildChromeMenuScript()}
 </body>
 </html>`;
 }
 
+async function loadPageSections(env, tenantId, slug) {
+  try {
+    const obj = await env.TOUR_PAGES.get(`sandbox/${tenantId}/pages/${slug}.json`);
+    if (!obj) return [];
+    const data = await obj.json();
+    return Array.isArray(data?.sections) ? data.sections : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function renderTenantPageHtml(env, tenantId, page) {
+  const tenant = await env.DB
+    .prepare('SELECT template_id, site_config FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  let cfg = {};
+  try { if (tenant?.site_config) cfg = JSON.parse(tenant.site_config); } catch (_) {}
+
+  const brand = cfg?.brand ?? {};
+  const content = cfg?.content ?? {};
+  const templateId = tenant?.template_id ?? 'tmpl-minimal-v1';
+  const logoUrl = brand.logo_url ?? '';
+  const navItems = Array.isArray(cfg.navigation) ? cfg.navigation : [];
+  const navConfig = cfg.navigation_config && typeof cfg.navigation_config === 'object'
+    ? {
+        showPhone: cfg.navigation_config.showPhone === true,
+        showCart: cfg.navigation_config.showCart === true,
+        showContactForm: cfg.navigation_config.showContactForm === true,
+      }
+    : { showPhone: false, showCart: false, showContactForm: false };
+  const chromeConfig = normalizeChromeConfig(cfg.chrome_config);
+  const themeColor = brand.primary_color ?? '#2563eb';
+  const themeClass = typeof cfg.current_theme === 'string' ? cfg.current_theme.trim().slice(0, 40) : '';
+  const bgH = typeof brand.bg_h === 'number' && isFinite(brand.bg_h) ? Math.max(0, Math.min(360, Math.round(brand.bg_h))) : null;
+  const bgS = typeof brand.bg_s === 'number' && isFinite(brand.bg_s) ? Math.max(0, Math.min(100, Math.round(brand.bg_s))) : null;
+  const bgL = typeof brand.bg_l === 'number' && isFinite(brand.bg_l) ? Math.max(0, Math.min(100, Math.round(brand.bg_l))) : null;
+  const brandName = brand.name ?? tenantId;
+  const metaDescription = content.hero_desc ?? page.title ?? '';
+  const contactPhone = content.contact_phone ?? '';
+  const sections = Array.isArray(page.sections) ? page.sections : await loadPageSections(env, tenantId, page.slug);
+
+  try {
+    const indexObj = await env.TOUR_PAGES.get(`sandbox/${tenantId}/index.html`);
+    if (indexObj) {
+      const indexHtml = await indexObj.text();
+      const shell = extractTemplateShell(indexHtml);
+      const headerEl = chromeConfig.useMinimalHeader
+        ? buildMinimalHeaderHtml({
+            brandName,
+            logoUrl,
+            navItems,
+            navConfig,
+            contactPhone,
+            effectStyle: chromeConfig.effectStyle,
+            shapeStyle: chromeConfig.shapeStyle,
+            menuFontStyle: chromeConfig.menuFontStyle,
+            logoFontStyle: chromeConfig.logoFontStyle,
+            logoSize: chromeConfig.logoSize,
+            ornamentStyle: chromeConfig.ornamentStyle,
+            showLogo: chromeConfig.showLogo,
+          })
+        : shell.headerEl;
+      const footerEl = chromeConfig.useMinimalFooter
+        ? buildMinimalFooterHtml({
+            brandName,
+            logoUrl,
+            navItems,
+            showFooterMenu: chromeConfig.showFooterMenu,
+            effectStyle: chromeConfig.effectStyle,
+            shapeStyle: chromeConfig.shapeStyle,
+            menuFontStyle: chromeConfig.menuFontStyle,
+            logoFontStyle: chromeConfig.logoFontStyle,
+            logoSize: chromeConfig.logoSize,
+            ornamentStyle: chromeConfig.ornamentStyle,
+            showLogo: chromeConfig.showLogo,
+          })
+        : shell.footerEl;
+      return buildPageShellHtml({
+        templateId,
+        title: page.title,
+        slug: page.slug,
+        tenantId,
+        contentHtml: page.content_html || '<p>Add your content here.</p>',
+        sections,
+        htmlAttrs: shell.htmlAttrs,
+        headInner: shell.headInner,
+        headerEl,
+        footerEl,
+        bodyAttrs: shell.bodyAttrs,
+        brandName,
+        metaDescription,
+        themeColor,
+        themeClass,
+        bgH,
+        bgS,
+        bgL,
+      });
+    }
+  } catch (_) {}
+
+  const tmpl = await loadBlankTemplate(page.template_type || 'generic', env);
+  return renderPageTemplate(tmpl, {
+    title: page.title,
+    brand_name: brandName,
+    primary_color: themeColor,
+    content_html: page.content_html || '<p>Add your content here.</p>',
+  });
+}
+
+export async function rebuildTenantPageRender(env, tenantId, page) {
+  const rendered = await renderTenantPageHtml(env, tenantId, page);
+  const r2Key = `sandbox/${tenantId}/pages/${page.slug}.html`;
+  await env.TOUR_PAGES.put(r2Key, rendered, {
+    httpMetadata: { contentType: 'text/html; charset=utf-8', cacheControl: 'no-store' },
+    customMetadata: { tenant_id: tenantId, slug: page.slug, title: page.title },
+  });
+  return { r2Key, rendered };
+}
+
+export async function rebuildAllTenantPageRenders(env, tenantId) {
+  const rows = await env.DB
+    .prepare('SELECT slug, title, content_html, template_type FROM tenant_pages WHERE tenant_id = ?')
+    .bind(tenantId)
+    .all();
+  const pages = rows.results ?? [];
+  for (const page of pages) {
+    const sections = await loadPageSections(env, tenantId, page.slug);
+    await rebuildTenantPageRender(env, tenantId, { ...page, sections });
+  }
+  return pages.length;
+}
+
+// GET /api/tenant/pages/:slug/preview — render a page with the same shell philosophy as homepage
 pages.get('/:slug/preview', async (c) => {
   const tenantId = (c.req.header('X-Tenant-ID') ?? c.req.query('tid') ?? '').trim();
   if (!tenantId) return new Response('X-Tenant-ID header or ?tid= query param is required.', { status: 400 });
@@ -636,129 +1186,46 @@ pages.get('/:slug/preview', async (c) => {
   const slug = c.req.param('slug');
   if (!SAFE_SLUG_RE.test(slug)) return new Response('Invalid slug.', { status: 400 });
 
-  if (!c.env.TOUR_PAGES) {
-    return new Response('TOUR_PAGES R2 binding is not configured.', { status: 503 });
-  }
-
-  // ── Load page record + tenant branding in parallel ─────────────────────────
-  const [row, tenant] = await Promise.all([
-    c.env.DB
-      .prepare('SELECT title, content_html, template_type FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
-      .bind(tenantId, slug)
-      .first(),
-    c.env.DB
-      .prepare('SELECT template_id, site_config FROM tenants WHERE id = ?')
-      .bind(tenantId)
-      .first(),
-  ]);
+  const row = await c.env.DB
+    .prepare('SELECT title, content_html, template_type FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
+    .bind(tenantId, slug)
+    .first();
   if (!row) return new Response('Page not found.', { status: 404 });
 
-  const templateId   = tenant?.template_id ?? 'tmpl-minimal-v1';
-  let cfg = {};
-  try { if (tenant?.site_config) cfg = JSON.parse(tenant.site_config); } catch (_) {}
-  const primaryColor = cfg?.brand?.primary_color ?? '#2563eb';
-
-  // ── Build template-shell page ──────────────────────────────────────────────
-  let pageHtml = null;
-  try {
-    const indexObj = await c.env.TOUR_PAGES.get(`sandbox/${tenantId}/index.html`);
-    if (indexObj) {
-      const indexHtml = await indexObj.text();
-      const shell = extractTemplateShell(indexHtml);
-      pageHtml = buildPageShellHtml({
-        templateId,
-        title:        row.title,
-        slug,
-        tenantId,
-        contentHtml:  row.content_html || '<p>Add your content here.</p>',
-        headInner:    shell.headInner,
-        headerEl:     shell.headerEl,
-        footerEl:     shell.footerEl,
-        bodyAttrs:    shell.bodyAttrs,
-        primaryColor,
-      });
-    }
-  } catch (_) { /* fall through to raw fallback */ }
-
-  // ── Fallback: inject into the pre-rendered R2 file ────────────────────────
-  if (!pageHtml) {
-    const pageObj = await c.env.TOUR_PAGES.get(`sandbox/${tenantId}/pages/${slug}.html`);
-    if (!pageObj) return new Response('Page not found in sandbox.', { status: 404 });
-    const rawHtml = await pageObj.text();
-    // Stamp data attributes so editor-bridge can enter page-content mode
-    pageHtml = rawHtml
-      .replace(
-        /<div id="page-content"/,
-        `<div id="page-content" data-ve-page-slug="${escHtml(slug)}" data-ve-tenant-id="${escHtml(tenantId)}"`
-      )
-      .replace('</body>', '<script src="/editor-bridge.js"></script>\n</body>');
+  let pageHtml = await renderTenantPageHtml(c.env, tenantId, { ...row, slug });
+  if (!pageHtml.includes('/editor-bridge.js')) {
+    pageHtml = pageHtml.replace('</body>', '<script src="/editor-bridge.js"></script>\n</body>');
   }
 
   return new Response(pageHtml, {
     headers: {
-      'Content-Type':  'text/html; charset=utf-8',
+      'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
-      'X-Robots-Tag':  'noindex',
+      'X-Robots-Tag': 'noindex',
     },
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// PATCH /api/tenant/pages/:slug — update page title and/or content_html
-// ═════════════════════════════════════════════════════════════════════════════
-//
-// Re-renders the page HTML and writes the updated file back to R2 sandbox.
-// Does NOT re-run nav injection (title change does not affect the URL href).
+// PATCH /api/tenant/pages/:slug — update page title and/or legacy content_html
 pages.patch('/:slug', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const slug = c.req.param('slug');
-
   let body;
   try { body = await c.req.json(); }
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
-  // Load existing record
   const row = await c.env.DB
     .prepare('SELECT * FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, slug)
     .first();
   if (!row) return c.json({ error: 'Page not found.', slug }, 404);
 
-  const newTitle       = (body.title        ?? row.title).trim().slice(0, 120);
+  const newTitle = (body.title ?? row.title).trim().slice(0, 120);
   const newContentHtml = body.content_html !== undefined ? String(body.content_html) : row.content_html;
-
   if (!newTitle) return c.json({ error: 'title cannot be empty.' }, 400);
 
-  // Load tenant branding
-  const tenant = await c.env.DB
-    .prepare('SELECT site_config FROM tenants WHERE id = ?')
-    .bind(tenantId)
-    .first();
-
-  let cfg = {};
-  try { if (tenant?.site_config) cfg = JSON.parse(tenant.site_config); } catch (_) {}
-  const brandName    = cfg?.brand?.name         ?? tenantId;
-  const primaryColor = cfg?.brand?.primary_color ?? '#2563eb';
-
-  // Re-render
-  const tmpl = await loadBlankTemplate(row.template_type, c.env);
-  const rendered = renderPageTemplate(tmpl, {
-    title:         newTitle,
-    brand_name:    brandName,
-    primary_color: primaryColor,
-    content_html:  newContentHtml || '<p>Add your content here.</p>',
-  });
-
-  // Write back to R2
-  const r2Key = `sandbox/${tenantId}/pages/${slug}.html`;
-  await c.env.TOUR_PAGES.put(r2Key, rendered, {
-    httpMetadata: { contentType: 'text/html; charset=utf-8', cacheControl: 'no-store' },
-    customMetadata: { tenant_id: tenantId, title: newTitle, slug },
-  });
-
-  // Update D1
   const ts = now();
   await c.env.DB
     .prepare(
@@ -769,64 +1236,54 @@ pages.patch('/:slug', async (c) => {
     .bind(newTitle, newContentHtml, ts, tenantId, slug)
     .run();
 
-  return c.json({
-    ok:          true,
+  const { r2Key } = await rebuildTenantPageRender(c.env, tenantId, {
     slug,
-    title:       newTitle,
-    updated_at:  ts,
+    title: newTitle,
+    content_html: newContentHtml,
+    template_type: row.template_type,
+  });
+
+  return c.json({
+    ok: true,
+    slug,
+    title: newTitle,
+    updated_at: ts,
+    r2_key: r2Key,
     preview_url: `/api/tenant/pages/${slug}/preview`,
   });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
 // DELETE /api/tenant/pages/:slug — delete a page
-// ═════════════════════════════════════════════════════════════════════════════
-//
-// Deletes: D1 record + R2 sandbox file + live R2 file (if promoted).
-// Also removes the nav link from sandbox/index.html.
 pages.delete('/:slug', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const slug = c.req.param('slug');
-
   const row = await c.env.DB
     .prepare('SELECT id FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, slug)
     .first();
   if (!row) return c.json({ error: 'Page not found.', slug }, 404);
 
-  // Delete D1 record
   await c.env.DB
     .prepare('DELETE FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, slug)
     .run();
 
-  // Delete R2 objects (non-fatal errors)
   const sandboxKey = `sandbox/${tenantId}/pages/${slug}.html`;
-  const liveKey    = `live/${tenantId}/pages/${slug}.html`;
-  const r2Deletes  = [];
-
+  const liveKey = `live/${tenantId}/pages/${slug}.html`;
+  const sectionsKey = `sandbox/${tenantId}/pages/${slug}.json`;
+  const r2Deletes = [];
   try { await c.env.TOUR_PAGES.delete(sandboxKey); r2Deletes.push(sandboxKey); } catch (_) {}
-  try { await c.env.TOUR_PAGES.delete(liveKey);    r2Deletes.push(liveKey);    } catch (_) {}
+  try { await c.env.TOUR_PAGES.delete(liveKey); r2Deletes.push(liveKey); } catch (_) {}
+  try { await c.env.TOUR_PAGES.delete(sectionsKey); r2Deletes.push(sectionsKey); } catch (_) {}
 
-  // Remove nav link from sandbox index
   await removeNavLinkFromSandbox(tenantId, slug, c.env);
 
-  console.info(`[PAGES] Deleted page tenant=${tenantId} slug=${slug}`);
-
-  return c.json({
-    ok:      true,
-    deleted: { slug, r2_keys_deleted: r2Deletes },
-  });
+  return c.json({ ok: true, deleted: { slug, r2_keys_deleted: r2Deletes } });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// GET /:slug/sections  — read per-page section blocks
-// ═════════════════════════════════════════════════════════════════════════════
-//
-// Reads sandbox/{tenantId}/pages/{slug}.json from TOUR_PAGES R2.
-// Returns { ok, slug, sections: [] } — an empty array is valid (new page).
+// GET /:slug/sections — read per-page section blocks
 pages.get('/:slug/sections', async (c) => {
   const tenantId = (c.req.header('X-Tenant-ID') ?? c.req.query('tid') ?? '').trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
@@ -834,35 +1291,17 @@ pages.get('/:slug/sections', async (c) => {
   const slug = c.req.param('slug');
   if (!SAFE_SLUG_RE.test(slug)) return c.json({ error: 'Invalid slug.' }, 400);
 
-  if (!c.env.TOUR_PAGES) return c.json({ error: 'TOUR_PAGES R2 binding not configured.' }, 503);
-
-  // Verify the page belongs to this tenant
   const row = await c.env.DB
     .prepare('SELECT id FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, slug)
     .first();
   if (!row) return c.json({ error: 'Page not found.', slug }, 404);
 
-  const jsonKey = `sandbox/${tenantId}/pages/${slug}.json`;
-  let sections  = [];
-  try {
-    const obj = await c.env.TOUR_PAGES.get(jsonKey);
-    if (obj) {
-      const data = await obj.json();
-      if (Array.isArray(data?.sections)) sections = data.sections;
-    }
-  } catch (_) { /* missing file = empty sections — not an error */ }
-
+  const sections = await loadPageSections(c.env, tenantId, slug);
   return c.json({ ok: true, slug, sections });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// PUT /:slug/sections  — write per-page section blocks
-// ═════════════════════════════════════════════════════════════════════════════
-//
-// Body: { sections: [{ id, type, html }] }
-// Writes JSON to sandbox/{tenantId}/pages/{slug}.json.
-// [SEC] Each section is validated: id/type/html must be short strings; html ≤ 64 KB.
+// PUT /:slug/sections — write per-page section blocks and rebuild page HTML
 pages.put('/:slug/sections', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
@@ -878,47 +1317,44 @@ pages.put('/:slug/sections', async (c) => {
     return c.json({ error: 'Body must contain sections array.' }, 400);
   }
 
-  if (!c.env.TOUR_PAGES) return c.json({ error: 'TOUR_PAGES R2 binding not configured.' }, 503);
-
-  // Verify page ownership
   const row = await c.env.DB
-    .prepare('SELECT id FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
+    .prepare('SELECT title, content_html, template_type FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, slug)
     .first();
   if (!row) return c.json({ error: 'Page not found.', slug }, 404);
 
-  // Validate and sanitize each section entry
   const sections = body.sections
-    .filter(s =>
-      s && typeof s === 'object' &&
-      typeof s.id   === 'string' && s.id.length   <= 64 &&
-      typeof s.type === 'string' && s.type.length  <= 32 &&
-      typeof s.html === 'string' && s.html.length  <= 65536
+    .filter((section) =>
+      section && typeof section === 'object' &&
+      typeof section.id === 'string' && section.id.length <= 64 &&
+      typeof section.type === 'string' && section.type.length <= 64 &&
+      typeof section.html === 'string' && section.html.length <= 65536
     )
-    .map(s => ({ id: s.id, type: s.type, html: s.html }));
+    .map((section) => ({ id: section.id, type: section.type, html: section.html }));
 
-  const jsonKey = `sandbox/${tenantId}/pages/${slug}.json`;
-  await c.env.TOUR_PAGES.put(jsonKey, JSON.stringify({ slug, sections }), {
+  await c.env.TOUR_PAGES.put(`sandbox/${tenantId}/pages/${slug}.json`, JSON.stringify({ slug, sections }), {
     httpMetadata: { contentType: 'application/json; charset=utf-8', cacheControl: 'no-store' },
     customMetadata: { tenant_id: tenantId, slug },
   });
 
-  // Update D1 updated_at
+  const updatedAt = now();
   await c.env.DB
     .prepare('UPDATE tenant_pages SET updated_at = ? WHERE tenant_id = ? AND slug = ?')
-    .bind(now(), tenantId, slug)
+    .bind(updatedAt, tenantId, slug)
     .run();
 
-  return c.json({ ok: true, slug, sections_count: sections.length });
+  await rebuildTenantPageRender(c.env, tenantId, {
+    slug,
+    title: row.title,
+    content_html: row.content_html,
+    template_type: row.template_type,
+    sections,
+  });
+
+  return c.json({ ok: true, slug, sections_count: sections.length, updated_at: updatedAt });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// POST /:slug/clone  — clone a page
-// ═════════════════════════════════════════════════════════════════════════════
-//
-// Body: { title: string, slug?: string }
-// Clones the source page's D1 record, R2 HTML, and R2 sections JSON into a
-// new page with the provided title/slug.  The new page starts as 'draft'.
+// POST /:slug/clone — clone page data and sections, then rebuild inherited shell
 pages.post('/:slug/clone', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
@@ -931,8 +1367,8 @@ pages.post('/:slug/clone', async (c) => {
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
   const newTitle = (body.title ?? '').trim();
-  if (!newTitle)              return c.json({ error: 'Missing required field: title.' }, 400);
-  if (newTitle.length > 120)  return c.json({ error: 'title exceeds 120 characters.' }, 400);
+  if (!newTitle) return c.json({ error: 'Missing required field: title.' }, 400);
+  if (newTitle.length > 120) return c.json({ error: 'title exceeds 120 characters.' }, 400);
 
   let newSlug = (body.slug ?? '').toLowerCase().trim() || slugify(newTitle);
   if (!newSlug) newSlug = 'page-' + nanoid(6).toLowerCase();
@@ -940,16 +1376,12 @@ pages.post('/:slug/clone', async (c) => {
     return c.json({ error: 'slug must be lowercase letters, digits and hyphens only.' }, 400);
   }
 
-  if (!c.env.TOUR_PAGES) return c.json({ error: 'TOUR_PAGES R2 binding not configured.' }, 503);
-
-  // Verify source page belongs to tenant
   const srcRow = await c.env.DB
     .prepare('SELECT * FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, srcSlug)
     .first();
   if (!srcRow) return c.json({ error: 'Source page not found.', slug: srcSlug }, 404);
 
-  // Check new slug uniqueness
   const conflict = await c.env.DB
     .prepare('SELECT id FROM tenant_pages WHERE tenant_id = ? AND slug = ?')
     .bind(tenantId, newSlug)
@@ -958,44 +1390,19 @@ pages.post('/:slug/clone', async (c) => {
     return c.json({ error: `A page with slug "${newSlug}" already exists.`, code: 'SLUG_CONFLICT' }, 409);
   }
 
-  // Copy R2 HTML (re-render title in the copy)
-  let copiedHtml = '';
-  try {
-    const htmlObj = await c.env.TOUR_PAGES.get(`sandbox/${tenantId}/pages/${srcSlug}.html`);
-    if (htmlObj) copiedHtml = await htmlObj.text();
-  } catch (_) {}
-  // Swap the <title> tag in the copy so it reflects the new title
-  if (copiedHtml) {
-    copiedHtml = copiedHtml.replace(/<title>[^<]*<\/title>/i, `<title>${newTitle.replace(/</g,'&lt;')}</title>`);
-    await c.env.TOUR_PAGES.put(`sandbox/${tenantId}/pages/${newSlug}.html`, copiedHtml, {
-      httpMetadata: { contentType: 'text/html; charset=utf-8', cacheControl: 'no-store' },
-      customMetadata: { tenant_id: tenantId, slug: newSlug, title: newTitle, cloned_from: srcSlug },
-    });
-  }
-
-  // Copy sections JSON
-  let srcSections = [];
-  try {
-    const jsonObj = await c.env.TOUR_PAGES.get(`sandbox/${tenantId}/pages/${srcSlug}.json`);
-    if (jsonObj) {
-      const data = await jsonObj.json();
-      if (Array.isArray(data?.sections)) srcSections = data.sections;
-    }
-  } catch (_) {}
-  // Assign new IDs to each cloned section so they are independent of the source
-  const clonedSections = srcSections.map(s => ({
-    id:   'sec-' + nanoid(8),
-    type: s.type,
-    html: s.html,
+  const srcSections = await loadPageSections(c.env, tenantId, srcSlug);
+  const clonedSections = srcSections.map((section) => ({
+    id: 'sec-' + nanoid(8),
+    type: section.type,
+    html: section.html,
   }));
   await c.env.TOUR_PAGES.put(`sandbox/${tenantId}/pages/${newSlug}.json`, JSON.stringify({ slug: newSlug, sections: clonedSections }), {
     httpMetadata: { contentType: 'application/json; charset=utf-8', cacheControl: 'no-store' },
     customMetadata: { tenant_id: tenantId, slug: newSlug, cloned_from: srcSlug },
   });
 
-  // Insert D1 record
   const newId = nanoid();
-  const ts    = now();
+  const ts = now();
   await c.env.DB
     .prepare(
       `INSERT INTO tenant_pages
@@ -1005,19 +1412,25 @@ pages.post('/:slug/clone', async (c) => {
     .bind(newId, tenantId, newSlug, newTitle, srcRow.content_html ?? '', srcRow.template_type ?? 'generic', ts, ts)
     .run();
 
-  console.info(`[PAGES] Cloned page tenant=${tenantId} src=${srcSlug} new=${newSlug}`);
+  await rebuildTenantPageRender(c.env, tenantId, {
+    slug: newSlug,
+    title: newTitle,
+    content_html: srcRow.content_html ?? '',
+    template_type: srcRow.template_type ?? 'generic',
+    sections: clonedSections,
+  });
 
   return c.json({
-    ok:   true,
+    ok: true,
     page: {
-      id:            newId,
-      tenant_id:     tenantId,
-      slug:          newSlug,
-      title:         newTitle,
+      id: newId,
+      tenant_id: tenantId,
+      slug: newSlug,
+      title: newTitle,
       template_type: srcRow.template_type ?? 'generic',
-      status:        'draft',
+      status: 'draft',
       sections_count: clonedSections.length,
-      preview_url:   `/api/tenant/pages/${newSlug}/preview`,
+      preview_url: `/api/tenant/pages/${newSlug}/preview`,
     },
     cloned_from: srcSlug,
   }, 201);

@@ -34,6 +34,385 @@
   var _timers  = {};
   var _inline  = false;
   var _preview = false;
+  var _gridResize = null;
+  var _gridDrag = null;
+
+  function ensureBridgeStyles() {
+    if (document.getElementById('ve-grid-style')) return;
+    var style = document.createElement('style');
+    style.id = 've-grid-style';
+    style.textContent = [
+      '.grid{display:grid !important;}',
+      '.grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr)) !important;}',
+      '.gap-6{gap:24px !important;}',
+      '[data-ve-grid-host="1"]{position:relative;}',
+      '[data-ve-grid-item="1"]{position:relative;min-width:0;}',
+      '.col-span-1{grid-column:span 1 / span 1 !important;}',
+      '.col-span-2{grid-column:span 2 / span 2 !important;}',
+      '.col-span-3{grid-column:span 3 / span 3 !important;}',
+      '.col-span-4{grid-column:span 4 / span 4 !important;}',
+      '.col-span-5{grid-column:span 5 / span 5 !important;}',
+      '.col-span-6{grid-column:span 6 / span 6 !important;}',
+      '.col-span-7{grid-column:span 7 / span 7 !important;}',
+      '.col-span-8{grid-column:span 8 / span 8 !important;}',
+      '.col-span-9{grid-column:span 9 / span 9 !important;}',
+      '.col-span-10{grid-column:span 10 / span 10 !important;}',
+      '.col-span-11{grid-column:span 11 / span 11 !important;}',
+      '.col-span-12{grid-column:span 12 / span 12 !important;}',
+      '[data-ve-grid-overlay="1"]{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;pointer-events:none;z-index:2147483644;opacity:0;transition:opacity .12s ease;}',
+      '[data-ve-grid-overlay="1"] > span{border-radius:8px;background:linear-gradient(180deg, rgba(99,102,241,.10), rgba(99,102,241,.03));box-shadow:inset 0 0 0 1px rgba(148,163,184,.12);}',
+      '[data-ve-grid-host="1"][data-ve-grid-overlay-active="1"] > [data-ve-grid-overlay="1"]{opacity:1;}',
+      '[data-ve-grid-actions="1"]{position:absolute;top:8px;right:28px;display:flex;align-items:center;gap:6px;z-index:2147483646;opacity:0;transform:translateY(-2px);transition:opacity .12s ease, transform .12s ease;pointer-events:none;}',
+      '[data-ve-grid-item="1"]:hover > [data-ve-grid-actions="1"],[data-ve-grid-item="1"][data-ve-grid-resizing="1"] > [data-ve-grid-actions="1"]{opacity:1;transform:translateY(0);pointer-events:auto;}',
+      '[data-ve-grid-action-btn="1"]{border:none;border-radius:999px;padding:0 8px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:rgba(15,23,42,.78);color:#fff;font:700 10px/1 ui-sans-serif,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,.24);}',
+      '[data-ve-grid-action-btn="1"][data-ve-move="1"]{background:rgba(71,85,105,.92);cursor:grab;}',
+      '[data-ve-grid-action-btn="1"][data-ve-move="1"]:active{cursor:grabbing;}',
+      '[data-ve-grid-action-btn="1"][data-ve-copy="1"]{background:rgba(37,99,235,.86);}',
+      '[data-ve-grid-action-btn="1"][data-ve-delete="1"]{background:rgba(220,38,38,.86);}',
+      '[data-ve-grid-item="1"][data-ve-grid-dragging="1"]{opacity:.92;box-shadow:0 18px 48px rgba(15,23,42,.22);z-index:2147483647;}',
+      '[data-ve-grid-placeholder="1"]{min-height:84px;border-radius:14px;background:linear-gradient(180deg, rgba(99,102,241,.12), rgba(99,102,241,.04));box-shadow:inset 0 0 0 1px rgba(99,102,241,.28);}',
+      '[data-ve-resize-handle="1"]{position:absolute;top:10px;right:0;width:14px;height:calc(100% - 20px);cursor:col-resize;z-index:2147483646;border-radius:999px;background:rgba(148,163,184,.08);transition:background-color .14s ease, opacity .14s ease;pointer-events:auto;opacity:.15;}',
+      '[data-ve-resize-handle="1"]::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:28px;border-radius:999px;background:repeating-linear-gradient(180deg, rgba(255,255,255,.72) 0 2px, transparent 2px 5px);}',
+      '[data-ve-grid-item="1"]:hover > [data-ve-resize-handle="1"]{background:rgba(148,163,184,.22);opacity:1;}',
+      '[data-ve-grid-item="1"][data-ve-grid-resizing="1"] > [data-ve-resize-handle="1"]{background:rgba(99,102,241,.42);opacity:1;}',
+      '[data-ve-grid-span-badge="1"]{position:absolute;right:8px;top:8px;padding:2px 6px;border-radius:999px;background:rgba(15,23,42,.72);color:#fff;font:700 10px/1 ui-sans-serif,system-ui,sans-serif;z-index:2147483646;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease, transform .12s ease;}',
+      '[data-ve-grid-item="1"]:hover > [data-ve-grid-span-badge="1"],[data-ve-grid-item="1"][data-ve-grid-resizing="1"] > [data-ve-grid-span-badge="1"]{opacity:1;transform:translateY(0);}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function serializeSectionHtml(secEl) {
+    if (!secEl) return null;
+    var clone = secEl.cloneNode(true);
+    clone.querySelectorAll('[data-ve-overlay]').forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    clone.querySelectorAll('[data-ve-grid-host]').forEach(function (el) {
+      el.removeAttribute('data-ve-grid-host');
+    });
+    clone.querySelectorAll('[data-ve-grid-item]').forEach(function (el) {
+      el.removeAttribute('data-ve-grid-item');
+      el.removeAttribute('data-ve-grid-resizing');
+    });
+    clone.querySelectorAll('[data-ve-grid-actions]').forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    clone.querySelectorAll('[data-ve-grid-span-badge]').forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    return clone.innerHTML;
+  }
+
+  function cloneGridItemClean(itemEl) {
+    var clone = itemEl.cloneNode(true);
+    clone.querySelectorAll('[data-ve-overlay]').forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    clone.removeAttribute('data-ve-grid-item');
+    clone.removeAttribute('data-ve-grid-resizing');
+    return clone;
+  }
+
+  function createGridPlaceholder(itemEl) {
+    var placeholder = document.createElement('div');
+    placeholder.setAttribute('data-ve-overlay', '1');
+    placeholder.setAttribute('data-ve-grid-placeholder', '1');
+    placeholder.classList.add('col-span-' + getItemSpan(itemEl));
+    placeholder.style.minHeight = Math.max(84, Math.round(itemEl.getBoundingClientRect().height)) + 'px';
+    return placeholder;
+  }
+
+  function emitSectionHtmlUpdated(secEl) {
+    if (!secEl) return;
+    send({
+      type: 'SECTION_HTML_UPDATED',
+      sectionId: secEl.getAttribute('data-ve-section'),
+      html: serializeSectionHtml(secEl)
+    });
+  }
+
+  function getGridHostConfig(secEl) {
+    function elementChildren(node) {
+      return Array.from(node.children).filter(function (child) {
+        return !child.hasAttribute('data-ve-overlay');
+      });
+    }
+
+    function findNestedHost(root) {
+      var queue = elementChildren(root).slice();
+      while (queue.length) {
+        var current = queue.shift();
+        if (!/^(div|section|article|main|aside)$/i.test(current.tagName)) continue;
+        var kids = elementChildren(current);
+        if (kids.length >= 2) {
+          return { host: current, items: kids, persistHostClasses: true };
+        }
+        Array.prototype.push.apply(queue, kids);
+      }
+      return null;
+    }
+
+    var directChildren = elementChildren(secEl);
+    if (directChildren.length >= 2) {
+      return { host: secEl, items: directChildren, persistHostClasses: false };
+    }
+    var nested = findNestedHost(secEl);
+    if (nested) return nested;
+    return { host: secEl, items: directChildren, persistHostClasses: false };
+  }
+
+  function getItemSpan(el) {
+    var match = Array.from(el.classList).find(function (name) { return /^col-span-(\d+)$/.test(name); });
+    if (!match) return 12;
+    var span = parseInt(match.slice('col-span-'.length), 10);
+    return span >= 1 && span <= 12 ? span : 12;
+  }
+
+  function ensureGridOverlay(hostEl) {
+    var existing = hostEl.querySelector(':scope > [data-ve-grid-overlay="1"]');
+    if (existing) return existing;
+    var overlay = document.createElement('div');
+    overlay.setAttribute('data-ve-overlay', '1');
+    overlay.setAttribute('data-ve-grid-overlay', '1');
+    for (var i = 0; i < 12; i++) {
+      overlay.appendChild(document.createElement('span'));
+    }
+    hostEl.appendChild(overlay);
+    return overlay;
+  }
+
+  function setItemSpan(el, span) {
+    for (var i = 1; i <= 12; i++) el.classList.remove('col-span-' + i);
+    el.classList.add('col-span-' + span);
+  }
+
+  function ensureGridHandle(itemEl, secEl, hostEl) {
+    if (itemEl.querySelector(':scope > [data-ve-resize-handle="1"]')) return;
+    var handle = document.createElement('div');
+    handle.setAttribute('data-ve-overlay', '1');
+    handle.setAttribute('data-ve-resize-handle', '1');
+    handle.title = 'Resize block';
+    var badge = document.createElement('div');
+    badge.setAttribute('data-ve-overlay', '1');
+    badge.setAttribute('data-ve-grid-span-badge', '1');
+    badge.textContent = getItemSpan(itemEl) + '/12';
+    handle.addEventListener('pointerdown', function (event) {
+      if (_preview) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var secRect = hostEl.getBoundingClientRect();
+      var itemRect = itemEl.getBoundingClientRect();
+      var colWidth = secRect.width / 12;
+      if (!(colWidth > 0)) return;
+      _gridResize = {
+        secEl: secEl,
+        hostEl: hostEl,
+        itemEl: itemEl,
+        startLeft: itemRect.left,
+        colWidth: colWidth,
+      };
+      hostEl.setAttribute('data-ve-grid-overlay-active', '1');
+      itemEl.setAttribute('data-ve-grid-resizing', '1');
+      handle.setPointerCapture(event.pointerId);
+      _updateGridResize(event.clientX);
+    });
+    itemEl.appendChild(handle);
+    itemEl.appendChild(badge);
+  }
+
+  function ensureGridActions(itemEl, secEl) {
+    if (itemEl.querySelector(':scope > [data-ve-grid-actions="1"]')) return;
+    var actions = document.createElement('div');
+    actions.setAttribute('data-ve-overlay', '1');
+    actions.setAttribute('data-ve-grid-actions', '1');
+
+    var moveBtn = document.createElement('button');
+    moveBtn.type = 'button';
+    moveBtn.setAttribute('data-ve-overlay', '1');
+    moveBtn.setAttribute('data-ve-grid-action-btn', '1');
+    moveBtn.setAttribute('data-ve-move', '1');
+    moveBtn.title = 'Drag block';
+    moveBtn.textContent = 'Move';
+    moveBtn.addEventListener('pointerdown', function (event) {
+      if (_preview || _gridResize) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var hostEl = itemEl.parentElement;
+      if (!hostEl) return;
+      var rect = itemEl.getBoundingClientRect();
+      var placeholder = createGridPlaceholder(itemEl);
+      itemEl.insertAdjacentElement('afterend', placeholder);
+      _gridDrag = {
+        secEl: secEl,
+        hostEl: hostEl,
+        itemEl: itemEl,
+        placeholderEl: placeholder,
+        startPointerId: event.pointerId,
+        restoreStyle: itemEl.getAttribute('style') || '',
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      hostEl.setAttribute('data-ve-grid-overlay-active', '1');
+      itemEl.setAttribute('data-ve-grid-dragging', '1');
+      itemEl.style.position = 'fixed';
+      itemEl.style.left = rect.left + 'px';
+      itemEl.style.top = rect.top + 'px';
+      itemEl.style.width = rect.width + 'px';
+      itemEl.style.height = rect.height + 'px';
+      itemEl.style.pointerEvents = 'none';
+      itemEl.style.zIndex = '2147483647';
+      moveBtn.setPointerCapture(event.pointerId);
+    });
+
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.setAttribute('data-ve-overlay', '1');
+    copyBtn.setAttribute('data-ve-grid-action-btn', '1');
+    copyBtn.setAttribute('data-ve-copy', '1');
+    copyBtn.title = 'Copy block';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      var clone = cloneGridItemClean(itemEl);
+      itemEl.insertAdjacentElement('afterend', clone);
+      wireGridSection(secEl);
+      activateInline();
+      wireImages();
+      wireBtns();
+      emitSectionHtmlUpdated(secEl);
+    });
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.setAttribute('data-ve-overlay', '1');
+    deleteBtn.setAttribute('data-ve-grid-action-btn', '1');
+    deleteBtn.setAttribute('data-ve-delete', '1');
+    deleteBtn.title = 'Delete block';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (itemEl.parentNode) itemEl.parentNode.removeChild(itemEl);
+      wireGridSection(secEl);
+      emitSectionHtmlUpdated(secEl);
+    });
+
+    actions.appendChild(moveBtn);
+    actions.appendChild(copyBtn);
+    actions.appendChild(deleteBtn);
+    itemEl.appendChild(actions);
+  }
+
+  function wireGridSection(secEl) {
+    ensureBridgeStyles();
+    var cfg = getGridHostConfig(secEl);
+    var hostEl = cfg.host;
+    hostEl.setAttribute('data-ve-grid-host', '1');
+    hostEl.classList.add('grid', 'grid-cols-12', 'gap-6');
+    if (window.getComputedStyle(hostEl).position === 'static') hostEl.style.position = 'relative';
+    ensureGridOverlay(hostEl);
+    cfg.items.forEach(function (itemEl) {
+      if (itemEl.hasAttribute('data-ve-overlay')) return;
+      itemEl.setAttribute('data-ve-grid-item', '1');
+      if (!Array.from(itemEl.classList).some(function (name) { return /^col-span-\d+$/.test(name); })) {
+        setItemSpan(itemEl, 12);
+      }
+      ensureGridHandle(itemEl, secEl, hostEl);
+      ensureGridActions(itemEl, secEl);
+      var badge = itemEl.querySelector(':scope > [data-ve-grid-span-badge="1"]');
+      if (badge) badge.textContent = getItemSpan(itemEl) + '/12';
+    });
+  }
+
+  function _updateGridResize(clientX) {
+    if (!_gridResize) return;
+    var span = Math.round((clientX - _gridResize.startLeft) / _gridResize.colWidth);
+    span = Math.max(1, Math.min(12, span));
+    setItemSpan(_gridResize.itemEl, span);
+    var badge = _gridResize.itemEl.querySelector(':scope > [data-ve-grid-span-badge="1"]');
+    if (badge) badge.textContent = span + '/12';
+  }
+
+  function _updateGridDrag(clientX, clientY) {
+    if (!_gridDrag) return;
+    var itemEl = _gridDrag.itemEl;
+    itemEl.style.left = (clientX - _gridDrag.offsetX) + 'px';
+    itemEl.style.top = (clientY - _gridDrag.offsetY) + 'px';
+
+    var siblings = Array.from(_gridDrag.hostEl.children).filter(function (child) {
+      return child !== _gridDrag.itemEl && child !== _gridDrag.placeholderEl && !child.hasAttribute('data-ve-overlay');
+    });
+    var target = null;
+    for (var i = 0; i < siblings.length; i++) {
+      var rect = siblings[i].getBoundingClientRect();
+      var beforeRow = clientY < rect.top + rect.height / 2;
+      var sameRowBefore = clientY <= rect.bottom && clientX < rect.left + rect.width / 2;
+      if (beforeRow || sameRowBefore) {
+        target = siblings[i];
+        break;
+      }
+    }
+    if (target) {
+      if (_gridDrag.placeholderEl !== target.previousElementSibling) {
+        _gridDrag.hostEl.insertBefore(_gridDrag.placeholderEl, target);
+      }
+    } else {
+      var overlay = _gridDrag.hostEl.querySelector(':scope > [data-ve-grid-overlay="1"]');
+      if (overlay) {
+        _gridDrag.hostEl.insertBefore(_gridDrag.placeholderEl, overlay);
+      } else {
+        _gridDrag.hostEl.appendChild(_gridDrag.placeholderEl);
+      }
+    }
+  }
+
+  function _commitGridResize() {
+    if (!_gridResize) return;
+    var secEl = _gridResize.secEl;
+    _gridResize.hostEl.removeAttribute('data-ve-grid-overlay-active');
+    _gridResize.itemEl.removeAttribute('data-ve-grid-resizing');
+    _gridResize = null;
+    emitSectionHtmlUpdated(secEl);
+  }
+
+  function _commitGridDrag() {
+    if (!_gridDrag) return;
+    var drag = _gridDrag;
+    drag.hostEl.removeAttribute('data-ve-grid-overlay-active');
+    drag.itemEl.removeAttribute('data-ve-grid-dragging');
+    if (drag.restoreStyle) {
+      drag.itemEl.setAttribute('style', drag.restoreStyle);
+    } else {
+      drag.itemEl.removeAttribute('style');
+    }
+    drag.itemEl.style.pointerEvents = '';
+    drag.itemEl.style.zIndex = '';
+    drag.hostEl.insertBefore(drag.itemEl, drag.placeholderEl);
+    if (drag.placeholderEl.parentNode) drag.placeholderEl.parentNode.removeChild(drag.placeholderEl);
+    _gridDrag = null;
+    wireGridSection(drag.secEl);
+    emitSectionHtmlUpdated(drag.secEl);
+  }
+
+  window.addEventListener('pointermove', function (event) {
+    if (_gridDrag) {
+      _updateGridDrag(event.clientX, event.clientY);
+      return;
+    }
+    if (!_gridResize) return;
+    _updateGridResize(event.clientX);
+  });
+
+  window.addEventListener('pointerup', function () {
+    _commitGridDrag();
+    _commitGridResize();
+  });
+
+  window.addEventListener('pointercancel', function () {
+    _commitGridDrag();
+    _commitGridResize();
+  });
 
   function send(msg) {
     try { window.parent.postMessage(msg, ORIGIN); } catch (_) {}
@@ -95,7 +474,14 @@
       function onInput() {
         clearTimeout(_timers[s]);
         _timers[s] = setTimeout(function () {
-          send({ type: 'INLINE_CHANGE', selector: s, htmlValue: _sanitizeHtml(el.innerHTML) });
+          var secEl = el.closest('[data-ve-section]');
+          send({
+            type:       'INLINE_CHANGE',
+            selector:   s,
+            htmlValue:  _sanitizeHtml(el.innerHTML),
+            sectionId:  secEl ? secEl.getAttribute('data-ve-section') : null,
+            sectionHtml: secEl ? serializeSectionHtml(secEl) : null
+          });
           delete _timers[s];
         }, 800);
       }
@@ -103,37 +489,19 @@
         // Mark the element as active so theme-presets.css can apply the
         // [data-theme] [data-ve-active] neon glow in the current --p colour.
         el.setAttribute('data-ve-active', '1');
-        // Also highlight the nearest [data-ve-section] ancestor to make the
-        // active block boundary crystal-clear.
-        var sec = el.closest('[data-ve-section]');
-        if (sec && !sec._veActiveMark) {
-          sec._veActiveMark = true;
-          // Neon border using the --p CSS variable from the live document.
-          var pColor = getComputedStyle(document.documentElement)
-                         .getPropertyValue('--p').trim() || '#6366f1';
-          sec._veActiveStyle = sec.style.cssText;
-          sec.style.outline       = '2px solid ' + pColor;
-          sec.style.outlineOffset = '-1px';
-          sec.style.boxShadow     = '0 0 0 4px ' + pColor + '33'; // 20% opacity glow
-        }
       }
       function onBlur()  {
         el.removeAttribute('data-ve-active');
-        // Remove active-block highlight once focus leaves the element.
-        var sec = el.closest('[data-ve-section]');
-        if (sec && sec._veActiveMark) {
-          // Only clear if no other child inside the section still has focus.
-          setTimeout(function () {
-            if (sec.contains(document.activeElement)) return;
-            sec._veActiveMark = false;
-            sec.style.outline       = '';
-            sec.style.outlineOffset = '';
-            sec.style.boxShadow     = '';
-          }, 80);
-        }
         el.style.outline = ''; el.style.outlineOffset = '';
         clearTimeout(_timers[s]);
-        send({ type: 'INLINE_CHANGE', selector: s, htmlValue: _sanitizeHtml(el.innerHTML) });
+        var secEl = el.closest('[data-ve-section]');
+        send({
+          type:       'INLINE_CHANGE',
+          selector:   s,
+          htmlValue:  _sanitizeHtml(el.innerHTML),
+          sectionId:  secEl ? secEl.getAttribute('data-ve-section') : null,
+          sectionHtml: secEl ? serializeSectionHtml(secEl) : null
+        });
         delete _timers[s];
       }
       el.addEventListener('input', onInput);
@@ -167,12 +535,10 @@
     });
     // Clear any active-block section highlights.
     document.querySelectorAll('[data-ve-section]').forEach(function (sec) {
-      if (sec._veActiveMark) {
-        sec._veActiveMark  = false;
-        sec.style.outline  = '';
-        sec.style.outlineOffset = '';
-        sec.style.boxShadow = '';
-      }
+      sec._veHovering = false;
+      sec.style.outline = '';
+      sec.style.outlineOffset = '';
+      sec.style.boxShadow = '';
     });
     document.querySelectorAll('a[href]').forEach(function (a) {
       if (a._veNav) { a.removeEventListener('click', a._veNav, true); delete a._veNav; }
@@ -205,9 +571,9 @@
   }
 
   // ── Feature 2b: Button / link click → open link editor in sidebar ─────────
-  // Targets any <a data-ve-btn="1"> (injected by syncAllSnippets.mjs).
-  // Falls back to matching common Cruip button patterns even without the attr.
-  var _BTN_SEL = 'a[data-ve-btn], a.btn, a[class*="btn-"], a[class*="button"]';
+  // Targets anchors and real <button> elements marked as editable CTAs.
+  // Falls back to common Cruip button patterns even without the attr.
+  var _BTN_SEL = 'a[data-ve-btn], button[data-ve-btn], a.btn, button.btn, a[class*="btn-"], button[class*="btn-"], a[class*="button"], button[class*="button"]';
 
   function onBtnClick(e) {
     if (_preview) return;
@@ -248,13 +614,13 @@
     var btn = document.querySelector(msg.selector);
     if (!btn) return;
     if (msg.text != null) btn.textContent = msg.text;
-    if (msg.href != null) btn.setAttribute('href', msg.href);
+    if (msg.href != null && btn.tagName === 'A') btn.setAttribute('href', msg.href);
     var secEl = btn.closest('[data-ve-section]');
     if (secEl) {
       send({
         type:      'SECTION_HTML_UPDATED',
         sectionId: secEl.getAttribute('data-ve-section'),
-        html:      secEl.innerHTML
+        html:      serializeSectionHtml(secEl)
       });
     }
   }
@@ -288,7 +654,7 @@
       send({
         type:      'SECTION_HTML_UPDATED',
         sectionId: secEl.getAttribute('data-ve-section'),
-        html:      secEl.innerHTML
+        html:      serializeSectionHtml(secEl)
       });
     }
   }
@@ -306,6 +672,7 @@
     _preview = true;
     deactivateInline();
     unwireSections();
+    unwireChromeAreas();
     document.querySelectorAll('img').forEach(function (img) { img.style.cursor = ''; });
     unwireBtns();
     document.querySelectorAll('[data-ve-overlay]').forEach(function (el) {
@@ -390,35 +757,19 @@
     });
   }
 
-  // ── Header Offset ────────────────────────────────────────────────────────
-  // Applies padding-top on <main id="canvas"> so snippets start below the
-  // header. padding-top never collapses; margin-top on the first child can.
-  //
-  // Also fires HEADER_HEIGHT_MEASURED so the parent can persist the value in
-  // site_config and inject it as server-side CSS on future page loads.
+  // ── Header Measurement ───────────────────────────────────────────────────
+  // Measures the rendered header so the parent can persist it if needed.
+  // We intentionally DO NOT inject canvas padding here: with sticky headers
+  // that remain in normal flow, forced top padding creates visible gaps.
   var _headerOffsetApplied = false;
 
   function _applyHeaderOffset() {
     if (_headerOffsetApplied) return;
     requestAnimationFrame(function () {
       var h = _getHeaderHeight();
-      var canvas = document.getElementById('canvas');
-
-      // If siteStudio's CSS already handles this via flex layout, the canvas
-      // element will have no overlap with the header. We still persist the
-      // measured height so the server can inject it deterministically.
       if (h > 0) {
         _headerOffsetApplied = true;
         document.documentElement.style.setProperty('--ve-header-h', h + 'px');
-
-        // Only set padding-top if the CSS guard didn't already handle it.
-        // Check: if canvas top is still behind the header (top < h after RAF).
-        if (canvas) {
-          var canvasTop = canvas.getBoundingClientRect().top;
-          if (canvasTop < h) {
-            canvas.style.paddingTop = h + 'px';
-          }
-        }
 
         send({ type: 'HEADER_HEIGHT_MEASURED', height: h });
         return;
@@ -432,15 +783,47 @@
 
         _headerOffsetApplied = true;
         document.documentElement.style.setProperty('--ve-header-h', h2 + 'px');
-        var canvas2 = document.getElementById('canvas');
-        if (canvas2) {
-          var canvasTop2 = canvas2.getBoundingClientRect().top;
-          if (canvasTop2 < h2) {
-            canvas2.style.paddingTop = h2 + 'px';
-          }
-        }
         send({ type: 'HEADER_HEIGHT_MEASURED', height: h2 });
       }, 300);
+    });
+  }
+
+  function _applyHoverHint(el) {
+    if (!el) return;
+    el.style.outline = '1px solid rgba(148, 163, 184, 0.16)';
+    el.style.outlineOffset = '-1px';
+    el.style.boxShadow = 'none';
+    el.style.borderRadius = '0';
+  }
+
+  function _clearHoverHint(el) {
+    if (!el) return;
+    if (el.contains(document.activeElement)) return;
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+    el.style.boxShadow = '';
+    el.style.borderRadius = '';
+  }
+
+  function wireChromeAreas() {
+    document.querySelectorAll('[data-ve-chrome], body > header, body > footer').forEach(function (el) {
+      if (el._veChrome) return;
+      el._veChrome = true;
+      el.addEventListener('mouseenter', function () {
+        _applyHoverHint(el);
+      });
+      el.addEventListener('mouseleave', function () {
+        _clearHoverHint(el);
+      });
+    });
+  }
+
+  function unwireChromeAreas() {
+    document.querySelectorAll('[data-ve-chrome], body > header, body > footer').forEach(function (el) {
+      el.style.outline = '';
+      el.style.outlineOffset = '';
+      el.style.boxShadow = '';
+      el._veChrome = false;
     });
   }
 
@@ -587,6 +970,7 @@
     wireImages();
     wireBtns();
     wireSections();
+    wireGridSection(wrapper);
 
     // Hide the drop zone — page now has content.
     _syncDropZone();
@@ -748,9 +1132,10 @@
     // Ensure the section is a positioning context for position:absolute pill.
     var pos = window.getComputedStyle(secEl).position;
     if (pos === 'static') secEl.style.position = 'relative';
-    // Subtle dashed outline to indicate the active section boundary.
-    secEl.style.outline       = '2px dashed rgba(99,102,241,0.4)';
-    secEl.style.outlineOffset = '-2px';
+    // Create a tighter formatting context so the hover boundary does not wrap
+    // collapsed margins / invisible whitespace around the snippet.
+    if (!secEl.style.display) secEl.style.display = 'flow-root';
+    _applyHoverHint(secEl);
     var bar = _ensureToolbar();
     _trashTarget = secEl;
     secEl.appendChild(bar);
@@ -758,8 +1143,7 @@
 
   function _detachToolbar(secEl) {
     if (!secEl) return;
-    secEl.style.outline       = '';
-    secEl.style.outlineOffset = '';
+    _clearHoverHint(secEl);
     var bar = _ensureToolbar();
     if (bar.parentNode === secEl) secEl.removeChild(bar);
     if (_trashTarget === secEl) _trashTarget = null;
@@ -769,16 +1153,19 @@
     document.querySelectorAll('[data-ve-section]').forEach(function (secEl) {
       if (secEl._veSec) return;
       secEl._veSec = true;
+      wireGridSection(secEl);
 
       secEl.addEventListener('mouseenter', function () {
         // Cancel any pending hide and (re-)attach the pill to this section.
         _cancelHide();
+        secEl._veHovering = true;
         // Detach from any previous section first.
         if (_trashTarget && _trashTarget !== secEl) _detachToolbar(_trashTarget);
         _attachToolbar(secEl);
       });
 
       secEl.addEventListener('mouseleave', function (e) {
+        secEl._veHovering = false;
         // If the cursor moved directly onto the pill itself, do nothing —
         // the pill's own mouseenter handler already cancelled the timer.
         if (e.relatedTarget && _toolbar && _toolbar.contains(e.relatedTarget)) return;
@@ -790,8 +1177,11 @@
   function unwireSections() {
     _cancelHide();
     document.querySelectorAll('[data-ve-section]').forEach(function (secEl) {
-      secEl.style.outline       = '';
+      secEl._veHovering = false;
+      secEl.style.outline = '';
       secEl.style.outlineOffset = '';
+      secEl.style.boxShadow = '';
+      secEl.style.borderRadius = '';
       if (secEl._veSec) secEl._veSec = false;
     });
     if (_toolbar && _toolbar.parentNode) _toolbar.parentNode.removeChild(_toolbar);
@@ -816,6 +1206,7 @@
     wireImages();
     wireBtns();
     wireSections();
+    wireChromeAreas();
     // Z-index guard: header must float above snippet content.
     _guardHeaderZIndex();
     // Measure header height, apply padding-top on #canvas if needed,

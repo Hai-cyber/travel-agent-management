@@ -22,9 +22,13 @@ html, body { height: 100%; overflow: hidden; background: var(--bg0);
 .mgmt-bar     { flex-shrink: 0; background: var(--bg2); border-bottom: 1px solid var(--bd); }
 .mgmt-row     { display: flex; align-items: center; gap: 8px; padding: 0 14px; }
 .mgmt-row-1   { height: 48px; }
-.mgmt-row-2   { height: 36px; border-top: 1px solid var(--bd);
-                overflow: hidden; transition: height .18s; }
-.mgmt-row-2.collapsed { height: 0; }
+.mgmt-row-2,
+.mgmt-row-3   { border-top: 1px solid var(--bd); overflow: hidden; transition: height .18s; }
+.mgmt-row-2   { height: 36px; }
+.mgmt-row-3   { height: 44px; }
+.mgmt-row-2.collapsed,
+.mgmt-row-3.collapsed { display: none; height: 0; border-top-width: 0; }
+.mgmt-row-wrap { flex-wrap: wrap; align-content: center; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; height: auto; min-height: 44px; }
 .workspace    { display: flex; flex: 1; overflow: hidden; }
 /* ── Sidebar ────────────────────────────────────────────────────────── */
 .sidebar      { width: 272px; min-width: 272px; background: var(--bg1);
@@ -58,12 +62,17 @@ html, body { height: 100%; overflow: hidden; background: var(--bg0);
 .canvas-bar   { height: 34px; min-height: 34px; display: flex; align-items: center;
                 gap: 8px; padding: 0 12px; background: var(--bg2);
                 border-bottom: 1px solid var(--bd); flex-shrink: 0; }
+.canvas.device-mobile { align-items: center; }
 .canvas-url   { flex: 1; font-size: 11px; color: var(--tx3);
                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .canvas-empty { flex: 1; display: flex; flex-direction: column; align-items: center;
                 justify-content: center; gap: 14px; color: var(--tx3); }
 .canvas-empty svg { opacity: .25; }
 #frame        { flex: 1; border: none; display: none; background: #fff; }
+.canvas.device-mobile #frame { width: 390px !important; max-width: calc(100% - 24px); border-left: 1px solid var(--bd2); border-right: 1px solid var(--bd2); box-shadow: 0 18px 50px rgba(15,23,42,.28); border-radius: 18px 18px 0 0; }
+.canvas.device-laptop #frame { width: 100% !important; max-width: none; border-left: none; border-right: none; box-shadow: none; border-radius: 0; }
+.preview-switch { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+.preview-switch .btn.active { background: rgba(99,102,241,.16); border-color: var(--acc); color: #c7d2fe; }
 /* ── Components ─────────────────────────────────────────────────────── */
 .btn { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--r);
        cursor: pointer; font: 600 12px/1 ui-sans-serif,system-ui,sans-serif;
@@ -78,6 +87,7 @@ html, body { height: 100%; overflow: hidden; background: var(--bg0);
 .btn-d  { background: transparent; border: 1px solid var(--red); color: var(--red); font-size: 11px; padding: 5px 10px; }
 .btn-d:hover  { background: rgba(239,68,68,.12); }
 .btn-sm { font-size: 11px; padding: 4px 10px; }
+.btn-icon { min-width: 72px; justify-content: center; padding: 4px 10px; font-size: 11px; line-height: 1; }
 .inp  { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r);
         color: var(--tx); font: 12px ui-sans-serif,system-ui,sans-serif;
         padding: 6px 9px; outline: none; transition: border-color .12s; }
@@ -262,7 +272,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
         <input type="checkbox" id="auto-menu-chk" style="accent-color:var(--acc);" checked>
         <span style="font-size:11px;color:var(--tx2)">Auto Menu</span>
       </label>
-      <button class="btn btn-o btn-sm" id="nav-toggle-btn" title="Toggle Menu Builder">☰ Menu</button>
+      <button class="btn btn-o btn-sm btn-icon" id="nav-toggle-btn" title="Open menu builder" aria-expanded="false">☰ Menu</button>
 
       <div class="sep"></div>
 
@@ -303,10 +313,12 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       <button class="btn btn-o btn-sm" id="nav-add-btn">+ Add</button>
       <button class="btn btn-g btn-sm" id="nav-save-btn">Save Menu</button>
 
-      <div class="sep"></div>
+    </div>
+
+    <div class="mgmt-row mgmt-row-3 mgmt-row-wrap collapsed" id="chrome-row">
+      <span style="font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap">Menu Settings:</span>
 
       <!-- Header UI toggles -->
-      <span style="font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap">Header:</span>
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show phone link in header">
         <input type="checkbox" id="nav-phone-chk" style="accent-color:var(--acc)">
         <span style="font-size:11px;color:var(--tx2)">📞 Phone</span>
@@ -319,7 +331,62 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
         <input type="checkbox" id="nav-contact-chk" style="accent-color:var(--acc)">
         <span style="font-size:11px;color:var(--tx2)">✉ Contact</span>
       </label>
-      <button class="btn btn-o btn-sm" id="nav-ui-save-btn">Save Header</button>
+
+      <div class="sep"></div>
+
+      <span style="font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap">Chrome:</span>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Use a clean minimal managed header instead of the template header">
+        <input type="checkbox" id="chrome-min-header-chk" style="accent-color:var(--acc)" checked>
+        <span style="font-size:11px;color:var(--tx2)">Minimal Header</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Use a clean minimal managed footer instead of the template footer">
+        <input type="checkbox" id="chrome-min-footer-chk" style="accent-color:var(--acc)" checked>
+        <span style="font-size:11px;color:var(--tx2)">Minimal Footer</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show the main menu again in the footer">
+        <input type="checkbox" id="chrome-footer-menu-chk" style="accent-color:var(--acc)">
+        <span style="font-size:11px;color:var(--tx2)">Footer Menu</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="Show brand logo when brand.logo_url is configured">
+        <input type="checkbox" id="chrome-show-logo-chk" style="accent-color:var(--acc)" checked>
+        <span style="font-size:11px;color:var(--tx2)">Logo</span>
+      </label>
+      <select id="chrome-effect-select" class="inp" style="width:130px;font-size:11px" title="Managed chrome visual effect">
+        <option value="glass">Glass</option>
+        <option value="frost">Frost</option>
+        <option value="shadow">Shadow</option>
+        <option value="outline">Outline</option>
+      </select>
+      <select id="chrome-shape-select" class="inp" style="width:126px;font-size:11px" title="Header shape variant">
+        <option value="bar">Shape: Bar</option>
+        <option value="rounded">Shape: Rounded</option>
+        <option value="capsule">Shape: Capsule</option>
+        <option value="floating">Shape: Floating</option>
+      </select>
+      <select id="chrome-font-select" class="inp" style="width:126px;font-size:11px" title="Menu typography">
+        <option value="clean">Font: Clean</option>
+        <option value="elegant">Font: Elegant</option>
+        <option value="compact">Font: Compact</option>
+      </select>
+      <select id="chrome-logo-font-select" class="inp" style="width:132px;font-size:11px" title="Logo typography">
+        <option value="brand">Logo: Brand</option>
+        <option value="floral">Logo: Floral</option>
+        <option value="luxe">Logo: Luxe</option>
+        <option value="script">Logo: Script</option>
+      </select>
+      <select id="chrome-logo-size-select" class="inp" style="width:124px;font-size:11px" title="Logo text size">
+        <option value="sm">Logo Size: S</option>
+        <option value="md">Logo Size: M</option>
+        <option value="lg">Logo Size: L</option>
+        <option value="xl">Logo Size: XL</option>
+      </select>
+      <select id="chrome-ornament-select" class="inp" style="width:132px;font-size:11px" title="Decorative accent">
+        <option value="none">Ornament: None</option>
+        <option value="glow">Ornament: Glow</option>
+        <option value="divider">Ornament: Divider</option>
+        <option value="dots">Ornament: Dots</option>
+      </select>
+      <button class="btn btn-o btn-sm" id="nav-ui-save-btn">Save Chrome</button>
     </div>
   </div>
 
@@ -491,6 +558,10 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       <div class="canvas-bar">
         <span style="font-size:10px;color:var(--tx3);white-space:nowrap">Preview</span>
         <span class="canvas-url" id="canvas-url">—</span>
+        <div class="preview-switch">
+          <button class="btn btn-o btn-sm active" id="view-laptop-btn" type="button">Laptop</button>
+          <button class="btn btn-o btn-sm" id="view-mobile-btn" type="button">Mobile</button>
+        </div>
         <button class="btn btn-o btn-sm" id="canvas-reload-btn" disabled>↺</button>
       </div>
       <div class="canvas-empty" id="canvas-empty">
@@ -549,6 +620,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     tenantId:       '',
     pages:          [],       // [{slug,title}]
     activePage:     null,     // null = homepage, else slug
+    homeSections:   [],       // homepage custom_sections from tenant config
     navigation:     [],       // [{label,url}]
     autoMenu:       true,
     snippets:       null,     // null = not loaded
@@ -564,13 +636,17 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     templateId:     '',       // active template_id (from DB)
     templates:      null,     // null = not loaded
     navConfig:      { showPhone: false, showCart: false, showContactForm: false },
+    chromeConfig:   { useMinimalHeader: true, useMinimalFooter: true, showFooterMenu: false, showLogo: true, effectStyle: 'glass', shapeStyle: 'bar', menuFontStyle: 'clean', logoFontStyle: 'brand', logoSize: 'md', ornamentStyle: 'none' },
     frameReady:     false,
     previewMode:    false,
     headerHeight:   0,        // measured by editor-bridge, persisted to cfg.header_height
+    previewDevice:  'laptop',
     dragSnip:       null,     // snippet being dragged
     dragCard:       null,      // card element being dragged
     btnEdit:        null       // button/link being edited
   };
+
+  var _sectionSaveTimer = null;
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
   var app            = document.getElementById('app');
@@ -582,12 +658,23 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
   var autoMenuChk    = document.getElementById('auto-menu-chk');
   var navToggleBtn   = document.getElementById('nav-toggle-btn');
   var navRow         = document.getElementById('nav-row');
+  var chromeRow      = document.getElementById('chrome-row');
   var navItemsList   = document.getElementById('nav-items-list');
   var navAddBtn      = document.getElementById('nav-add-btn');
   var navSaveBtn     = document.getElementById('nav-save-btn');
   var navPhoneChk    = document.getElementById('nav-phone-chk');
   var navCartChk     = document.getElementById('nav-cart-chk');
   var navContactChk  = document.getElementById('nav-contact-chk');
+  var chromeMinHeaderChk = document.getElementById('chrome-min-header-chk');
+  var chromeMinFooterChk = document.getElementById('chrome-min-footer-chk');
+  var chromeFooterMenuChk = document.getElementById('chrome-footer-menu-chk');
+  var chromeShowLogoChk = document.getElementById('chrome-show-logo-chk');
+  var chromeEffectSelect = document.getElementById('chrome-effect-select');
+  var chromeShapeSelect = document.getElementById('chrome-shape-select');
+  var chromeFontSelect = document.getElementById('chrome-font-select');
+  var chromeLogoFontSelect = document.getElementById('chrome-logo-font-select');
+  var chromeLogoSizeSelect = document.getElementById('chrome-logo-size-select');
+  var chromeOrnamentSelect = document.getElementById('chrome-ornament-select');
   var navUiSaveBtn   = document.getElementById('nav-ui-save-btn');
   var modeBadge      = document.getElementById('mode-badge');
   var saveDraftBtn   = document.getElementById('save-draft-btn');
@@ -597,6 +684,8 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
   var canvasEmpty    = document.getElementById('canvas-empty');
   var canvasUrl      = document.getElementById('canvas-url');
   var canvasReload   = document.getElementById('canvas-reload-btn');
+  var viewLaptopBtn  = document.getElementById('view-laptop-btn');
+  var viewMobileBtn  = document.getElementById('view-mobile-btn');
   var tabSnip        = document.getElementById('tab-snip');
   var tabTpl         = document.getElementById('tab-tpl');
   var tabImg         = document.getElementById('tab-img');
@@ -668,6 +757,15 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     try { frame.contentWindow && frame.contentWindow.postMessage(msg, '*'); } catch (_) {}
   }
 
+  function applyPreviewDevice() {
+    var canvas = frame.parentElement;
+    if (!canvas) return;
+    canvas.classList.toggle('device-mobile', S.previewDevice === 'mobile');
+    canvas.classList.toggle('device-laptop', S.previewDevice !== 'mobile');
+    viewLaptopBtn.classList.toggle('active', S.previewDevice !== 'mobile');
+    viewMobileBtn.classList.toggle('active', S.previewDevice === 'mobile');
+  }
+
   function setEnabled(buttons, enabled) {
     buttons.forEach(function (b) { b.disabled = !enabled; });
   }
@@ -693,8 +791,9 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     loadBtn.textContent = '…';
     try {
       await Promise.all([fetchConfig(), fetchPages()]);
+      await loadActiveSections();
       setEnabled([newPageBtn, delPageBtn, saveDraftBtn, publishBtn, canvasReload], true);
-      loadFrame(null);
+      loadFrame(S.activePage);
       await Promise.all([loadSnippets(), loadTemplates()]);
     } catch (err) {
       showToast('Load failed: ' + err.message, 'err');
@@ -711,7 +810,8 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     var data = await res.json();
     var cfg  = data.config || {};
     S.navigation     = Array.isArray(cfg.navigation)      ? cfg.navigation      : [];
-    S.customSections = Array.isArray(cfg.custom_sections) ? cfg.custom_sections : [];
+    S.homeSections   = Array.isArray(cfg.custom_sections) ? cfg.custom_sections : [];
+    if (!S.activePage) S.customSections = S.homeSections.slice();
     S.currentTheme   = typeof cfg.current_theme === 'string' ? cfg.current_theme : '';
     S.templateId     = typeof cfg.template_id   === 'string' ? cfg.template_id   : '';
     // Background HSL from brand sub-object (independent of accent theme)
@@ -732,12 +832,99 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       showCart:        !!nc.showCart,
       showContactForm: !!nc.showContactForm,
     };
+    var cc = cfg.chrome_config || {};
+    S.chromeConfig = {
+      useMinimalHeader: cc.useMinimalHeader !== false,
+      useMinimalFooter: cc.useMinimalFooter !== false,
+      showFooterMenu:   !!cc.showFooterMenu,
+      showLogo:         cc.showLogo !== false,
+      effectStyle:      (typeof cc.effectStyle === 'string' ? cc.effectStyle : 'glass'),
+      shapeStyle:       (typeof cc.shapeStyle === 'string' ? cc.shapeStyle : 'bar'),
+      menuFontStyle:    (typeof cc.menuFontStyle === 'string' ? cc.menuFontStyle : 'clean'),
+      logoFontStyle:    (typeof cc.logoFontStyle === 'string' ? cc.logoFontStyle : 'brand'),
+      logoSize:         (typeof cc.logoSize === 'string' ? cc.logoSize : 'md'),
+      ornamentStyle:    (typeof cc.ornamentStyle === 'string' ? cc.ornamentStyle : 'none'),
+    };
     // Reflect theme in the picker without triggering the change handler.
     themeSelect.value      = S.currentTheme;
     navPhoneChk.checked    = S.navConfig.showPhone;
     navCartChk.checked     = S.navConfig.showCart;
     navContactChk.checked  = S.navConfig.showContactForm;
+    chromeMinHeaderChk.checked = S.chromeConfig.useMinimalHeader;
+    chromeMinFooterChk.checked = S.chromeConfig.useMinimalFooter;
+    chromeFooterMenuChk.checked = S.chromeConfig.showFooterMenu;
+    chromeShowLogoChk.checked = S.chromeConfig.showLogo;
+    chromeEffectSelect.value = S.chromeConfig.effectStyle;
+    chromeShapeSelect.value = S.chromeConfig.shapeStyle;
+    chromeFontSelect.value = S.chromeConfig.menuFontStyle;
+    chromeLogoFontSelect.value = S.chromeConfig.logoFontStyle;
+    chromeLogoSizeSelect.value = S.chromeConfig.logoSize;
+    chromeOrnamentSelect.value = S.chromeConfig.ornamentStyle;
     renderNavItems();
+  }
+
+  async function loadActiveSections() {
+    S.sectionHtml = {};
+    if (!S.activePage) {
+      S.customSections = S.homeSections.slice();
+      return;
+    }
+    var res = await fetch(API + '/api/tenant/pages/' + encodeURIComponent(S.activePage) + '/sections', { headers: hdr() });
+    if (!res.ok) throw new Error('Page sections ' + res.status);
+    var data = await res.json();
+    S.customSections = Array.isArray(data.sections) ? data.sections : [];
+  }
+
+  async function saveActiveSections() {
+    if (!S.activePage) {
+      S.homeSections = S.customSections.slice();
+      return patchConfig({ custom_sections: S.customSections });
+    }
+    var res = await fetch(API + '/api/tenant/pages/' + encodeURIComponent(S.activePage) + '/sections', {
+      method: 'PUT', headers: hdr(), body: JSON.stringify({ sections: S.customSections })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function saveSectionsSnapshot(pageSlug, sectionsSnapshot) {
+    if (!pageSlug) {
+      S.homeSections = sectionsSnapshot.slice();
+      return patchConfig({ custom_sections: sectionsSnapshot });
+    }
+    var res = await fetch(API + '/api/tenant/pages/' + encodeURIComponent(pageSlug) + '/sections', {
+      method: 'PUT', headers: hdr(), body: JSON.stringify({ sections: sectionsSnapshot })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  function applySectionHtmlUpdate(sectionId, html) {
+    if (!sectionId) return;
+    S.sectionHtml[sectionId] = html;
+    S.customSections = S.customSections.map(function (sec) {
+      return sec.id === sectionId ? Object.assign({}, sec, { html: html }) : sec;
+    });
+  }
+
+  function scheduleSectionSave() {
+    clearTimeout(_sectionSaveTimer);
+    modeBadge.textContent = '● Unsaved';
+    modeBadge.className   = 'badge amber';
+    var targetPage = S.activePage;
+    var snapshot = S.customSections.map(function (sec) {
+      return { id: sec.id, type: sec.type, html: sec.html };
+    });
+    _sectionSaveTimer = setTimeout(function () {
+      saveSectionsSnapshot(targetPage, snapshot)
+        .then(function () {
+          modeBadge.textContent = '● Saved';
+          modeBadge.className   = 'badge green';
+        })
+        .catch(function (err) {
+          showToast('Section save failed: ' + err.message, 'err');
+        });
+    }, 600);
   }
 
   // ── BG Palette + Luminance Slider ──────────────────────────────────────────────────────────────────
@@ -886,9 +1073,14 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     });
   }
 
-  pageSelect.addEventListener('change', function () {
+  pageSelect.addEventListener('change', async function () {
     S.activePage = pageSelect.value || null;
-    loadFrame(S.activePage);
+    try {
+      await loadActiveSections();
+      loadFrame(S.activePage);
+    } catch (err) {
+      showToast('Load page failed: ' + err.message, 'err');
+    }
   });
 
   newPageBtn.addEventListener('click', function () {
@@ -917,9 +1109,13 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
         body: JSON.stringify({ title: title, slug: slug })
       });
       if (!res.ok) throw new Error(await res.text());
+      var data = await res.json();
       showToast('Page "' + title + '" created', 'ok');
       modalNew.classList.remove('open');
       await fetchPages();
+      S.activePage = (data.page && data.page.slug) ? data.page.slug : slug;
+      await loadActiveSections();
+      loadFrame(S.activePage);
       if (S.autoMenu) autoSyncMenu();
     } catch (err) {
       setStatus(npStatus, 'Error: ' + err.message, true);
@@ -940,6 +1136,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       showToast('Page deleted', 'ok');
       S.activePage = null;
       await fetchPages();
+      await loadActiveSections();
       loadFrame(null);
       if (S.autoMenu) autoSyncMenu();
     } catch (err) {
@@ -947,12 +1144,31 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     }
   });
 
+  function setMenuBuilderExpanded(expanded) {
+    navRow.classList.toggle('collapsed', !expanded);
+    chromeRow.classList.toggle('collapsed', !expanded);
+    navToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    navToggleBtn.textContent = expanded ? '× Close' : '☰ Menu';
+    navToggleBtn.title = expanded ? 'Hide menu builder' : 'Open menu builder';
+  }
+
+  setMenuBuilderExpanded(false);
+  applyPreviewDevice();
+
   // ── Navigation builder ────────────────────────────────────────────────────
   navToggleBtn.addEventListener('click', function () {
-    navRow.classList.toggle('collapsed');
+    setMenuBuilderExpanded(navRow.classList.contains('collapsed'));
   });
   autoMenuChk.addEventListener('change', function () {
     S.autoMenu = autoMenuChk.checked;
+  });
+  viewLaptopBtn.addEventListener('click', function () {
+    S.previewDevice = 'laptop';
+    applyPreviewDevice();
+  });
+  viewMobileBtn.addEventListener('click', function () {
+    S.previewDevice = 'mobile';
+    applyPreviewDevice();
   });
 
   function renderNavItems() {
@@ -1010,25 +1226,50 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       showCart:        navCartChk.checked,
       showContactForm: navContactChk.checked,
     };
+    var cc = {
+      useMinimalHeader: chromeMinHeaderChk.checked,
+      useMinimalFooter: chromeMinFooterChk.checked,
+      showFooterMenu:   chromeFooterMenuChk.checked,
+      showLogo:         chromeShowLogoChk.checked,
+      effectStyle:      chromeEffectSelect.value,
+      shapeStyle:       chromeShapeSelect.value,
+      menuFontStyle:    chromeFontSelect.value,
+      logoFontStyle:    chromeLogoFontSelect.value,
+      logoSize:         chromeLogoSizeSelect.value,
+      ornamentStyle:    chromeOrnamentSelect.value,
+    };
     var prev = Object.assign({}, S.navConfig);
+    var prevChrome = Object.assign({}, S.chromeConfig);
     S.navConfig = nc;
+    S.chromeConfig = cc;
     modeBadge.textContent = '● Saving…';
     modeBadge.className   = 'badge amber';
     try {
-      await patchConfig({ navigation_config: nc });
+      await patchConfig({ navigation_config: nc, chrome_config: cc });
       modeBadge.textContent = '● Saved';
       modeBadge.className   = 'badge green';
-      showToast('Header config saved', 'ok');
+      showToast('Chrome config saved', 'ok');
       // Reload frame so header re-renders with the new toggles.
       loadFrame(S.activePage);
     } catch (err) {
       S.navConfig = prev;
+      S.chromeConfig = prevChrome;
       navPhoneChk.checked   = prev.showPhone;
       navCartChk.checked    = prev.showCart;
       navContactChk.checked = prev.showContactForm;
+      chromeMinHeaderChk.checked = prevChrome.useMinimalHeader;
+      chromeMinFooterChk.checked = prevChrome.useMinimalFooter;
+      chromeFooterMenuChk.checked = prevChrome.showFooterMenu;
+      chromeShowLogoChk.checked = prevChrome.showLogo;
+      chromeEffectSelect.value = prevChrome.effectStyle;
+      chromeShapeSelect.value = prevChrome.shapeStyle;
+      chromeFontSelect.value = prevChrome.menuFontStyle;
+      chromeLogoFontSelect.value = prevChrome.logoFontStyle;
+      chromeLogoSizeSelect.value = prevChrome.logoSize;
+      chromeOrnamentSelect.value = prevChrome.ornamentStyle;
       modeBadge.textContent = '● Idle';
       modeBadge.className   = 'badge';
-      showToast('Header save failed: ' + err.message, 'err');
+      showToast('Chrome save failed: ' + err.message, 'err');
     } finally {
       navUiSaveBtn.disabled = false;
     }
@@ -1057,6 +1298,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     canvasEmpty.style.display = 'none';
     canvasUrl.textContent = url;
     canvasReload.disabled = false;
+    applyPreviewDevice();
     modeBadge.textContent = '● Loading…';
     modeBadge.className   = 'badge';
   }
@@ -1131,25 +1373,42 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
   });
 
   // ── Snippet library ───────────────────────────────────────────────────────
-  // Loads from GET /api/tenant/snippets — server reads the template (R2),
-  // extracts <section> blocks and returns JSON with thumbnail metadata.
+  // Loads from /snippets/index.json generated by scripts/syncAllSnippets.mjs.
+  // Falls back to the tenant API only if the manifest is unavailable.
   async function loadSnippets() {
     if (S.snippets !== null) { renderSnippets(); return; }
     panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:var(--tx3)">⏳ Loading snippets…</div>';
     try {
-      var url = API + '/api/tenant/snippets';
-      var res = await fetch(url, { headers: hdr() });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).slice(0, 80));
+      var res = await fetch('/snippets/index.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
-      S.snippets = Array.isArray(data.snippets) ? data.snippets : [];
-      if (data.templateId) panelSnip.setAttribute('data-template', data.templateId);
+      S.snippets = Array.isArray(data) ? data : [];
       renderSnippets();
     } catch (err) {
-      panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:#ef4444">⚠ Failed to load snippets: ' + esc(err.message) + '</div>';
+      try {
+        var fallbackUrl = API + '/api/tenant/snippets';
+        var fallbackRes = await fetch(fallbackUrl, { headers: hdr() });
+        if (!fallbackRes.ok) throw new Error('HTTP ' + fallbackRes.status + ': ' + (await fallbackRes.text()).slice(0, 80));
+        var fallbackData = await fallbackRes.json();
+        S.snippets = Array.isArray(fallbackData.snippets) ? fallbackData.snippets : [];
+        renderSnippets();
+      } catch (fallbackErr) {
+        panelSnip.innerHTML = '<div style="padding:16px;font-size:11px;color:#ef4444">⚠ Failed to load snippets: ' + esc(fallbackErr.message) + '</div>';
+      }
     }
   }
 
   var CAT_META = {
+    hero:       { label: 'Hero',        icon: '🌅' },
+    buttons:    { label: 'Buttons',     icon: '🔘' },
+    forms:      { label: 'Forms',       icon: '🧾' },
+    'input-groups': { label: 'Inputs',  icon: '⌨️' },
+    'icon-boxes':   { label: 'Icon Boxes', icon: '🧩' },
+    'grid-cards':   { label: 'Grid / Cards', icon: '🗂' },
+    'gallery-grid': { label: 'Gallery Grid', icon: '🖼' },
+    'booking-form': { label: 'Booking', icon: '📅' },
+    'travel-itinerary': { label: 'Itinerary', icon: '🗺' },
+    'map-section':  { label: 'Map',     icon: '📍' },
     essential: { label: 'Essential',  icon: '✅' },
     commerce:  { label: 'Commerce',   icon: '💰' },
     trust:     { label: 'Trust',      icon: '⭐' },
@@ -1265,7 +1524,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
 
       // 2. Persist to config.
       S.customSections.push(newSec);
-      await patchConfig({ custom_sections: S.customSections });
+      await saveActiveSections();
 
       card.classList.remove('inserting');
       card.classList.add('inserted');
@@ -1498,7 +1757,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
           return sec;
         });
         S.customSections = updatedSections;
-        await patchConfig({ custom_sections: S.customSections });
+        await saveActiveSections();
       }
       setStatus(imgStatus, 'Image saved ✓', false);
       showToast('Image saved', 'ok');
@@ -1600,7 +1859,12 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
     } else if (msg.type === 'INLINE_CHANGE') {
       // Bridge now sends htmlValue (sanitized innerHTML) to preserve <strong>,
       // <em>, <span>, <br> etc.  Fall back to msg.value for older bridge versions.
-      queueDirty(msg.selector, msg.htmlValue != null ? msg.htmlValue : (msg.value || ''));
+      if (msg.sectionId && msg.sectionHtml != null) {
+        applySectionHtmlUpdate(msg.sectionId, msg.sectionHtml);
+        scheduleSectionSave();
+      } else {
+        queueDirty(msg.selector, msg.htmlValue != null ? msg.htmlValue : (msg.value || ''));
+      }
 
     } else if (msg.type === 'IMAGE_CLICK') {
       openImageEditor(msg);
@@ -1609,7 +1873,8 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       openButtonEditor(msg);
 
     } else if (msg.type === 'SECTION_HTML_UPDATED') {
-      S.sectionHtml[msg.sectionId] = msg.html;
+      applySectionHtmlUpdate(msg.sectionId, msg.html);
+      scheduleSectionSave();
 
     } else if (msg.type === 'SECTION_APPENDED') {
       // Bridge confirmed the section was injected into the iframe DOM.
@@ -1635,7 +1900,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
       S.customSections = S.customSections.filter(function (s) {
         return s.id !== deletedId && s.type !== deletedId;
       });
-      patchConfig({ custom_sections: S.customSections })
+      saveActiveSections()
         .then(function () {
           showToast('Section removed', 'ok');
           modeBadge.textContent = '● Saved';
@@ -1665,7 +1930,7 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
 
       modeBadge.textContent = '● Saving…';
       modeBadge.className   = 'badge amber';
-      patchConfig({ custom_sections: S.customSections })
+      saveActiveSections()
         .then(function () {
           modeBadge.textContent = '● Saved';
           modeBadge.className   = 'badge green';

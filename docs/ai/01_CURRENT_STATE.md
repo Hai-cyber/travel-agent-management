@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-30 (CHK-R33)
+Last updated: 2026-03-30 (CHK-R34)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -102,10 +102,18 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
   - Drag-and-drop snippets from sidebar onto canvas iframe (CHK-R31)
   - Button/Link editor panel: click any `<a>` in preview → text+URL fields (CHK-R33)
   - Drop zone: animated empty-state, auto-hides on first snippet insert (CHK-R30)
+  - Canvas device preview toggles: `Laptop` and `Mobile`; mobile mode constrains the iframe to phone width for layout verification (CHK-R34)
 - `public/editor-bridge.js` — iframe postMessage bridge (CHK-R23/R29-R33)
   - CSS-first header overlap fix: `body>header{position:sticky!important}` guard (CHK-R29)
   - `HEADER_HEIGHT_MEASURED` → parent persists to `cfg.header_height` (CHK-R29)
   - `wireBtns()` + `BUTTON_CLICK` + `applyBtn()` for link editing (CHK-R33)
+  - 12-column snippet grid editing: section host detection, persisted `col-span-X`, snap resizing, translucent resize overlay, and block-level `Move / Copy / Delete` rail (CHK-R34)
+  - Drag-reorder within the current section grid via placeholder-based drop logic; cleaned HTML persists through `SECTION_HTML_UPDATED` (CHK-R34)
+
+### Managed responsive chrome (CHK-R34)
+- `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.
+- On narrow screens, customer-facing header collapses to logo + `☰ Menu` or icon-only `☰` on very small widths.
+- Tapping the toggle expands the primary nav and chrome action buttons in-place; desktop keeps the full horizontal header.
 
 ### Scripts
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
