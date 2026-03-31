@@ -128,6 +128,7 @@
             </ul>
           </li>
           <li><a href="category-manager.html">Site Studio</a></li>
+          <li><a id="nav-universal-admin" href="universal-admin.html">Universal Admin</a></li>
           <li>
             <a href="#" data-i18n="nav.settings">Settings</a>
             <ul>
@@ -195,6 +196,7 @@
               <h4 data-i18n="sidebar.system">System</h4>
               <ul class="nav-list">
                 <li><a href="category-manager.html"><span class="icon">🎨</span> Site Studio</a></li>
+                <li><a id="sidebar-universal-admin" href="universal-admin.html"><span class="icon">🧩</span> Universal Admin</a></li>
                 <li><a id="sidebar-visual-editor" href="visual-editor.html"><span class="icon">✏️</span> Visual Editor</a></li>
                 <li><a id="sidebar-payments" href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
                 <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
@@ -226,6 +228,7 @@
             <div class="quick-actions">
               <a href="#" id="btn-tour-config"     class="button icon solid fa-map">Cấu hình Tour</a>
               <a href="#" id="btn-visual-editor"   class="button icon solid fa-paint-brush">Thiết kế Website</a>
+              <a href="#" id="btn-universal-admin" class="button alt icon solid fa-layer-group">Universal Admin</a>
               <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="action.payment_settings">Cài đặt thanh toán</a>
             </div>
 
@@ -728,14 +731,19 @@ document.addEventListener('DOMContentLoaded', () => i18n.init());
 
   document.getElementById('btn-tour-config').href      = `tour-config.html?tid=${tid}`;
   document.getElementById('btn-visual-editor').href    = `visual-editor.html?tid=${tid}`;
+  document.getElementById('btn-universal-admin').href  = `universal-admin.html?tid=${tid}`;
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
+  const sidebarUniversal = document.getElementById('sidebar-universal-admin');
   const sidebarEditor  = document.getElementById('sidebar-visual-editor');
   const sidebarPayment = document.getElementById('sidebar-payments');
+  const navUniversal   = document.getElementById('nav-universal-admin');
   if (sidebarTours)   sidebarTours.href   = `tour-config.html?tid=${tid}`;
+  if (sidebarUniversal) sidebarUniversal.href = `universal-admin.html?tid=${tid}`;
   if (sidebarEditor)  sidebarEditor.href  = `visual-editor.html?tid=${tid}`;
   if (sidebarPayment) sidebarPayment.href = `#payments`;
+  if (navUniversal) navUniversal.href = `universal-admin.html?tid=${tid}`;
 
   // ── 3. Fetch tenant settings → trial banner ───────────────────────────
   try {

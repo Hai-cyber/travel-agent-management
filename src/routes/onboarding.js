@@ -4,13 +4,13 @@
  * Public signup/onboarding flow.
  *
  * POST /api/auth/signup-onboarding
- *   Body: { email, tenant_name, selected_template_id }
+ *   Body: { email, tenant_name, selected_template_id? }
  *
  *   1. Validate inputs & check email uniqueness.
- *   2. Verify selected_template_id exists in site_templates.
+ *   2. If provided, verify selected_template_id exists in site_templates.
  *   3. INSERT new tenant (subscription_status = 'TRIAL').
- *   4. Call initializeTenantSandbox() — copies template assets into
- *      sandbox/{tenant_id}/ inside TOUR_PAGES R2.
+ *   4. If a template was chosen up front, call initializeTenantSandbox()
+ *      to copy template assets into sandbox/{tenant_id}/ inside TOUR_PAGES R2.
  *   5. Issue a setup_token (nanoid 32) stored in TOUR_PRESETS KV,
  *      TTL 1 hour — used by the dashboard for the initial session.
  *   6. Return { tenant_id, setup_token, redirect_url, sandbox }.
@@ -65,7 +65,6 @@ onboarding.post('/signup-onboarding', async (c) => {
   const missing = [];
   if (!email)                missing.push('email');
   if (!tenant_name)          missing.push('tenant_name');
-  if (!selected_template_id) missing.push('selected_template_id');
   if (missing.length) {
     return c.json({ error: `Missing required fields: ${missing.join(', ')}.` }, 400);
   }
@@ -80,19 +79,23 @@ onboarding.post('/signup-onboarding', async (c) => {
     return c.json({ error: 'tenant_name must be 2–80 characters.' }, 400);
   }
 
-  // Sanitize template ID to prevent path traversal in R2 prefix lookup.
-  const tmplId = String(selected_template_id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
-  if (!tmplId) {
-    return c.json({ error: 'Invalid selected_template_id.' }, 400);
+  let tmplId = null;
+  if (selected_template_id !== undefined && selected_template_id !== null && String(selected_template_id).trim() !== '') {
+    tmplId = String(selected_template_id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+    if (!tmplId) {
+      return c.json({ error: 'Invalid selected_template_id.' }, 400);
+    }
   }
 
-  // ── 2. Verify template exists & is active ─────────────────────────────────
-  const tmpl = await db
-    .prepare('SELECT id, name FROM site_templates WHERE id = ? AND is_active = 1')
-    .bind(tmplId)
-    .first();
-  if (!tmpl) {
-    return c.json({ error: `Template "${tmplId}" not found or is inactive.` }, 400);
+  // ── 2. Verify template exists & is active when explicitly provided ───────
+  if (tmplId) {
+    const tmpl = await db
+      .prepare('SELECT id, name FROM site_templates WHERE id = ? AND is_active = 1')
+      .bind(tmplId)
+      .first();
+    if (!tmpl) {
+      return c.json({ error: `Template "${tmplId}" not found or is inactive.` }, 400);
+    }
   }
 
   // ── 3. Check email uniqueness ─────────────────────────────────────────────
@@ -135,18 +138,19 @@ onboarding.post('/signup-onboarding', async (c) => {
     throw err;
   }
 
-  // ── 6. Initialize tenant sandbox ──────────────────────────────────────────
-  // initializeTenantSandbox requires the tenant row to already exist (it does
-  // a SELECT to load site_config before copying template files).
+  // ── 6. Initialize tenant sandbox if a template was selected up front ─────
   let sandbox;
-  try {
-    sandbox = await initializeTenantSandbox(tenantId, tmplId, c.env, db);
-  } catch (sandboxErr) {
-    // Sandbox init failing should not block account creation — the tenant row
-    // is already committed.  Surface the error in the response so the client
-    // can trigger a retry (e.g., POST /api/tenant/reinitialize-sandbox).
-    console.error('[onboarding] initializeTenantSandbox failed:', sandboxErr.message);
-    sandbox = { ok: false, reason: sandboxErr.message };
+  if (tmplId) {
+    try {
+      sandbox = await initializeTenantSandbox(tenantId, tmplId, c.env, db);
+    } catch (sandboxErr) {
+      // Sandbox init failing should not block account creation — the tenant row
+      // is already committed. Surface the error so the client can trigger a retry.
+      console.error('[onboarding] initializeTenantSandbox failed:', sandboxErr.message);
+      sandbox = { ok: false, reason: sandboxErr.message };
+    }
+  } else {
+    sandbox = { ok: true, skipped: true, reason: 'template_deferred' };
   }
 
   // ── 7. Issue setup_token (stored in KV, TTL 1 hour) ──────────────────────
