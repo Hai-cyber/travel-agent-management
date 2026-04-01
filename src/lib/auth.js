@@ -1,3 +1,4 @@
+import { pbkdf2Sync } from 'node:crypto';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,26 +39,33 @@ async function sha256Hex(value) {
 }
 
 async function derivePasswordHex(password, saltHex, iterations) {
-  const baseKey = await crypto.subtle.importKey(
-    'raw',
-    textEncoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  );
+  const saltBytes = hexToBytes(saltHex);
 
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: hexToBytes(saltHex),
-      iterations,
-      hash: 'SHA-256',
-    },
-    baseKey,
-    DERIVED_KEY_BYTES * 8
-  );
+  try {
+    const baseKey = await crypto.subtle.importKey(
+      'raw',
+      textEncoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
 
-  return bytesToHex(new Uint8Array(bits));
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: saltBytes,
+        iterations,
+        hash: 'SHA-256',
+      },
+      baseKey,
+      DERIVED_KEY_BYTES * 8
+    );
+
+    return bytesToHex(new Uint8Array(bits));
+  } catch {
+    // Cloudflare WebCrypto currently rejects some higher PBKDF2 iteration counts.
+    return bytesToHex(pbkdf2Sync(textEncoder.encode(password), saltBytes, iterations, DERIVED_KEY_BYTES, 'sha256'));
+  }
 }
 
 function resolveCookieSecureFlag(c) {
