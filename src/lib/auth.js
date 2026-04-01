@@ -6,7 +6,7 @@ export const SESSION_COOKIE_NAME = 'tam_session';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 const PASSWORD_ALGO = 'pbkdf2_sha256';
-const PASSWORD_ITERATIONS = 210000;
+const PASSWORD_ITERATIONS = 100000;
 const DERIVED_KEY_BYTES = 32;
 const textEncoder = new TextEncoder();
 
