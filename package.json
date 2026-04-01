@@ -1,11 +1,11 @@
 {
-	"name": "square-wind-2594",
+	"name": "travel-agent-management-new",
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev"
+		"deploy": "wrangler deploy --config ./wrangler.jsonc",
+		"dev": "wrangler dev --config ./wrangler.jsonc",
+		"start": "wrangler dev --config ./wrangler.jsonc"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "^3.1019.0",

@@ -20,6 +20,46 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
+Date: 2026-03-30
+Checkpoint: Runtime verification + status doc cleanup
+Goal of session: Verify the current local Worker behavior with live API calls, then update the status docs to match observed runtime truth.
+
+### What was completed this session
+
+- Started the Worker locally with `wrangler dev` and verified the dev server on `http://127.0.0.1:8787`
+- Confirmed working locally: tenant settings, tours list, preview endpoint, pricing metadata, pricing calculate, payment settings toggle, booking order creation, proof upload, guest portal GET, and accommodations `POST/GET/PATCH`
+- Confirmed defect: `PATCH /api/tasks/:taskId` returns `404` because the task route is not mounted into the main router
+- Confirmed defect: `POST /api/bookings/order/:id/confirm-receipt` returns `500` after already confirming the order and incrementing revenue; worker logs show `tenant_audit_log.field_name` constraint failure during audit insert
+- Corrected status docs so they no longer claim proof upload unlocks identity or that task updates are working end-to-end
+
+### Files changed
+```
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+CURRENT_STATE_EXPORT.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- Fix the task route mounting so `PATCH /api/tasks/:taskId` is reachable
+- Fix the booking confirm audit-log write so `confirm-receipt` returns `200` instead of `500`
+- Clean up the local D1 migration ledger so replaying migrations does not try to re-apply `0012_stop_services_config.sql`
+
+### Known risks / TODOs
+- Older docs and old shell test scripts still contain stale assumptions about proof upload unlocking identity
+- Bash test scripts in `test/` are not directly runnable in this Windows environment without `bash`
+
+### Suggested next prompt
+```
+Fix the two verified runtime defects:
+1. PATCH /api/tasks/:taskId returns 404
+2. POST /api/bookings/order/:id/confirm-receipt returns 500 because of tenant_audit_log schema mismatch
+
+Then rerun the same local verification flow and update the docs if behavior changes.
+```
+
+---
+
 Date: 2026-03-26
 Checkpoint: CHK-R36 + CHK-R36b
 Git commits: `4e38506`, `2d14b0b` on branch `rescue-minimum`

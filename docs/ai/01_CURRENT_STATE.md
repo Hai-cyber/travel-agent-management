@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-30 (CHK-R34)
+Last updated: 2026-03-30 (local runtime verification pass)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -33,16 +33,16 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (migrations 0001–0017)
+### D1 Tables (repo migrations 0001–0022; local runtime verified against current dev DB)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
-`stop_local_transports`, `stop_intercity_legs`, `tasks`,
+`stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
 `tenant_seasons`, `pricing_segments`, `pax_bands`, `tour_prices`,
-`booking_drafts`, `tour_pages` (R2-backed), `tenant_audit_log`,
-`booking_orders`
+`booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
-`total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`
+`total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`,
+`notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`
 
 ### API Endpoints (all tenant-scoped via `X-Tenant-ID` header)
 
@@ -50,7 +50,9 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `POST/GET/PATCH /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}`
 
 **Task System (CHK-R11)**
-- `PATCH /api/tasks/:taskId` — update task status
+- Task generation is working locally: service-item `POST` creates rows in `stop_service_tasks`
+- Service-item `GET` returns embedded tasks for each item
+- `PATCH /api/tasks/:taskId` is currently broken in local runtime: endpoint returned `404` on 2026-03-30 because the route is not mounted into the main Worker router
 
 **Pricing Engine (CHK-R12/foundation)**
 - `GET /api/pricing/calculate` — single segment or compare-all mode
@@ -84,13 +86,13 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 
 **Booking Orders — Bank Transfer (CHK-R18)**
 - `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; returns `guest_portal_token`
-- `GET /api/bookings/order/:id` — agent view; identity omitted until `identity_unlocked=1`
-- `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, R2 → identity unlock
-- `POST /api/bookings/order/:id/confirm-receipt` — 2-step idempotent; increments `total_revenue_tracked`
+- `GET /api/bookings/order/:id` — agent view; guest object is present but masked as `***` until identity unlock
+- `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm step
+- `POST /api/bookings/order/:id/confirm-receipt` — intended to unlock identity and increment `total_revenue_tracked`; local verification on 2026-03-30 found a defect where the endpoint returns `500` after mutating the order and revenue because the `tenant_audit_log` insert does not match the current schema
 
 **Guest Portal — no auth required (CHK-R19)**
-- `GET /api/bookings/public/:token` — guest views own booking status, pax, total, upload link
-- `POST /api/bookings/public/:token/proof` — guest uploads bank slip via token URL
+- `GET /api/bookings/public/:token` — guest views own booking status, pax, total, upload link; verified locally on 2026-03-30
+- `POST /api/bookings/public/:token/proof` — guest uploads bank slip via token URL; present in runtime, not re-tested in the 2026-03-30 pass
 
 ### Frontend Assets
 - `public/templates/default.html` — tour page template with all placeholders
@@ -142,6 +144,33 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)
 - `test/test_pricing.sh`, `test/test_tasks.sh`, `test/test_all_services.sh` and per-group scripts
 
+## Local verification on 2026-03-30
+
+Verified against `npx wrangler dev` on `http://127.0.0.1:8787` with direct API calls from PowerShell.
+
+### Confirmed working in local runtime
+- `GET /`
+- `GET /api/tenants/settings`
+- `GET /api/tours`
+- `GET /api/tours-preview`
+- `GET /api/pricing/metadata`
+- `GET /api/pricing/calculate`
+- `PATCH /api/payments/settings`
+- `POST /api/bookings/order`
+- `GET /api/bookings/order/:id`
+- `POST /api/bookings/order/:id/proof`
+- `GET /api/bookings/public/:token`
+- `POST/GET/PATCH /api/stops/stop-001/accommodations`
+
+### Confirmed defects in local runtime
+- `PATCH /api/tasks/:taskId` returns `404 Not Found`
+- `POST /api/bookings/order/:id/confirm-receipt` returns `500 Internal Server Error`, even though the order transitions to `CONFIRMED`, identity unlocks, and `tenants.total_revenue_tracked` increments
+- Local D1 migration ledger is out of sync for `0012_stop_services_config.sql`; re-applying migrations attempts to add `services_config` again and fails with `duplicate column name: services_config`
+
+### Notes on test method
+- Bash shell scripts in `test/` were not directly runnable in this Windows environment because `bash` was not installed
+- Direct live API calls were used instead of treating the shell scripts as proof of correctness
+
 ## Planned / Target (not yet implemented)
 - Calendar endpoints and reminder cadence
 - Domain onboarding flow (automated DNS verification)
@@ -150,6 +179,13 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - Growth/SEO API baseline
 - Mobile ops surface
 - Allotment / seat management (referenced in purge cron TODO)
+
+## Present in code but not exercised in the 2026-03-30 local pass
+- Site Studio live domain rendering and editor surface
+- Tour publish / switch-template endpoints
+- Public guest proof upload route
+- Category management UI and routes
+- External payment webhooks
 
 
 ### Current rebuilt database reality
@@ -247,7 +283,7 @@ The rebuild should proceed in this order:
 2. keep `schema.sql` minimal and honest
 3. add new stop-based service layer
 4. add new pricing layer
-5. later reconnect tasks/comms/site/public flows
+5. fix the known task-routing and booking audit-log defects before expanding reminders/comms/growth surfaces
 
 ---
 
