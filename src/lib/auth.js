@@ -41,6 +41,10 @@ async function sha256Hex(value) {
 async function derivePasswordHex(password, saltHex, iterations) {
   const saltBytes = hexToBytes(saltHex);
 
+  if (iterations > 100000) {
+    return bytesToHex(pbkdf2Sync(textEncoder.encode(password), saltBytes, iterations, DERIVED_KEY_BYTES, 'sha256'));
+  }
+
   try {
     const baseKey = await crypto.subtle.importKey(
       'raw',
@@ -63,7 +67,6 @@ async function derivePasswordHex(password, saltHex, iterations) {
 
     return bytesToHex(new Uint8Array(bits));
   } catch {
-    // Cloudflare WebCrypto currently rejects some higher PBKDF2 iteration counts.
     return bytesToHex(pbkdf2Sync(textEncoder.encode(password), saltBytes, iterations, DERIVED_KEY_BYTES, 'sha256'));
   }
 }
