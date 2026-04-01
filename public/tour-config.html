@@ -524,6 +524,18 @@
         <textarea id="cd-excludes" placeholder="International flights&#10;Travel insurance" style="min-height:60px"></textarea>
       </div>
 
+      <div style="margin-top:14px;padding:14px;border:1px solid #E5E7EB;border-radius:10px;background:#FAFAFA">
+        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:10px">Universal Site Placement</div>
+        <div class="field-row cols-2">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-featured" /> Featured Tours</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-destination" /> Destinations</label>
+        </div>
+        <div class="field-row cols-2" style="margin-top:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-accommodation" /> Accommodation</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-hero" /> Hero Spotlight</label>
+        </div>
+      </div>
+
       <hr />
 
       <!-- Itinerary builder -->
@@ -921,6 +933,17 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function readBool(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off', 'disabled'].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
 const h = () => ({
   'Content-Type':  'application/json',
   'X-Tenant-ID':   S.tenantId,
@@ -1178,6 +1201,11 @@ function prefillContent(tour) {
   document.getElementById('cd-highlights').value  = (cd.highlights ?? []).join('\n');
   document.getElementById('cd-includes').value    = (cd.includes   ?? []).join('\n');
   document.getElementById('cd-excludes').value    = (cd.excludes   ?? []).join('\n');
+  const modules = cd.universal_modules ?? {};
+  document.getElementById('cd-flag-featured').checked      = readBool(modules.featured_tours ?? cd.featured_tour ?? cd.show_in_featured_tours, false);
+  document.getElementById('cd-flag-destination').checked   = readBool(modules.destinations ?? cd.show_in_destinations, true);
+  document.getElementById('cd-flag-accommodation').checked = readBool(modules.accommodation ?? cd.show_in_accommodation, true);
+  document.getElementById('cd-flag-hero').checked          = readBool(modules.hero ?? cd.hero_featured ?? cd.show_in_hero, false);
 
   S.itinerary = cd.itinerary ?? [];
   renderItinerary();
@@ -1267,6 +1295,12 @@ document.getElementById('btn-save-content').addEventListener('click', async () =
     includes:   lines(document.getElementById('cd-includes').value),
     excludes:   lines(document.getElementById('cd-excludes').value),
     itinerary:  S.itinerary,
+    universal_modules: {
+      featured_tours: document.getElementById('cd-flag-featured').checked,
+      destinations: document.getElementById('cd-flag-destination').checked,
+      accommodation: document.getElementById('cd-flag-accommodation').checked,
+      hero: document.getElementById('cd-flag-hero').checked,
+    },
   };
   // Clean undefined keys
   Object.keys(cd).forEach(k => cd[k] === undefined && delete cd[k]);

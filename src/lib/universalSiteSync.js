@@ -348,7 +348,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
 
   const slugBase = slugify(snapshot.title || tour.title || `tour-${tourId}`) || `tour-${tourId}`;
   const previousSlug = existing?.slug || null;
-  const nextSlug = existing?.slug || `${slugBase}-${tourId.slice(0, 6)}`;
+  const nextSlug = String(existing?.slug || `${slugBase}-${tourId.slice(0, 6).toLowerCase()}`).toLowerCase();
   const publicUrl = `/${nextSlug}`;
   const override = {
     ...parseJsonSafe(existing?.content_override_json, {}),

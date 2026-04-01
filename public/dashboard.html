@@ -138,6 +138,7 @@
             </ul>
           </li>
           <li><a href="visual-editor.html">Visual Editor</a></li>
+          <li><a href="#" id="nav-logout">Logout</a></li>
           <li style="display:flex;align-items:center">
             <div class="lang-switcher">
               <button class="lang-btn" data-lang="en" onclick="i18n.setLang('en')">EN</button>
@@ -387,22 +388,9 @@
 </div><!-- /page-wrapper -->
 
 <!-- Scripts -->
-<!-- [ANTI-FLICKER] Ẩn trang ngay đồng bộ trước khi bất kỳ render nào xảy ra.
-     Script này chạy inline (blocking), đảm bảo #page-wrapper bị ẩn trước
-     khi browser vẽ lần đầu. Nếu tenant_id có sẵn trong localStorage hoặc URL,
-     trang sẽ fade-in sau khi init xong. Nếu không, redirect ngay lập tức.
- -->
 <script>
   (function() {
-    var params   = new URLSearchParams(location.search);
-    var tenantId = params.get('tenant') || localStorage.getItem('tam_tenant_id');
-    if (!tenantId) {
-      // Redirect ngay — không render gì cả (signup page không redirect ngược lại)
-      location.replace('/signup.html');
-    } else {
-      // Ẩn nội dung cho đến khi init async hoàn tất
-      document.documentElement.style.visibility = 'hidden';
-    }
+    document.documentElement.style.visibility = 'hidden';
   })();
 </script>
 <script src="assets/js/jquery.min.js"></script>
@@ -708,21 +696,20 @@ document.addEventListener('DOMContentLoaded', () => i18n.init());
    Dashboard Init — Tenant context, dynamic links, trial status
 ════════════════════════════════════════════════════════════════ */
 (async () => {
-  const TRIAL_DAYS  = 14;
-  const SIGNUP_PAGE = '/signup.html';
+  const TRIAL_DAYS = 14;
+  const LOGIN_PAGE = '/login.html';
+  const params = new URLSearchParams(location.search);
 
-  // ── 1. Resolve tenant_id ─────────────────────────────────────────────
-  const params    = new URLSearchParams(location.search);
-  const urlTenant = params.get('tenant');
-  const tenantId  = urlTenant || localStorage.getItem('tam_tenant_id');
+  const sessionPayload = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
+  if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
+    localStorage.removeItem('tam_tenant_id');
+    location.replace(LOGIN_PAGE);
+    return;
+  }
 
-  // Inline anti-flicker script đã xử lý redirect nếu !tenantId,
-  // nhưng guard lại ở đây phòng trường hợp script bị block.
-  if (!tenantId) { location.replace(SIGNUP_PAGE); return; }
-
-  // Persist & clean URL
+  const tenantId = sessionPayload.session.tenant_id;
   localStorage.setItem('tam_tenant_id', tenantId);
-  if (params.has('tenant') || params.has('token')) {
+  if (params.toString()) {
     history.replaceState({}, '', '/dashboard.html');
   }
 
@@ -744,6 +731,17 @@ document.addEventListener('DOMContentLoaded', () => i18n.init());
   if (sidebarEditor)  sidebarEditor.href  = `visual-editor.html?tid=${tid}`;
   if (sidebarPayment) sidebarPayment.href = `#payments`;
   if (navUniversal) navUniversal.href = `universal-admin.html?tid=${tid}`;
+  const logoutLink = document.getElementById('nav-logout');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (_) {}
+      localStorage.removeItem('tam_tenant_id');
+      location.replace(LOGIN_PAGE);
+    });
+  }
 
   // ── 3. Fetch tenant settings → trial banner ───────────────────────────
   try {
@@ -752,9 +750,9 @@ document.addEventListener('DOMContentLoaded', () => i18n.init());
     });
 
     if (!res.ok) {
-      if (res.status === 404) {
+      if (res.status === 401 || res.status === 403 || res.status === 404) {
         localStorage.removeItem('tam_tenant_id');
-        location.replace(SIGNUP_PAGE);
+        location.replace(LOGIN_PAGE);
         return;
       }
       // Lỗi khác (5xx) — vẫn hiện trang, chỉ không có trial banner

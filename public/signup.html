@@ -57,10 +57,40 @@
     }
     .btn:hover:not(:disabled) { background: #6d28d9; }
     .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-secondary {
+      background: #fff;
+      color: #0f172a;
+      border: 1.5px solid #dbe4f0;
+      margin-top: 14px;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
     .error-msg  { color: #dc2626; font-size: 13px; margin-top: 12px; display: none; }
     .success-msg { color: #16a34a; font-size: 13px; margin-top: 12px; display: none; }
     .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: #64748b; }
     .login-link a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+    .divider {
+      position: relative;
+      margin-top: 18px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .divider::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px solid #e2e8f0;
+    }
+    .divider span {
+      position: relative;
+      background: #fff;
+      padding: 0 10px;
+    }
+    .hint { margin-top: 10px; font-size: 12px; color: #64748b; text-align: center; }
+    .google-slot { margin-top: 14px; display: flex; justify-content: center; min-height: 42px; }
     .spinner {
       display: inline-block; width: 14px; height: 14px;
       border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
@@ -83,30 +113,49 @@
       <label for="f-name">Tên công ty / đại lý</label>
       <input id="f-name" type="text" placeholder="Sunset Travel Agency" required maxlength="80" />
 
+      <label for="f-password">Mật khẩu</label>
+      <input id="f-password" type="password" placeholder="Tối thiểu 8 ký tự" required minlength="8" autocomplete="new-password" />
+
       <button class="btn" id="submit-btn" type="submit">Bắt đầu dùng thử miễn phí</button>
+
+      <div class="divider"><span>hoặc</span></div>
+      <div class="google-slot" id="google-slot"></div>
+      <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Tiếp tục với Google</button>
+      <div class="hint" id="google-hint">Google sign-up sẽ hiện khi `GOOGLE_CLIENT_ID` được cấu hình.</div>
 
       <div class="error-msg"   id="error-msg"></div>
       <div class="success-msg" id="success-msg">✅ Đang khởi tạo workspace của bạn…</div>
     </form>
 
-    <div class="login-link">Đã có tài khoản? <a href="/dashboard.html">Vào Dashboard →</a></div>
+    <div class="login-link">Đã có tài khoản? <a href="/login.html">Đăng nhập →</a></div>
   </div>
 </div>
 
 <script>
 (async () => {
-  // If tenant already exists in storage, skip signup
-  if (localStorage.getItem('tam_tenant_id')) {
+  const sessionRes = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
+  if (sessionRes?.authenticated && sessionRes?.session?.tenant_id) {
+    localStorage.setItem('tam_tenant_id', sessionRes.session.tenant_id);
     location.replace('/dashboard.html');
     return;
   }
 
-  const grid    = document.getElementById('tmpl-grid');
-  const hidden  = document.getElementById('f-template');
   const form    = document.getElementById('signup-form');
   const errEl   = document.getElementById('error-msg');
   const okEl    = document.getElementById('success-msg');
   const btn     = document.getElementById('submit-btn');
+  const googleSlot = document.getElementById('google-slot');
+  const googleHint = document.getElementById('google-hint');
+  const googleFallbackBtn = document.getElementById('google-fallback-btn');
+
+  const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
+  if (googleConfig?.enabled && googleConfig?.client_id) {
+    googleHint.textContent = 'Bạn có thể dùng email hoặc Google để tạo tài khoản.';
+    await loadGoogleClient(googleConfig.client_id);
+  } else {
+    googleFallbackBtn.disabled = true;
+    googleFallbackBtn.style.display = 'block';
+  }
 
   // ── Submit ────────────────────────────────────────────────────────────
   form.addEventListener('submit', async (e) => {
@@ -115,8 +164,9 @@
 
     const email = document.getElementById('f-email').value.trim();
     const name  = document.getElementById('f-name').value.trim();
+    const password = document.getElementById('f-password').value;
 
-    if (!email || !name) {
+    if (!email || !name || !password) {
       showError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
@@ -128,7 +178,7 @@
       const res = await fetch('/api/auth/signup-onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, tenant_name: name }),
+        body: JSON.stringify({ email, tenant_name: name, password }),
       });
 
       const data = await res.json();
@@ -150,9 +200,79 @@
     }
   });
 
+  async function loadGoogleClient(clientId) {
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-google-identity="true"]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        if (window.google?.accounts?.id) resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleIdentity = 'true';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    if (!window.google?.accounts?.id) {
+      googleHint.textContent = 'Không tải được Google Sign-In. Vui lòng dùng email/password.';
+      return;
+    }
+
+    googleHint.textContent = 'Bạn có thể dùng email hoặc Google để tạo tài khoản.';
+    googleFallbackBtn.style.display = 'none';
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        const name = document.getElementById('f-name').value.trim();
+        if (!name) {
+          showError('Nhập tên công ty trước khi tiếp tục với Google.');
+          return;
+        }
+        setBusy('Đang kết nối Google…');
+        try {
+          const res = await fetch('/api/auth/signup-google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_token: response.credential, tenant_name: name }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showError(data.error || 'Google signup failed.');
+            resetBtn();
+            return;
+          }
+          localStorage.setItem('tam_tenant_id', data.tenant_id);
+          okEl.style.display = 'block';
+          setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 500);
+        } catch (_) {
+          showError('Lỗi kết nối với Google. Vui lòng thử lại.');
+          resetBtn();
+        }
+      },
+    });
+
+    window.google.accounts.id.renderButton(googleSlot, {
+      theme: 'outline',
+      size: 'large',
+      width: 320,
+      text: 'signup_with',
+      shape: 'pill',
+    });
+  }
+
   function showError(msg) {
     errEl.textContent    = msg;
     errEl.style.display  = 'block';
+  }
+  function setBusy(label) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span>${label}`;
   }
   function resetBtn() {
     btn.disabled     = false;

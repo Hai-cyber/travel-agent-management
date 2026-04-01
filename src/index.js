@@ -27,6 +27,7 @@ import registerPricingRoutes, {
   handleDeletePricing
 } from './routes/pricing.js';
 import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
+import { clearAuthSessionCookie, getAuthSession, readAuthSessionToken } from './lib/auth.js';
 
 // ── Under Construction page (in-memory) ───────────────────────────────────────
 // Served when a tenant has not enabled an electronic payment gateway.
@@ -149,6 +150,46 @@ app.use('*', async (c, next) => {
       });
     }
   }
+  await next();
+});
+
+const PROTECTED_API_PREFIXES = [
+  '/api/categories',
+  '/api/payments',
+  '/api/pricing',
+  '/api/stops',
+  '/api/tasks',
+  '/api/tenants',
+  '/api/tours',
+  '/api/universal',
+  '/api/billing/checkout',
+];
+
+app.use('/api/*', async (c, next) => {
+  const pathname = new URL(c.req.url).pathname;
+  const needsAuth = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (!needsAuth) {
+    await next();
+    return;
+  }
+
+  const token = readAuthSessionToken(c);
+  if (!token) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+
+  const session = await getAuthSession(c.env.DB, token);
+  if (!session) {
+    clearAuthSessionCookie(c);
+    return c.json({ error: 'Session expired. Please log in again.' }, 401);
+  }
+
+  const requestedTenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (requestedTenantId && requestedTenantId !== session.tenant_id) {
+    return c.json({ error: 'Forbidden for this tenant.' }, 403);
+  }
+
+  c.set('authSession', session);
   await next();
 });
 

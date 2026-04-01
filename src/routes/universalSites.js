@@ -104,7 +104,8 @@ function escapeHtml(value) {
 function buildOptimizedImageUrl(source, width = 1280, fit = 'cover') {
   if (!source || typeof source !== 'string') return '';
   if (source.startsWith('data:') || source.startsWith('/cdn-cgi/image/')) return source;
-  const originPath = /^https?:\/\//i.test(source) ? source : source.replace(/^\//, '');
+  if (/^https?:\/\//i.test(source)) return source;
+  const originPath = source.replace(/^\//, '');
   return `/cdn-cgi/image/fit=${fit},width=${width},quality=85,format=auto,metadata=none,anim=false/${originPath}`;
 }
 
@@ -114,6 +115,244 @@ function buildResponsiveImageMarkup(source, alt, className, fit = 'cover', sizes
   const src1920 = buildOptimizedImageUrl(source, 1920, fit);
   const fallback = src960 || src1920 || src640 || source;
   return `<img src="${escapeHtml(fallback)}" srcset="${escapeHtml(src640)} 640w, ${escapeHtml(src960)} 960w, ${escapeHtml(src1920)} 1920w" sizes="${escapeHtml(sizes)}" alt="${escapeHtml(alt || '')}" class="${escapeHtml(className)}" loading="lazy" decoding="async" />`;
+}
+
+const LUXURY_SAMPLE_HERO_URL = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2200&q=80';
+const LUXURY_SAMPLE_ACCOMMODATION_IMAGES = [
+  'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
+];
+
+function normalizeStringValue(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function parseToggleValue(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value !== 'string') return null;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (['1', 'true', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off', 'disabled'].includes(normalized)) return false;
+  return null;
+}
+
+function clampNumber(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function uniqueBy(items, getKey) {
+  const seen = new Set();
+  const output = [];
+  for (const item of items) {
+    const key = getKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+  }
+  return output;
+}
+
+function deriveTourModuleFlags(content, index) {
+  const modules = content?.universal_modules || content?.homepage_modules || content?.site_modules || content?.homepage || {};
+  const featured = parseToggleValue(
+    modules.featured_tours ?? modules.featured ?? modules.show_in_featured_tours ?? content?.featured_tour ?? content?.is_featured ?? content?.show_in_featured_tours
+  );
+  const destination = parseToggleValue(
+    modules.destinations ?? modules.destination ?? modules.show_in_destinations ?? content?.show_in_destinations ?? content?.destination_featured
+  );
+  const accommodation = parseToggleValue(
+    modules.accommodation ?? modules.show_in_accommodation ?? content?.show_in_accommodation ?? content?.hotel_featured ?? content?.show_stay_cards
+  );
+  const hero = parseToggleValue(
+    modules.hero ?? modules.hero_primary ?? content?.hero_featured ?? content?.show_in_hero
+  );
+
+  return {
+    featured: featured ?? index === 0,
+    destination: destination ?? true,
+    accommodation: accommodation ?? index < 4,
+    hero: hero ?? (featured ?? index === 0),
+  };
+}
+
+function deriveDestinationTitle(title, snapshot, content) {
+  const explicit = normalizeStringValue(
+    content?.destination_name,
+    content?.destination?.name,
+    content?.destination_title,
+    content?.region,
+  );
+  if (explicit) return explicit;
+
+  const itineraryStops = Array.isArray(snapshot?.itinerary_stops) ? snapshot.itinerary_stops : [];
+  if (itineraryStops.length) {
+    return itineraryStops[itineraryStops.length - 1]?.title || itineraryStops[0]?.title || title;
+  }
+
+  const routeLabel = normalizeStringValue(snapshot?.route_label);
+  if (routeLabel) {
+    const segments = routeLabel.split(/\bto\b|\-/i).map((item) => item.trim()).filter(Boolean);
+    return segments[segments.length - 1] || routeLabel;
+  }
+
+  const titleSegments = String(title || '').split('-').map((item) => item.trim()).filter(Boolean);
+  return titleSegments[titleSegments.length - 1] || title || 'Destination';
+}
+
+function deriveAccommodationTitle(item, index) {
+  const explicit = normalizeStringValue(
+    item.content?.accommodation_title,
+    item.content?.accommodation_name,
+    item.content?.hotel_name,
+    item.content?.stay_name,
+  );
+  if (explicit) return explicit;
+
+  const destination = normalizeStringValue(item.destination_title);
+  if (destination) return `${destination} House`;
+
+  const fallbacks = ['Canopy Suite', 'Lagoon Villa', 'Garden Residence', 'Cliffside Pavilion'];
+  return fallbacks[index % fallbacks.length];
+}
+
+function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = new Map()) {
+  const syncedByTourId = new Map(
+    (syncedRows || []).map((row) => {
+      const override = parseJsonSafe(row.content_override_json, {});
+      return [row.tour_id, { row, override, snapshot: override.sync_snapshot || null }];
+    })
+  );
+
+  const items = (tours || []).map((tour, index) => {
+    const content = parseJsonSafe(tour.content_data, {});
+    const synced = syncedByTourId.get(tour.id);
+    const snapshot = synced?.snapshot || null;
+    const galleryImages = Array.isArray(snapshot?.gallery_images) ? snapshot.gallery_images : [];
+    const title = normalizeStringValue(snapshot?.title, content?.tour_name, tour.title, `Tour ${index + 1}`);
+    const summary = normalizeStringValue(
+      snapshot?.summary,
+      snapshot?.about_section,
+      content?.hero_desc,
+      content?.description,
+      content?.tour_desc,
+    );
+    const heroImage = normalizeStringValue(
+      snapshot?.hero_image,
+      content?.hero_image,
+      galleryImages[0]?.src,
+      LUXURY_SAMPLE_HERO_URL,
+    );
+    const destinationTitle = deriveDestinationTitle(title, snapshot, content);
+    const flags = deriveTourModuleFlags(content, index);
+    const publicSlug = normalizeStringValue(synced?.row?.slug);
+    const href = publicSlug ? buildUniversalPublicPath(tenantId, publicSlug) : buildUniversalPublicPath(tenantId, 'featured-tours');
+    const priceFrom = snapshot?.price_from ?? priceLookup.get(tour.id) ?? null;
+    const highlights = Array.isArray(snapshot?.highlights) ? snapshot.highlights : [];
+
+    return {
+      tour_id: tour.id,
+      title,
+      summary,
+      hero_image: heroImage,
+      gallery_images: galleryImages,
+      destination_title: destinationTitle,
+      duration_text: normalizeStringValue(snapshot?.duration_text, tour.duration_text, content?.duration),
+      route_label: normalizeStringValue(snapshot?.route_label, destinationTitle),
+      booking_cta_label: normalizeStringValue(snapshot?.booking_cta_label, 'Explore this journey'),
+      price_from: priceFrom,
+      href,
+      content,
+      highlights,
+      flags,
+      created_at: Number(tour.created_at || 0),
+    };
+  });
+
+  const sortedItems = [...items].sort((left, right) => right.created_at - left.created_at);
+  const featuredBase = sortedItems.filter((item) => item.flags.featured);
+  const featuredItems = (featuredBase.length ? featuredBase : sortedItems).slice(0, 4);
+  const heroItem = sortedItems.find((item) => item.flags.hero) || featuredItems[0] || sortedItems[0] || null;
+  const destinationItems = uniqueBy(
+    (sortedItems.filter((item) => item.flags.destination).length ? sortedItems.filter((item) => item.flags.destination) : sortedItems)
+      .map((item) => ({
+        eyebrow: 'Destination',
+        title: item.destination_title,
+        body: normalizeStringValue(item.content?.destination_summary, item.route_label, item.summary),
+        image: normalizeStringValue(item.content?.destination_image, item.gallery_images[1]?.src, item.hero_image, LUXURY_SAMPLE_HERO_URL),
+        href: item.href,
+      })),
+    (item) => item.title.toLowerCase()
+  ).slice(0, 4);
+
+  const accommodationBase = sortedItems.filter((item) => item.flags.accommodation);
+  const accommodationItems = (accommodationBase.length ? accommodationBase : sortedItems.slice(0, 4)).slice(0, 4).map((item, index) => ({
+    eyebrow: 'Stay',
+    title: deriveAccommodationTitle(item, index),
+    body: normalizeStringValue(
+      item.content?.accommodation_summary,
+      item.content?.stay_summary,
+      item.summary,
+      'Design-led rooms, calmer pacing, and hotel partnerships tuned to the route.'
+    ),
+    image: normalizeStringValue(
+      item.content?.accommodation_image,
+      item.content?.hotel_image,
+      item.gallery_images[2]?.src,
+      item.gallery_images[1]?.src,
+      LUXURY_SAMPLE_ACCOMMODATION_IMAGES[index % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
+    ),
+    href: item.href,
+    image_layout: 'portrait',
+  }));
+
+  const featuredCollectionImages = uniqueBy(
+    featuredItems
+      .flatMap((item) => item.gallery_images.length ? item.gallery_images : [{ src: item.hero_image, alt: item.title, caption: item.destination_title }])
+      .filter((item) => item?.src),
+    (item) => item.src
+  ).slice(0, 6);
+
+  const operatorHighlights = heroItem?.highlights?.length
+    ? heroItem.highlights.slice(0, 3)
+    : featuredItems.slice(0, 3).map((item) => ({ title: item.title, body: item.summary }));
+
+  return {
+    featured_tour: heroItem,
+    featured_tours: featuredItems.map((item) => ({
+      eyebrow: item.duration_text || 'Featured itinerary',
+      title: item.title,
+      body: item.summary,
+      image: item.hero_image,
+      href: item.href,
+      meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
+    })),
+    destination_listing: destinationItems,
+    accommodation_listing: accommodationItems,
+    featured_collection: {
+      gallery_images: featuredCollectionImages,
+    },
+    operator_highlights: operatorHighlights,
+    tour_listing: sortedItems.map((item) => ({
+      eyebrow: item.duration_text || 'Journey',
+      title: item.title,
+      body: item.summary,
+      image: item.hero_image,
+      href: item.href,
+      meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
+    })),
+  };
 }
 
 async function purgeTenantPublicCache(db, tenantId) {
@@ -258,6 +497,16 @@ function renderPreviewHtml(siteBundle, tourPreview) {
 function renderPublicHtml(siteBundle, page, tourPreview) {
   const theme = siteBundle.theme || {};
   const site = siteBundle.site || {};
+  const tourRuntime = siteBundle.tour_runtime || {};
+  const pages = Array.isArray(siteBundle.pages) ? siteBundle.pages : [];
+  const pageMap = new Map(pages.map((entry) => [entry.page_key, entry]));
+  const homePageKey = site.home_page_key || 'home';
+  const homePage = pageMap.get(homePageKey) || pages.find((entry) => entry.slug === 'home') || null;
+  const homeSlug = homePage?.slug || 'home';
+  const isHomePage = page?.page_key === homePageKey || page?.slug === homeSlug;
+  const menuItems = [...(Array.isArray(siteBundle.menu) ? siteBundle.menu : [])]
+    .filter((item) => item?.visible)
+    .sort((left, right) => Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0));
   const runtime = siteBundle.variant_runtime || {};
   const profile = runtime.layout_profile || {};
   const snapshot = tourPreview?.sync_snapshot || null;
@@ -275,55 +524,275 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   const priceCards = Array.isArray(snapshot?.pricing_cards) ? snapshot.pricing_cards : [];
   const canonicalPath = buildUniversalPublicPath(site.tenant_id, page.slug);
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+  const getPageTitle = (targetPage = page) => targetPage?.seo?.title || snapshot?.title || targetPage?.title || site.site_name || 'Travel Page';
+  const getPageDescription = (targetPage = page) => targetPage?.seo?.description || snapshot?.about_section || snapshot?.summary || 'Travel experience page';
+  const isLuxuryShell = profile.shell === 'luxury-editorial';
+  const channels = siteBundle.contacts?.channels || {};
+  const legalPages = pages.filter((entry) => ['terms', 'privacy', 'impressum'].includes(entry.page_key) && entry.visible);
+  const visibleContactEntries = Object.entries(channels).filter(([, value]) => value?.enabled && value?.value);
+  const socialEntries = ['instagram', 'facebook', 'youtube', 'whatsapp']
+    .map((key) => [key, channels[key]])
+    .filter(([, value]) => value?.enabled && value?.value);
+  const excludedHomeEmbeddedKeys = isLuxuryShell ? new Set(['about-us', 'contact-us']) : new Set();
+
+  function resolveListingCards(source, targetPage = page) {
+    if (String(source || '').includes('featured_tours')) {
+      return tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage);
+    }
+
+    if (String(source || '').includes('destination_listing')) {
+      return tourRuntime.destination_listing?.length ? tourRuntime.destination_listing : buildFallbackListingCards(source, targetPage);
+    }
+
+    if (String(source || '').includes('tour_listing')) {
+      return tourRuntime.tour_listing?.length ? tourRuntime.tour_listing : buildFallbackListingCards(source, targetPage);
+    }
+
+    if (targetPage.page_key === 'accommodation') {
+      return tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
+    }
+
+    return buildFallbackListingCards(source, targetPage);
+  }
+
+  function resolveHeroModuleMenuItems() {
+    return menuItems
+      .filter((item) => {
+        const linkedPage = pageMap.get(item.page_key);
+        if (!item?.visible || !linkedPage?.visible || linkedPage.page_key === homePageKey) return false;
+        if (linkedPage.page_type !== 'standard') return false;
+        if (excludedHomeEmbeddedKeys.has(linkedPage.page_key)) return false;
+        if (!linkedPage.seo?.home_embedded) return false;
+
+        const listingBlock = Array.isArray(linkedPage.blocks)
+          ? linkedPage.blocks.find((block) => block?.type === 'listing')
+          : null;
+        if (listingBlock) {
+          return resolveListingCards(listingBlock.data_bindings?.cards?.source, linkedPage).length > 0;
+        }
+
+        if (linkedPage.page_key === 'accommodation') {
+          return (tourRuntime.accommodation_listing?.length || 0) > 0;
+        }
+
+        return Boolean(linkedPage.seo?.home_embedded);
+      })
+      .slice(0, 3);
+  }
+
+  function buildChannelHref(key, channel) {
+    const rawValue = String(channel?.value || '').trim();
+    if (!rawValue && key !== 'address') return '#';
+
+    switch (key) {
+      case 'phone':
+        return `tel:${rawValue.replace(/[^+\d]/g, '')}`;
+      case 'email':
+        return rawValue.startsWith('mailto:') ? rawValue : `mailto:${rawValue}`;
+      case 'address':
+        return String(channel?.mapUrl || '').trim() || '#';
+      default:
+        return rawValue;
+    }
+  }
+
+  function buildChannelLabel(key, channel) {
+    const lookup = {
+      phone: 'Call',
+      email: 'Email',
+      whatsapp: 'WhatsApp',
+      zalo: 'Zalo',
+      instagram: 'Instagram',
+      facebook: 'Facebook',
+      youtube: 'YouTube',
+      address: 'Address',
+    };
+    return channel?.label || lookup[key] || key;
+  }
+
+  function buildSocialMonogram(key) {
+    const lookup = {
+      instagram: 'IG',
+      facebook: 'FB',
+      youtube: 'YT',
+      whatsapp: 'WA',
+    };
+    return lookup[key] || key.slice(0, 2).toUpperCase();
+  }
+
+  function buildLuxurySearchPanel() {
+    return `<section class="luxury-search-panel"><div class="luxury-search-grid"><label><span>Destination or hotel</span><input type="text" value="Saffron Coast Hideaways" aria-label="Destination or hotel" /></label><label><span>Travel starts</span><input type="text" value="12 Oct 2026" aria-label="Travel starts" /></label><label><span>Travel ends</span><input type="text" value="18 Oct 2026" aria-label="Travel ends" /></label><label><span>No. of people</span><input type="text" value="2 adults, 0 children" aria-label="Number of people" /></label><label><span>Special codes</span><input type="text" value="Private villa" aria-label="Special codes" /></label></div><button type="button" class="luxury-search-cta">Search</button></section>`;
+  }
+
+  function buildLuxuryStoryImage(targetPage = page) {
+    const galleryBlockImages = Array.isArray(targetPage?.blocks?.find?.((entry) => entry?.type === 'gallery')?.content?.images)
+      ? targetPage.blocks.find((entry) => entry?.type === 'gallery').content.images
+      : [];
+    return galleryBlockImages[0]?.src
+      || gallery[1]?.src
+      || snapshot?.hero_image
+      || LUXURY_SAMPLE_HERO_URL;
+  }
+
+  function buildFallbackListingCards(source, targetPage = page) {
+    if (String(source || '').includes('featured_tours')) {
+      return [
+        {
+          eyebrow: 'Featured itinerary',
+          title: 'Saffron Coast Signature',
+          body: 'A softly paced coastal route with private boat mornings, lantern dinners, and one hidden cove reserved for sunset.',
+          image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          eyebrow: 'Featured itinerary',
+          title: 'Highlands After Rain',
+          body: 'Mist, terraces, and quiet lodges threaded into a long-form northbound journey for travelers who want space, story, and texture.',
+          image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          eyebrow: 'Featured itinerary',
+          title: 'Private Delta Reverie',
+          body: 'Slow river bends, design-led stays, and market mornings shaped for guests who prefer fewer transfers and richer atmosphere.',
+          image: 'https://images.unsplash.com/photo-1493558103817-58b2924bce98?auto=format&fit=crop&w=1200&q=80',
+        },
+      ];
+    }
+
+    if (String(source || '').includes('destination_listing')) {
+      return [
+        {
+          eyebrow: 'Destination',
+          title: 'Verdant Highlands',
+          body: 'Tea hills, cooler air, and design-forward mountain lodges with private guides and softer pacing.',
+          image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          eyebrow: 'Destination',
+          title: 'Limestone Bay',
+          body: 'Cathedral cliffs, floating breakfasts, and hidden anchor points for couples and celebratory trips.',
+          image: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          eyebrow: 'Destination',
+          title: 'Terracotta Coast',
+          body: 'Sun-soft villages and long afternoons where architecture, food, and salt air do most of the storytelling.',
+          image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+        },
+      ];
+    }
+
+    return [
+      {
+        eyebrow: targetPage.title || 'Journey',
+        title: 'Aurelia Passage',
+        body: 'Private transport, quiet shores, and one signature stay that turns the whole route into a memory anchor.',
+        image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        eyebrow: targetPage.title || 'Journey',
+        title: 'Monsoon Light Escape',
+        body: 'A contemplative route with fewer hotel changes, more breathing room, and a stronger sense of place.',
+        image: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        eyebrow: targetPage.title || 'Journey',
+        title: 'House of Tides Retreat',
+        body: 'Built for travelers who care about architecture, service cadence, and evenings that land softly.',
+        image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+      },
+    ];
+  }
 
   const renderRichText = (text) => `<div class="prose prose-slate max-w-none">${escapeHtml(text || '').replace(/\n/g, '<br>')}</div>`;
 
-  const renderHero = (block) => {
+  const renderHero = (block, targetPage = page) => {
+    const targetTitle = getPageTitle(targetPage);
+    const targetDescription = getPageDescription(targetPage);
     const content = block.content || {};
-    const image = content.hero_image || snapshot?.hero_image || '';
+    const runtimeHero = targetPage.page_key === homePageKey ? tourRuntime.featured_tour : null;
+    const image = content.hero_image || runtimeHero?.hero_image || snapshot?.hero_image || (isLuxuryShell ? LUXURY_SAMPLE_HERO_URL : '');
+    const imageBrightness = clampNumber(content.image_brightness, 0.4, 1.4, 1);
+    const overlayStrength = clampNumber(content.overlay_strength, 0.12, 0.92, 0.56);
     const imageMarkup = image
-      ? buildResponsiveImageMarkup(image, content.headline || title, 'h-full w-full rounded-[22px] object-cover', 'cover', '(min-width: 1024px) 40vw, 100vw')
+      ? buildResponsiveImageMarkup(image, content.headline || targetTitle, 'h-full w-full rounded-[22px] object-cover', 'cover', '(min-width: 1024px) 40vw, 100vw')
       : '<div class="flex min-h-[240px] items-center justify-center rounded-[22px] border border-dashed border-white/30 text-sm text-white/70">Image pending</div>';
 
+    if (isLuxuryShell) {
+      const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(image);
+      const mediaMarkup = image
+        ? (isVideo
+          ? `<video class="luxury-hero-media-asset" style="filter:brightness(${escapeHtml(String(imageBrightness))})" autoplay muted loop playsinline src="${escapeHtml(image)}"></video>`
+          : `<div style="filter:brightness(${escapeHtml(String(imageBrightness))})">${buildResponsiveImageMarkup(image, content.headline || targetTitle, 'luxury-hero-media-asset', 'cover', '100vw')}</div>`)
+        : '<div class="luxury-hero-media-fallback">Replace with a cinematic hero image or video.</div>';
+      const searchMarkup = targetPage.page_key === homePageKey ? `<div class="luxury-hero-search-wrap">${buildLuxurySearchPanel()}</div>` : '';
+      const heroButtons = targetPage.page_key === homePageKey
+        ? resolveHeroModuleMenuItems()
+            .map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || 'Page')}</a>`)
+            .join('')
+        : '';
+      const heroSidePanel = heroButtons
+        ? `<aside class="luxury-hero-side-panel"><div class="luxury-hero-side-links">${heroButtons}</div></aside>`
+        : '';
+
+      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(content.primary_cta_label || 'Explore')}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
+    }
+
     if (profile.hero === 'editorial') {
-      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || title)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || description)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Explore')}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
+      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Explore')}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
     }
 
     if (profile.hero === 'immersive') {
-      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || title)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || description)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Discover')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
+      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Discover')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
     }
 
     if (profile.hero === 'compact' || profile.hero === 'utility') {
-      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || title)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || description)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(content.primary_cta_label || 'Get quote')}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
+      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(content.primary_cta_label || 'Get quote')}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
     }
 
-    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || title)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || description)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Browse')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
+    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Browse')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
   };
 
-  const renderGallery = (block) => {
-    const images = Array.isArray(block.content?.images) ? block.content.images : gallery;
+  const renderGallery = (block, targetPage = page) => {
+    const targetTitle = getPageTitle(targetPage);
+    const images = Array.isArray(block.content?.images) && block.content.images.length
+      ? block.content.images
+      : (tourRuntime.featured_collection?.gallery_images?.length ? tourRuntime.featured_collection.gallery_images : gallery);
     if (!images.length) return '';
+    if (isLuxuryShell) {
+      return `<section class="luxury-gallery-band" data-luxury-gallery><div class="luxury-gallery-head"><p class="luxury-section-kicker">${escapeHtml(block.label || 'Gallery')}</p><h2>${escapeHtml(block.content?.heading || 'Gallery')}</h2><p>${escapeHtml(block.content?.body || 'Move through the collection one frame at a time, with large left and right controls instead of a raw scroll bar.')}</p></div><div class="luxury-gallery-stage">${images.map((item, index) => `<figure class="luxury-gallery-slide ${index === 0 ? 'is-active' : ''}" data-gallery-item="${escapeHtml(String(index))}">${buildResponsiveImageMarkup(item.src, item.alt || targetTitle, 'luxury-gallery-image', 'cover', '(min-width: 1200px) 100vw, 100vw')}<figcaption>${escapeHtml(item.caption || item.alt || targetTitle)}</figcaption></figure>`).join('')}<button type="button" class="luxury-gallery-nav luxury-gallery-prev" data-gallery-nav="-1" aria-label="Previous image">&lt;</button><button type="button" class="luxury-gallery-nav luxury-gallery-next" data-gallery-nav="1" aria-label="Next image">&gt;</button></div><div class="luxury-gallery-thumbs">${images.map((item, index) => `<button type="button" class="luxury-gallery-thumb ${index === 0 ? 'is-active' : ''}" data-gallery-thumb="${escapeHtml(String(index))}"><span>${escapeHtml(String(index + 1).padStart(2, '0'))}</span><strong>${escapeHtml(item.alt || item.caption || targetTitle)}</strong></button>`).join('')}</div></section>`;
+    }
     if (profile.gallery === 'panorama' || profile.gallery === 'cinematic') {
       const lead = images[0];
       const tail = images.slice(1, 4);
-      return `<section class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"><div class="overflow-hidden rounded-[28px] bg-white shadow-sm">${buildResponsiveImageMarkup(lead.src, lead.alt || title, 'h-[420px] w-full object-cover', 'cover', '(min-width: 1024px) 60vw, 100vw')}</div><div class="grid gap-4">${tail.map((item) => `<div class="overflow-hidden rounded-[22px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || title, 'h-[128px] w-full object-cover', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div>`).join('')}</div></section>`;
+      return `<section class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"><div class="overflow-hidden rounded-[28px] bg-white shadow-sm">${buildResponsiveImageMarkup(lead.src, lead.alt || targetTitle, 'h-[420px] w-full object-cover', 'cover', '(min-width: 1024px) 60vw, 100vw')}</div><div class="grid gap-4">${tail.map((item) => `<div class="overflow-hidden rounded-[22px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || targetTitle, 'h-[128px] w-full object-cover', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div>`).join('')}</div></section>`;
     }
     if (profile.gallery === 'filmstrip') {
-      return `<section class="overflow-x-auto"><div class="flex gap-4 pb-2">${images.map((item) => `<div class="min-w-[280px] overflow-hidden rounded-[24px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || title, 'h-[220px] w-[280px] object-cover', 'cover', '280px')}</div>`).join('')}</div></section>`;
+      return `<section class="overflow-x-auto"><div class="flex gap-4 pb-2">${images.map((item) => `<div class="min-w-[280px] overflow-hidden rounded-[24px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || targetTitle, 'h-[220px] w-[280px] object-cover', 'cover', '280px')}</div>`).join('')}</div></section>`;
     }
     if (profile.gallery === 'minimal') {
-      return `<section class="grid gap-3 sm:grid-cols-2">${images.slice(0, 2).map((item) => `<div class="overflow-hidden rounded-[20px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || title, 'h-[220px] w-full object-cover', 'cover', '(min-width: 640px) 50vw, 100vw')}</div>`).join('')}</section>`;
+      return `<section class="grid gap-3 sm:grid-cols-2">${images.slice(0, 2).map((item) => `<div class="overflow-hidden rounded-[20px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || targetTitle, 'h-[220px] w-full object-cover', 'cover', '(min-width: 640px) 50vw, 100vw')}</div>`).join('')}</section>`;
     }
-    return `<section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">${images.slice(0, 6).map((item) => `<div class="overflow-hidden rounded-[22px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || title, 'aspect-square w-full object-cover', 'cover', '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw')}</div>`).join('')}</section>`;
+    return `<section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">${images.slice(0, 6).map((item) => `<div class="overflow-hidden rounded-[22px] bg-white shadow-sm">${buildResponsiveImageMarkup(item.src, item.alt || targetTitle, 'aspect-square w-full object-cover', 'cover', '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw')}</div>`).join('')}</section>`;
   };
 
   const renderFeatures = (block) => {
     const items = Array.isArray(block.content?.items) ? block.content.items : highlights;
     if (!items.length) return '';
+    if (isLuxuryShell) {
+      const storyImage = block.content?.story_image || buildLuxuryStoryImage(page);
+      return `<section class="luxury-story-block"><div class="luxury-story-media">${buildResponsiveImageMarkup(storyImage, block.content?.heading || 'Story image', 'luxury-story-image', 'cover', '(min-width: 1200px) 36vw, 100vw')}</div><div class="luxury-story-copy"><p class="luxury-section-kicker">${escapeHtml(block.label || 'Story')}</p><h2>${escapeHtml(block.content?.heading || 'Why travelers choose us')}</h2><p class="luxury-story-body">${escapeHtml(block.content?.body || 'Quiet service, slow pacing, and design-led travel planning replace the usual brochure rhythm.')}</p><div class="luxury-story-list">${items.slice(0, 3).map((item) => `<article><h3>${escapeHtml(item.title || '')}</h3><p>${escapeHtml(item.body || '')}</p></article>`).join('')}</div></div></section>`;
+    }
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(block.label || 'Highlights')}</p><h2 class="mt-3 text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Highlights')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${items.map((item, index) => `<article class="rounded-[20px] border border-slate-200 p-4"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(String(index + 1).padStart(2, '0'))}</p><h3 class="mt-2 text-lg font-semibold text-slate-900">${escapeHtml(item.title || '')}</h3><p class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(item.body || '')}</p></article>`).join('')}</div></section>`;
   };
 
-  const renderRich = (block) => `<section class="rounded-[26px] bg-white p-6 shadow-sm"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(block.label || '')}</p><h2 class="mt-3 text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || block.label || '')}</h2><div class="mt-4 text-base leading-8 text-slate-700">${renderRichText(block.content?.body || description)}</div></section>`;
+  const renderRich = (block, targetPage = page) => {
+    if (isLuxuryShell && targetPage.page_key === 'accommodation') {
+      const cards = resolveListingCards('tour_runtime.accommodation_listing', targetPage);
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(block.label || 'Accommodation')}</p><h2>${escapeHtml(block.content?.heading || 'Accommodation')}</h2></div><p>${escapeHtml(block.content?.body || getPageDescription(targetPage))}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>`).join('')}</div></section>`;
+    }
+
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(block.label || '')}</p><h2 class="mt-3 text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || block.label || '')}</h2><div class="mt-4 text-base leading-8 text-slate-700">${renderRichText(block.content?.body || getPageDescription(targetPage))}</div></section>`;
+  };
 
   const renderItinerary = (block) => {
     const items = Array.isArray(block.content?.items) ? block.content.items : itinerary;
@@ -350,31 +819,107 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   };
 
   const renderContact = (block) => {
-    const channels = siteBundle.contacts?.channels || {};
-    const visibleChannels = Object.entries(channels).filter(([, value]) => value?.enabled && value?.value);
-    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleChannels.length ? visibleChannels.map(([key, value]) => `<a href="${escapeHtml(value.value)}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(key)}: ${escapeHtml(value.value)}</a>`).join('') : '<p class="text-slate-500">No contact channels configured yet.</p>'}</div></section>`;
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleContactEntries.length ? visibleContactEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(buildChannelLabel(key, value))}: ${escapeHtml(value.value)}</a>`).join('') : '<p class="text-slate-500">No contact channels configured yet.</p>'}</div></section>`;
   };
 
-  const renderListing = (block) => `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
+  const renderListing = (block, targetPage = page) => {
+    if (isLuxuryShell) {
+      const cards = resolveListingCards(block.data_bindings?.cards?.source, targetPage);
+      const accentColor = normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73');
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>`).join('')}</div></section>`;
+    }
+
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
+  };
   const renderBookingSlot = (block) => `<section class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(block.content?.cta_label || 'Continue')}</a></section>`;
 
-  const renderedBlocks = blocks.map((block) => {
+  const renderBlocksList = (blockList, targetPage = page) => blockList.map((block) => {
     switch (block.type) {
-      case 'hero': return renderHero(block);
-      case 'gallery': return renderGallery(block);
+      case 'hero': return renderHero(block, targetPage);
+      case 'gallery': return renderGallery(block, targetPage);
       case 'features': return renderFeatures(block);
       case 'rich_text':
-      case 'legal': return renderRich(block);
+      case 'legal': return renderRich(block, targetPage);
       case 'itinerary': return renderItinerary(block);
       case 'pricing_spotlight': return renderPricing(block);
       case 'contact': return renderContact(block);
       case 'listing':
       case 'reservation_entry':
-      case 'booking_entry': return renderListing(block);
+      case 'booking_entry': return renderListing(block, targetPage);
       case 'booking_engine_slot': return renderBookingSlot(block);
       default: return '';
     }
   }).filter(Boolean).join('<div class="h-6"></div>');
+
+  const buildMenuHref = (item) => {
+    if (item.is_external) {
+      return item.href || '#';
+    }
+
+    const linkedPage = pageMap.get(item.page_key);
+    if (!linkedPage) {
+      return item.href || '#';
+    }
+
+    if (linkedPage.page_key !== homePageKey && linkedPage.seo?.home_embedded && !excludedHomeEmbeddedKeys.has(linkedPage.page_key)) {
+      const sectionHref = `#section-${linkedPage.page_key}`;
+      return isHomePage ? sectionHref : `${buildUniversalPublicPath(site.tenant_id, homeSlug)}${sectionHref}`;
+    }
+
+    return buildUniversalPublicPath(site.tenant_id, linkedPage.slug || item.href?.replace(/^\//, '') || homeSlug);
+  };
+
+  const embeddedPages = [];
+  const embeddedPageKeys = new Set();
+  if (isHomePage) {
+    for (const item of menuItems) {
+      const linkedPage = pageMap.get(item.page_key);
+      if (!linkedPage || linkedPage.page_key === homePageKey || embeddedPageKeys.has(linkedPage.page_key)) {
+        continue;
+      }
+      if (excludedHomeEmbeddedKeys.has(linkedPage.page_key)) {
+        continue;
+      }
+      if (!linkedPage.seo?.home_embedded) {
+        continue;
+      }
+      embeddedPageKeys.add(linkedPage.page_key);
+      embeddedPages.push({ page: linkedPage, menuItem: item });
+    }
+  }
+
+  const renderedBlocks = renderBlocksList(blocks, page);
+  const renderedEmbeddedSections = embeddedPages.map(({ page: embeddedPage, menuItem }) => {
+    const embeddedBlocks = Array.isArray(embeddedPage.blocks) ? embeddedPage.blocks : [];
+    const embeddedBody = renderBlocksList(embeddedBlocks, embeddedPage) || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(getPageTitle(embeddedPage))}</h2><p class="mt-4 text-slate-600">${escapeHtml(getPageDescription(embeddedPage))}</p></section>`;
+    return `<section id="section-${escapeHtml(embeddedPage.page_key)}" class="scroll-mt-28"><div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(menuItem.label || embeddedPage.title)}</p><h2 class="mt-2 text-3xl font-semibold text-slate-950">${escapeHtml(embeddedPage.title)}</h2></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, embeddedPage.slug || embeddedPage.page_key))}" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900">Open standalone page</a></div>${embeddedBody}</section>`;
+  }).join('<div class="h-10"></div>');
+
+  const featuredMenuItem = menuItems.find((item) => item.page_key === 'featured-tours') || null;
+  const bookNowTarget = menuItems.find((item) => item.page_key === 'booking') || featuredMenuItem || menuItems[0] || null;
+  const bookNowHref = bookNowTarget ? buildMenuHref(bookNowTarget) : '#pricing';
+
+  const navMarkup = menuItems.length
+    ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav>`
+    : '';
+  const luxuryDrawerMarkup = isLuxuryShell
+    ? `<div class="luxury-drawer-backdrop" data-luxury-close="true"></div><aside class="luxury-drawer" aria-label="Luxury navigation"><div class="luxury-drawer-head"><span>Curated Menu</span><button type="button" class="luxury-drawer-close" data-luxury-close="true">Close</button></div><nav class="luxury-drawer-nav">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''}>${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav></aside>`
+    : '';
+  const socialRailMarkup = isLuxuryShell && socialEntries.length
+    ? `<aside class="luxury-social-rail">${socialEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" target="_blank" rel="noreferrer" aria-label="${escapeHtml(buildChannelLabel(key, value))}">${escapeHtml(buildSocialMonogram(key))}</a>`).join('')}</aside>`
+    : '';
+  const logoMarkup = theme.logoUrl
+    ? `<img src="${escapeHtml(theme.logoUrl)}" alt="${escapeHtml(site.site_name || 'Logo')}" class="luxury-logo-image" />`
+    : `<span class="luxury-logo-text">${escapeHtml(site.site_name || 'Travel House')}</span>`;
+  const footerMarkup = isLuxuryShell
+    ? `<footer class="luxury-footer"><div class="luxury-footer-grid"><div class="luxury-footer-brand"><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-footer-logo">${logoMarkup}</a><p class="luxury-footer-kicker">Private journeys, quietly crafted</p></div><div><p class="luxury-footer-heading">${escapeHtml(site.site_name || 'Travel House')}</p><div class="luxury-footer-links">${menuItems.slice(0, 8).map((item) => `<a href="${escapeHtml(buildMenuHref(item))}">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('') || '<span>Navigation stays tenant-controlled.</span>'}</div></div><div><p class="luxury-footer-heading">Get in touch</p><div class="luxury-footer-links">${['phone', 'email', 'address'].map((key) => channels[key]?.enabled && channels[key]?.value ? `<a href="${escapeHtml(buildChannelHref(key, channels[key]))}">${escapeHtml(channels[key].value)}</a>` : '').join('') || '<span>Concierge details can be configured per tenant.</span>'}</div></div><div><p class="luxury-footer-heading">Follow</p><div class="luxury-footer-socials">${socialEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" target="_blank" rel="noreferrer">${escapeHtml(buildSocialMonogram(key))}</a>`).join('') || '<span>Social channels can be toggled per tenant.</span>'}</div><div class="luxury-footer-links luxury-footer-legal">${legalPages.map((entry) => `<a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, entry.slug || entry.page_key))}">${escapeHtml(entry.title)}</a>`).join('')}</div></div></div></footer>`
+    : '';
+  const headerMarkup = isLuxuryShell
+    ? `<header class="luxury-header"><div class="luxury-header-inner"><div class="luxury-header-left"><button type="button" class="luxury-menu-toggle" aria-label="Open navigation"><span></span><span></span><span></span></button></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-logo">${logoMarkup}</a><div class="luxury-header-right"><span class="luxury-lang-chip">EN</span><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-login-link">Login</a><a href="${escapeHtml(bookNowHref)}" class="luxury-book-now">Book Now</a></div></div></header>${luxuryDrawerMarkup}${socialRailMarkup}`
+    : `<header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p><p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p></div>${navMarkup}<a href="#pricing" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(snapshot?.booking_cta_label || 'Enquire')}</a></div></header>`;
+  const shellScript = isLuxuryShell
+    ? `<script>(function(){const body=document.body;const open=document.querySelector('.luxury-menu-toggle');const closers=document.querySelectorAll('[data-luxury-close="true"]');const hero=document.querySelector('.luxury-hero');const setState=(next)=>{body.dataset.menuOpen=next?'true':'false';};const refreshHeader=()=>{const trigger=hero?Math.max(hero.offsetHeight-140,240):240;body.dataset.headerSolid=window.scrollY>trigger?'true':'false';};if(open){open.addEventListener('click',()=>setState(body.dataset.menuOpen!=='true'));}closers.forEach((node)=>node.addEventListener('click',()=>setState(false)));document.addEventListener('keydown',(event)=>{if(event.key==='Escape'){setState(false);}});window.addEventListener('scroll',refreshHeader,{passive:true});window.addEventListener('resize',refreshHeader);refreshHeader();document.querySelectorAll('[data-luxury-gallery]').forEach((gallery)=>{const items=[...gallery.querySelectorAll('[data-gallery-item]')];const thumbs=[...gallery.querySelectorAll('[data-gallery-thumb]')];const show=(index)=>{if(!items.length)return;const next=((index%items.length)+items.length)%items.length;gallery.dataset.galleryIndex=String(next);items.forEach((item,itemIndex)=>item.classList.toggle('is-active',itemIndex===next));thumbs.forEach((thumb,thumbIndex)=>thumb.classList.toggle('is-active',thumbIndex===next));};gallery.querySelectorAll('[data-gallery-nav]').forEach((button)=>button.addEventListener('click',()=>show(Number(gallery.dataset.galleryIndex||0)+Number(button.dataset.galleryNav||0))));thumbs.forEach((thumb,thumbIndex)=>thumb.addEventListener('click',()=>show(thumbIndex)));show(0);});})();</script>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(site.default_lang || 'en')}">
@@ -391,29 +936,789 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   <link rel="canonical" href="${escapeHtml(canonicalPath)}">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
     :root {
       --color-primary: ${escapeHtml(primaryColor)};
       --color-secondary: ${escapeHtml(secondaryColor)};
       --color-surface: ${escapeHtml(surfaceColor)};
       --color-text: ${escapeHtml(textColor)};
     }
+    html { scroll-behavior: smooth; }
     body { background: var(--color-surface); color: var(--color-text); font-family: ${escapeHtml(theme.fontBody || 'Inter, system-ui, sans-serif')}; }
     h1, h2, h3 { font-family: ${escapeHtml(theme.fontHeading || 'Inter, system-ui, sans-serif')}; }
+    ${isLuxuryShell ? `
+    body.luxury-editorial {
+      background:
+        linear-gradient(180deg, #f7f2ea 0, #f3ede3 220px, #fbf8f2 221px, #fbf8f2 100%);
+      min-height: 100vh;
+    }
+    body.luxury-editorial::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(90,59,39,0.025) 1px, transparent 1px);
+      background-size: 44px 44px;
+      opacity: 0.14;
+    }
+    body.luxury-editorial[data-menu-open='true'] { overflow: hidden; }
+    .luxury-header {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 60;
+      padding: 0;
+      pointer-events: none;
+    }
+    .luxury-header-inner {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 28px 34px;
+      background: transparent;
+      border-bottom: 1px solid transparent;
+      transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+      pointer-events: auto;
+    }
+    body[data-header-solid='true'] .luxury-header-inner {
+      background: rgba(246, 240, 231, 0.88);
+      border-color: rgba(90,59,39,0.12);
+      box-shadow: 0 12px 28px rgba(40, 28, 19, 0.08);
+      backdrop-filter: blur(18px);
+    }
+    .luxury-header-left,
+    .luxury-header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .luxury-header-right {
+      justify-self: end;
+    }
+    .luxury-menu-toggle {
+      width: 46px;
+      height: 46px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(12, 10, 8, 0.18);
+      backdrop-filter: blur(12px);
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .luxury-menu-toggle span {
+      display: block;
+      height: 1px;
+      background: #fbf6ef;
+    }
+    .luxury-lang-chip {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,248,238,0.88);
+    }
+    body[data-header-solid='true'] .luxury-lang-chip,
+    body[data-header-solid='true'] .luxury-login-link,
+    body[data-header-solid='true'] .luxury-logo {
+      color: rgba(45,34,25,0.88);
+    }
+    .luxury-logo {
+      justify-self: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: #fff8ee;
+    }
+    .luxury-logo-text {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 220px;
+      padding: 8px 12px;
+      font: 500 28px/1 'Cormorant Garamond', serif;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .luxury-logo-image {
+      max-width: 180px;
+      max-height: 72px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    body[data-header-solid='true'] .luxury-logo-image {
+      filter: none;
+    }
+    .luxury-login-link {
+      text-decoration: none;
+      color: rgba(255,248,238,0.88);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .luxury-book-now {
+      text-decoration: none;
+      color: #fffaf8;
+      background: #7f3f73;
+      border-radius: 8px;
+      padding: 14px 24px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      box-shadow: 0 12px 28px rgba(127, 63, 115, 0.22);
+    }
+    .luxury-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 12, 9, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 54;
+    }
+    .luxury-drawer {
+      position: fixed;
+      inset: 18px auto 18px 18px;
+      width: min(420px, calc(100vw - 40px));
+      padding: 28px;
+      border-radius: 8px;
+      background: rgba(251, 247, 240, 0.97);
+      color: #f6efe5;
+      border: 1px solid rgba(90,59,39,0.08);
+      transform: translateX(calc(-100% - 40px));
+      transition: transform 220ms ease;
+      z-index: 55;
+      backdrop-filter: blur(18px);
+      display: grid;
+      gap: 20px;
+    }
+    body[data-menu-open='true'] .luxury-drawer { transform: translateX(0); }
+    body[data-menu-open='true'] .luxury-drawer-backdrop { opacity: 1; pointer-events: auto; }
+    .luxury-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(59,43,32,0.72);
+    }
+    .luxury-drawer-close {
+      border: 1px solid rgba(90,59,39,0.16);
+      background: transparent;
+      color: inherit;
+      padding: 10px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .luxury-drawer-nav {
+      display: grid;
+      gap: 10px;
+    }
+    .luxury-drawer-nav a {
+      color: #2d2219;
+      text-decoration: none;
+      font: 600 28px/1.1 'Cormorant Garamond', serif;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(90,59,39,0.08);
+    }
+    .luxury-social-rail {
+      position: fixed;
+      right: 26px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 48;
+    }
+    .luxury-social-rail a {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #fdf9f1;
+      background: rgba(42, 29, 22, 0.58);
+      border: 1px solid rgba(255,255,255,0.16);
+      backdrop-filter: blur(14px);
+    }
+    .luxury-hero {
+      position: relative;
+      min-height: 100vh;
+      width: 100vw;
+      margin: 0 calc(50% - 50vw);
+      border-radius: 0;
+      overflow: hidden;
+      background: #1a1511;
+    }
+    .luxury-hero-inner { min-height: 76vh; }
+    .luxury-hero-media {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .luxury-hero-media-asset {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      animation: luxuryKenBurns 18s ease-in-out infinite alternate;
+    }
+    .luxury-hero-media-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: rgba(255,255,255,0.7);
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .luxury-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(17,12,9,0.06) 0%, rgba(17,12,9,0.22) 34%, rgba(17,12,9,0.54) 68%, rgba(17,12,9,0.88) 100%);
+    }
+    .luxury-hero-copy {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: inherit;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 168px 34px 176px;
+      color: #fff8ee;
+    }
+    .luxury-hero-side-panel {
+      position: absolute;
+      right: 34px;
+      bottom: 188px;
+      z-index: 4;
+      width: auto;
+    }
+    .luxury-hero-side-links {
+      display: grid;
+      gap: 18px;
+      justify-items: end;
+    }
+    .luxury-hero-side-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0;
+      text-decoration: none;
+      color: #fff8ee;
+      font: 600 28px/1 'Cormorant Garamond', serif;
+      letter-spacing: 0.02em;
+      text-shadow: 0 10px 30px rgba(17, 12, 9, 0.35);
+    }
+    .luxury-map-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,248,238,0.9);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .luxury-hero-eyebrow {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,248,238,0.72);
+    }
+    .luxury-hero-copy h1 {
+      margin: 18px 0 0;
+      max-width: 920px;
+      font: 600 clamp(46px, 6vw, 90px)/0.96 'Cormorant Garamond', serif;
+      letter-spacing: -0.04em;
+    }
+    .luxury-hero-body {
+      max-width: 700px;
+      margin: 18px 0 0;
+      font-size: 17px;
+      line-height: 1.72;
+      color: rgba(255,248,238,0.82);
+    }
+    .luxury-hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .luxury-primary-cta,
+    .luxury-secondary-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      padding: 14px 22px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .luxury-primary-cta {
+      color: #22170f;
+      background: linear-gradient(135deg, #f4ddb1, #d7b27a);
+    }
+    .luxury-secondary-cta {
+      color: #fff8ee;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.08);
+    }
+    .luxury-search-panel {
+      margin-top: 0;
+      display: grid;
+      gap: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 0;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(90,59,39,0.08);
+      box-shadow: 0 16px 40px rgba(38, 28, 20, 0.12);
+      overflow: hidden;
+    }
+    .luxury-hero-search-wrap {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 32px;
+      z-index: 4;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+    .luxury-search-grid {
+      display: grid;
+      gap: 0;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .luxury-search-grid label {
+      display: grid;
+      gap: 8px;
+      color: #725e4f;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 16px 18px;
+      border-right: 1px solid rgba(90,59,39,0.08);
+    }
+    .luxury-search-grid input {
+      width: 100%;
+      padding: 0;
+      border-radius: 0;
+      border: 0;
+      background: transparent;
+      color: #2d2219;
+    }
+    .luxury-search-cta {
+      justify-self: stretch;
+      border: 0;
+      border-radius: 6px;
+      margin: 10px;
+      padding: 0 28px;
+      background: #7f3f73;
+      color: #fffaf8;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .luxury-collection {
+      border-radius: 8px;
+      padding: 34px;
+      background: rgba(255,251,245,0.72);
+      border: 1px solid rgba(90,59,39,0.08);
+      box-shadow: 0 18px 50px rgba(65, 43, 28, 0.08);
+    }
+    .luxury-collection-head {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.1fr 0.9fr;
+      margin-bottom: 22px;
+      align-items: end;
+    }
+    .luxury-collection-head h2 {
+      margin: 6px 0 0;
+      font: 600 clamp(34px, 4vw, 54px)/0.98 'Cormorant Garamond', serif;
+      color: #2e2218;
+    }
+    .luxury-collection-head p {
+      margin: 0;
+      color: rgba(52,36,27,0.78);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+    .luxury-section-kicker,
+    .luxury-card-kicker,
+    .luxury-footer-kicker {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(90,59,39,0.68);
+    }
+    .luxury-collection-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .luxury-collection-card {
+      overflow: hidden;
+      border-radius: 6px;
+      background: #fffdf8;
+      border: 1px solid rgba(90,59,39,0.08);
+      box-shadow: 0 20px 40px rgba(67, 45, 29, 0.08);
+      text-decoration: none;
+    }
+    .luxury-collection-media { overflow: hidden; }
+    .luxury-collection-media.is-portrait .luxury-collection-image {
+      height: 420px;
+    }
+    .luxury-collection-image {
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+      transition: transform 280ms ease;
+    }
+    .luxury-collection-card:hover .luxury-collection-image { transform: scale(1.04); }
+    .luxury-collection-copy {
+      display: grid;
+      gap: 10px;
+      padding: 20px;
+    }
+    .luxury-collection-copy h3 {
+      margin: 0;
+      font: 600 28px/1.02 'Cormorant Garamond', serif;
+      color: #2e2218;
+    }
+    .luxury-collection-copy p {
+      margin: 0;
+      color: rgba(52,36,27,0.76);
+      line-height: 1.7;
+    }
+    .luxury-card-meta {
+      color: var(--luxury-accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .luxury-collection-grid-portrait {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .luxury-story-block {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+      gap: 48px;
+      align-items: center;
+      padding: 48px 0;
+    }
+    .luxury-story-media {
+      overflow: hidden;
+      border-radius: 6px;
+      box-shadow: 0 22px 60px rgba(43, 31, 22, 0.12);
+      min-height: 720px;
+    }
+    .luxury-story-image {
+      width: 100%;
+      height: 100%;
+      min-height: 720px;
+      object-fit: cover;
+      display: block;
+    }
+    .luxury-story-copy {
+      display: grid;
+      gap: 18px;
+      max-width: 620px;
+      padding-right: 32px;
+    }
+    .luxury-story-copy h2 {
+      margin: 0;
+      font: 500 clamp(40px, 5vw, 72px)/0.98 'Cormorant Garamond', serif;
+      color: #2d2219;
+    }
+    .luxury-story-body {
+      margin: 0;
+      color: rgba(52,36,27,0.78);
+      font-size: 20px;
+      line-height: 1.8;
+    }
+    .luxury-story-list {
+      display: grid;
+      gap: 24px;
+      margin-top: 18px;
+    }
+    .luxury-story-list article {
+      display: grid;
+      gap: 8px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(90,59,39,0.12);
+    }
+    .luxury-story-list h3 {
+      margin: 0;
+      font: 500 28px/1.08 'Cormorant Garamond', serif;
+      color: #2d2219;
+    }
+    .luxury-story-list p {
+      margin: 0;
+      color: rgba(52,36,27,0.76);
+      line-height: 1.75;
+    }
+    .luxury-gallery-band {
+      padding: 24px 0 10px;
+    }
+    .luxury-gallery-head {
+      display: grid;
+      gap: 10px;
+      max-width: 760px;
+      margin-bottom: 18px;
+    }
+    .luxury-gallery-head h2 {
+      margin: 0;
+      font: 500 clamp(36px, 5vw, 64px)/0.98 'Cormorant Garamond', serif;
+      color: #2d2219;
+    }
+    .luxury-gallery-head p {
+      margin: 0;
+      color: rgba(52,36,27,0.76);
+      line-height: 1.75;
+    }
+    .luxury-gallery-stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+      background: #ddd;
+      min-height: 520px;
+    }
+    .luxury-gallery-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+    .luxury-gallery-slide.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .luxury-gallery-image {
+      width: 100%;
+      height: 520px;
+      object-fit: cover;
+      display: block;
+    }
+    .luxury-gallery-slide figcaption {
+      position: absolute;
+      inset: auto 0 0;
+      padding: 18px 20px;
+      color: #fff8ee;
+      background: linear-gradient(180deg, rgba(17,12,9,0) 0%, rgba(17,12,9,0.72) 100%);
+      font-size: 14px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .luxury-gallery-nav {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 96px;
+      border: 0;
+      background: transparent;
+      color: rgba(255,248,238,0.92);
+      font: 500 64px/1 'Cormorant Garamond', serif;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 180ms ease, background 180ms ease;
+    }
+    .luxury-gallery-stage:hover .luxury-gallery-nav {
+      opacity: 1;
+    }
+    .luxury-gallery-nav:hover {
+      background: rgba(17,12,9,0.14);
+    }
+    .luxury-gallery-prev { left: 0; }
+    .luxury-gallery-next { right: 0; }
+    .luxury-gallery-thumbs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .luxury-gallery-thumb {
+      display: grid;
+      gap: 6px;
+      text-align: left;
+      padding: 12px 14px;
+      border: 1px solid rgba(90,59,39,0.1);
+      background: rgba(255,251,245,0.7);
+      color: #2d2219;
+      cursor: pointer;
+    }
+    .luxury-gallery-thumb.is-active {
+      border-color: rgba(127,63,115,0.34);
+      background: rgba(127,63,115,0.08);
+    }
+    .luxury-gallery-thumb span {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(90,59,39,0.68);
+    }
+    .luxury-gallery-thumb strong {
+      font: 600 18px/1.1 'Cormorant Garamond', serif;
+    }
+    .luxury-footer {
+      max-width: 1380px;
+      margin: 56px auto 26px;
+      border-radius: 0;
+      padding: 56px 34px 44px;
+      background: #fbf8f2;
+      color: #35271d;
+      border-top: 1px solid rgba(90,59,39,0.08);
+    }
+    .luxury-footer-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+    .luxury-footer-brand {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+    .luxury-footer-logo {
+      color: inherit;
+      text-decoration: none;
+      width: fit-content;
+    }
+    .luxury-footer h2,
+    .luxury-footer-heading {
+      margin: 0 0 10px;
+      font: 600 30px/1.02 'Cormorant Garamond', serif;
+    }
+    .luxury-footer-links {
+      display: grid;
+      gap: 10px;
+    }
+    .luxury-footer-links a,
+    .luxury-footer-links span {
+      color: rgba(53,39,29,0.84);
+      text-decoration: none;
+      line-height: 1.7;
+    }
+    .luxury-footer-socials {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .luxury-footer-socials a {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: rgba(127,63,115,0.08);
+      color: #7f3f73;
+      border: 1px solid rgba(127,63,115,0.16);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+    .luxury-footer-legal {
+      margin-top: 10px;
+    }
+    @keyframes luxuryKenBurns {
+      0% { transform: scale(1.04); }
+      100% { transform: scale(1.14); }
+    }
+    @media (max-width: 1100px) {
+      .luxury-header-inner,
+      .luxury-collection-head,
+      .luxury-footer-grid,
+      .luxury-search-grid,
+      .luxury-collection-grid {
+        grid-template-columns: 1fr;
+      }
+      .luxury-gallery-thumbs,
+      .luxury-collection-grid-portrait {
+        grid-template-columns: 1fr;
+      }
+      .luxury-story-block {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      .luxury-story-media,
+      .luxury-story-image {
+        min-height: 420px;
+      }
+      .luxury-logo-text {
+        min-width: 112px;
+        font-size: 18px;
+      }
+      .luxury-hero-copy {
+        padding: 140px 26px 180px;
+      }
+      .luxury-hero-side-panel {
+        position: static;
+        width: auto;
+        margin: 24px 26px 0;
+      }
+      .luxury-social-rail {
+        display: none;
+      }
+      .luxury-book-now {
+        padding: 12px 16px;
+      }
+      .luxury-search-panel {
+        grid-template-columns: 1fr;
+      }
+      .luxury-hero-search-wrap {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
+      .luxury-gallery-stage,
+      .luxury-gallery-image {
+        min-height: 360px;
+        height: 360px;
+      }
+    }
+    ` : ''}
   </style>
 </head>
-<body class="min-h-screen ${escapeHtml(profile.shell || 'universal-shell')}">
-  <header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-      <div>
-        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p>
-        <p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p>
-      </div>
-      <a href="#pricing" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(snapshot?.booking_cta_label || 'Enquire')}</a>
-    </div>
-  </header>
-  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+<body class="min-h-screen ${escapeHtml(profile.shell || 'universal-shell')}" data-menu-open="false" data-header-solid="false">
+  ${headerMarkup}
+  <main class="${isLuxuryShell ? 'luxury-main-shell mx-auto max-w-[1380px] px-4 pt-0 pb-0 sm:px-6' : 'mx-auto max-w-6xl px-4 py-8 sm:px-6'}">
     ${renderedBlocks || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h1 class="text-3xl font-semibold text-slate-950">${escapeHtml(title)}</h1><p class="mt-4 text-slate-600">${escapeHtml(description)}</p></section>`}
+    ${renderedEmbeddedSections ? `<div class="h-10"></div>${renderedEmbeddedSections}` : ''}
   </main>
+  ${footerMarkup}
+  ${shellScript}
 </body>
 </html>`;
 }
@@ -498,7 +1803,7 @@ function validateMenuPayload(items) {
   return null;
 }
 
-async function getSiteBundle(tenantId, tenant, db) {
+async function getSiteBundle(tenantId, tenant, db, env = null) {
   const siteRow = await ensureUniversalSiteInitialized(db, tenantId, tenant.name);
   const themeRow = await db.prepare('SELECT * FROM tenant_universal_theme_tokens WHERE tenant_id = ?').bind(tenantId).first();
   const contactsRow = await db.prepare('SELECT * FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenantId).first();
@@ -508,6 +1813,37 @@ async function getSiteBundle(tenantId, tenant, db) {
   const contacts = normalizeContacts(contactsRow);
   const menu = await listMenuItems(tenantId, db);
   const pages = await listPages(tenantId, db);
+  let tourRuntime = {};
+
+  if (site.group_key === 'tour_operator') {
+    const [{ results: tours }, { results: priceRows }] = await db.batch([
+      db.prepare(
+        `SELECT id, title, slug, duration_text, start_date, status, content_data, category_id, created_at
+         FROM tours
+         WHERE tenant_id = ?
+         ORDER BY created_at DESC`
+      ).bind(tenantId),
+      db.prepare(
+        `SELECT tour_id, MIN(COALESCE(adult_shared_room_price, adult_single_room_price)) AS price_from
+         FROM tour_prices
+         WHERE tenant_id = ? AND is_active = 1
+         GROUP BY tour_id`
+      ).bind(tenantId),
+    ]);
+
+    let syncedRows = (await db.prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? ORDER BY updated_at DESC').bind(tenantId).all()).results || [];
+    if (env && tours.length) {
+      const syncedIds = new Set(syncedRows.map((row) => row.tour_id));
+      const missingTours = tours.filter((tour) => !syncedIds.has(tour.id)).slice(0, 12);
+      if (missingTours.length) {
+        await Promise.allSettled(missingTours.map((tour) => syncUniversalTourPage(env, tenantId, tour.id)));
+        syncedRows = (await db.prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? ORDER BY updated_at DESC').bind(tenantId).all()).results || [];
+      }
+    }
+
+    const priceLookup = new Map(priceRows.map((row) => [row.tour_id, row.price_from]));
+    tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup);
+  }
 
   return {
     site,
@@ -515,6 +1851,7 @@ async function getSiteBundle(tenantId, tenant, db) {
     contacts,
     menu,
     pages,
+    tour_runtime: tourRuntime,
     ...buildEditorStoreBundle({ site, theme, contacts, menu, pages, runtime }),
     groups: Object.values(UNIVERSAL_GROUPS),
     variants: UNIVERSAL_VARIANTS,
@@ -701,7 +2038,7 @@ router.get('/site/variants', async (c) => {
 router.get('/site/bootstrap', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
-  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB)) });
+  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)) });
 });
 
 router.post('/site/bootstrap', async (c) => {
@@ -732,7 +2069,7 @@ router.post('/site/bootstrap', async (c) => {
   if (body.persist === true) {
     await persistBootstrapBundle(c.env.DB, ctx.tenantId, ctx.tenant.name, bootstrap);
     await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
-    return c.json({ ok: true, persisted: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB)), recommendation: bootstrap.recommendation });
+    return c.json({ ok: true, persisted: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)), recommendation: bootstrap.recommendation });
   }
 
   return c.json({ ok: true, ...bootstrap });
@@ -741,7 +2078,7 @@ router.post('/site/bootstrap', async (c) => {
 router.get('/site/config', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
-  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB)) });
+  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)) });
 });
 
 router.patch('/site/config', async (c) => {
@@ -918,7 +2255,7 @@ router.patch('/site/config', async (c) => {
     await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
   }
 
-  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB)) });
+  return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)) });
 });
 
 router.get('/site/theme', async (c) => {
@@ -1261,7 +2598,7 @@ router.get('/render/:tenantId', async (c) => {
     return jsonError(c, 404, 'Tenant not found');
   }
 
-  const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB);
+  const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env);
   const requestedTourId = c.req.query('tourId')?.trim();
 
   const tourPageRow = requestedTourId
@@ -1322,7 +2659,7 @@ export default function registerUniversalSiteRoutes(app) {
     }
 
     const page = normalizePage(pageRow);
-    const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB);
+    const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env);
     const tourPageRow = page.page_type === 'tour_detail'
       ? await c.env.DB
           .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? AND slug = ?')

@@ -1061,6 +1061,8 @@ const ALLOWED_ASSET_MIME = new Set([
   'image/webp',
   'image/gif',
   'image/svg+xml',
+  'video/mp4',
+  'video/webm',
 ]);
 
 const MIME_TO_EXT = {
@@ -1069,28 +1071,103 @@ const MIME_TO_EXT = {
   'image/webp':   'webp',
   'image/gif':    'gif',
   'image/svg+xml': 'svg',
+  'video/mp4':    'mp4',
+  'video/webm':   'webm',
 };
 
-const MAX_ASSET_BYTES = 5 * 1024 * 1024; // 5 MB
+const EXT_TO_MIME = Object.fromEntries(
+  Object.entries(MIME_TO_EXT).map(([mime, ext]) => [ext, mime])
+);
+
+const MAX_ASSET_BYTES = 40 * 1024 * 1024; // 40 MB to allow short hero videos
 
 // Safe filename: nanoid(12) + dot + extension — no user input in path.
-const SAFE_ASSET_FILENAME_RE = /^[A-Za-z0-9_-]{1,64}\.(jpg|png|webp|gif|svg)$/;
+const SAFE_ASSET_FILENAME_RE = /^[A-Za-z0-9_-]{1,64}\.(jpg|png|webp|gif|svg|mp4|webm)$/;
 
-publicConfig.post('/assets/upload', async (c) => {
-  // ── Auth ────────────────────────────────────────────────────────────────
-  const tenantId = c.req.header('X-Tenant-ID')?.trim();
-  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+async function listAllTenantAssetObjects(bucket, prefix) {
+  const objects = [];
+  let cursor;
 
-  if (!c.env.TOUR_PAGES) {
-    return c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503);
-  }
+  do {
+    const page = await bucket.list({ prefix, cursor, limit: 1000 });
+    objects.push(...(page.objects || []));
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
 
-  // Confirm tenant exists (prevents writing to arbitrary R2 paths for phantom tenants)
+  return objects;
+}
+
+async function requireAssetTenant(c, tenantId) {
+  if (!tenantId) return { error: c.json({ error: 'X-Tenant-ID header is required.' }, 400) };
+  if (!c.env.TOUR_PAGES) return { error: c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503) };
+
   const tenant = await c.env.DB
     .prepare('SELECT id FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
-  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  if (!tenant) return { error: c.json({ error: 'Tenant not found.' }, 404) };
+  return { tenant };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/tenant/assets  (admin — X-Tenant-ID required)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lists previously uploaded tenant assets so the universal editor can reuse
+// the same image or video URLs across hero, tours, featured collections,
+// storytelling blocks, and galleries.
+publicConfig.get('/assets', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  const requirement = await requireAssetTenant(c, tenantId);
+  if (requirement.error) return requirement.error;
+
+  const prefix = `assets/${tenantId}/`;
+  const objects = await listAllTenantAssetObjects(c.env.TOUR_PAGES, prefix);
+
+  const items = objects
+    .map((obj) => {
+      const filename = String(obj.key || '').slice(prefix.length);
+      if (!SAFE_ASSET_FILENAME_RE.test(filename)) return null;
+      const extension = filename.split('.').pop()?.toLowerCase() || '';
+      return {
+        filename,
+        r2_key: obj.key,
+        url: `/api/tenant/assets/${tenantId}/${filename}`,
+        size: obj.size ?? 0,
+        uploaded_at: obj.uploaded ? new Date(obj.uploaded).toISOString() : null,
+        mime: EXT_TO_MIME[extension] || null,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(right.uploaded_at || '').localeCompare(String(left.uploaded_at || '')));
+
+  return c.json({ ok: true, items });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/tenant/assets/:filename  (admin — X-Tenant-ID required)
+// ─────────────────────────────────────────────────────────────────────────────
+// Removes one uploaded asset from the tenant media library.
+publicConfig.delete('/assets/:filename', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  const requirement = await requireAssetTenant(c, tenantId);
+  if (requirement.error) return requirement.error;
+
+  const filename = c.req.param('filename');
+  if (!SAFE_ASSET_FILENAME_RE.test(filename)) {
+    return c.json({ error: 'Invalid filename.' }, 400);
+  }
+
+  const r2Key = `assets/${tenantId}/${filename}`;
+  await c.env.TOUR_PAGES.delete(r2Key);
+  return c.json({ ok: true, filename, r2_key: r2Key });
+});
+
+publicConfig.post('/assets/upload', async (c) => {
+  // ── Auth ────────────────────────────────────────────────────────────────
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  const requirement = await requireAssetTenant(c, tenantId);
+  if (requirement.error) return requirement.error;
 
   // ── Parse multipart ──────────────────────────────────────────────────────
   let formData;

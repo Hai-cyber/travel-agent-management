@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập — TravelAgent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .page-shell { width: 100%; max-width: 520px; }
+    .card {
+      background: rgba(255,255,255,.98);
+      border-radius: 18px;
+      padding: 40px;
+      width: 100%;
+      box-shadow: 0 30px 70px rgba(15,23,42,.32);
+    }
+    .logo { font-size: 28px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
+    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 28px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; margin-top: 16px; }
+    input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #dbe4f0;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #0f172a;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus { border-color: #2563eb; }
+    .btn {
+      display: block;
+      width: 100%;
+      margin-top: 22px;
+      padding: 13px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover:not(:disabled) { background: #1d4ed8; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-secondary {
+      background: #fff;
+      color: #0f172a;
+      border: 1.5px solid #dbe4f0;
+      margin-top: 14px;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
+    .divider {
+      position: relative;
+      margin-top: 18px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .divider::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px solid #e2e8f0;
+    }
+    .divider span {
+      position: relative;
+      background: #fff;
+      padding: 0 10px;
+    }
+    .google-slot { margin-top: 14px; display: flex; justify-content: center; min-height: 42px; }
+    .hint { margin-top: 10px; font-size: 12px; color: #64748b; text-align: center; }
+    .error-msg { color: #dc2626; font-size: 13px; margin-top: 14px; display: none; }
+    .success-msg { color: #16a34a; font-size: 13px; margin-top: 14px; display: none; }
+    .signup-link { text-align: center; margin-top: 22px; font-size: 13px; color: #64748b; }
+    .signup-link a { color: #2563eb; text-decoration: none; font-weight: 700; }
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: -3px;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="page-shell">
+  <div class="card">
+    <div class="logo">🧭 TravelAgent</div>
+    <div class="subtitle">Đăng nhập vào dashboard quản lý tour của bạn.</div>
+
+    <form id="login-form" novalidate>
+      <label for="f-email">Email</label>
+      <input id="f-email" type="email" placeholder="agency@example.com" required autocomplete="email" />
+
+      <label for="f-password">Mật khẩu</label>
+      <input id="f-password" type="password" placeholder="Nhập mật khẩu" required autocomplete="current-password" />
+
+      <button class="btn" id="submit-btn" type="submit">Đăng nhập</button>
+
+      <div class="divider"><span>hoặc</span></div>
+      <div class="google-slot" id="google-slot"></div>
+      <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Tiếp tục với Google</button>
+      <div class="hint" id="google-hint">Google sign-in sẽ hiện khi `GOOGLE_CLIENT_ID` được cấu hình.</div>
+
+      <div class="error-msg" id="error-msg"></div>
+      <div class="success-msg" id="success-msg">Đăng nhập thành công. Đang chuyển hướng…</div>
+    </form>
+
+    <div class="signup-link">Chưa có tài khoản? <a href="/signup.html">Tạo tài khoản →</a></div>
+  </div>
+</div>
+
+<script>
+(async () => {
+  const sessionRes = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
+  if (sessionRes?.authenticated && sessionRes?.session?.tenant_id) {
+    localStorage.setItem('tam_tenant_id', sessionRes.session.tenant_id);
+    location.replace('/dashboard.html');
+    return;
+  }
+
+  const form = document.getElementById('login-form');
+  const errEl = document.getElementById('error-msg');
+  const okEl = document.getElementById('success-msg');
+  const btn = document.getElementById('submit-btn');
+  const googleSlot = document.getElementById('google-slot');
+  const googleHint = document.getElementById('google-hint');
+  const googleFallbackBtn = document.getElementById('google-fallback-btn');
+
+  const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
+  if (googleConfig?.enabled && googleConfig?.client_id) {
+    googleHint.textContent = 'Bạn có thể đăng nhập bằng email hoặc Google.';
+    await loadGoogleClient(googleConfig.client_id);
+  } else {
+    googleFallbackBtn.disabled = true;
+    googleFallbackBtn.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    errEl.style.display = 'none';
+
+    const email = document.getElementById('f-email').value.trim();
+    const password = document.getElementById('f-password').value;
+    if (!email || !password) {
+      showError('Vui lòng nhập email và mật khẩu.');
+      return;
+    }
+
+    setBusy('Đang đăng nhập…');
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showError(data.error || 'Đăng nhập thất bại.');
+        resetBtn();
+        return;
+      }
+
+      localStorage.setItem('tam_tenant_id', data.tenant_id);
+      okEl.style.display = 'block';
+      setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
+    } catch (_) {
+      showError('Lỗi kết nối. Vui lòng thử lại.');
+      resetBtn();
+    }
+  });
+
+  async function loadGoogleClient(clientId) {
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-google-identity="true"]');
+      if (existing) {
+        if (window.google?.accounts?.id) {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleIdentity = 'true';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    if (!window.google?.accounts?.id) {
+      googleHint.textContent = 'Không tải được Google Sign-In. Vui lòng dùng email/password.';
+      return;
+    }
+
+    googleFallbackBtn.style.display = 'none';
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        setBusy('Đang kết nối Google…');
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_token: response.credential }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showError(data.error || 'Google login failed.');
+            resetBtn();
+            return;
+          }
+          localStorage.setItem('tam_tenant_id', data.tenant_id);
+          okEl.style.display = 'block';
+          setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
+        } catch (_) {
+          showError('Lỗi kết nối với Google.');
+          resetBtn();
+        }
+      },
+    });
+
+    window.google.accounts.id.renderButton(googleSlot, {
+      theme: 'outline',
+      size: 'large',
+      width: 320,
+      text: 'continue_with',
+      shape: 'pill',
+    });
+  }
+
+  function showError(message) {
+    errEl.textContent = message;
+    errEl.style.display = 'block';
+  }
+
+  function setBusy(label) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span>${label}`;
+  }
+
+  function resetBtn() {
+    btn.disabled = false;
+    btn.textContent = 'Đăng nhập';
+  }
+})();
+</script>
+</body>
+</html>

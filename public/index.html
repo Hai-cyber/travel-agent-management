@@ -4,20 +4,21 @@
   <meta charset="UTF-8" />
   <title>TravelAgent — Loading…</title>
   <script>
-    // Smart redirect: only go to dashboard if a tenant session exists.
-    // If NOT, stay on this page (signup landing) — avoids redirect loops.
-    (function() {
-      var tenantId = new URLSearchParams(location.search).get('tenant')
-                   || localStorage.getItem('tam_tenant_id');
-      if (tenantId) {
-        // Tenant known — go directly to dashboard
-        location.replace('/dashboard.html');
-      }
-      // No tenant — fall through to render signup page below
+    (async function() {
+      try {
+        var response = await fetch('/api/auth/session');
+        var data = await response.json();
+        if (data && data.authenticated && data.session && data.session.tenant_id) {
+          localStorage.setItem('tam_tenant_id', data.session.tenant_id);
+          location.replace('/dashboard.html');
+          return;
+        }
+      } catch (_) {}
+      location.replace('/signup.html');
     })();
   </script>
 </head>
 <body>
-  <p>Loading Dashboard… <a href="/dashboard.html">Click here if not redirected.</a></p>
+  <p>Loading… <a href="/signup.html">Open signup</a></p>
 </body>
 </html>

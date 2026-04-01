@@ -126,6 +126,36 @@ function createLegalSection(title) {
   );
 }
 
+function createCollectionSection(id, label, heading, body, source) {
+  return createSection(
+    id,
+    'listing',
+    label,
+    'py-16 bg-white',
+    {
+      heading,
+      body,
+    },
+    {
+      cards: { source, fallback: 'system.empty_listing' },
+    },
+  );
+}
+
+function createStorySection(id, label, heading, body) {
+  return createSection(
+    id,
+    'rich_text',
+    label,
+    'py-16 bg-white',
+    {
+      heading,
+      body,
+    },
+    { body: { source: 'manual.body' } },
+  );
+}
+
 function createTourDetailSections(heroClasses) {
   return [
     createHeroSection({
@@ -228,6 +258,15 @@ const COMMON_CONTACT_FIELDS = [
   createField('whatsapp_value', 'WhatsApp URL', 'link', 'contacts.channels.whatsapp.value'),
   createField('zalo_enabled', 'Zalo Enabled', 'toggle', 'contacts.channels.zalo.enabled'),
   createField('zalo_value', 'Zalo URL', 'link', 'contacts.channels.zalo.value'),
+  createField('instagram_enabled', 'Instagram Enabled', 'toggle', 'contacts.channels.instagram.enabled'),
+  createField('instagram_value', 'Instagram URL', 'link', 'contacts.channels.instagram.value'),
+  createField('facebook_enabled', 'Facebook Enabled', 'toggle', 'contacts.channels.facebook.enabled'),
+  createField('facebook_value', 'Facebook URL', 'link', 'contacts.channels.facebook.value'),
+  createField('youtube_enabled', 'YouTube Enabled', 'toggle', 'contacts.channels.youtube.enabled'),
+  createField('youtube_value', 'YouTube URL', 'link', 'contacts.channels.youtube.value'),
+  createField('address_enabled', 'Address Enabled', 'toggle', 'contacts.channels.address.enabled'),
+  createField('address_value', 'Address', 'text', 'contacts.channels.address.value'),
+  createField('address_map_url', 'Address Map URL', 'link', 'contacts.channels.address.mapUrl'),
 ];
 
 function buildTourVariant(config) {
@@ -280,7 +319,9 @@ function buildTourVariant(config) {
       menu_structure: [
         { item_key: 'home', label: 'Home', href: '/', page_key: 'home' },
         { item_key: 'tours', label: config.toursMenuLabel, href: '/tours', page_key: 'tours' },
-        { item_key: 'booking', label: 'Booking', href: '/booking', page_key: 'booking' },
+        { item_key: 'destinations', label: 'Destinations', href: '/destinations', page_key: 'destinations' },
+        { item_key: 'featured-tours', label: 'Featured Tours', href: '/featured-tours', page_key: 'featured-tours' },
+        { item_key: 'accommodation', label: 'Accommodation', href: '/accommodation', page_key: 'accommodation' },
         { item_key: 'about-us', label: 'About Us', href: '/about-us', page_key: 'about-us' },
         { item_key: 'contact-us', label: 'Contact Us', href: '/contact-us', page_key: 'contact-us' },
       ],
@@ -305,12 +346,16 @@ function buildTourVariant(config) {
       page_blueprints: {
         home: 'default_sections',
         tours: [
-          createSection('tour-grid', 'listing', 'Tour Grid', 'py-16 bg-white', {
-            heading: config.listingHeading,
-            body: config.listingBody,
-          }, {
-            cards: { source: 'tour_runtime.tour_listing', fallback: 'system.empty_listing' },
-          }),
+          createCollectionSection('tour-grid', 'Tour Grid', config.listingHeading, config.listingBody, 'tour_runtime.tour_listing'),
+        ],
+        destinations: [
+          createCollectionSection('destination-grid', 'Destination Grid', 'Destinations', 'Show the places you cover, route anchors, and travel mood before a guest drills into a specific itinerary.', 'tour_runtime.destination_listing'),
+        ],
+        'featured-tours': [
+          createCollectionSection('featured-tour-grid', 'Featured Tours', 'Featured Tours', 'Use this page for hero itineraries, seasonal highlights, and higher-priority sales stories.', 'tour_runtime.featured_tours'),
+        ],
+        accommodation: [
+          createStorySection('accommodation-story', 'Accommodation Story', 'Accommodation', 'Use this page to explain hotel standards, room style, stay logic, or lodge partnerships in a cleaner visual section.'),
         ],
         booking: [
           createSection('booking-intro', 'booking_entry', 'Booking Intro', 'py-16 bg-slate-50', {
@@ -595,6 +640,10 @@ const VARIANT_DEFINITIONS = [
       gallery: 'panorama',
       itinerary: 'story-cards',
       pricing: 'sidebar',
+      nav: 'drawer',
+      hero_motion: 'ken-burns',
+      search_panel: 'concierge',
+      social_rail: 'right',
     },
     onboardingKeywords: ['luxury', 'premium', 'private', 'exclusive', 'honeymoon', 'resort', 'villa'],
     theme: {
@@ -1004,6 +1053,9 @@ export function buildDefaultContacts() {
       email: { enabled: false, label: 'Email', value: '' },
       whatsapp: { enabled: false, label: 'WhatsApp', value: '' },
       zalo: { enabled: false, label: 'Zalo', value: '' },
+      instagram: { enabled: false, label: 'Instagram', value: '' },
+      facebook: { enabled: false, label: 'Facebook', value: '' },
+      youtube: { enabled: false, label: 'YouTube', value: '' },
       address: { enabled: false, label: 'Address', value: '', mapUrl: '' },
     },
   };
@@ -1012,30 +1064,44 @@ export function buildDefaultContacts() {
 function buildStandardPages(groupKey, variant) {
   const group = GROUP_DEFINITIONS[groupKey];
   const blueprints = expandPageBlueprints(variant);
-  const pages = [
-    { pageKey: 'home', title: 'Home', slug: 'home', pageType: 'standard', visible: 1, status: 'draft' },
-    {
-      pageKey: group.listingPageKey,
-      title: groupKey === 'tour_operator' ? 'Tours' : groupKey === 'stay_accommodation' ? 'Hotels' : 'Services',
-      slug: group.listingPageKey,
-      pageType: 'standard',
-      visible: 1,
-      status: 'draft',
-    },
-    {
-      pageKey: group.reservationPageKey,
-      title: groupKey === 'tour_operator' ? 'Booking' : 'Reservation',
-      slug: group.reservationPageKey,
-      pageType: 'standard',
-      visible: 1,
-      status: 'draft',
-    },
-    { pageKey: 'about-us', title: 'About Us', slug: 'about-us', pageType: 'standard', visible: 1, status: 'draft' },
-    { pageKey: 'contact-us', title: 'Contact Us', slug: 'contact-us', pageType: 'standard', visible: 1, status: 'draft' },
-    { pageKey: 'terms', title: 'Terms & Conditions', slug: 'terms', pageType: 'legal', visible: 0, status: 'draft' },
-    { pageKey: 'privacy', title: 'Privacy Policy', slug: 'privacy', pageType: 'legal', visible: 0, status: 'draft' },
-    { pageKey: 'impressum', title: 'Impressum', slug: 'impressum', pageType: 'legal', visible: 0, status: 'draft' },
-  ];
+  const pages = groupKey === 'tour_operator'
+    ? [
+        { pageKey: 'home', title: 'Home', slug: 'home', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'tours', title: 'Tours', slug: 'tours', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'destinations', title: 'Destinations', slug: 'destinations', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'featured-tours', title: 'Featured Tours', slug: 'featured-tours', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'accommodation', title: 'Accommodation', slug: 'accommodation', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'booking', title: 'Booking', slug: 'booking', pageType: 'standard', visible: 0, status: 'draft' },
+        { pageKey: 'about-us', title: 'About Us', slug: 'about-us', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'contact-us', title: 'Contact Us', slug: 'contact-us', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'terms', title: 'Terms & Conditions', slug: 'terms', pageType: 'legal', visible: 1, status: 'draft' },
+        { pageKey: 'privacy', title: 'Privacy Policy', slug: 'privacy', pageType: 'legal', visible: 1, status: 'draft' },
+        { pageKey: 'impressum', title: 'Impressum', slug: 'impressum', pageType: 'legal', visible: 1, status: 'draft' },
+      ]
+    : [
+        { pageKey: 'home', title: 'Home', slug: 'home', pageType: 'standard', visible: 1, status: 'draft' },
+        {
+          pageKey: group.listingPageKey,
+          title: groupKey === 'stay_accommodation' ? 'Hotels' : 'Services',
+          slug: group.listingPageKey,
+          pageType: 'standard',
+          visible: 1,
+          status: 'draft',
+        },
+        {
+          pageKey: group.reservationPageKey,
+          title: 'Reservation',
+          slug: group.reservationPageKey,
+          pageType: 'standard',
+          visible: 1,
+          status: 'draft',
+        },
+        { pageKey: 'about-us', title: 'About Us', slug: 'about-us', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'contact-us', title: 'Contact Us', slug: 'contact-us', pageType: 'standard', visible: 1, status: 'draft' },
+        { pageKey: 'terms', title: 'Terms & Conditions', slug: 'terms', pageType: 'legal', visible: 1, status: 'draft' },
+        { pageKey: 'privacy', title: 'Privacy Policy', slug: 'privacy', pageType: 'legal', visible: 1, status: 'draft' },
+        { pageKey: 'impressum', title: 'Impressum', slug: 'impressum', pageType: 'legal', visible: 1, status: 'draft' },
+      ];
 
   if (groupKey === 'tour_operator') {
     pages.push({ pageKey: 'tour-detail-template', title: 'Tour Detail Template', slug: 'tour-detail-template', pageType: 'system', visible: 0, status: 'draft' });
@@ -1176,6 +1242,10 @@ export function buildEditorSchema(groupKey, variantKey) {
         createField('hero_headline', 'Hero Title', 'text', 'pages.by_key.home.blocks.hero.content.headline'),
         createField('hero_body', 'Body', 'rich_text', 'pages.by_key.home.blocks.hero.content.body'),
         createField('hero_image', 'Hero Image', 'image_upload', 'pages.by_key.home.blocks.hero.content.hero_image'),
+        createField('hero_image_brightness', 'Hero Image Brightness', 'text', 'pages.by_key.home.blocks.hero.content.image_brightness'),
+        createField('hero_overlay_strength', 'Hero Overlay Strength', 'text', 'pages.by_key.home.blocks.hero.content.overlay_strength'),
+        createField('hero_side_panel_label', 'Hero Side Panel Label', 'text', 'pages.by_key.home.blocks.hero.content.side_panel_label'),
+        createField('hero_side_panel_body', 'Hero Side Panel Body', 'rich_text', 'pages.by_key.home.blocks.hero.content.side_panel_body'),
         createField('hero_primary_cta_label', 'Primary CTA Label', 'text', 'pages.by_key.home.blocks.hero.content.primary_cta_label'),
         createField('hero_primary_cta_href', 'Primary CTA Link', 'link', 'pages.by_key.home.blocks.hero.content.primary_cta_href'),
       ]),
@@ -1193,6 +1263,21 @@ export function buildEditorSchema(groupKey, variantKey) {
             createField('caption', 'Caption', 'text', 'caption'),
           ],
         }),
+      ]),
+      createEditorGroup('luxury_modules', 'Luxury Modules', [
+        createField('featured_tours_heading', 'Featured Tours Heading', 'text', 'pages.by_key.featured-tours.blocks.featured-tour-grid.content.heading'),
+        createField('featured_tours_body', 'Featured Tours Body', 'rich_text', 'pages.by_key.featured-tours.blocks.featured-tour-grid.content.body'),
+        createField('featured_tours_label', 'Featured Tours Card Label', 'text', 'pages.by_key.featured-tours.blocks.featured-tour-grid.content.card_label'),
+        createField('featured_tours_accent', 'Featured Tours Accent', 'color', 'pages.by_key.featured-tours.blocks.featured-tour-grid.content.accent_color'),
+        createField('destinations_heading', 'Destinations Heading', 'text', 'pages.by_key.destinations.blocks.destination-grid.content.heading'),
+        createField('destinations_body', 'Destinations Body', 'rich_text', 'pages.by_key.destinations.blocks.destination-grid.content.body'),
+        createField('destinations_label', 'Destinations Card Label', 'text', 'pages.by_key.destinations.blocks.destination-grid.content.card_label'),
+        createField('destinations_accent', 'Destinations Accent', 'color', 'pages.by_key.destinations.blocks.destination-grid.content.accent_color'),
+        createField('accommodation_heading', 'Accommodation Heading', 'text', 'pages.by_key.accommodation.blocks.accommodation-story.content.heading'),
+        createField('accommodation_body', 'Accommodation Body', 'rich_text', 'pages.by_key.accommodation.blocks.accommodation-story.content.body'),
+        createField('accommodation_image', 'Accommodation Story Image', 'image_upload', 'pages.by_key.accommodation.blocks.accommodation-story.content.story_image'),
+        createField('accommodation_label', 'Accommodation Card Label', 'text', 'pages.by_key.accommodation.blocks.accommodation-story.content.card_label'),
+        createField('accommodation_accent', 'Accommodation Accent', 'color', 'pages.by_key.accommodation.blocks.accommodation-story.content.accent_color'),
       ]),
       createEditorGroup('features_section', 'Features Section', [
         createField('features_heading', 'Heading', 'text', 'pages.by_key.home.blocks.features.content.heading'),
@@ -1279,6 +1364,50 @@ export function recommendUniversalVariant(description = '') {
   return (best && best.score > 0) ? best.variant : getVariantByKey('tour-adventure');
 }
 
+function buildBootstrapMediaSet(groupKey, variantKey) {
+  if (variantKey === 'tour-luxury') {
+    return {
+      heroImage: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=2200&q=80',
+      galleryImages: [
+        { src: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=2200&q=80', alt: 'Oceanfront luxury escape', caption: 'Oceanfront arrival' },
+        { src: 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=2200&q=80', alt: 'Private terrace over tropical water', caption: 'Private terrace mornings' },
+        { src: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=2200&q=80', alt: 'Resort pool and palms at sunset', caption: 'Golden-hour resort mood' },
+      ],
+    };
+  }
+
+  if (groupKey === 'tour_operator') {
+    return {
+      heroImage: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2200&q=80',
+      galleryImages: [
+        { src: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2200&q=80', alt: 'Mountain travel landscape', caption: 'Route-defining landscapes' },
+        { src: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2200&q=80', alt: 'Layered mountain ridges', caption: 'Highland atmosphere' },
+        { src: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2200&q=80', alt: 'Lakeside travel scene', caption: 'Slow scenic moments' },
+      ],
+    };
+  }
+
+  if (groupKey === 'stay_accommodation') {
+    return {
+      heroImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=2200&q=80',
+      galleryImages: [
+        { src: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=2200&q=80', alt: 'Luxury suite interior', caption: 'Suite interior' },
+        { src: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=2200&q=80', alt: 'Warm resort bedroom', caption: 'Calm room styling' },
+        { src: 'https://images.unsplash.com/photo-1505692952047-1a78307da8f2?auto=format&fit=crop&w=2200&q=80', alt: 'Resort lounge with natural light', caption: 'Designed hospitality spaces' },
+      ],
+    };
+  }
+
+  return {
+    heroImage: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=2200&q=80',
+    galleryImages: [
+      { src: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=2200&q=80', alt: 'Premium travel transfer vehicle', caption: 'Premium service arrival' },
+      { src: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&w=2200&q=80', alt: 'Road journey through scenic landscape', caption: 'On-the-road atmosphere' },
+      { src: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2200&q=80', alt: 'Traveler on scenic overlook', caption: 'Guest journey moments' },
+    ],
+  };
+}
+
 export function buildUniversalBootstrapMock(description, tenantName = 'Universal Site') {
   const variant = recommendUniversalVariant(description);
   const scaffold = buildDefaultSiteScaffold(variant.groupKey, variant.key);
@@ -1290,7 +1419,8 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
       ? 'Signature Stay'
       : 'Signature Service';
   const heroTitle = summary.length > 72 ? `${summary.slice(0, 69)}...` : summary;
-  const heroImage = buildPlaceholderImageDataUrl(heroLabel, variant.theme.colorPrimary);
+  const mediaSet = buildBootstrapMediaSet(variant.groupKey, variant.key);
+  const heroImage = mediaSet.heroImage;
 
   setBlockContent(scaffold.pages, 'home', 'hero', {
     eyebrow: variant.label,
@@ -1299,10 +1429,7 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
     hero_image: heroImage,
   });
   setBlockContent(scaffold.pages, 'home', 'gallery', {
-    images: [
-      { src: heroImage, alt: `${variant.label} sample`, caption: 'Generated onboarding sample' },
-      { src: buildPlaceholderImageDataUrl('Gallery 02', variant.theme.colorAccent || variant.theme.colorPrimary, '#111827'), alt: 'Gallery sample', caption: 'Replace with tenant imagery later' },
-    ],
+    images: mediaSet.galleryImages,
   });
   setBlockContent(scaffold.pages, 'about-us', variant.groupKey === 'tour_operator' ? 'about-story' : variant.groupKey === 'stay_accommodation' ? 'stay-story' : 'service-story', {
     body: `Onboarding mock for ${siteName}. Source prompt: ${summary}`,
