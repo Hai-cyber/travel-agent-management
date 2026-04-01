@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-03-30 (local runtime verification pass)
+Last updated: 2026-04-01 (merged 2026-03-30 runtime verification + 2026-03-31 universal foundation)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -111,6 +111,30 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
   - `wireBtns()` + `BUTTON_CLICK` + `applyBtn()` for link editing (CHK-R33)
   - 12-column snippet grid editing: section host detection, persisted `col-span-X`, snap resizing, translucent resize overlay, and block-level `Move / Copy / Delete` rail (CHK-R34)
   - Drag-reorder within the current section grid via placeholder-based drop logic; cleaned HTML persists through `SECTION_HTML_UPDATED` (CHK-R34)
+
+### Universal Site API foundation (CHK-R35)
+- Legacy Site Studio remains intact.
+- New parallel namespace: `/api/universal/*`
+- New D1 scaffold tables: `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`, `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`
+- New library: `src/lib/universalSite.js`
+  - defines 3 groups: `tour_operator`, `stay_accommodation`, `transport_service`
+  - defines 5 stabilized variants: `tour-adventure`, `tour-luxury`, `stay-boutique`, `stay-resort`, `transfer-private`
+  - seeds standard pages, menu items, theme tokens, contact schema, and editor schema
+- New routes: `src/routes/universalSites.js`
+  - `GET /api/universal/health`
+  - `GET /api/universal/site/variants`
+  - `GET /api/universal/site/bootstrap`
+  - `GET/PATCH /api/universal/site/config`
+  - `GET/PUT /api/universal/site/theme`
+  - `GET/PUT /api/universal/site/contact`
+  - `GET/PUT /api/universal/site/menu`
+  - `GET/POST /api/universal/site/pages`
+  - `PATCH /api/universal/site/pages/:pageId`
+  - `POST /api/universal/tours/:tourId/page/sync`
+  - `GET /api/universal/tours/:tourId/page`
+- `GET /api/universal/site/config` now returns a structured editor schema for frontend-driven controls (`text`, `rich_text`, `color`, `image_upload`, `link`, `toggle`, `repeater`)
+- Travel universal tour pages are scaffolded as auto-bound records keyed by `tour_id`; booking CTA label defaults to `I like this tour`
+- This is stabilized foundation scaffolding only; final editor UI is not yet built on top of these APIs
 
 ### Managed responsive chrome (CHK-R34)
 - `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.

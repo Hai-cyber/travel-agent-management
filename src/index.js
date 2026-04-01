@@ -15,6 +15,7 @@ import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.
 import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
+import registerUniversalSiteRoutes from './routes/universalSites.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -162,6 +163,7 @@ registerCategoryRoutes && registerCategoryRoutes(app);
 registerPaymentRoutes && registerPaymentRoutes(app);
 registerAdminRoutes && registerAdminRoutes(app);
 registerBillingRoutes && registerBillingRoutes(app);
+registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
 const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];
@@ -208,7 +210,7 @@ const patterns = [
   ...PRICING_GROUPS.map(group => ({
     method: 'POST',
     pattern: new URLPattern({ pathname: `/api/pricing/${group}` }),
-    handler: (req, env, match) => handleCreatePricing(req, env, { group })
+    handler: (req, env, match, ctx) => handleCreatePricing(req, env, { group }, ctx)
   })),
 
   // Các route cho Pricing (GET)
@@ -222,17 +224,17 @@ const patterns = [
   ...PRICING_GROUPS.map(group => ({
     method: 'PATCH',
     pattern: new URLPattern({ pathname: `/api/pricing/${group}/:itemId` }),
-    handler: (req, env, match) => handleUpdatePricing(req, env, { 
+    handler: (req, env, match, ctx) => handleUpdatePricing(req, env, { 
       group, 
       itemId: match.pathname.groups.itemId 
-    })
+    }, ctx)
   })),
 
   // Xóa sau thử
   ...PRICING_GROUPS.map(group => ({
     method: 'DELETE',
     pattern: new URLPattern({ pathname: `/api/pricing/${group}/:itemId` }),
-    handler: (req, env, match) => handleDeletePricing(req, env, { group, itemId: match.pathname.groups.itemId })
+    handler: (req, env, match, ctx) => handleDeletePricing(req, env, { group, itemId: match.pathname.groups.itemId }, ctx)
   })),
 ];
 
@@ -301,7 +303,7 @@ export default {
     for (const p of patterns) {
       const match = p.pattern.exec(url.pathname);
       if (match && request.method === p.method) {
-        const res = await p.handler(request, env, match);
+        const res = await p.handler(request, env, match, ctx);
         // Attach CORS headers so browser receives them on the actual response too
         const headers = new Headers(res.headers);
         Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));

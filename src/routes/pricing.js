@@ -1,6 +1,7 @@
 ﻿import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { enrichPrice, enrichPricesObject, formatMoney, toUserDate, translate, dualPrice } from '../utils/formatter.js';
+import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
 
 const pricing = new Hono();
 
@@ -99,6 +100,16 @@ function coerceNumeric(table, safeData) {
 function dbError(err, context = '') {
   console.error(`[PRICING_ERROR]${context ? ' ' + context : ''}`, err);
   return Response.json({ error: 'Internal server error. Please try again later.' }, { status: 500 });
+}
+
+function schedulePricingUniversalSync(executionCtx, env, tenantId, tourIds) {
+  if (!executionCtx || !Array.isArray(tourIds)) return;
+  const uniqueTourIds = [...new Set(tourIds.filter(Boolean))];
+  if (!uniqueTourIds.length) return;
+
+  executionCtx.waitUntil(
+    Promise.allSettled(uniqueTourIds.map((tourId) => syncUniversalTourPage(env, tenantId, tourId)))
+  );
 }
 
 // â”€â”€ buildPriceResponse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -216,7 +227,7 @@ function buildPriceResponse(result, tenantConfig) {
 }
 
 // 1. HÃ m Xá»­ lÃ½ POST
-export async function handleCreatePricing(req, env, { group }) {
+export async function handleCreatePricing(req, env, { group }, executionCtx) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group: ${group}` }, { status: 400 });
 
@@ -280,6 +291,10 @@ export async function handleCreatePricing(req, env, { group }) {
     console.log('[CREATE_PRICING values]', values);
 
     await env.DB.prepare(sql).bind(...values).run();
+
+    if (group === 'tour-prices') {
+      schedulePricingUniversalSync(executionCtx, env, tenantFromHeader, [safeData.tour_id]);
+    }
 
     return Response.json({ ok: true, id }, { status: 201 });
   } catch (err) {
@@ -538,7 +553,7 @@ pricing.delete('/:group/:itemId', async (c) => {
   return handleDeletePricing(c.req.raw, c.env, { group, itemId });
 });
 
-export async function handleUpdatePricing(req, env, { group, itemId }) {
+export async function handleUpdatePricing(req, env, { group, itemId }, executionCtx) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group` }, { status: 400 });
 
@@ -551,6 +566,10 @@ export async function handleUpdatePricing(req, env, { group, itemId }) {
     if (!tenant_id) {
       return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
     }
+
+    const current = group === 'tour-prices'
+      ? await env.DB.prepare('SELECT tour_id FROM tour_prices WHERE id = ? AND tenant_id = ?').bind(itemId, tenant_id).first()
+      : null;
 
     if (group === 'tenant-seasons') {
       const dateErrors = validateSeasonDates(data);
@@ -581,6 +600,10 @@ export async function handleUpdatePricing(req, env, { group, itemId }) {
       return Response.json({ error: 'Item not found' }, { status: 404 });
     }
 
+    if (group === 'tour-prices') {
+      schedulePricingUniversalSync(executionCtx, env, tenant_id, [current?.tour_id, safeData.tour_id]);
+    }
+
     return Response.json({ ok: true });
   } catch (err) {
     return dbError(err, `handleUpdatePricing:${group}`);
@@ -593,7 +616,7 @@ pricing.patch('/:group/:itemId', async (c) => {
   return handleUpdatePricing(c.req.raw, c.env, { group, itemId });
 });
 
-export async function handleDeletePricing(req, env, { group, itemId }) {
+export async function handleDeletePricing(req, env, { group, itemId }, executionCtx) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group` }, { status: 400 });
 
@@ -613,6 +636,10 @@ export async function handleDeletePricing(req, env, { group, itemId }) {
   };
 
   try {
+    const current = group === 'tour-prices'
+      ? await env.DB.prepare('SELECT tour_id FROM tour_prices WHERE id = ? AND tenant_id = ?').bind(itemId, tenant_id).first()
+      : null;
+
     const fkCol = CHILD_FK_COLUMN[group];
     if (fkCol) {
       // Batch: [0] wipe dependent tour_prices, [1] delete parent - atomic
@@ -627,6 +654,11 @@ export async function handleDeletePricing(req, env, { group, itemId }) {
         .bind(itemId, tenant_id)
         .run();
     }
+
+    if (group === 'tour-prices') {
+      schedulePricingUniversalSync(executionCtx, env, tenant_id, [current?.tour_id]);
+    }
+
     return Response.json({ ok: true });
   } catch (err) {
     return dbError(err, `handleDeletePricing:${group}`);

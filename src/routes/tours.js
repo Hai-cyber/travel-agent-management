@@ -36,6 +36,7 @@
 
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
+import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
 import {
   checkPublishPermission,
   buildPayButton,
@@ -45,6 +46,20 @@ import {
 } from '../lib/publishGuard.js';
 
 const tours = new Hono();
+
+function scheduleUniversalTourSync(c, tenantId, tourId) {
+  c.executionCtx.waitUntil(
+    syncUniversalTourPage(c.env, tenantId, tourId)
+      .then((result) => {
+        if (!result?.ok) {
+          console.warn(`[UNIVERSAL_SYNC_WARN] tenant=${tenantId} tour=${tourId} status=${result?.status} error=${result?.error}`);
+        }
+      })
+      .catch((error) => {
+        console.warn(`[UNIVERSAL_SYNC_ERROR] tenant=${tenantId} tour=${tourId}`, error?.message || error);
+      })
+  );
+}
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -481,6 +496,8 @@ tours.post('/', async (c) => {
     console.warn(`[DRAFT_RENDER_WARN] tour=${id} tenant=${tenantId}`, err?.message);
   }
 
+  scheduleUniversalTourSync(c, tenantId, id);
+
   return c.json({
     ok:          true,
     id,
@@ -564,6 +581,7 @@ tours.patch('/:id', async (c) => {
     .run();
 
   if (result.meta.changes === 0) return c.json({ error: 'Tour not found.' }, 404);
+  scheduleUniversalTourSync(c, tenantId, c.req.param('id'));
   return c.json({ ok: true, updated: Object.keys(updates) });
 });
 
@@ -838,6 +856,8 @@ tours.post('/:id/copy', async (c) => {
   // Atomic batch — all or nothing
   await c.env.DB.batch([stmtTour, ...stmtStops, ...stmtPrices]);
 
+  scheduleUniversalTourSync(c, tenantId, newId);
+
   return c.json({
     ok:             true,
     id:             newId,
@@ -914,6 +934,8 @@ tours.post('/:tourId/stops', async (c) => {
     )
     .run();
 
+  scheduleUniversalTourSync(c, tenantId, c.req.param('tourId'));
+
   return c.json({ ok: true, id, tour_id: c.req.param('tourId') }, 201);
 });
 
@@ -940,6 +962,7 @@ tours.patch('/:tourId/stops/:stopId', async (c) => {
     .run();
 
   if (result.meta.changes === 0) return c.json({ error: 'Stop not found.' }, 404);
+  scheduleUniversalTourSync(c, tenantId, c.req.param('tourId'));
   return c.json({ ok: true, updated: Object.keys(updates) });
 });
 
@@ -954,6 +977,7 @@ tours.delete('/:tourId/stops/:stopId', async (c) => {
     .run();
 
   if (result.meta.changes === 0) return c.json({ error: 'Stop not found.' }, 404);
+  scheduleUniversalTourSync(c, tenantId, c.req.param('tourId'));
   return c.json({ ok: true });
 });
 
