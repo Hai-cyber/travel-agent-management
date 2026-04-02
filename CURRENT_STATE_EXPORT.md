@@ -1,6 +1,6 @@
 # CURRENT_STATE_EXPORT.md
 
-> **Generated:** 2026-03-30 | **Branch:** `rescue-minimum` | **Last local verification:** 2026-03-30
+> **Generated:** 2026-04-02 | **Branch:** `rescue-minimum` | **Last local verification:** 2026-04-02
 > Source of truth: `docs/ai/01_CURRENT_STATE.md` + `docs/ai/03_PROGRESS_LEDGER.md`
 > This export is a convenience snapshot. If any section here conflicts with those docs, those docs win.
 
@@ -37,7 +37,9 @@ src/
 ## 4. Runtime Summary
 
 - Cloudflare Worker runtime and local D1 database are working under `wrangler dev`
-- Pricing, tenants, tours, booking-order creation, proof upload, guest portal GET, and service-item accommodations CRUD were verified locally on 2026-03-30
+- Pricing, tenants, tours, booking-order creation, proof upload, guest portal GET, service-item accommodations CRUD, and task patching were verified locally by 2026-04-02
+- Universal storefront runtime is now multi-skin-ready in structure, with theme modules under `src/lib/themes/` and Six Senses preserved as the first real skin module/runtime baseline
+- Website Design is now the preview-first storefront admin path; expanded system settings drive storefront chrome toggles, menu visibility, floating buttons, page visibility, logo/fonts/colors, and broader contact/system controls
 - Service item CRUD API (CHK‑R09):
   - All 5 groups implemented: accommodations, meals, guides, local-transports, intercity-legs
   - Accommodations `POST/GET/PATCH` verified locally on 2026-03-30
@@ -51,7 +53,7 @@ src/
   - Task templates for all 5 groups
   - Auto-generate tasks on POST
   - GET returns tasks embedded in each service item
-  - `PATCH /api/tasks/:taskId` is currently broken in live local runtime and returned `404` during 2026-03-30 verification
+  - `PATCH /api/tasks/:taskId` is restored and verified locally in the Windows smoke flow on 2026-04-02
 - Preview endpoints:
   - /api/tours-preview
   - /api/destinations-preview
@@ -59,15 +61,18 @@ src/
   - /api/destination-texts-preview
   - /api/tours-with-destinations
 
-## Known local runtime defects (2026-03-30)
+## Known local runtime defects (2026-04-02)
 
-- `POST /api/bookings/order/:id/confirm-receipt` returns `500` even though the order is confirmed and revenue is incremented
-- `PATCH /api/tasks/:taskId` returns `404`
-- Local migration replay is out of sync for `0012_stop_services_config.sql` and fails on duplicate column `services_config`
+- No currently reproduced defects in the task, pricing-calculate, and booking flows covered by `npm test`
 
 ## Key Files
 - docs/ai/01_CURRENT_STATE.md — Source of runtime truth
 - docs/ai/03_PROGRESS_LEDGER.md — Progress and checkpoint log
+- src/lib/themes/index.js — Theme registry/resolver for the universal storefront runtime
+- src/lib/themes/six-senses.js — First committed premium storefront skin module
+- public/universal-admin.html — Preview-first Website Design admin with contextual edit + expanded system panel
+- scripts/apply-local-migrations.mjs — local D1 reconcile + migrate wrapper for Windows-friendly setups
+- scripts/smoke-local.mjs — Node smoke runner used by `npm test` for task patch, pricing calculate, and booking confirm coverage
 - src/routes/serviceItems.js — Service item API handlers
 - src/routes/tasks.js — Task API handlers
 - src/services/serviceItems.js — Service item logic

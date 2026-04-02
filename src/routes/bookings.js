@@ -629,11 +629,14 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
 
   // Step 3: Audit log — record this identity unlock event
   await c.env.DB
-    .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
-              VALUES (?, ?, ?, 'IDENTITY_UNLOCK_CONFIRM_RECEIPT', 'booking_order', ?, ?, ?)`)
+    .prepare(`INSERT INTO tenant_audit_log
+              (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by, actor, action, entity_type, entity_id, meta_json, created_at)
+              VALUES (?, ?, 'booking_order.status', 'PROOF_UPLOADED', 'CONFIRMED', ?, ?, ?, 'IDENTITY_UNLOCK_CONFIRM_RECEIPT', 'booking_order', ?, ?, ?)`)
     .bind(
       nanoid(),
       tenantId,
+      now,
+      confirmedBy ?? null,
       `agent:${confirmedBy ?? 'unknown'}`,
       orderId,
       JSON.stringify({ revenue_added: order.grand_total_usd }),
@@ -913,11 +916,14 @@ bookings.post('/order/:orderId/manual-unlock', async (c) => {
   // Audit log — record manual unlock with ghosting-risk flag
   const connIp = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown';
   await c.env.DB
-    .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
-              VALUES (?, ?, ?, 'MANUAL_UNLOCK_ARRIVAL', 'booking_order', ?, ?, ?)`)
+    .prepare(`INSERT INTO tenant_audit_log
+              (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by, actor, action, entity_type, entity_id, meta_json, created_at)
+              VALUES (?, ?, 'booking_order.identity_unlocked', '0', '1', ?, ?, ?, 'MANUAL_UNLOCK_ARRIVAL', 'booking_order', ?, ?, ?)`)
     .bind(
       nanoid(),
       tenantId,
+      now,
+      connIp,
       `agent:${connIp}`,
       orderId,
       JSON.stringify({ payment_method: 'PAY_ON_ARRIVAL', risk: 'ghosting' }),

@@ -20,42 +20,49 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-03-30
-Checkpoint: Runtime verification + status doc cleanup
-Goal of session: Verify the current local Worker behavior with live API calls, then update the status docs to match observed runtime truth.
+Date: 2026-04-02
+Checkpoint: Multi-skin storefront preservation + Website Design handoff
+Goal of session: Preserve the real storefront direction in code and docs: save Six Senses as the first skin module, keep the runtime multi-skin-ready, expand Website Design system settings, and record the future seed-by-skin tenant workflow.
 
 ### What was completed this session
 
-- Started the Worker locally with `wrangler dev` and verified the dev server on `http://127.0.0.1:8787`
-- Confirmed working locally: tenant settings, tours list, preview endpoint, pricing metadata, pricing calculate, payment settings toggle, booking order creation, proof upload, guest portal GET, and accommodations `POST/GET/PATCH`
-- Confirmed defect: `PATCH /api/tasks/:taskId` returns `404` because the task route is not mounted into the main router
-- Confirmed defect: `POST /api/bookings/order/:id/confirm-receipt` returns `500` after already confirming the order and incrementing revenue; worker logs show `tenant_audit_log.field_name` constraint failure during audit insert
-- Corrected status docs so they no longer claim proof upload unlocks identity or that task updates are working end-to-end
+- Preserved the runtime multi-skin storefront architecture under `src/lib/themes/`, with `src/lib/themes/six-senses.js` saved as the first committed storefront skin module and `src/lib/themes/index.js` acting as the resolver/registry
+- Kept Six Senses as the actual storefront truth by aligning the `tour-luxury` baseline, active theme resolution, preview-first render pipeline, and Website Design admin around that shell
+- Expanded Website Design system settings so the panel now controls much more of the storefront chrome and behavior: header toggles, hero toggles, floating CTA/contact controls, footer/social visibility, menu-tab visibility, logo/fonts/colors, page visibility, and broader contact settings
+- Cleaned the dashboard path so older Design Website / Visual Editor / Site Studio clutter is removed in favor of Website Design, System Settings, and Tours & Pricing flows
+- Saved the future architecture direction in docs: more skins are planned, tenants will choose different skins, and tenant creation should eventually preload normalized seed packs for tours, hotels, galleries, destinations, and related storefront data based on that chosen skin
 
 ### Files changed
 ```
+src/lib/themes/index.js
+src/lib/themes/six-senses.js
+src/lib/universalSite.js
+src/lib/universalSiteSync.js
+src/routes/universalSites.js
+public/universal-admin.html
+public/dashboard.html
+public/tour-config.html
+db/migrations/0031_universal_hotels.sql
+scripts/backfill-universal-luxury.mjs
 docs/ai/01_CURRENT_STATE.md
 docs/ai/03_PROGRESS_LEDGER.md
-CURRENT_STATE_EXPORT.md
 docs/ai/04_SESSION_HANDOFF.md
+CURRENT_STATE_EXPORT.md
 ```
 
 ### What is still not done
-- Fix the task route mounting so `PATCH /api/tasks/:taskId` is reachable
-- Fix the booking confirm audit-log write so `confirm-receipt` returns `200` instead of `500`
-- Clean up the local D1 migration ledger so replaying migrations does not try to re-apply `0012_stop_services_config.sql`
+- Additional storefront skins beyond Six Senses are not implemented yet
+- Tenant creation does not yet auto-load normalized seed packs by selected skin
+- Seed normalization for tours, hotels, galleries, destinations, and related storefront content is still a planned next build step
 
 ### Known risks / TODOs
-- Older docs and old shell test scripts still contain stale assumptions about proof upload unlocking identity
-- Bash test scripts in `test/` are not directly runnable in this Windows environment without `bash`
+- The runtime is now multi-skin-ready in structure, but only one real skin module exists today; future skins should follow the same registry/module contract instead of hard-coding variant behavior back into the route layer
+- Seed data is still split between canonical tour records, temporary hotel records, and universal runtime projections; tenant-bootstrap automation should only be built after those seed packs are normalized cleanly
+- Temporary hotel storage is intentionally transitional and may be replaced once canonical hotel/domain modeling is formalized
 
 ### Suggested next prompt
 ```
-Fix the two verified runtime defects:
-1. PATCH /api/tasks/:taskId returns 404
-2. POST /api/bookings/order/:id/confirm-receipt returns 500 because of tenant_audit_log schema mismatch
-
-Then rerun the same local verification flow and update the docs if behavior changes.
+Build the next storefront skin module under src/lib/themes/, then design a seed-pack system so tenant creation can choose a skin and automatically preload tours, hotels, galleries, destinations, and matching storefront content in one flow.
 ```
 
 ---

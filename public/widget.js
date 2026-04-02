@@ -15,7 +15,7 @@
  *     data-accent="#e85d26"
  *   ></script>
  */
-(function () {
+(async function () {
   'use strict';
 
   // ── Config from data-* attributes ──────────────────────────────────────────
@@ -23,51 +23,38 @@
   const TENANT_ID  = script?.dataset?.tenantId  || '';
   const TOUR_ID    = script?.dataset?.tourId    || '';
   const API_BASE   = (script?.dataset?.apiBase  || '').replace(/\/$/, '');
-  const LANG       = script?.dataset?.lang      || 'vi';
-  const BTN_LABEL  = script?.dataset?.buttonLabel || (LANG === 'vi' ? 'Đặt Tour Ngay' : 'Book Now');
+  const LANG       = (script?.dataset?.lang || navigator.language || 'en').toLowerCase().split('-')[0];
   const ACCENT     = script?.dataset?.accent    || '#e85d26';
 
-  if (!TENANT_ID || !TOUR_ID) {
-    console.warn('[widget.js] Missing required data-tenant-id or data-tour-id attributes.');
-    return;
+  function getNestedValue(dict, key) {
+    return String(key).split('.').reduce((node, part) => node?.[part], dict);
   }
 
-  // ── i18n strings ─────────────────────────────────────────────────────────
-  const T = {
-    en: {
-      title:          'Check Price & Book',
-      date_label:     'Travel Date',
-      pax_label:      'Number of Guests',
-      segment_label:  'Package',
-      all_segments:   'Compare all packages',
-      check_btn:      'Check Price',
-      checking:       'Checking...',
-      book_btn:       'Proceed to Book',
-      error_api:      'Could not load price. Please try again.',
-      error_fields:   'Please fill in all required fields.',
-      per_person:     '/ person',
-      close:          '×',
-      total:          'Total estimate',
-      includes_note:  'Final price confirmed at booking.',
-    },
-    vi: {
-      title:          'Kiểm Tra Giá & Đặt Tour',
-      date_label:     'Ngày khởi hành',
-      pax_label:      'Số khách',
-      segment_label:  'Gói dịch vụ',
-      all_segments:   'So sánh tất cả gói',
-      check_btn:      'Xem Giá',
-      checking:       'Đang tính...',
-      book_btn:       'Đặt Tour Ngay',
-      error_api:      'Không tải được giá. Vui lòng thử lại.',
-      error_fields:   'Vui lòng điền đầy đủ thông tin.',
-      per_person:     '/ khách',
-      close:          '×',
-      total:          'Tổng ước tính',
-      includes_note:  'Giá chính xác sẽ được xác nhận khi đặt tour.',
-    },
-  };
-  const t = (key) => (T[LANG] || T.en)[key] || key;
+  function applyVars(template, vars = {}) {
+    return String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => vars[name] ?? `{{${name}}}`);
+  }
+
+  async function loadMessages(lang) {
+    const response = await fetch(`${API_BASE}/api/i18n/${encodeURIComponent(lang || 'en')}`, {
+      headers: { 'Accept-Language': lang || 'en' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to load locale ${lang}`);
+    }
+
+    const payload = await response.json();
+    return payload?.messages || {};
+  }
+
+  const messages = await loadMessages(LANG).catch(() => ({}));
+  const t = (key, vars) => applyVars(getNestedValue(messages, key) ?? key, vars);
+  const BTN_LABEL = script?.dataset?.buttonLabel || t('widget.button_label');
+
+  if (!TENANT_ID || !TOUR_ID) {
+    console.warn(`[widget.js] ${t('widget.missing_attributes')}`);
+    return;
+  }
 
   // ── Inject minimal CSS ────────────────────────────────────────────────────
   const CSS = `
@@ -229,26 +216,26 @@
 
     if (totals.adult_shared_subtotal > 0) {
       div.appendChild(el('div', { class: 'wbk-price-row' },
-        el('span', {}, `${paxCount} × Shared Room`),
+        el('span', {}, `${paxCount} × ${t('widget.shared_room')}`),
         el('span', {}, fmt(totals.adult_shared_subtotal))
       ));
     }
     if (totals.child_subtotal > 0) {
       div.appendChild(el('div', { class: 'wbk-price-row' },
-        el('span', {}, 'Children'),
+        el('span', {}, t('widget.children')),
         el('span', {}, fmt(totals.child_subtotal))
       ));
     }
 
     div.appendChild(el('div', { class: 'wbk-price-row wbk-total' },
-      el('span', {}, t('total')),
+      el('span', {}, t('widget.total')),
       el('span', { class: 'wbk-usd' }, fmt(totals.grand_total ?? 0))
     ));
-    div.appendChild(el('p', { class: 'wbk-note' }, t('includes_note')));
+    div.appendChild(el('p', { class: 'wbk-note' }, t('widget.includes_note')));
 
     // Book button — links to full booking page (agent can configure via data-book-url)
     const bookUrl = script?.dataset?.bookUrl || '#';
-    const bookBtn = el('a', { href: bookUrl, class: 'wbk-book-btn' }, t('book_btn'));
+    const bookBtn = el('a', { href: bookUrl, class: 'wbk-book-btn' }, t('widget.book_btn'));
     div.appendChild(bookBtn);
 
     priceResult = data;
@@ -272,7 +259,7 @@
     );
 
     const segmentSelect = el('select', { id: 'wbk-segment' },
-      el('option', { value: '' }, t('all_segments'))
+      el('option', { value: '' }, t('widget.all_segments'))
     );
 
     const resultArea  = el('div', { id: 'wbk-result-area' });
@@ -281,11 +268,11 @@
     const checkBtn = el('button', { class: 'wbk-check-btn', type: 'button',
       onclick: async () => {
         const dateVal = document.getElementById('wbk-date')?.value;
-        if (!dateVal) { showError(t('error_fields')); return; }
+        if (!dateVal) { showError(t('widget.error_fields')); return; }
         resultArea.innerHTML = '';
         errorArea.innerHTML  = '';
         checkBtn.disabled    = true;
-        checkBtn.textContent = t('checking');
+        checkBtn.textContent = t('widget.checking');
 
         try {
           const segId = segmentSelect.value;
@@ -299,16 +286,16 @@
             headers: { 'X-Tenant-ID': TENANT_ID, 'Accept-Language': LANG },
           });
           const json = await res.json();
-          if (!res.ok || !json.ok) throw new Error(json.error || t('error_api'));
+          if (!res.ok || !json.ok) throw new Error(json.error || t('widget.error_api'));
           resultArea.appendChild(renderPrice(json));
         } catch (err) {
-          showError(err.message || t('error_api'));
+          showError(err.message || t('widget.error_api'));
         } finally {
           checkBtn.disabled    = false;
-          checkBtn.textContent = t('check_btn');
+          checkBtn.textContent = t('widget.check_btn');
         }
       }
-    }, t('check_btn'));
+    }, t('widget.check_btn'));
 
     function showError(msg) {
       errorArea.innerHTML = '';
@@ -317,21 +304,21 @@
 
     const modal = el('div', { class: 'wbk-modal' },
       el('h2', {},
-        t('title'),
+        t('widget.title'),
         el('button', { class: 'wbk-close', type: 'button',
           onclick: () => overlay.remove()
-        }, t('close'))
+        }, '×')
       ),
       el('div', { class: 'wbk-field' },
-        el('label', {}, t('date_label')),
+        el('label', {}, t('widget.date_label')),
         el('input', { type: 'date', id: 'wbk-date', min: today })
       ),
       el('div', { class: 'wbk-field' },
-        el('label', {}, t('pax_label')),
+        el('label', {}, t('widget.pax_label')),
         paxRow
       ),
       el('div', { class: 'wbk-field' },
-        el('label', {}, t('segment_label')),
+        el('label', {}, t('widget.segment_label')),
         segmentSelect
       ),
       checkBtn,

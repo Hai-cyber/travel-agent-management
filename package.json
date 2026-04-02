@@ -3,9 +3,12 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
+		"db:migrate:local": "node ./scripts/apply-local-migrations.mjs",
 		"deploy": "wrangler deploy --config ./wrangler.jsonc",
 		"dev": "wrangler dev --config ./wrangler.jsonc",
-		"start": "wrangler dev --config ./wrangler.jsonc"
+		"start": "wrangler dev --config ./wrangler.jsonc",
+		"test": "node ./scripts/smoke-local.mjs",
+		"test:local": "node ./scripts/smoke-local.mjs"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "^3.1019.0",

@@ -127,17 +127,16 @@
               <li><a href="#" data-i18n="nav.pending_proof">Pending Proof</a></li>
             </ul>
           </li>
-          <li><a href="category-manager.html">Site Studio</a></li>
-          <li><a id="nav-universal-admin" href="universal-admin.html">Universal Admin</a></li>
+          <li><a id="nav-universal-admin" href="universal-admin.html">Website Design</a></li>
           <li>
-            <a href="#" data-i18n="nav.settings">Settings</a>
+            <a id="nav-settings" href="#" data-i18n="nav.settings">Settings</a>
             <ul>
-              <li><a href="#" data-i18n="nav.payments">Payments</a></li>
-              <li><a href="#" data-i18n="nav.tours_pricing">Tours &amp; Pricing</a></li>
+              <li><a id="nav-system-settings" href="#">System Settings</a></li>
+              <li><a id="nav-tours-pricing" href="#" data-i18n="nav.tours_pricing">Tours &amp; Pricing</a></li>
+              <li><a id="nav-payments" href="#" data-i18n="nav.payments">Payments</a></li>
               <li><a href="#" data-i18n="nav.notifications">Notifications</a></li>
             </ul>
           </li>
-          <li><a href="visual-editor.html">Visual Editor</a></li>
           <li><a href="#" id="nav-logout">Logout</a></li>
           <li style="display:flex;align-items:center">
             <div class="lang-switcher">
@@ -196,9 +195,9 @@
             <div class="sidebar-section">
               <h4 data-i18n="sidebar.system">System</h4>
               <ul class="nav-list">
-                <li><a href="category-manager.html"><span class="icon">🎨</span> Site Studio</a></li>
-                <li><a id="sidebar-universal-admin" href="universal-admin.html"><span class="icon">🧩</span> Universal Admin</a></li>
-                <li><a id="sidebar-visual-editor" href="visual-editor.html"><span class="icon">✏️</span> Visual Editor</a></li>
+                <li><a id="sidebar-universal-admin" href="universal-admin.html"><span class="icon">🧩</span> Website Design</a></li>
+                <li><a id="sidebar-system-settings" href="#"><span class="icon">⚙️</span> Settings</a></li>
+                <li><a id="sidebar-tours-pricing" href="#"><span class="icon">🗂️</span> Tours &amp; Pricing</a></li>
                 <li><a id="sidebar-payments" href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
                 <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
               </ul>
@@ -227,10 +226,10 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-              <a href="#" id="btn-tour-config"     class="button icon solid fa-map">Cấu hình Tour</a>
-              <a href="#" id="btn-visual-editor"   class="button icon solid fa-paint-brush">Thiết kế Website</a>
-              <a href="#" id="btn-universal-admin" class="button alt icon solid fa-layer-group">Universal Admin</a>
-              <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="action.payment_settings">Cài đặt thanh toán</a>
+              <a href="#" id="btn-tour-config"     class="button icon solid fa-map" data-i18n="dashboard.action.tour_config">Configure Tours</a>
+              <a href="#" id="btn-universal-admin" class="button alt icon solid fa-layer-group">Website Design</a>
+              <a href="#" id="btn-system-settings" class="button alt icon solid fa-sliders-h">System Settings</a>
+              <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="dashboard.action.payment_settings">Payment Settings</a>
             </div>
 
             <!-- Stat Cards -->
@@ -406,242 +405,30 @@
    Usage: i18n.setLang('vi')  — persisted in localStorage
    Keys:  data-i18n="key.path"  on any element
 ════════════════════════════════════════════════════════════════ */
-const TRANSLATIONS = {
-  en: {
-    meta: {
-      title:    'Dashboard — Travel Agent Management',
-      subtitle: 'Management Dashboard',
-    },
-    nav: {
-      dashboard:       'Dashboard',
-      bookings:        'Bookings',
-      all_orders:      'All Orders',
-      pending_confirm: 'Pending Confirmation',
-      pending_payment: 'Pending Payment',
-      pending_proof:   'Pending Proof',
-      settings:        'Settings',
-      payments:        'Payments',
-      tours_pricing:   'Tours & Pricing',
-      notifications:   'Notifications',
-    },
-    sidebar: {
-      overview:           'Overview',
-      booking_calendar:   'Booking Calendar',
-      revenue:            'Revenue',
-      orders:             'Orders',
-      manage:             'Manage',
-      tours_destinations: 'Tours & Destinations',
-      pricing:            'Pricing',
-      add_ons:            'Add-ons',
-      customers:          'Customers',
-      system:             'System',
-    },
-    status: {
-      awaiting_payment: 'Awaiting Payment',
-      awaiting_proof:   'Awaiting Proof',
-      proof_uploaded:   'Proof Uploaded',
-      confirmed:        'Confirmed',
-      pending_arrival:  'Pending Arrival',
-    },
-    compliance: {
-      warning_title: 'Warning:',
-      warning_body:  'No electronic payment gateway configured. Your website is currently offline.',
-      setup_now:     'Set up now →',
-    },
-    action: {
-      new_order:        'New Order',
-      view_reports:     'View Reports',
-      payment_settings: 'Payment Settings',
-      confirm:          'Confirm',
-      view:             'View',
-      remind:           'Remind',
-      unlock:           'Unlock',
-    },
-    stat: {
-      total_orders:    'Total Orders',
-      pending_payment: 'Pending Payment',
-      pending_identity:'Pending Identity Confirm',
-      confirmed:       'Confirmed',
-      revenue_month:   'Revenue This Month',
-    },
-    table: {
-      recent_orders: 'Recent Orders',
-      audit_log:     'Identity Audit Log',
-      col_id:        'Order ID',
-      col_guest:     'Guest',
-      col_tour:      'Tour',
-      col_payment:   'Payment',
-      col_status:    'Status',
-      col_date:      'Date',
-      col_time:      'Time',
-      col_action:    'Action',
-      col_actor:     'Actor',
-      locked_guest:  '*** (unverified)',
-    },
-  },
-
-  vi: {
-    meta: {
-      title:    'Bảng điều khiển — Quản lý đại lý du lịch',
-      subtitle: 'Bảng Điều Khiển',
-    },
-    nav: {
-      dashboard:       'Tổng quan',
-      bookings:        'Đặt tour',
-      all_orders:      'Tất cả đơn hàng',
-      pending_confirm: 'Đang chờ xác nhận',
-      pending_payment: 'Chờ thanh toán',
-      pending_proof:   'Chờ chứng từ',
-      settings:        'Cài đặt',
-      payments:        'Thanh toán',
-      tours_pricing:   'Tour & Giá',
-      notifications:   'Thông báo',
-    },
-    sidebar: {
-      overview:           'Tổng quan',
-      booking_calendar:   'Lịch đặt tour',
-      revenue:            'Doanh thu',
-      orders:             'Đặt hàng',
-      manage:             'Quản lý',
-      tours_destinations: 'Tours & Điểm đến',
-      pricing:            'Bảng giá',
-      add_ons:            'Dịch vụ bổ sung',
-      customers:          'Khách hàng',
-      system:             'Hệ thống',
-    },
-    status: {
-      awaiting_payment: 'Chờ thanh toán',
-      awaiting_proof:   'Chờ chứng từ',
-      proof_uploaded:   'Đã gửi chứng từ',
-      confirmed:        'Đã xác nhận',
-      pending_arrival:  'Chờ nhận phòng',
-    },
-    compliance: {
-      warning_title: 'Cảnh báo:',
-      warning_body:  'Chưa cấu hình cổng thanh toán điện tử. Website đang bị tắt.',
-      setup_now:     'Thiết lập ngay →',
-    },
-    action: {
-      new_order:        'Tạo đơn mới',
-      view_reports:     'Xem báo cáo',
-      payment_settings: 'Cài đặt thanh toán',
-      confirm:          'Xác nhận',
-      view:             'Xem',
-      remind:           'Nhắc nhở',
-      unlock:           'Mở khoá',
-    },
-    stat: {
-      total_orders:    'Tổng đơn hàng',
-      pending_payment: 'Chờ thanh toán',
-      pending_identity:'Chờ xác nhận danh tính',
-      confirmed:       'Đã xác nhận',
-      revenue_month:   'Doanh thu tháng này',
-    },
-    table: {
-      recent_orders: 'Đơn hàng gần đây',
-      audit_log:     'Nhật ký danh tính (Audit Log)',
-      col_id:        'Mã đơn',
-      col_guest:     'Khách hàng',
-      col_tour:      'Tour',
-      col_payment:   'Thanh toán',
-      col_status:    'Trạng thái',
-      col_date:      'Ngày tạo',
-      col_time:      'Thời gian',
-      col_action:    'Hành động',
-      col_actor:     'Tác nhân',
-      locked_guest:  '*** (chưa xác nhận)',
-    },
-  },
-
-  // ── Chinese Simplified (optional) ────────────────────────────
-  zh: {
-    meta: {
-      title:    '控制台 — 旅行社管理系统',
-      subtitle: '管理控制台',
-    },
-    nav: {
-      dashboard:       '仪表盘',
-      bookings:        '订单',
-      all_orders:      '所有订单',
-      pending_confirm: '待确认',
-      pending_payment: '待付款',
-      pending_proof:   '待凭证',
-      settings:        '设置',
-      payments:        '支付',
-      tours_pricing:   '行程 & 定价',
-      notifications:   '通知',
-    },
-    sidebar: {
-      overview:           '概览',
-      booking_calendar:   '预订日历',
-      revenue:            '收入',
-      orders:             '订单管理',
-      manage:             '管理',
-      tours_destinations: '行程 & 目的地',
-      pricing:            '价格表',
-      add_ons:            '附加服务',
-      customers:          '客户',
-      system:             '系统',
-    },
-    status: {
-      awaiting_payment: '待付款',
-      awaiting_proof:   '待上传凭证',
-      proof_uploaded:   '已上传凭证',
-      confirmed:        '已确认',
-      pending_arrival:  '待到店',
-    },
-    compliance: {
-      warning_title: '警告：',
-      warning_body:  '未配置电子支付网关，您的网站当前已下线。',
-      setup_now:     '立即设置 →',
-    },
-    action: {
-      new_order:        '新建订单',
-      view_reports:     '查看报告',
-      payment_settings: '支付设置',
-      confirm:          '确认',
-      view:             '查看',
-      remind:           '提醒',
-      unlock:           '解锁',
-    },
-    stat: {
-      total_orders:    '总订单数',
-      pending_payment: '待付款',
-      pending_identity:'待身份确认',
-      confirmed:       '已确认',
-      revenue_month:   '本月收入',
-    },
-    table: {
-      recent_orders: '最近订单',
-      audit_log:     '身份审计日志',
-      col_id:        '订单编号',
-      col_guest:     '客户',
-      col_tour:      '行程',
-      col_payment:   '支付方式',
-      col_status:    '状态',
-      col_date:      '创建日期',
-      col_time:      '时间',
-      col_action:    '操作',
-      col_actor:     '执行者',
-      locked_guest:  '*** (未验证)',
-    },
-  },
-};
-
 /* ── Engine ── */
 const i18n = (() => {
   const STORAGE_KEY = 'tam_lang';
   const FALLBACK    = 'en';
+  let messages = {};
 
   function get(lang, keyPath) {
-    const parts = keyPath.split('.');
-    let node = TRANSLATIONS[lang] || TRANSLATIONS[FALLBACK];
-    for (const p of parts) { node = node?.[p]; if (node === undefined) break; }
-    if (node === undefined) {
-      node = TRANSLATIONS[FALLBACK];
-      for (const p of parts) { node = node?.[p]; if (node === undefined) break; }
-    }
-    return node ?? keyPath;
+    const resolve = (dict, candidate) => {
+      let node = dict;
+      for (const p of candidate.split('.')) {
+        node = node?.[p];
+        if (node === undefined) break;
+      }
+      return node;
+    };
+
+    const active = messages[lang] || messages[FALLBACK] || {};
+    const fallback = messages[FALLBACK] || {};
+
+    return resolve(active, keyPath)
+      ?? resolve(active, `dashboard.${keyPath}`)
+      ?? resolve(fallback, keyPath)
+      ?? resolve(fallback, `dashboard.${keyPath}`)
+      ?? keyPath;
   }
 
   function apply(lang) {
@@ -659,17 +446,28 @@ const i18n = (() => {
     });
   }
 
-  function setLang(lang) {
-    if (!TRANSLATIONS[lang]) lang = FALLBACK;
+  async function ensure(lang) {
+    if (messages[lang]) return;
+    const res = await fetch(`/api/i18n/${encodeURIComponent(lang)}`, {
+      headers: { 'Accept-Language': lang },
+    });
+    const payload = await res.json();
+    messages[lang] = payload?.messages || {};
+  }
+
+  async function setLang(lang) {
+    await ensure(FALLBACK);
+    await ensure(lang);
+    if (!messages[lang]) lang = FALLBACK;
     localStorage.setItem(STORAGE_KEY, lang);
     apply(lang);
   }
 
-  function init() {
+  async function init() {
     const saved     = localStorage.getItem(STORAGE_KEY);
     const browser   = navigator.language?.split('-')[0];
-    const preferred = saved || (TRANSLATIONS[browser] ? browser : FALLBACK);
-    apply(preferred);
+    const preferred = saved || browser || FALLBACK;
+    await setLang(preferred);
   }
 
   return { setLang, init };
@@ -688,7 +486,7 @@ const i18n = (() => {
   } catch (_) { /* API unavailable — static preview mode */ }
 })();
 
-document.addEventListener('DOMContentLoaded', () => i18n.init());
+document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
 </script>
 
 <script>
@@ -716,21 +514,31 @@ document.addEventListener('DOMContentLoaded', () => i18n.init());
   // ── 2. Wire dynamic links (trước khi reveal) ─────────────────────────
   const tid = encodeURIComponent(tenantId);
 
-  document.getElementById('btn-tour-config').href      = `tour-config.html?tid=${tid}`;
-  document.getElementById('btn-visual-editor').href    = `visual-editor.html?tid=${tid}`;
+  document.getElementById('btn-tour-config').href      = `tour-config.html?tid=${tid}#pricing`;
   document.getElementById('btn-universal-admin').href  = `universal-admin.html?tid=${tid}`;
+  document.getElementById('btn-system-settings').href  = `universal-admin.html?tid=${tid}#system`;
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
   const sidebarUniversal = document.getElementById('sidebar-universal-admin');
-  const sidebarEditor  = document.getElementById('sidebar-visual-editor');
+  const sidebarSystemSettings = document.getElementById('sidebar-system-settings');
+  const sidebarToursPricing = document.getElementById('sidebar-tours-pricing');
   const sidebarPayment = document.getElementById('sidebar-payments');
   const navUniversal   = document.getElementById('nav-universal-admin');
+  const navSettings = document.getElementById('nav-settings');
+  const navSystemSettings = document.getElementById('nav-system-settings');
+  const navToursPricing = document.getElementById('nav-tours-pricing');
+  const navPayments = document.getElementById('nav-payments');
   if (sidebarTours)   sidebarTours.href   = `tour-config.html?tid=${tid}`;
   if (sidebarUniversal) sidebarUniversal.href = `universal-admin.html?tid=${tid}`;
-  if (sidebarEditor)  sidebarEditor.href  = `visual-editor.html?tid=${tid}`;
+  if (sidebarSystemSettings) sidebarSystemSettings.href = `universal-admin.html?tid=${tid}#system`;
+  if (sidebarToursPricing) sidebarToursPricing.href = `tour-config.html?tid=${tid}#pricing`;
   if (sidebarPayment) sidebarPayment.href = `#payments`;
   if (navUniversal) navUniversal.href = `universal-admin.html?tid=${tid}`;
+  if (navSettings) navSettings.href = `universal-admin.html?tid=${tid}#system`;
+  if (navSystemSettings) navSystemSettings.href = `universal-admin.html?tid=${tid}#system`;
+  if (navToursPricing) navToursPricing.href = `tour-config.html?tid=${tid}#pricing`;
+  if (navPayments) navPayments.href = `#payments`;
   const logoutLink = document.getElementById('nav-logout');
   if (logoutLink) {
     logoutLink.addEventListener('click', async (event) => {

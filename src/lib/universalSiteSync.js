@@ -197,7 +197,7 @@ export async function ensureUniversalSiteInitialized(db, tenantId, tenantName, p
   if (siteRow) return siteRow;
 
   const groupKey = preferred.groupKey || 'tour_operator';
-  const variantKey = preferred.variantKey || 'tour-adventure';
+  const variantKey = preferred.variantKey || 'tour-luxury';
   const siteName = tenantName || 'Universal Site';
   const scaffold = buildDefaultSiteScaffold(groupKey, variantKey);
   const now = Math.floor(Date.now() / 1000);

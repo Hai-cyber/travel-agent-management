@@ -27,7 +27,7 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R08 | Canonical docs reset | in_progress | docs being reset from legacy reality to rescue reality | 2026-03-24 | `01_CURRENT_STATE`, `03_PROGRESS_LEDGER`, `04_SESSION_HANDOFF` being regenerated |
 | CHK-R09 | Service Items CRUD | done | All 5 groups (accommodations, meals, guides, local-transports, intercity-legs) implemented. POST/GET/PATCH fully working, schema-aligned, validated. | 2026-03-25 | 100% complete. |
 | CHK-R10 | Validation | done | Required-field validation for POST; unknown-field and empty-body validation for PATCH; no changes to service layer. | 2026-03-25 | 100% complete. |
-| CHK-R11 | Task System | blocked | Task templates generate and GET embeds tasks, but local verification on 2026-03-30 shows `PATCH /api/tasks/:taskId` returns `404` because the route is not mounted into the live Worker router. | 2026-03-30 | Direct PowerShell API calls used; old bash scripts are not sufficient proof here. |
+| CHK-R11 | Task System | done | Task templates generate, GET embeds tasks, and `PATCH /api/tasks/:taskId` is mounted through Hono again and verified live on 2026-04-02. | 2026-04-02 | Verified with direct PowerShell API calls on Windows using auth bearer session + tenant-scoped stop fixture. |
 | CHK-R25 | Booking View UX — Phase 1/2 conversational flow | done | Conversational sentence inputs, room-based pax distribution, live price calculator, compact mode, sticky scrollable layout, Pricing Definitions | 2026-03-27 | `public/tour-config.html` only, no backend changes |
 | CHK-R26 | Booking View — Surplus Room Pricing Logic | done | Sole-occupancy supplement auto-applied; ±2 shared stepper; two-way sync table↔sentence; surplus hint below table | 2026-03-27 | `public/tour-config.html` only |
 | CHK-R27 | Seed data applied + Bug fixes | done | `seed_foundation.sql` + `seed_test.sql` applied to local D1: 2 seasons, 3 segments, 3 pax bands, 10 price rows. Fixed `ReferenceError: adults is not defined` in `calculateTourPrice` (pricing.js:1046). Fixed tour-config.html auto-reconnect on localStorage load. | 2026-03-28 | All add-tour/add-stop/add-price ops verified. Calculate endpoint returns correct invoice. |
@@ -42,6 +42,8 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R36 | Universal Automation Active | done | Legacy create/copy tour routes now schedule non-blocking universal sync via `c.executionCtx.waitUntil(...)`; preview renderer `/api/universal/render/:tenantId` added for visual verification; local smoke script covers migration + GET/PATCH/sync/render checks. | 2026-03-31 | Automation active for travel tours; frontend editor UI still pending |
 | CHK-R37 | Public Render + Live Update Hooks | done | Added public route `/p/:tenantId/:slug` with Cache API edge caching and SEO meta generation, moved editor bundle assembly into the universal lib, and extended auto-sync hooks to legacy tour update, stop create/update/delete, and `tour-prices` create/update/delete. | 2026-03-31 | Public cache is invalidated from universal sync for travel pages |
 | CHK-R38 | 8 Variants Launch | done | Expanded universal registry to 8 variants across `tour_operator`, `stay_accommodation`, and `transport_service`; public route now renders from JSON blocks using variant-specific layout profiles; added heuristic onboarding mock `POST /api/universal/site/bootstrap`; image markup uses Cloudflare `/cdn-cgi/image/` resizing URLs for responsive delivery. | 2026-03-31 | Variant switch now changes public layout immediately after cache purge |
+| CHK-R39 | Multi-Skin Runtime Preservation | done | Runtime storefront/theme logic is now modularized under `src/lib/themes/`; Six Senses is preserved as the first real skin module, `active_theme` is returned by universal config, and the preview-first Website Design admin can drive skin-aware storefront chrome/system toggles. | 2026-04-02 | Foundation is ready for additional skins; only Six Senses is implemented today |
+| CHK-R40 | Seed-Aware Tenant Direction Saved | in_progress | Direction is now documented: future tenant creation should preload normalized seed packs for tours, hotels, gallery, destinations, and related storefront content based on the selected skin. | 2026-04-02 | Architecture direction is saved in docs/handoff, but auto-seeded tenant creation is not built yet |
 
 ### 2026-03-25
 - CHK‑R09 (Service Items CRUD) completed 100%: routing, service layer, schema alignment, D1 integration, manual testing. All groups (accommodations, meals, guides, local transports, intercity legs) fully CRUD-able via Worker API. No Node modules, no require(), no schema errors. Foundation is robust and clean.
@@ -49,10 +51,18 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 ### 2026-03-30
 - Local verification performed against `npx wrangler dev` on Windows using direct PowerShell API calls because `bash` was not installed in the environment.
 - Confirmed working locally: root Worker response, tenant settings, tours list, preview endpoint, pricing metadata, pricing calculate, payment settings toggle, booking order creation, proof upload, guest portal GET, and accommodations `POST/GET/PATCH` on `stop-001`.
-- CHK-R11 downgraded to `blocked`: `PATCH /api/tasks/:taskId` returns `404 Not Found` in the live Worker. The route registration in `src/routes/tasks.js` is not actually mounted into the main router.
-- CHK-R18 downgraded to `blocked`: `POST /api/bookings/order/:id/confirm-receipt` returned `500`, but the order still transitioned to `CONFIRMED`, guest identity unlocked, and tenant revenue increased. Worker logs show `NOT NULL constraint failed: tenant_audit_log.field_name` during the audit insert.
 - Booking docs corrected: proof upload does not unlock identity. Identity remains masked until `confirm-receipt` succeeds.
 - Local migration ledger is not clean: `npx wrangler d1 migrations apply travel_agent_db --local` attempts to re-run `0012_stop_services_config.sql` and fails on duplicate column `services_config`.
+### 2026-04-02
+- CHK-R11 restored to `done`: `src/routes/tasks.js` now mounts `PATCH /api/tasks/:taskId` directly into Hono, and a live local verification flow confirmed create service item → embedded task → task patch to `done` on `stop-001`.
+- CHK-R18 restored to `done`: `src/routes/bookings.js` now writes `tenant_audit_log` rows with the required `field_name`, `changed_at`, and `changed_by` fields during confirm/manual unlock audit events; live local verification confirmed `POST /api/bookings/order/:id/confirm-receipt` returns `CONFIRMED` and persists the audit row.
+- Local migration replay hardening completed: `scripts/apply-local-migrations.mjs` now reconciles the `0012_stop_services_config.sql` ledger row before `wrangler d1 migrations apply`, and the wrapper runs cleanly on Windows as `npm run db:migrate:local`.
+- Windows smoke verification is now standardized: `npm test` / `npm run test:local` runs a Node-based smoke flow that refreshes local fixtures, reuses or starts Wrangler dev, verifies `PATCH /api/tasks/:taskId`, verifies seeded `GET /api/pricing/calculate` output for high-season standard pricing, then verifies booking proof upload + `confirm-receipt` + audit row end to end.
+- CHK-R39 completed: runtime storefront skin logic is now preserved in `src/lib/themes/`, with `src/lib/themes/six-senses.js` as the first committed skin module and `src/lib/themes/index.js` as the resolver/registry layer.
+- Website Design now replaces the older Universal Admin/Visual Editor entrypoint in the main dashboard path; the preview-first admin exposes contextual quick edit plus an expanded System Panel for site-level chrome toggles and storefront controls.
+- Six Senses runtime truth is now preserved in docs as the current storefront baseline: invisible/fixed header on first paint, Cormorant Garamond-led editorial shell, floating Book Now CTA, and skin-aware system settings.
+- CHK-R40 moved to `in_progress`: future tenant creation should combine skin selection with normalized seed loading for tours, hotels, galleries, destinations, and related storefront content; this workflow is now explicitly saved in the repo docs so it can be implemented next instead of rediscovered.
+
 - CHK-R29: Visual Editor header overlap fixed with CSS-first 3-layer strategy (sticky flex + JS fallback + server-side padding-top from cfg.header_height). Covers all Cruip header positions: absolute (stellar-html), sticky (mosaic-html), static (open-pro-html).
 - CHK-R30: Drop zone animation stops correctly after first snippet insert (`display:none` + `animationPlayState:paused` via `transitionend`).
 - CHK-R31: Real drag-and-drop on snippet cards. `.dnd-overlay` placed in parent frame over iframe to bypass cross-frame drag event restriction.
@@ -84,7 +94,7 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R15 | Preview/Whitelabel Identity Separation + Audit Trail | done | renderMode param; preview banner; disabled pay button in preview; white-label live pages; D1 audit log for custom_domain + payment_config_json | 2026-03-26 | migration 0014, publishGuard preview helpers, GET /audit-log |
 | CHK-R16 | Booking Widget (booking-widget.js) | done | Floating button, side drawer, DatePicker, pax inputs, live itemized invoice, segment compare, Save → short-link | 2026-03-26 | public/booking-widget.js, auto-embedded in default.html |
 | CHK-R17 | Tenant Revenue Tracking Schema | done | total_revenue_tracked + commission_threshold on tenants; read-only in GET /settings | 2026-03-26 | migration 0015 |
-| CHK-R18 | Bank Transfer Order + Identity Lock | blocked | Local verification on 2026-03-30: order create/proof flow works, proof upload keeps identity locked until confirm, and confirm mutates state + revenue but currently returns `500` due to `tenant_audit_log` schema mismatch. | 2026-03-30 | Runtime defect after side effects are committed; needs code fix. |
+| CHK-R18 | Bank Transfer Order + Identity Lock | done | Order create/proof flow works, proof upload keeps identity locked until confirm, and `confirm-receipt` now returns success while unlocking identity, incrementing revenue, and writing a compatible audit row. | 2026-04-02 | Verified live on local Wrangler dev with a fresh booking order and audit-log query. |
 | CHK-R19 | Guest Portal + Booking Widget v1 | done | Audit confirmed identity/revenue logic correct; Migration 0017 (secure_token); GET+POST /api/bookings/public/:token; public/widget.js embed | 2026-03-26 | migration 0017, 2 public routes in bookings.js, public/widget.js |
 | CHK-R20 | Site Studio — Schema Foundation | done | subdomain + template_id + site_config on tenants; site_templates catalog; SITE_TEMPLATES R2 bucket | 2026-03-26 | migration 0018, wrangler.jsonc SITE_TEMPLATES binding |
 | CHK-R21 | Site Studio — Worker Domain Router | done | resolveTenantByHost() + serveSitePage() HTMLRewriter pipeline; combined domain routing in index.js (Path1: template render, Path2: legacy R2) | 2026-03-26 | src/lib/siteStudio.js, src/index.js updated |
@@ -174,13 +184,13 @@ AWAITING_PROOF ──[deadline exceeded]─────► EXPIRED    (cron purg
 | `POST` | `/order` | Create order — resprices server-side, stores identity locked, **requires ACTIVE subscription** |
 | `GET`  | `/order/:id` | Agent view — identity hidden until `identity_unlocked = 1` |
 | `POST` | `/order/:id/proof` | Upload bank slip / PDF (10 MB, allowlisted MIME) → stores proof in R2, keeps identity locked, sets `PROOF_UPLOADED` |
-| `POST` | `/order/:id/confirm-receipt` | Agent action intended to unlock identity and increment `tenants.total_revenue_tracked`; local verification currently returns `500` after committing those side effects |
+| `POST` | `/order/:id/confirm-receipt` | Agent action unlocks identity, increments `tenants.total_revenue_tracked`, and records the confirm event in `tenant_audit_log` |
 
-**Local verification update (2026-03-30):**
+**Local verification update (2026-04-02):**
 - `POST /order` worked locally and returned a real `order_id`
 - `GET /order/:id` returned masked guest fields while awaiting proof
 - `POST /order/:id/proof` worked locally and left `identity_unlocked = 0`
-- `POST /order/:id/confirm-receipt` currently has a runtime defect: order becomes `CONFIRMED` and revenue is added, but the endpoint returns `500` because the audit insert does not match the current `tenant_audit_log` schema
+- `POST /order/:id/confirm-receipt` now returns `CONFIRMED`, unlocks identity, increments tenant revenue, and writes an `IDENTITY_UNLOCK_CONFIRM_RECEIPT` audit row with `field_name = booking_order.status`
 
 **Scheduled purge:** `wrangler.jsonc` cron `*/15 * * * *` → `purgeExpiredOrders(env)` exported from `bookings.js`; NULLs guest identity on expired rows (GDPR data minimisation).
 

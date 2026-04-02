@@ -3,1800 +3,1624 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Universal Admin</title>
+  <title>Website Design</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+
     :root {
-      --bg: #f4efe6;
-      --panel: rgba(255,255,255,0.82);
-      --line: rgba(15,23,42,0.12);
-      --text: #16202a;
-      --muted: #5f6b76;
-      --brand: #0f5a3b;
-      --accent: #f59e0b;
-      --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+      --shell-bg: #0b1016;
+      --shell-line: rgba(255, 255, 255, 0.12);
+      --shell-text: #f8f3ed;
+      --shell-muted: rgba(248, 243, 237, 0.7);
+      --shell-purple: #7f3f73;
+      --shell-shadow: 0 30px 70px rgba(2, 6, 23, 0.35);
     }
+
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: var(--text);
-      font: 15px/1.5 Inter, system-ui, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(245,158,11,0.16), transparent 26%),
-        radial-gradient(circle at right 12%, rgba(15,90,59,0.16), transparent 28%),
-        linear-gradient(180deg, #fbf8f2, #f0ece3 58%, #ece7de);
-    }
-    .shell {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 28px;
-    }
-    .stack {
-      display: grid;
-      gap: 24px;
-    }
-    .hero {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 20px;
-    }
-    .hero-card, .panel {
-      background: var(--panel);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--line);
-      border-radius: 28px;
-      box-shadow: var(--shadow);
-    }
-    .hero-card {
-      padding: 28px;
-      min-height: 220px;
-      background:
-        linear-gradient(135deg, rgba(15,90,59,0.94), rgba(28,36,46,0.96)),
-        #16202a;
-      color: #f8fafc;
-    }
-    .hero-card h1 {
-      margin: 12px 0 8px;
-      font: 600 42px/1.05 "Space Grotesk", Inter, sans-serif;
-      letter-spacing: -0.03em;
-    }
-    .hero-card p { max-width: 760px; color: rgba(248,250,252,0.82); }
-    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; }
-    .pill {
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.10);
-      font-size: 12px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .hero-side {
-      padding: 24px;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-    .hero-side h2, .panel h2 {
-      margin: 0;
-      font: 600 22px/1.15 "Space Grotesk", Inter, sans-serif;
-      letter-spacing: -0.02em;
-    }
-    .panel { padding: 22px; }
-    .panel p.note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
-    .control-strip {
-      display: grid;
-      gap: 18px;
-    }
-    .control-grid {
-      display: grid;
-      gap: 16px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-    .control-card {
-      display: grid;
-      gap: 12px;
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: rgba(255,255,255,0.58);
-      align-content: start;
-    }
-    .control-card h3 {
-      margin: 0;
-      font: 600 16px/1.2 "Space Grotesk", Inter, sans-serif;
-      letter-spacing: -0.02em;
-    }
-    .compact-note {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    label { display: block; font-weight: 600; margin-bottom: 8px; }
-    input, textarea, select, button {
-      font: inherit;
-    }
-    input[type="text"], input[type="url"], input[type="color"], textarea, select {
-      width: 100%;
-      border: 1px solid rgba(15,23,42,0.12);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: rgba(255,255,255,0.92);
-      color: var(--text);
-    }
-    textarea { min-height: 88px; resize: vertical; }
-    .row { display: grid; gap: 14px; }
-    .row.two { grid-template-columns: 1fr 1fr; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
-    .btn {
-      border: 0;
-      border-radius: 14px;
-      padding: 12px 16px;
-      background: var(--brand);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn.alt { background: #fff; color: var(--text); border: 1px solid var(--line); }
-    .btn.warn { background: var(--accent); color: #1f2937; }
-    .schema-shell {
-      display: grid;
-      gap: 18px;
-    }
-    .schema-head {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 16px;
-    }
-    .tab-bar {
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-    .tab-btn {
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.72);
-      color: var(--muted);
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-weight: 700;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-    .tab-btn.active {
-      background: var(--brand);
-      border-color: transparent;
-      color: white;
-      box-shadow: 0 10px 24px rgba(15, 90, 59, 0.18);
-    }
-    .group-list { display: grid; gap: 14px; }
-    .group-card {
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 18px;
-      background: rgba(255,255,255,0.68);
-    }
-    .group-card h3 {
-      margin: 0 0 4px;
-      font: 600 18px/1.15 "Space Grotesk", Inter, sans-serif;
-    }
-    .entity-section {
-      display: grid;
-      gap: 14px;
-    }
-    .entity-grid {
-      display: grid;
-      gap: 14px;
-    }
-    .entity-card {
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 16px;
-      background: rgba(255,255,255,0.62);
-      display: grid;
-      gap: 14px;
-    }
-    .entity-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: start;
-    }
-    .entity-head strong {
-      display: block;
-      font-size: 16px;
-    }
-    .entity-meta {
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .entity-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .mini-btn {
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.86);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 8px 10px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .mini-btn.danger {
-      color: #9d174d;
-      border-color: rgba(190,24,93,0.18);
-      background: rgba(255, 241, 242, 0.95);
-    }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      background: rgba(15,90,59,0.08);
-      color: var(--brand);
-    }
-    .entity-field-grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .repeater-shell {
-      display: grid;
-      gap: 12px;
-    }
-    .repeater-list {
-      display: grid;
-      gap: 12px;
-    }
-    .repeater-card {
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 14px;
-      background: rgba(255,255,255,0.72);
-      display: grid;
-      gap: 12px;
-    }
-    .repeater-card-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-    .subfield-grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .subfield {
-      display: grid;
-      gap: 8px;
-    }
-    .subfield.subfield-wide {
-      grid-column: 1 / -1;
-    }
-    .field-grid {
-      display: grid;
-      gap: 14px;
-      margin-top: 14px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .field { display: grid; gap: 8px; }
-    .field.field-wide {
-      grid-column: 1 / -1;
-    }
-    .field small { color: var(--muted); }
-    .switch { display: flex; align-items: center; gap: 10px; }
-    .status {
-      padding: 12px 14px;
-      border-radius: 14px;
-      font-size: 13px;
-      background: rgba(15,90,59,0.08);
-      color: #0f5a3b;
-      white-space: pre-wrap;
-    }
-    .status.error { background: rgba(190,24,93,0.10); color: #9d174d; }
-    .preview-link {
-      display: inline-flex;
-      margin-top: 8px;
-      color: var(--brand);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .image-input-shell {
-      display: grid;
-      gap: 10px;
-    }
-    .image-input-row {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
-    }
-    .image-preview {
-      width: 100%;
-      min-height: 180px;
-      border-radius: 18px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.72);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 13px;
-      text-align: center;
-      padding: 14px;
-    }
-    .image-preview img {
+
+    html, body {
       width: 100%;
       height: 100%;
-      min-height: 180px;
-      object-fit: cover;
-      display: block;
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at top, rgba(127,63,115,0.12), transparent 28%), var(--shell-bg);
+      color: var(--shell-text);
+      font: 15px/1.5 'Source Sans 3', system-ui, sans-serif;
     }
-    .image-input-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .media-modal {
+
+    body { position: relative; }
+
+    .preview-frame {
       position: fixed;
       inset: 0;
-      z-index: 120;
-      display: none;
-    }
-    .media-modal.open {
-      display: block;
-    }
-    .media-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(16, 24, 40, 0.42);
-      backdrop-filter: blur(10px);
-    }
-    .media-panel {
-      position: relative;
-      width: min(1180px, calc(100vw - 40px));
-      max-height: calc(100vh - 40px);
-      margin: 20px auto;
-      background: rgba(251,248,242,0.96);
-      border: 1px solid var(--line);
-      border-radius: 28px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
-    }
-    .media-head,
-    .media-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 18px 22px;
-      border-bottom: 1px solid var(--line);
-    }
-    .media-head h3 {
-      margin: 0;
-      font: 600 22px/1.1 "Space Grotesk", Inter, sans-serif;
-    }
-    .media-head p,
-    .media-empty p {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .media-toolbar {
-      flex-wrap: wrap;
-      background: rgba(255,255,255,0.58);
-    }
-    .media-upload-inline {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-    .media-file-input {
-      max-width: 280px;
-    }
-    .media-grid {
-      padding: 22px;
-      display: grid;
-      gap: 16px;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      overflow: auto;
-    }
-    .media-card {
-      display: grid;
-      gap: 12px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: rgba(255,255,255,0.82);
-    }
-    .media-thumb {
-      aspect-ratio: 16 / 10;
-      border-radius: 16px;
-      background: rgba(15,23,42,0.06);
-      overflow: hidden;
-    }
-    .media-thumb img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      border: 0;
+      background: #081017;
+    }
+
+    .topbar {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--shell-line);
+      background: rgba(9, 14, 22, 0.58);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: var(--shell-shadow);
+      max-width: calc(100vw - 36px);
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding-right: 8px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      color: var(--shell-text);
+      text-decoration: none;
+    }
+
+    .brand-title {
+      font: 500 18px/1 'Cormorant Garamond', serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
       display: block;
+      color: var(--shell-muted);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
-    .media-meta {
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .input,
+    .select,
+    .button,
+    .panel input,
+    .panel textarea {
+      font: inherit;
+    }
+
+    .input,
+    .select {
+      min-width: 170px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--shell-text);
+      outline: none;
+    }
+
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--shell-text);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .button.primary {
+      background: var(--shell-purple);
+      border-color: transparent;
+      box-shadow: 0 16px 34px rgba(127,63,115,0.28);
+    }
+
+    .button.ghost {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .status-chip {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      z-index: 40;
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid var(--shell-line);
+      background: rgba(9, 14, 22, 0.58);
+      color: var(--shell-muted);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: var(--shell-shadow);
+      max-width: min(520px, calc(100vw - 36px));
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-chip.error {
+      color: #fbcfe8;
+      border-color: rgba(244, 114, 182, 0.2);
+      background: rgba(80, 23, 48, 0.68);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      background: rgba(4, 7, 12, 0.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+
+    .backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 50;
+      width: min(420px, calc(100vw - 24px));
+      height: 100vh;
+      padding: 24px;
+      background: rgba(10, 14, 20, 0.94);
+      border-left: 1px solid var(--shell-line);
+      box-shadow: -18px 0 46px rgba(2, 6, 23, 0.22);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transform: translateX(110%);
+      transition: transform 220ms ease;
       display: grid;
-      gap: 4px;
-      color: var(--muted);
-      font-size: 12px;
-      word-break: break-word;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 18px;
     }
-    .media-card .toolbar {
+
+    .panel.open { transform: translateX(0); }
+
+    .panel-head {
+      display: grid;
+      gap: 6px;
+    }
+
+    .panel-kicker {
+      color: rgba(248,243,237,0.54);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .panel-title {
+      margin: 0;
+      font: 500 32px/0.95 'Cormorant Garamond', serif;
+      letter-spacing: 0.04em;
+    }
+
+    .panel-note {
+      margin: 0;
+      color: var(--shell-muted);
+      font-size: 14px;
+    }
+
+    .panel-meta {
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
     }
-    .media-empty {
-      padding: 28px;
-      text-align: center;
-      color: var(--muted);
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: var(--shell-muted);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
-    @media (max-width: 1100px) {
-      .hero, .control-grid, .field-grid, .entity-field-grid, .subfield-grid { grid-template-columns: 1fr; }
-      .schema-head {
-        grid-template-columns: 1fr;
-        display: grid;
+
+    .panel-form {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field span {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(248,243,237,0.6);
+    }
+
+    .panel input,
+    .panel textarea {
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: var(--shell-text);
+      padding: 13px 14px;
+      outline: none;
+    }
+
+    .panel textarea {
+      min-height: 132px;
+      resize: vertical;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .empty-copy {
+      margin: 0;
+      color: var(--shell-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        right: 18px;
+        border-radius: 28px;
       }
-      .image-input-row {
-        grid-template-columns: 1fr;
+
+      .controls {
+        width: 100%;
+      }
+
+      .input,
+      .select,
+      .button {
+        width: 100%;
+      }
+
+      .status-chip {
+        top: auto;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        max-width: none;
+      }
+
+      .panel {
+        width: 100%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="stack">
-      <section class="hero">
-        <article class="hero-card">
-          <div class="hero-meta">
-            <span class="pill">Universal Admin</span>
-            <span class="pill" id="hero-tenant">Tenant</span>
-            <span class="pill" id="hero-variant">Variant</span>
-          </div>
-          <h1>Schema-driven editor bridge for Universal Sites</h1>
-          <p>Use a compact control strip for tenant, bootstrap, variant switch, and save actions. The editor below now shows one schema group per tab to reduce scroll depth.</p>
-        </article>
-        <aside class="hero-side hero-card" style="background:rgba(255,255,255,0.85);color:var(--text)">
-          <h2>Current Focus</h2>
-          <p class="note">Keep one shared structure, switch variants quickly, and edit only the active schema group instead of scanning a long stacked form.</p>
-          <div class="toolbar">
-            <a class="preview-link" id="public-home-link" href="#" target="_blank" rel="noreferrer">Open public home</a>
-          </div>
-          <div id="status" class="status">Ready.</div>
-        </aside>
-      </section>
+  <iframe id="preview-frame" class="preview-frame" title="Universal Storefront Preview"></iframe>
 
-      <section class="panel control-strip">
-        <div class="control-grid">
-          <section class="control-card">
-            <h3>Connection</h3>
-            <div class="compact-note">Tenant resolves from `?tid=` or localStorage `tam_tenant_id`.</div>
-            <div>
-              <label for="tenant-id">Tenant ID</label>
-              <input id="tenant-id" type="text" />
-            </div>
-            <div class="toolbar">
-              <button class="btn" id="btn-load">Load Config</button>
-              <button class="btn alt" id="btn-reload">Reload</button>
-            </div>
-          </section>
-
-          <section class="control-card">
-            <h3>Bootstrap</h3>
-            <div>
-              <label for="bootstrap-description">Business description</label>
-              <textarea id="bootstrap-description">Toi lam tour leo nui o Ha Giang</textarea>
-            </div>
-            <div class="row two">
-              <div>
-                <label for="bootstrap-site-name">Site name</label>
-                <input id="bootstrap-site-name" type="text" placeholder="Demo Agency" />
-              </div>
-              <div>
-                <label for="bootstrap-persist">Persist</label>
-                <select id="bootstrap-persist">
-                  <option value="false">Preview only</option>
-                  <option value="true">Persist</option>
-                </select>
-              </div>
-            </div>
-            <button class="btn warn" id="btn-bootstrap">Run Bootstrap</button>
-          </section>
-
-          <section class="control-card">
-            <h3>Variant</h3>
-            <div class="compact-note">Switch visual skin while keeping the same underlying editor model.</div>
-            <div>
-              <label for="variant-select">Variant</label>
-              <select id="variant-select"></select>
-            </div>
-            <button class="btn" id="btn-apply-variant">Apply Variant</button>
-          </section>
-
-          <section class="control-card">
-            <h3>Actions</h3>
-            <div class="compact-note">Save after reviewing the active tab. Everything in this admin is meant to stay visual and page-oriented.</div>
-            <div class="toolbar">
-              <button class="btn" id="btn-save">Save Editor Model</button>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section class="panel schema-shell">
-        <div class="schema-head">
-          <div>
-            <h2>Schema Groups</h2>
-            <p class="note">One active group at a time. Rich text and repeater fields expand full width; simple fields stay in a compact 2-column grid.</p>
-          </div>
-        </div>
-        <div id="group-tabs" class="tab-bar"></div>
-        <div id="groups" class="group-list"></div>
-      </section>
+  <div class="topbar">
+    <a class="brand" href="#">
+      <span>
+        <strong id="brand-title" class="brand-title">Universal</strong>
+        <span id="brand-subtitle" class="brand-subtitle">Multi-Skin Admin</span>
+      </span>
+    </a>
+    <div class="controls">
+      <input id="tenant-id" class="input" type="text" placeholder="Tenant ID" />
+      <select id="page-select" class="select"></select>
+      <button id="btn-load" class="button primary" type="button">Reload Preview</button>
+      <a id="public-home-link" class="button ghost" href="#" target="_blank" rel="noreferrer">Open Live Page</a>
+      <button id="btn-system-panel" class="button ghost" type="button">System Panel</button>
     </div>
   </div>
 
-  <div id="media-library-modal" class="media-modal" aria-hidden="true">
-    <div class="media-backdrop" data-media-close="true"></div>
-    <section class="media-panel" role="dialog" aria-modal="true" aria-labelledby="media-library-title">
-      <div class="media-head">
-        <div>
-          <h3 id="media-library-title">Tenant Media Library</h3>
-          <p id="media-library-note">Upload once, then reuse the same asset link across hero, tours, featured cards, and galleries.</p>
-        </div>
-        <button type="button" class="mini-btn" id="btn-media-close">Close</button>
-      </div>
-      <div class="media-toolbar">
-        <div class="media-upload-inline">
-          <input id="media-file-input" class="media-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm" />
-          <button type="button" class="btn" id="btn-media-upload">Upload Selected File</button>
-          <button type="button" class="btn alt" id="btn-media-refresh">Refresh Library</button>
-        </div>
-        <div class="compact-note" id="media-library-summary">No assets loaded yet.</div>
-      </div>
-      <div id="media-library-grid" class="media-grid"></div>
-    </section>
-  </div>
+  <div id="status" class="status-chip">Ready.</div>
+  <div id="panel-backdrop" class="backdrop"></div>
+
+  <aside id="editor-panel" class="panel" aria-label="Quick edit panel">
+    <div class="panel-head">
+      <span class="panel-kicker">Quick Edit</span>
+      <h2 id="panel-title" class="panel-title">Storefront Preview</h2>
+      <p id="panel-note" class="panel-note">Hover any hero, story, or gallery block in the preview and click Edit This.</p>
+    </div>
+
+    <div class="panel-meta">
+      <span id="panel-page-pill" class="pill">Page</span>
+      <span id="panel-block-pill" class="pill">Block</span>
+      <span id="panel-scope-pill" class="pill">Scope</span>
+    </div>
+
+    <div id="panel-form" class="panel-form">
+      <p class="empty-copy">The storefront stays full-screen. Editing slides in from the right so the visual shell never disappears.</p>
+    </div>
+
+    <div class="panel-actions">
+      <button id="btn-close-panel" class="button ghost" type="button">Close</button>
+      <button id="btn-save" class="button primary" type="button">Save Changes</button>
+    </div>
+  </aside>
 
   <script>
-    const SPECIAL_TABS = [
-      { id: '__pages__', label: 'Pages' },
-      { id: '__navigation__', label: 'Navigation' },
-    ];
-    const HIDDEN_SCHEMA_GROUPS = new Set(['menu_structure', 'legal_footer']);
-    const PAGE_ORDER = ['home', 'tours', 'destinations', 'featured-tours', 'accommodation', 'booking', 'about-us', 'contact-us', 'terms', 'privacy', 'impressum'];
-    const LEGAL_PAGE_KEYS = new Set(['terms', 'privacy', 'impressum']);
-    const MAIN_NAV_PAGE_KEYS = new Set(['home', 'tours', 'destinations', 'featured-tours', 'accommodation', 'about-us', 'contact-us']);
-
     const state = {
       tenantId: '',
       bundle: null,
-      activeGroupId: '',
-      mediaLibrary: {
-        items: [],
-        activeTarget: null,
-        activeLabel: 'Image asset',
-      },
+      activeSlug: 'home',
+      selected: null,
+      activeTheme: null,
+      previewScrollY: 0,
+      pendingPreviewScrollY: null,
+      pendingPreviewFocus: null,
     };
 
     const $ = (id) => document.getElementById(id);
 
     function setStatus(message, isError = false) {
-      const el = $('status');
-      el.textContent = message;
-      el.className = isError ? 'status error' : 'status';
+      const node = $('status');
+      node.textContent = message;
+      node.className = isError ? 'status-chip error' : 'status-chip';
     }
 
-    function formatBytes(bytes) {
-      const value = Number(bytes || 0);
-      if (!value) return '0 B';
-      if (value < 1024) return `${value} B`;
-      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-      return `${(value / 1024 / 1024).toFixed(2)} MB`;
+    function getTenantId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tid') || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || 'ten-demo-001';
     }
 
-    function formatDateLabel(value) {
-      if (!value) return 'Unknown upload time';
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) return value;
-      return parsed.toLocaleString();
+    function shouldOpenSystemPanel() {
+      const params = new URLSearchParams(window.location.search);
+      const panel = String(params.get('panel') || '').trim().toLowerCase();
+      const hash = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+      return panel === 'system' || hash === 'system' || hash === 'settings';
     }
 
-    function isVideoAsset(url) {
-      return /\.(mp4|webm)(\?|#|$)/i.test(String(url || ''));
+    function buildHeaders(tenantId) {
+      return { 'X-Tenant-ID': tenantId };
     }
 
-    function requireTenantContext() {
-      const tenantId = $('tenant-id').value.trim() || state.tenantId;
-      if (!tenantId) {
-        setStatus('Tenant ID is required before using the media library.', true);
-        return '';
-      }
-      state.tenantId = tenantId;
-      return tenantId;
-    }
-
-    async function fetchTenantAssets(forceStatus = false) {
-      const tenantId = requireTenantContext();
-      if (!tenantId) return [];
-      if (forceStatus) setStatus('Loading tenant media library...');
-
-      const res = await fetch('/api/tenant/assets', {
-        headers: { 'X-Tenant-ID': tenantId },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to load tenant assets');
-      }
-      state.mediaLibrary.items = Array.isArray(data.items) ? data.items : [];
-      return state.mediaLibrary.items;
-    }
-
-    function closeMediaLibrary() {
-      $('media-library-modal').classList.remove('open');
-      $('media-library-modal').setAttribute('aria-hidden', 'true');
-      state.mediaLibrary.activeTarget = null;
-    }
-
-    function renderMediaLibrary() {
-      const grid = $('media-library-grid');
-      const summary = $('media-library-summary');
-      const items = state.mediaLibrary.items || [];
-      summary.textContent = items.length ? `${items.length} asset${items.length === 1 ? '' : 's'} available for this tenant.` : 'No assets uploaded yet.';
-      grid.innerHTML = '';
-
-      if (!items.length) {
-        const empty = document.createElement('div');
-        empty.className = 'media-empty';
-        empty.innerHTML = '<strong>No uploaded assets yet.</strong><p>Upload a hero image, gallery image, or featured card image here once, then reuse it anywhere.</p>';
-        grid.appendChild(empty);
-        return;
-      }
-
-      for (const item of items) {
-        const card = document.createElement('article');
-        card.className = 'media-card';
-
-        const thumb = document.createElement('div');
-        thumb.className = 'media-thumb';
-        thumb.innerHTML = isVideoAsset(item.url)
-          ? `<video src="${item.url}" muted playsinline preload="metadata"></video>`
-          : `<img src="${item.url}" alt="${item.filename}" loading="lazy" />`;
-        card.appendChild(thumb);
-
-        const meta = document.createElement('div');
-        meta.className = 'media-meta';
-        meta.innerHTML = `<strong>${item.filename}</strong><span>${formatBytes(item.size)} • ${item.mime || 'image'}</span><span>${formatDateLabel(item.uploaded_at)}</span>`;
-        card.appendChild(meta);
-
-        const actions = document.createElement('div');
-        actions.className = 'toolbar';
-
-        const useButton = document.createElement('button');
-        useButton.type = 'button';
-        useButton.className = 'mini-btn';
-        useButton.textContent = 'Use This Asset';
-        useButton.addEventListener('click', () => {
-          if (typeof state.mediaLibrary.activeTarget === 'function') {
-            state.mediaLibrary.activeTarget(item.url);
-          }
-          closeMediaLibrary();
-        });
-        actions.appendChild(useButton);
-
-        const copyButton = document.createElement('button');
-        copyButton.type = 'button';
-        copyButton.className = 'mini-btn';
-        copyButton.textContent = 'Copy URL';
-        copyButton.addEventListener('click', async () => {
-          await navigator.clipboard.writeText(item.url);
-          setStatus(`Copied asset URL: ${item.filename}`);
-        });
-        actions.appendChild(copyButton);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'mini-btn danger';
-        deleteButton.textContent = 'Delete';
-        deleteButton.addEventListener('click', async () => {
-          if (!confirm(`Delete ${item.filename}? This will break any place still using this URL.`)) return;
-          const res = await fetch(`/api/tenant/assets/${encodeURIComponent(item.filename)}`, {
-            method: 'DELETE',
-            headers: { 'X-Tenant-ID': state.tenantId },
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            setStatus(data.error || 'Failed to delete asset', true);
-            return;
-          }
-          setStatus(`Deleted asset ${item.filename}.`);
-          await fetchTenantAssets();
-          renderMediaLibrary();
-        });
-        actions.appendChild(deleteButton);
-
-        card.appendChild(actions);
-        grid.appendChild(card);
-      }
-    }
-
-    async function openMediaLibrary(onSelect, label = 'Image asset') {
-      state.mediaLibrary.activeTarget = onSelect;
-      state.mediaLibrary.activeLabel = label;
-      $('media-library-note').textContent = `Select or upload an image for ${label}. Reuse one uploaded asset across hero, tours, featured cards, and galleries.`;
-      $('media-library-modal').classList.add('open');
-      $('media-library-modal').setAttribute('aria-hidden', 'false');
-
-      try {
-        await fetchTenantAssets(true);
-        renderMediaLibrary();
-        setStatus('Tenant media library loaded.');
-      } catch (error) {
-        renderMediaLibrary();
-        setStatus(error.message || 'Failed to load tenant media library', true);
-      }
-    }
-
-    async function uploadSelectedMediaFile() {
-      const tenantId = requireTenantContext();
-      if (!tenantId) return;
-
-      const input = $('media-file-input');
-      const file = input.files?.[0];
-      if (!file) {
-        setStatus('Choose an image file before uploading.', true);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('file', file);
-      setStatus(`Uploading ${file.name}...`);
-
-      const res = await fetch('/api/tenant/assets/upload', {
-        method: 'POST',
-        headers: { 'X-Tenant-ID': tenantId },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Upload failed', true);
-        return;
-      }
-
-      input.value = '';
-      setStatus(`Uploaded ${data.filename}.`);
-      await fetchTenantAssets();
-      renderMediaLibrary();
-      if (typeof state.mediaLibrary.activeTarget === 'function') {
-        state.mediaLibrary.activeTarget(data.url);
-      }
-    }
-
-    function deepClone(value) {
-      return JSON.parse(JSON.stringify(value));
-    }
-
-    function getByPath(root, path) {
-      return path.split('.').reduce((acc, key) => acc == null ? undefined : acc[key], root);
-    }
-
-    function setByPath(root, path, value) {
-      const parts = path.split('.');
-      let ref = root;
-      for (let i = 0; i < parts.length - 1; i += 1) {
-        const key = parts[i];
-        if (ref[key] == null || typeof ref[key] !== 'object') {
-          ref[key] = {};
-        }
-        ref = ref[key];
-      }
-      ref[parts[parts.length - 1]] = value;
-    }
-
-    function getDisplayGroups() {
-      return (state.bundle?.editor_schema?.groups || []).filter((group) => !HIDDEN_SCHEMA_GROUPS.has(group.id));
-    }
-
-    function sortPages(pages) {
-      return [...pages].sort((left, right) => {
-        const leftIndex = PAGE_ORDER.indexOf(left.page_key);
-        const rightIndex = PAGE_ORDER.indexOf(right.page_key);
-        const safeLeft = leftIndex === -1 ? 999 : leftIndex;
-        const safeRight = rightIndex === -1 ? 999 : rightIndex;
-        return safeLeft - safeRight || String(left.title || '').localeCompare(String(right.title || ''));
-      });
-    }
-
-    function getEditablePages() {
-      const pages = Object.values(state.bundle?.editor_model?.pages?.by_key || {});
-      return sortPages(pages.filter((page) => page.page_type !== 'system'));
-    }
-
-    function slugifyValue(value) {
-      return String(value ?? '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-');
-    }
-
-    function createCustomPageScaffold(title = 'New Page') {
-      const slugBase = slugifyValue(title) || `page-${Date.now()}`;
-      const pageKey = `custom-${slugBase}`;
-      return {
-        id: `custom-page-${Date.now()}`,
-        tenant_id: state.tenantId || null,
-        page_key: pageKey,
-        title,
-        slug: slugBase,
-        page_type: 'custom',
-        status: 'draft',
-        visible: true,
-        seo: {},
-        blocks: {
-          hero: {
-            id: 'hero',
-            type: 'hero',
-            label: 'Hero',
-            classes: 'py-24 bg-slate-900 text-white',
-            content: {
-              eyebrow: 'Custom Page',
-              headline: title,
-              body: 'Write the page introduction here.',
-              primary_cta_label: 'Contact Us',
-              primary_cta_href: '/contact-us',
-              secondary_cta_label: '',
-              secondary_cta_href: '',
-              hero_image: '',
-            },
-            data_bindings: {},
-          },
-          body: {
-            id: 'body',
-            type: 'rich_text',
-            label: 'Body',
-            classes: 'py-16 bg-white',
-            content: {
-              heading: title,
-              body: 'Add your main content here.',
-            },
-            data_bindings: {},
-          },
-          gallery: {
-            id: 'gallery',
-            type: 'gallery',
-            label: 'Gallery',
-            classes: 'py-16 bg-white',
-            content: {
-              heading: 'Gallery',
-              body: 'Add one or more images for this page.',
-              images: [],
-            },
-            data_bindings: {},
-          },
+    function getActiveTheme() {
+      return state.bundle?.active_theme || {
+        key: 'default-editorial',
+        label: 'Default Editorial Frame',
+        admin: {
+          title: 'Universal',
+          subtitle: 'Multi-Skin Admin',
+          vars: {},
         },
       };
     }
 
-    function addCustomPage() {
-      const page = createCustomPageScaffold();
-      state.bundle.editor_model.pages.by_key[page.page_key] = page;
-      state.bundle.editor_model.pages.items.push(page);
-      state.activeGroupId = '__pages__';
-      renderGroups();
-    }
+    function applyAdminTheme() {
+      state.activeTheme = getActiveTheme();
+      const vars = state.activeTheme?.admin?.vars || {};
 
-    function getPageBlock(page, blockId) {
-      return page?.blocks?.[blockId] || null;
-    }
-
-    function updatePageBlock(pageKey, blockId, contentUpdates) {
-      const page = state.bundle?.editor_model?.pages?.by_key?.[pageKey];
-      const block = getPageBlock(page, blockId);
-      if (!block) return;
-      block.content = { ...block.content, ...contentUpdates };
-    }
-
-    function getPageSeo(pageKey) {
-      const page = state.bundle?.editor_model?.pages?.by_key?.[pageKey];
-      if (!page) return {};
-      if (!page.seo || typeof page.seo !== 'object' || Array.isArray(page.seo)) {
-        page.seo = {};
-      }
-      return page.seo;
-    }
-
-    function updatePageSeo(pageKey, updates) {
-      const page = state.bundle?.editor_model?.pages?.by_key?.[pageKey];
-      if (!page) return;
-      page.seo = { ...getPageSeo(pageKey), ...updates };
-
-      const pageItems = state.bundle?.editor_model?.pages?.items || [];
-      const listEntry = pageItems.find((item) => item.page_key === pageKey || item.id === page.id);
-      if (listEntry) {
-        listEntry.seo = { ...page.seo };
-      }
-    }
-
-    function updatePage(pageKey, updates) {
-      const pageMap = state.bundle?.editor_model?.pages?.by_key || {};
-      const page = pageMap[pageKey];
-      if (!page) return;
-      Object.assign(page, updates);
-
-      const pageItems = state.bundle?.editor_model?.pages?.items || [];
-      const listEntry = pageItems.find((item) => item.page_key === pageKey || item.id === page.id);
-      if (listEntry) {
-        Object.assign(listEntry, updates);
-      }
-
-      const menuItems = state.bundle?.editor_model?.menu?.items || [];
-      for (const item of menuItems) {
-        if (item.page_key === pageKey) {
-          if ('title' in updates && (!item.label || item.label === page.title)) {
-            item.label = updates.title;
-          }
-          if ('slug' in updates) {
-            item.href = updates.slug === 'home' ? '/' : `/${updates.slug}`;
-          }
-        }
-      }
-    }
-
-    function getMenuItems() {
-      return state.bundle?.editor_model?.menu?.items || [];
-    }
-
-    function normalizeMenuSortOrder() {
-      getMenuItems().forEach((item, index) => {
-        item.sort_order = index;
+      Object.entries(vars).forEach(([key, value]) => {
+        document.documentElement.style.setProperty(key, value);
       });
+
+      $('brand-title').textContent = state.activeTheme?.admin?.title || state.activeTheme?.label || 'Universal';
+      $('brand-subtitle').textContent = state.activeTheme?.admin?.subtitle || 'Multi-Skin Admin';
     }
 
-    function buildDefaultValue(field) {
-      if (field.type === 'switch' || field.type === 'toggle') return false;
-      if (field.type === 'repeater') return [];
-      if (field.type === 'color') return '#000000';
-      if (field.type === 'select') return field.options?.[0]?.value || '';
+    function getPreviewFrameWindow() {
+      return $('preview-frame')?.contentWindow || null;
+    }
+
+    function capturePreviewScroll() {
+      const frameWindow = getPreviewFrameWindow();
+      if (!frameWindow) return 0;
+      const nextY = Number(frameWindow.scrollY || frameWindow.document?.documentElement?.scrollTop || 0);
+      state.previewScrollY = nextY;
+      return nextY;
+    }
+
+    function buildPreviewOverlayStyle() {
+      return `
+        [data-ve-section] {
+          position: relative !important;
+        }
+        .ve-context-edit-button {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          z-index: 2147483646;
+          display: inline-flex;
+          align-items: center;
+          min-height: 34px;
+          padding: 0 12px;
+          border: 1px solid rgba(127, 63, 115, 0.18);
+          border-radius: 999px;
+          background: rgba(127, 63, 115, 0.92);
+          color: #fff7fb;
+          box-shadow: 0 14px 28px rgba(79, 28, 72, 0.22);
+          font: 700 11px/1 'Source Sans 3', system-ui, sans-serif;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          opacity: 0;
+          transform: translateY(-6px);
+          transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+          pointer-events: none;
+          cursor: pointer;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        [data-ve-section]:hover > .ve-context-edit-button,
+        [data-ve-section]:focus-within > .ve-context-edit-button,
+        .ve-context-edit-button:focus-visible {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
+        [data-ve-section]:has([data-ve-entity]:hover) > .ve-context-edit-button,
+        [data-ve-section]:has([data-ve-entity]:focus-within) > .ve-context-edit-button {
+          opacity: 0;
+          transform: translateY(-6px);
+          pointer-events: none;
+        }
+        .ve-context-edit-button:hover {
+          box-shadow: 0 18px 34px rgba(79, 28, 72, 0.24);
+        }
+        .ve-flash-highlight {
+          animation: veFlashHighlight 1000ms ease;
+        }
+        @keyframes veFlashHighlight {
+          0% { box-shadow: 0 0 0 0 rgba(127, 63, 115, 0); }
+          20% { box-shadow: 0 0 0 5px rgba(127, 63, 115, 0.42); }
+          100% { box-shadow: 0 0 0 0 rgba(127, 63, 115, 0); }
+        }
+      `;
+    }
+
+    function buildPreviewOverlayScript() {
+      return `
+        (function () {
+          if (window.__tamContextualEditInstalled) return;
+          window.__tamContextualEditInstalled = true;
+
+          var SELECTOR = '[data-ve-section]';
+
+          function ensureButtons() {
+            document.querySelectorAll(SELECTOR).forEach(function (section) {
+              if (section.querySelector(':scope > .ve-context-edit-button')) return;
+
+              var button = document.createElement('button');
+              button.type = 'button';
+              button.className = 've-context-edit-button';
+              button.textContent = 'Edit';
+              button.setAttribute('aria-label', 'Edit');
+
+              button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                window.parent.postMessage({
+                  type: 'tam-universal-open-editor',
+                  id: section.dataset.sectionId || section.dataset.adminBlockId || '',
+                  sectionId: section.dataset.sectionId || section.dataset.adminBlockId || '',
+                  sectionType: section.dataset.sectionType || '',
+                  pageKey: section.dataset.adminPageKey || 'home',
+                  blockId: section.dataset.adminBlockId || section.dataset.sectionId || '',
+                  blockType: section.dataset.adminBlockType || '',
+                  blockLabel: section.dataset.adminBlockLabel || section.dataset.sectionLabel || '',
+                  managementTarget: section.dataset.adminManagementTarget || 'site-content',
+                  entityId: section.dataset.entityId || '',
+                  entityType: section.dataset.entityType || '',
+                  entityLabel: section.dataset.entityLabel || '',
+                  entityTitle: section.dataset.entityTitle || '',
+                  entityBody: section.dataset.entityBody || '',
+                  entityImage: section.dataset.entityImage || '',
+                  entityValue: section.dataset.entityValue || '',
+                  entityChannelKey: section.dataset.entityChannelKey || '',
+                  entitySlug: section.dataset.entitySlug || ''
+                }, '*');
+              });
+
+              section.prepend(button);
+            });
+          }
+
+          ensureButtons();
+
+          var observer = new MutationObserver(function () {
+            ensureButtons();
+          });
+
+          observer.observe(document.body, { childList: true, subtree: true });
+        }());
+      `;
+    }
+
+    function injectContextualOverlayIntoPreview() {
+      const frame = $('preview-frame');
+      const frameWindow = frame?.contentWindow;
+      const frameDocument = frameWindow?.document;
+      if (!frameWindow || !frameDocument) return;
+
+      const head = frameDocument.head || frameDocument.documentElement;
+      const body = frameDocument.body;
+      if (!head || !body) return;
+
+      let style = frameDocument.getElementById('tam-contextual-edit-style');
+      if (!style) {
+        style = frameDocument.createElement('style');
+        style.id = 'tam-contextual-edit-style';
+        head.appendChild(style);
+      }
+      style.textContent = buildPreviewOverlayStyle();
+
+      const existingScript = frameDocument.getElementById('tam-contextual-edit-script');
+      if (existingScript) existingScript.remove();
+
+      const script = frameDocument.createElement('script');
+      script.id = 'tam-contextual-edit-script';
+      script.textContent = buildPreviewOverlayScript();
+      body.appendChild(script);
+    }
+
+    function buildPreviewFocusSelector(target) {
+      if (!target) return '';
+      if (target.entityId && target.entityType) {
+        return `[data-entity-type="${CSS.escape(target.entityType)}"][data-entity-id="${CSS.escape(target.entityId)}"]`;
+      }
+      if (target.sectionId && target.pageKey) {
+        return `[data-admin-page-key="${CSS.escape(target.pageKey)}"][data-section-id="${CSS.escape(target.sectionId)}"]`;
+      }
       return '';
     }
 
-    function buildRepeaterItem(itemSchema = []) {
-      const item = {};
-      for (const subField of itemSchema) {
-        setByPath(item, subField.path, buildDefaultValue(subField));
-      }
-      return item;
+    function markPreviewNode(node) {
+      if (!node) return;
+      node.classList.remove('ve-flash-highlight');
+      void node.offsetWidth;
+      node.classList.add('ve-flash-highlight');
+      window.setTimeout(() => node.classList.remove('ve-flash-highlight'), 1100);
     }
 
-    function createInputControl(field, value, onChange) {
-      const type = field.type;
-      if (type === 'switch' || type === 'toggle') {
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = Boolean(value);
-        const wrap = document.createElement('div');
-        wrap.className = 'switch';
-        const text = document.createElement('span');
-        text.textContent = input.checked ? 'Visible' : 'Hidden';
-        input.addEventListener('change', () => {
-          onChange(input.checked);
-          text.textContent = input.checked ? 'Visible' : 'Hidden';
-        });
-        wrap.appendChild(input);
-        wrap.appendChild(text);
-        return wrap;
-      }
-
-      let input;
-      if (type === 'select') {
-        input = document.createElement('select');
-        for (const option of field.options || []) {
-          const opt = document.createElement('option');
-          opt.value = option.value;
-          opt.textContent = option.label;
-          if (option.value === value) opt.selected = true;
-          input.appendChild(opt);
-        }
-        input.addEventListener('change', () => onChange(input.value));
-        return input;
-      }
-
-      if (type === 'rich_text') {
-        input = document.createElement('textarea');
-        input.value = String(value ?? '');
-        input.addEventListener('input', () => onChange(input.value));
-        return input;
-      }
-
-      if (type === 'image_upload') {
-        const shell = document.createElement('div');
-        shell.className = 'image-input-shell';
-
-        const preview = document.createElement('div');
-        preview.className = 'image-preview';
-
-        const updatePreview = (nextValue) => {
-          const resolved = String(nextValue || '').trim();
-          preview.innerHTML = '';
-          if (!resolved) {
-            preview.textContent = 'No image selected yet. Upload or choose one from the tenant media library.';
-            return;
-          }
-          if (isVideoAsset(resolved)) {
-            const video = document.createElement('video');
-            video.src = resolved;
-            video.muted = true;
-            video.loop = true;
-            video.autoplay = true;
-            video.playsInline = true;
-            preview.appendChild(video);
-            return;
-          }
-          const img = document.createElement('img');
-          img.src = resolved;
-          img.alt = field.label || 'Selected image';
-          img.loading = 'lazy';
-          preview.appendChild(img);
-        };
-
-        const row = document.createElement('div');
-        row.className = 'image-input-row';
-
-        input = document.createElement('input');
-        input.type = 'url';
-        input.value = String(value ?? '');
-        input.addEventListener('input', () => {
-          onChange(input.value);
-          updatePreview(input.value);
-        });
-        row.appendChild(input);
-
-        const actions = document.createElement('div');
-        actions.className = 'image-input-actions';
-
-        const libraryButton = document.createElement('button');
-        libraryButton.type = 'button';
-        libraryButton.className = 'mini-btn';
-        libraryButton.textContent = 'Media Library';
-        libraryButton.addEventListener('click', () => {
-          openMediaLibrary((nextUrl) => {
-            input.value = nextUrl;
-            onChange(nextUrl);
-            updatePreview(nextUrl);
-          }, field.label || 'Image asset').catch((error) => {
-            setStatus(error.message || 'Failed to open media library', true);
-          });
-        });
-        actions.appendChild(libraryButton);
-
-        const clearButton = document.createElement('button');
-        clearButton.type = 'button';
-        clearButton.className = 'mini-btn';
-        clearButton.textContent = 'Clear';
-        clearButton.addEventListener('click', () => {
-          input.value = '';
-          onChange('');
-          updatePreview('');
-        });
-        actions.appendChild(clearButton);
-
-        row.appendChild(actions);
-        shell.appendChild(row);
-        shell.appendChild(preview);
-        updatePreview(value);
-        return shell;
-      }
-
-      input = document.createElement('input');
-      input.type = type === 'color' ? 'color' : (type === 'link' || type === 'image_upload' ? 'url' : 'text');
-      input.value = String(value ?? (type === 'color' ? '#000000' : ''));
-      input.addEventListener(type === 'color' ? 'change' : 'input', () => onChange(input.value));
-      return input;
-    }
-
-    function renderRepeaterField(field) {
-      const fieldEl = document.createElement('div');
-      fieldEl.className = 'field field-wide';
-
-      const label = document.createElement('label');
-      label.textContent = field.label;
-      fieldEl.appendChild(label);
-
-      const shell = document.createElement('div');
-      shell.className = 'repeater-shell';
-      const items = getByPath(state.bundle.editor_model, field.path) || [];
-      const list = document.createElement('div');
-      list.className = 'repeater-list';
-
-      if (!items.length) {
-        const empty = document.createElement('div');
-        empty.className = 'compact-note';
-        empty.textContent = 'No items yet.';
-        list.appendChild(empty);
-      }
-
-      items.forEach((item, index) => {
-        const card = document.createElement('section');
-        card.className = 'repeater-card';
-
-        const head = document.createElement('div');
-        head.className = 'repeater-card-head';
-        const title = document.createElement('strong');
-        title.textContent = `${field.label} ${index + 1}`;
-        head.appendChild(title);
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'mini-btn danger';
-        remove.textContent = 'Remove';
-        remove.addEventListener('click', () => {
-          const nextItems = [...items];
-          nextItems.splice(index, 1);
-          setByPath(state.bundle.editor_model, field.path, nextItems);
-          renderGroups();
-        });
-        head.appendChild(remove);
-        card.appendChild(head);
-
-        const subGrid = document.createElement('div');
-        subGrid.className = 'subfield-grid';
-        for (const subField of field.item_schema || []) {
-          const subFieldEl = document.createElement('div');
-          subFieldEl.className = 'subfield';
-          if (subField.type === 'rich_text' || subField.type === 'repeater') {
-            subFieldEl.classList.add('subfield-wide');
-          }
-
-          const subLabel = document.createElement('label');
-          subLabel.textContent = subField.label;
-          subFieldEl.appendChild(subLabel);
-
-          const control = createInputControl(subField, getByPath(item, subField.path), (nextValue) => {
-            setByPath(item, subField.path, nextValue);
-          });
-          subFieldEl.appendChild(control);
-          subGrid.appendChild(subFieldEl);
-        }
-        card.appendChild(subGrid);
-        list.appendChild(card);
-      });
-
-      shell.appendChild(list);
-
-      const addButton = document.createElement('button');
-      addButton.type = 'button';
-      addButton.className = 'mini-btn';
-      addButton.textContent = `Add ${field.label}`;
-      addButton.addEventListener('click', () => {
-        const nextItems = [...items, buildRepeaterItem(field.item_schema || [])];
-        setByPath(state.bundle.editor_model, field.path, nextItems);
-        renderGroups();
-      });
-      shell.appendChild(addButton);
-      fieldEl.appendChild(shell);
-      return fieldEl;
-    }
-
-    function renderField(field) {
-      const value = getByPath(state.bundle.editor_model, field.path);
-      if (field.type === 'repeater') {
-        return renderRepeaterField(field);
-      }
-
-      const fieldEl = document.createElement('div');
-      fieldEl.className = 'field';
-      if (field.type === 'rich_text') {
-        fieldEl.classList.add('field-wide');
-      }
-
-      const label = document.createElement('label');
-      label.textContent = field.label;
-      fieldEl.appendChild(label);
-
-      const control = createInputControl(field, value, (nextValue) => {
-        setByPath(state.bundle.editor_model, field.path, nextValue);
-      });
-      fieldEl.appendChild(control);
-      return fieldEl;
-    }
-
-    function renderGroupTabs(groups) {
-      const tabs = $('group-tabs');
-      tabs.innerHTML = '';
-
-      for (const tab of SPECIAL_TABS) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `tab-btn${tab.id === state.activeGroupId ? ' active' : ''}`;
-        button.textContent = tab.label;
-        button.addEventListener('click', () => {
-          state.activeGroupId = tab.id;
-          renderGroups();
-        });
-        tabs.appendChild(button);
-      }
-
-      for (const group of groups) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `tab-btn${group.id === state.activeGroupId ? ' active' : ''}`;
-        button.textContent = group.label;
-        button.addEventListener('click', () => {
-          state.activeGroupId = group.id;
-          renderGroups();
-        });
-        tabs.appendChild(button);
-      }
-    }
-
-    function renderPageManager(container) {
-      const pages = getEditablePages();
-      const mainPages = pages.filter((page) => !LEGAL_PAGE_KEYS.has(page.page_key) && page.page_type !== 'custom');
-      const customPages = pages.filter((page) => page.page_type === 'custom');
-      const legalPages = pages.filter((page) => LEGAL_PAGE_KEYS.has(page.page_key));
-
-      const sections = [
-        { title: 'Main Pages', note: 'Every item here is a separate page. Toggle visibility if you want to hide it from the live site while keeping the page data.', items: mainPages },
-        { title: 'Custom Pages', note: 'Create empty pages for destinations, story pages, landing pages, or any standalone content with text and images.', items: customPages, allowCreate: true },
-        { title: 'Footer Legal Pages', note: 'Terms, Privacy, and Impressum are separate pages that can also be hidden or shown individually.', items: legalPages },
-      ];
-
-      for (const sectionData of sections) {
-        const section = document.createElement('section');
-        section.className = 'group-card entity-section';
-        const title = document.createElement('h3');
-        title.textContent = sectionData.title;
-        section.appendChild(title);
-
-        const note = document.createElement('p');
-        note.className = 'note';
-        note.textContent = sectionData.note;
-        section.appendChild(note);
-
-        if (sectionData.allowCreate) {
-          const createButton = document.createElement('button');
-          createButton.type = 'button';
-          createButton.className = 'mini-btn';
-          createButton.textContent = 'Create Custom Page';
-          createButton.addEventListener('click', addCustomPage);
-          section.appendChild(createButton);
-        }
-
-        const grid = document.createElement('div');
-        grid.className = 'entity-grid';
-
-        for (const page of sectionData.items) {
-          const card = document.createElement('article');
-          card.className = 'entity-card';
-          const pageSeo = getPageSeo(page.page_key);
-
-          const head = document.createElement('div');
-          head.className = 'entity-head';
-          const identity = document.createElement('div');
-          identity.innerHTML = `<strong>${page.title}</strong><div class="entity-meta">/${page.slug} • technical key: ${page.page_key}</div>`;
-          head.appendChild(identity);
-          const tag = document.createElement('span');
-          tag.className = 'tag';
-          tag.textContent = page.page_type;
-          head.appendChild(tag);
-          card.appendChild(head);
-
-          const fields = document.createElement('div');
-          fields.className = 'entity-field-grid';
-
-          const titleField = document.createElement('div');
-          titleField.className = 'field';
-          const titleLabel = document.createElement('label');
-          titleLabel.textContent = 'Page Title';
-          titleField.appendChild(titleLabel);
-          titleField.appendChild(createInputControl({ type: 'text' }, page.title, (nextValue) => updatePage(page.page_key, { title: nextValue })));
-          fields.appendChild(titleField);
-
-          const slugField = document.createElement('div');
-          slugField.className = 'field';
-          const slugLabel = document.createElement('label');
-          slugLabel.textContent = 'Slug';
-          slugField.appendChild(slugLabel);
-          slugField.appendChild(createInputControl({ type: 'text' }, page.slug, (nextValue) => updatePage(page.page_key, { slug: nextValue })));
-          fields.appendChild(slugField);
-
-          card.appendChild(fields);
-
-          const visibleField = document.createElement('div');
-          visibleField.className = 'field';
-          const visibleLabel = document.createElement('label');
-          visibleLabel.textContent = 'Show This Page';
-          visibleField.appendChild(visibleLabel);
-          visibleField.appendChild(createInputControl({ type: 'switch' }, page.visible, (nextValue) => updatePage(page.page_key, { visible: nextValue })));
-          card.appendChild(visibleField);
-
-          if (!LEGAL_PAGE_KEYS.has(page.page_key) && page.page_key !== 'home') {
-            const embedField = document.createElement('div');
-            embedField.className = 'field';
-            const embedLabel = document.createElement('label');
-            embedLabel.textContent = 'Embed This Page Into Home';
-            embedField.appendChild(embedLabel);
-            embedField.appendChild(createInputControl({ type: 'switch' }, Boolean(pageSeo.home_embedded), (nextValue) => updatePageSeo(page.page_key, { home_embedded: nextValue })));
-            card.appendChild(embedField);
-          }
-
-          if (page.page_type === 'custom') {
-            const heroBlock = getPageBlock(page, 'hero');
-            const bodyBlock = getPageBlock(page, 'body');
-            const galleryBlock = getPageBlock(page, 'gallery');
-
-            const customFields = document.createElement('div');
-            customFields.className = 'entity-field-grid';
-
-            const heroTitleField = document.createElement('div');
-            heroTitleField.className = 'field';
-            const heroTitleLabel = document.createElement('label');
-            heroTitleLabel.textContent = 'Hero Title';
-            heroTitleField.appendChild(heroTitleLabel);
-            heroTitleField.appendChild(createInputControl({ type: 'text' }, heroBlock?.content?.headline || '', (nextValue) => updatePageBlock(page.page_key, 'hero', { headline: nextValue })));
-            customFields.appendChild(heroTitleField);
-
-            const heroImageField = document.createElement('div');
-            heroImageField.className = 'field';
-            const heroImageLabel = document.createElement('label');
-            heroImageLabel.textContent = 'Hero Image URL';
-            heroImageField.appendChild(heroImageLabel);
-            heroImageField.appendChild(createInputControl({ type: 'image_upload' }, heroBlock?.content?.hero_image || '', (nextValue) => updatePageBlock(page.page_key, 'hero', { hero_image: nextValue })));
-            customFields.appendChild(heroImageField);
-
-            const introField = document.createElement('div');
-            introField.className = 'field field-wide';
-            const introLabel = document.createElement('label');
-            introLabel.textContent = 'Intro Text';
-            introField.appendChild(introLabel);
-            introField.appendChild(createInputControl({ type: 'rich_text' }, heroBlock?.content?.body || '', (nextValue) => updatePageBlock(page.page_key, 'hero', { body: nextValue })));
-            customFields.appendChild(introField);
-
-            const bodyTitleField = document.createElement('div');
-            bodyTitleField.className = 'field';
-            const bodyTitleLabel = document.createElement('label');
-            bodyTitleLabel.textContent = 'Body Section Title';
-            bodyTitleField.appendChild(bodyTitleLabel);
-            bodyTitleField.appendChild(createInputControl({ type: 'text' }, bodyBlock?.content?.heading || '', (nextValue) => updatePageBlock(page.page_key, 'body', { heading: nextValue })));
-            customFields.appendChild(bodyTitleField);
-
-            const galleryTitleField = document.createElement('div');
-            galleryTitleField.className = 'field';
-            const galleryTitleLabel = document.createElement('label');
-            galleryTitleLabel.textContent = 'Gallery Title';
-            galleryTitleField.appendChild(galleryTitleLabel);
-            galleryTitleField.appendChild(createInputControl({ type: 'text' }, galleryBlock?.content?.heading || '', (nextValue) => updatePageBlock(page.page_key, 'gallery', { heading: nextValue })));
-            customFields.appendChild(galleryTitleField);
-
-            const bodyCopyField = document.createElement('div');
-            bodyCopyField.className = 'field field-wide';
-            const bodyCopyLabel = document.createElement('label');
-            bodyCopyLabel.textContent = 'Body Text';
-            bodyCopyField.appendChild(bodyCopyLabel);
-            bodyCopyField.appendChild(createInputControl({ type: 'rich_text' }, bodyBlock?.content?.body || '', (nextValue) => updatePageBlock(page.page_key, 'body', { body: nextValue })));
-            customFields.appendChild(bodyCopyField);
-
-            const galleryField = renderRepeaterField({
-              label: 'Gallery Images',
-              type: 'repeater',
-              path: `pages.by_key.${page.page_key}.blocks.gallery.content.images`,
-              item_schema: [
-                { label: 'Image URL', type: 'image_upload', path: 'src' },
-                { label: 'Alt Text', type: 'text', path: 'alt' },
-                { label: 'Caption', type: 'text', path: 'caption' },
-              ],
-            });
-            customFields.appendChild(galleryField);
-
-            card.appendChild(customFields);
-          }
-
-          grid.appendChild(card);
-        }
-
-        section.appendChild(grid);
-        container.appendChild(section);
-      }
-    }
-
-    function getPageOptionsForNavigation() {
-      return getEditablePages().filter((page) => !LEGAL_PAGE_KEYS.has(page.page_key));
-    }
-
-    function addNavigationItem() {
-      const pages = getPageOptionsForNavigation();
-      const fallback = pages[0];
-      const items = getMenuItems();
-      items.push({
-        id: `menu-${Date.now()}`,
-        item_key: fallback?.page_key || `nav-${items.length + 1}`,
-        label: fallback?.title || 'New Item',
-        href: fallback ? (fallback.slug === 'home' ? '/' : `/${fallback.slug}`) : '/',
-        page_key: fallback?.page_key || null,
-        target: '_self',
-        is_external: false,
-        visible: true,
-        sort_order: items.length,
-      });
-      normalizeMenuSortOrder();
-      renderGroups();
-    }
-
-    function moveNavigationItem(index, direction) {
-      const items = getMenuItems();
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= items.length) return;
-      const current = items[index];
-      items[index] = items[nextIndex];
-      items[nextIndex] = current;
-      normalizeMenuSortOrder();
-      renderGroups();
-    }
-
-    function renderNavigationManager(container) {
-      const section = document.createElement('section');
-      section.className = 'group-card entity-section';
-      const title = document.createElement('h3');
-      title.textContent = 'Navigation';
-      section.appendChild(title);
-
-      const note = document.createElement('p');
-      note.className = 'note';
-      note.textContent = 'Main menu items stay visual here: label, order, hide/show, and whether the linked page should be embedded into the homepage. Technical names stay fixed on the page records.';
-      section.appendChild(note);
-
-      const addButton = document.createElement('button');
-      addButton.type = 'button';
-      addButton.className = 'mini-btn';
-      addButton.textContent = 'Add Navigation Item';
-      addButton.addEventListener('click', addNavigationItem);
-      section.appendChild(addButton);
-
-      const grid = document.createElement('div');
-      grid.className = 'entity-grid';
-      const pageOptions = getPageOptionsForNavigation();
-
-      getMenuItems().forEach((item, index) => {
-        const card = document.createElement('article');
-        card.className = 'entity-card';
-        const linkedPage = pageOptions.find((page) => page.page_key === item.page_key) || null;
-        const linkedPageSeo = linkedPage ? getPageSeo(linkedPage.page_key) : {};
-
-        const head = document.createElement('div');
-        head.className = 'entity-head';
-        const identity = document.createElement('div');
-        identity.innerHTML = `<strong>${item.label || 'Menu Item'}</strong><div class="entity-meta">${item.href || '/'}${linkedPage ? ` • technical key: ${linkedPage.page_key}` : ''}</div>`;
-        head.appendChild(identity);
-
-        const actions = document.createElement('div');
-        actions.className = 'entity-actions';
-        const up = document.createElement('button');
-        up.type = 'button';
-        up.className = 'mini-btn';
-        up.textContent = 'Up';
-        up.addEventListener('click', () => moveNavigationItem(index, -1));
-        actions.appendChild(up);
-        const down = document.createElement('button');
-        down.type = 'button';
-        down.className = 'mini-btn';
-        down.textContent = 'Down';
-        down.addEventListener('click', () => moveNavigationItem(index, 1));
-        actions.appendChild(down);
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'mini-btn danger';
-        remove.textContent = 'Remove';
-        remove.addEventListener('click', () => {
-          getMenuItems().splice(index, 1);
-          normalizeMenuSortOrder();
-          renderGroups();
-        });
-        actions.appendChild(remove);
-        head.appendChild(actions);
-        card.appendChild(head);
-
-        const fields = document.createElement('div');
-        fields.className = 'entity-field-grid';
-
-        const pageField = document.createElement('div');
-        pageField.className = 'field';
-        const pageLabel = document.createElement('label');
-        pageLabel.textContent = 'Linked Page';
-        pageField.appendChild(pageLabel);
-        pageField.appendChild(createInputControl({ type: 'select', options: pageOptions.map((page) => ({ label: page.title, value: page.page_key })) }, item.page_key || '', (nextValue) => {
-          const nextPage = pageOptions.find((page) => page.page_key === nextValue);
-          item.page_key = nextValue;
-          item.item_key = nextValue;
-          item.label = nextPage?.title || item.label;
-          item.href = nextPage ? (nextPage.slug === 'home' ? '/' : `/${nextPage.slug}`) : item.href;
-          renderGroups();
-        }));
-        fields.appendChild(pageField);
-
-        const labelField = document.createElement('div');
-        labelField.className = 'field';
-        const labelLabel = document.createElement('label');
-        labelLabel.textContent = 'Menu Label';
-        labelField.appendChild(labelLabel);
-        labelField.appendChild(createInputControl({ type: 'text' }, item.label, (nextValue) => { item.label = nextValue; }));
-        fields.appendChild(labelField);
-
-        const hrefField = document.createElement('div');
-        hrefField.className = 'field';
-        const hrefLabel = document.createElement('label');
-        hrefLabel.textContent = 'Link';
-        hrefField.appendChild(hrefLabel);
-        hrefField.appendChild(createInputControl({ type: 'link' }, item.href, (nextValue) => { item.href = nextValue; }));
-        fields.appendChild(hrefField);
-
-        const visibleField = document.createElement('div');
-        visibleField.className = 'field';
-        const visibleLabel = document.createElement('label');
-        visibleLabel.textContent = 'Show In Menu';
-        visibleField.appendChild(visibleLabel);
-        visibleField.appendChild(createInputControl({ type: 'switch' }, item.visible, (nextValue) => { item.visible = nextValue; }));
-        fields.appendChild(visibleField);
-
-        const embedField = document.createElement('div');
-        embedField.className = 'field';
-        const embedLabel = document.createElement('label');
-        embedLabel.textContent = 'Embed Linked Page Into Home';
-        embedField.appendChild(embedLabel);
-        if (linkedPage && linkedPage.page_key !== 'home') {
-          embedField.appendChild(createInputControl({ type: 'switch' }, Boolean(linkedPageSeo.home_embedded), (nextValue) => {
-            updatePageSeo(linkedPage.page_key, { home_embedded: nextValue });
-          }));
-        } else {
-          const embedNote = document.createElement('div');
-          embedNote.className = 'compact-note';
-          embedNote.textContent = linkedPage?.page_key === 'home'
-            ? 'Home page is already the container page.'
-            : 'Choose an internal page first.';
-          embedField.appendChild(embedNote);
-        }
-        fields.appendChild(embedField);
-
-        card.appendChild(fields);
-        grid.appendChild(card);
-      });
-
-      section.appendChild(grid);
-      container.appendChild(section);
-    }
-
-    function renderGroups() {
-      const container = $('groups');
-      container.innerHTML = '';
-      const groups = getDisplayGroups();
-
-      if (!groups.length) {
-        $('group-tabs').innerHTML = '';
-        if (!state.bundle) {
-          state.activeGroupId = '';
+    function restorePreviewPositionIfNeeded() {
+      const frameWindow = getPreviewFrameWindow();
+      const frameDocument = frameWindow?.document;
+      if (!frameWindow) return;
+
+      const focus = state.pendingPreviewFocus;
+      const nextY = state.pendingPreviewScrollY;
+      state.pendingPreviewFocus = null;
+      state.pendingPreviewScrollY = null;
+
+      window.setTimeout(() => {
+        const selector = buildPreviewFocusSelector(focus);
+        const target = selector && frameDocument ? frameDocument.querySelector(selector) : null;
+
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          markPreviewNode(target);
+          state.previewScrollY = Number(frameWindow.scrollY || frameDocument?.documentElement?.scrollTop || 0);
           return;
         }
-      }
 
-      const availableIds = [...SPECIAL_TABS.map((tab) => tab.id), ...groups.map((group) => group.id)];
-      if (!availableIds.includes(state.activeGroupId)) {
-        state.activeGroupId = SPECIAL_TABS[0].id;
-      }
-
-      renderGroupTabs(groups);
-
-      if (state.activeGroupId === '__pages__') {
-        renderPageManager(container);
-        return;
-      }
-
-      if (state.activeGroupId === '__navigation__') {
-        renderNavigationManager(container);
-        return;
-      }
-
-      const activeGroup = groups.find((group) => group.id === state.activeGroupId) || groups[0];
-
-      const card = document.createElement('section');
-      card.className = 'group-card';
-      const title = document.createElement('h3');
-      title.textContent = activeGroup.label;
-      card.appendChild(title);
-
-      const meta = document.createElement('p');
-      meta.className = 'note';
-      meta.textContent = `${activeGroup.fields.length} fields`;
-      card.appendChild(meta);
-
-      const fieldGrid = document.createElement('div');
-      fieldGrid.className = 'field-grid';
-      for (const field of activeGroup.fields) {
-        fieldGrid.appendChild(renderField(field));
-      }
-      card.appendChild(fieldGrid);
-      container.appendChild(card);
+        if (nextY != null) {
+          frameWindow.scrollTo({ top: nextY, behavior: 'smooth' });
+          state.previewScrollY = nextY;
+        }
+      }, 120);
     }
 
-    function syncHeader() {
-      const site = state.bundle?.site || state.bundle?.editor_model?.site || {};
-      $('hero-tenant').textContent = `Tenant ${state.tenantId || 'n/a'}`;
-      $('hero-variant').textContent = `Variant ${site.variant_key || 'n/a'}`;
-      $('public-home-link').href = `/p/${encodeURIComponent(state.tenantId)}/home`;
-      $('bootstrap-site-name').value = site.site_name || '';
+    function handlePreviewFrameLoad() {
+      injectContextualOverlayIntoPreview();
+      restorePreviewPositionIfNeeded();
     }
 
-    function fillVariantSelect() {
-      const select = $('variant-select');
+    function getPages() {
+      return Object.values(state.bundle?.editor_model?.pages?.by_key || {});
+    }
+
+    function findPageBySlug(slug) {
+      return getPages().find((page) => page.slug === slug || page.page_key === slug) || null;
+    }
+
+    function getBlock(pageKey, blockId) {
+      const page = state.bundle?.editor_model?.pages?.by_key?.[pageKey];
+      if (!page) return null;
+      if (Array.isArray(page.blocks)) {
+        return page.blocks.find((block) => block.id === blockId) || null;
+      }
+      return page.blocks?.[blockId] || Object.values(page.blocks || {}).find((block) => block.id === blockId) || null;
+    }
+
+    function fillPageSelect() {
+      const select = $('page-select');
+      const pages = getPages().filter((page) => page.page_type !== 'system');
       select.innerHTML = '';
-      const variants = state.bundle?.variants || [];
-      const current = state.bundle?.site?.variant_key || '';
-      for (const variant of variants) {
-        const opt = document.createElement('option');
-        opt.value = variant.key;
-        opt.textContent = `${variant.label} (${variant.group_key})`;
-        if (variant.key === current) opt.selected = true;
-        select.appendChild(opt);
+      for (const page of pages) {
+        const option = document.createElement('option');
+        option.value = page.slug || page.page_key;
+        option.textContent = page.title || page.page_key;
+        if ((page.slug || page.page_key) === state.activeSlug) option.selected = true;
+        select.appendChild(option);
       }
     }
 
-    async function loadConfig() {
-      const tenantId = $('tenant-id').value.trim();
-      if (!tenantId) {
-        setStatus('Tenant ID is required', true);
-        return;
-      }
-      state.tenantId = tenantId;
-      localStorage.setItem('tam_tenant_id', tenantId);
-      setStatus('Loading universal config...');
+    function updatePublicLink() {
+      const page = findPageBySlug(state.activeSlug) || findPageBySlug('home');
+      $('public-home-link').href = page ? `/p/${encodeURIComponent(state.tenantId)}/${encodeURIComponent(page.slug || page.page_key)}` : '#';
+    }
 
-      const res = await fetch('/api/universal/site/config', {
-        headers: { 'X-Tenant-ID': tenantId },
+    function closePanel() {
+      state.selected = null;
+      $('editor-panel').classList.remove('open');
+      $('panel-backdrop').classList.remove('open');
+      $('panel-title').textContent = 'Storefront Preview';
+      $('panel-note').textContent = 'Hover any hero, story, hotel, tour, or contact card in the preview and click Edit.';
+      $('panel-page-pill').textContent = 'Page';
+      $('panel-block-pill').textContent = 'Block';
+      $('panel-scope-pill').textContent = 'Scope';
+      $('panel-form').innerHTML = '<p class="empty-copy">The storefront stays full-screen. Editing slides in from the right so the visual shell never disappears.</p>';
+    }
+
+    function resolveManagementScope(payload, page, block) {
+      const sectionType = String(payload.sectionType || '').trim().toLowerCase();
+      if (sectionType.startsWith('hotel-')) return 'hotel';
+      if (sectionType.startsWith('contact-')) return 'contact';
+      if (sectionType.startsWith('tour-')) return 'tour';
+
+      const hinted = String(payload.managementTarget || '').trim().toLowerCase();
+      if (hinted) return hinted;
+
+      const pageKey = String(page?.page_key || '').toLowerCase();
+      const blockType = String(block?.type || '').toLowerCase();
+
+      if (pageKey === 'accommodation') return 'hotel';
+      if (pageKey === 'contact-us' || blockType === 'contact') return 'contact';
+      if (['tours', 'featured-tours', 'booking'].includes(pageKey) || ['hero', 'gallery', 'itinerary', 'pricing_spotlight', 'listing'].includes(blockType)) return 'tour';
+      return 'site-content';
+    }
+
+    function formatScopeLabel(scope) {
+      const labels = {
+        hotel: 'Manage: Hotel',
+        tour: 'Manage: Tour',
+        contact: 'Manage: Contact',
+        'site-content': 'Manage: Site Content',
+      };
+      return labels[scope] || 'Manage: Site Content';
+    }
+
+    function buildField(labelText, id, value, multiline = false) {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      field.appendChild(label);
+      const input = multiline ? document.createElement('textarea') : document.createElement('input');
+      input.id = id;
+      if (!multiline) input.type = 'text';
+      input.value = value || '';
+      field.appendChild(input);
+      return field;
+    }
+
+    function buildToggleField(labelText, id, checked) {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      field.appendChild(label);
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = 'checkbox';
+      input.checked = Boolean(checked);
+      input.style.width = '20px';
+      input.style.height = '20px';
+      input.style.padding = '0';
+      input.style.borderRadius = '6px';
+      field.appendChild(input);
+      return field;
+    }
+
+    function buildSelectField(labelText, id, options, value) {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      field.appendChild(label);
+      const select = document.createElement('select');
+      select.id = id;
+      select.className = 'select';
+      select.style.minWidth = '0';
+      (options || []).forEach((option) => {
+        const node = document.createElement('option');
+        node.value = option.value;
+        node.textContent = option.label;
+        if (option.value === value) node.selected = true;
+        select.appendChild(node);
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Failed to load config', true);
-        return;
-      }
-      state.bundle = deepClone(data);
-      if (!state.activeGroupId) {
-        state.activeGroupId = SPECIAL_TABS[0].id;
-      }
-      renderGroups();
-      fillVariantSelect();
-      syncHeader();
-      setStatus('Universal config loaded.');
+      field.appendChild(select);
+      return field;
     }
 
-    async function saveModel() {
-      if (!state.bundle) return;
-      setStatus('Saving editor model...');
-      const res = await fetch('/api/universal/site/config', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': state.tenantId,
-        },
-        body: JSON.stringify({ editor_model: state.bundle.editor_model }),
+    function buildSectionHeading(title, description = '') {
+      const wrap = document.createElement('div');
+      wrap.style.gridColumn = '1 / -1';
+      wrap.style.paddingTop = '8px';
+      wrap.style.borderTop = '1px solid rgba(148, 163, 184, 0.25)';
+      wrap.style.marginTop = '8px';
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      heading.style.display = 'block';
+      heading.style.fontSize = '12px';
+      heading.style.letterSpacing = '0.12em';
+      heading.style.textTransform = 'uppercase';
+      heading.style.color = 'rgba(226, 232, 240, 0.86)';
+      wrap.appendChild(heading);
+      if (description) {
+        const note = document.createElement('p');
+        note.textContent = description;
+        note.style.margin = '6px 0 0';
+        note.style.fontSize = '12px';
+        note.style.lineHeight = '1.6';
+        note.style.color = 'rgba(203, 213, 225, 0.8)';
+        wrap.appendChild(note);
+      }
+      return wrap;
+    }
+
+    function toDomSuffix(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+
+    function getEditBindings(block) {
+      if (!block) return null;
+      switch (block.type) {
+        case 'hero':
+          return { titlePath: 'headline', bodyPath: 'body', imagePath: 'hero_image', note: 'Hero blocks keep the invisible header, centered logo, and cinematic entry intact.' };
+        case 'features':
+          return { titlePath: 'heading', bodyPath: 'body', imagePath: 'story_image', note: 'Story blocks in the Six Senses shell pair editorial copy with a single visual anchor.' };
+        case 'gallery':
+          return { titlePath: 'heading', bodyPath: 'body', imagePath: 'images.0.src', note: 'Gallery edits update the lead image while preserving the luxury carousel shell.' };
+        case 'rich_text':
+          return { titlePath: 'heading', bodyPath: 'body', imagePath: '', note: 'Rich text sections can update copy without switching out of the storefront view.' };
+        default:
+          return null;
+      }
+    }
+
+    function getValueAtPath(root, path) {
+      if (!path) return '';
+      return String(path).split('.').reduce((acc, key) => acc == null ? undefined : acc[key], root);
+    }
+
+    function setValueAtPath(root, path, value) {
+      if (!path) return;
+      const keys = String(path).split('.');
+      let ref = root;
+      for (let index = 0; index < keys.length - 1; index += 1) {
+        const key = keys[index];
+        const nextKey = keys[index + 1];
+        if (ref[key] == null) {
+          ref[key] = /^\d+$/.test(nextKey) ? [] : {};
+        }
+        ref = ref[key];
+      }
+      ref[keys[keys.length - 1]] = value;
+    }
+
+    function captureSelectionFocus(selection) {
+      if (!selection) return null;
+      if (selection.entityId && selection.entityType) {
+        return { entityId: selection.entityId, entityType: selection.entityType };
+      }
+      return {
+        pageKey: selection.pageKey || '',
+        sectionId: selection.sectionId || selection.blockId || '',
+      };
+    }
+
+    function getPageByKey(pageKey) {
+      return state.bundle?.editor_model?.pages?.by_key?.[pageKey] || null;
+    }
+
+    function getPrimaryPageBodyBlock(page) {
+      const blocks = Array.isArray(page?.blocks) ? page.blocks : Object.values(page?.blocks || {});
+      return blocks.find((block) => ['legal', 'contact', 'rich_text'].includes(block?.type)) || null;
+    }
+
+    function openPanel() {
+      $('editor-panel').classList.add('open');
+      $('panel-backdrop').classList.add('open');
+    }
+
+    function openBlockEditor(payload, page, block, bindings, managementScope) {
+      state.selected = {
+        mode: 'block',
+        pageKey: payload.pageKey,
+        blockId: payload.blockId,
+        sectionId: payload.sectionId,
+        bindings,
+      };
+
+      $('panel-title').textContent = payload.blockLabel || block.label || block.type;
+      $('panel-note').textContent = bindings.note;
+      $('panel-page-pill').textContent = `Page: ${page.title || page.page_key}`;
+      $('panel-block-pill').textContent = `Block: ${block.type}`;
+      $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
+
+      const form = $('panel-form');
+      form.innerHTML = '';
+      form.appendChild(buildField('Headline', 'field-title', getValueAtPath(block.content || {}, bindings.titlePath)));
+      form.appendChild(buildField('Supporting Copy', 'field-body', getValueAtPath(block.content || {}, bindings.bodyPath), true));
+      if (bindings.imagePath) {
+        form.appendChild(buildField('Image URL', 'field-image', getValueAtPath(block.content || {}, bindings.imagePath)));
+      }
+
+      openPanel();
+    }
+
+    async function openTourEntityEditor(payload, managementScope, page, block) {
+      const response = await fetch(`/api/universal/tours/${encodeURIComponent(payload.entityId)}/canonical`, {
+        headers: buildHeaders(state.tenantId),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Save failed', true);
-        return;
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to load tour entity');
       }
-      state.bundle = deepClone(data);
-      renderGroups();
-      fillVariantSelect();
-      syncHeader();
-      setStatus('Editor model saved.');
+
+      const tour = data.tour || {};
+      const content = tour.content_data || {};
+      const entityType = payload.entityType || 'tour';
+
+      state.selected = {
+        mode: entityType,
+        entityId: payload.entityId,
+        entityType,
+        pageKey: payload.pageKey,
+        blockId: payload.blockId,
+        sectionId: payload.sectionId,
+        tour,
+      };
+
+      $('panel-title').textContent = payload.entityLabel || payload.entityTitle || payload.blockLabel || (entityType === 'destination' ? 'Destination' : 'Tour');
+      $('panel-note').textContent = entityType === 'destination'
+        ? 'Editing the destination story at the canonical tour source. Save writes to tours.content_data and immediately resyncs the universal tour page.'
+        : 'Editing the tour at the canonical source. Save writes to the tours table and content_data, then resyncs the universal page immediately.';
+      $('panel-page-pill').textContent = `Page: ${page?.title || page?.page_key || payload.pageKey}`;
+      $('panel-block-pill').textContent = entityType === 'destination' ? 'Entity: Destination' : 'Entity: Tour';
+      $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
+
+      const form = $('panel-form');
+      form.innerHTML = '';
+
+      if (entityType === 'destination') {
+        form.appendChild(buildField('Destination Name', 'field-destination-name', content.destination_name || payload.entityTitle || payload.entityLabel || ''));
+        form.appendChild(buildField('Destination Summary', 'field-destination-summary', content.destination_summary || payload.entityBody || '', true));
+        form.appendChild(buildField('Destination Image URL', 'field-destination-image', content.destination_image || payload.entityImage || ''));
+      } else {
+        const galleryImages = Array.isArray(content.gallery_images) ? content.gallery_images : [];
+        const resolveGallerySrc = (entry) => typeof entry === 'string' ? entry : entry?.src || '';
+        form.appendChild(buildField('Tour Title', 'field-title', tour.title || content.tour_name || payload.entityTitle || payload.entityLabel || ''));
+        form.appendChild(buildField('Tour Summary', 'field-body', content.hero_desc || content.description || content.tour_desc || payload.entityBody || '', true));
+        form.appendChild(buildField('Destination Name', 'field-destination-name', content.destination_name || ''));
+        form.appendChild(buildField('Hero Image URL', 'field-image', content.hero_image || payload.entityImage || ''));
+        form.appendChild(buildField('Gallery Image 1', 'field-gallery-1', resolveGallerySrc(galleryImages[0])));
+        form.appendChild(buildField('Gallery Image 2', 'field-gallery-2', resolveGallerySrc(galleryImages[1])));
+        form.appendChild(buildField('Gallery Image 3', 'field-gallery-3', resolveGallerySrc(galleryImages[2])));
+      }
+
+      openPanel();
     }
 
-    async function runBootstrap() {
-      const description = $('bootstrap-description').value.trim();
-      if (!description) {
-        setStatus('Bootstrap description is required', true);
-        return;
-      }
-      setStatus('Running onboarding bootstrap...');
-      const res = await fetch('/api/universal/site/bootstrap', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': state.tenantId,
-        },
-        body: JSON.stringify({
-          description,
-          site_name: $('bootstrap-site-name').value.trim(),
-          persist: $('bootstrap-persist').value === 'true',
-        }),
+    async function openHotelEntityEditor(payload, managementScope, page, block) {
+      const response = await fetch(`/api/universal/hotels/${encodeURIComponent(payload.entityId)}`, {
+        headers: buildHeaders(state.tenantId),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Bootstrap failed', true);
-        return;
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to load hotel entity');
       }
-      state.bundle = deepClone(data);
-      renderGroups();
-      fillVariantSelect();
-      syncHeader();
-      setStatus(`Bootstrap completed. ${data.recommendation ? data.recommendation.variant_label : ''}`);
+
+      const hotel = data.hotel || {};
+      state.selected = {
+        mode: 'hotel',
+        entityId: hotel.id,
+        entityType: 'hotel',
+        pageKey: payload.pageKey,
+        blockId: payload.blockId,
+        sectionId: payload.sectionId,
+        hotel,
+      };
+
+      $('panel-title').textContent = hotel.name || payload.entityLabel || payload.blockLabel || 'Hotel';
+      $('panel-note').textContent = 'Editing the hotel module directly. This now saves to the temporary hotel backend entity instead of the tour override layer.';
+      $('panel-page-pill').textContent = `Page: ${page?.title || page?.page_key || payload.pageKey}`;
+      $('panel-block-pill').textContent = 'Entity: Hotel';
+      $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
+
+      const form = $('panel-form');
+      form.innerHTML = '';
+      form.appendChild(buildField('Hotel Name', 'field-title', hotel.name || ''));
+      form.appendChild(buildField('Hotel Description', 'field-body', hotel.description || '', true));
+      form.appendChild(buildField('Address', 'field-address', hotel.address || ''));
+      form.appendChild(buildField('Primary Gallery Image', 'field-image', hotel.gallery?.[0]?.src || payload.entityImage || ''));
+      form.appendChild(buildField('Secondary Gallery Image', 'field-image-2', hotel.gallery?.[1]?.src || ''));
+
+      openPanel();
     }
 
-    async function applyVariant() {
-      const nextVariant = $('variant-select').value;
-      if (!nextVariant) return;
-      setStatus('Applying variant switch...');
-      const res = await fetch('/api/universal/site/config', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': state.tenantId,
-        },
-        body: JSON.stringify({ site: { variant_key: nextVariant } }),
+    function openSystemPanel() {
+      const site = state.bundle?.site || {};
+      const theme = state.bundle?.theme || {};
+      const ui = theme.ui || {};
+      const headerUi = ui.header || {};
+      const heroUi = ui.hero || {};
+      const footerUi = ui.footer || {};
+      const floatingUi = ui.floating || {};
+      const socialRailUi = ui.socialRail || {};
+      const menuDrawerUi = ui.menuDrawer || {};
+      const contacts = state.bundle?.contacts || { contactForm: {}, channels: {} };
+      const menuItems = Array.isArray(state.bundle?.menu) ? state.bundle.menu : (state.bundle?.menu?.items || []);
+      const editablePages = getPages().filter((page) => page.page_type !== 'system');
+      const pageOptions = getPages()
+        .filter((page) => page.page_type !== 'system')
+        .map((page) => ({ value: page.page_key, label: page.title || page.page_key }));
+      const homePage = getPageByKey('home');
+      const toursPage = getPageByKey('tours');
+      const destinationsPage = getPageByKey('destinations');
+      const accommodationPage = getPageByKey('accommodation');
+      const termsPage = getPageByKey('terms');
+      const privacyPage = getPageByKey('privacy');
+      const contactPage = getPageByKey('contact-us') || getPageByKey('contact');
+      const termsBlock = getPrimaryPageBodyBlock(termsPage);
+      const privacyBlock = getPrimaryPageBodyBlock(privacyPage);
+      const contactBlock = getPrimaryPageBodyBlock(contactPage);
+      const findMenuItem = (key) => menuItems.find((item) => item.item_key === key) || {};
+
+      state.selected = {
+        mode: 'system',
+      };
+
+      $('panel-title').textContent = 'System Panel';
+      $('panel-note').textContent = 'System-level settings live here: legal pages, contact-us, visibility toggles, and lightweight site controls. This stays separate from dopamine quick edit.';
+      $('panel-page-pill').textContent = 'Mode: System';
+      $('panel-block-pill').textContent = 'Scope: Legal + Contact';
+      $('panel-scope-pill').textContent = 'Manage: System';
+
+      const form = $('panel-form');
+      form.innerHTML = '';
+      form.appendChild(buildSectionHeading('Brand', 'Core tenant identity, typography, and home routing.'));
+      form.appendChild(buildField('Site Name', 'system-site-name', site.site_name || ''));
+      form.appendChild(buildField('Default Language', 'system-default-lang', site.default_lang || 'en'));
+      form.appendChild(buildSelectField('Home Page', 'system-home-page', pageOptions, site.home_page_key || state.activeSlug));
+      form.appendChild(buildField('Logo URL', 'system-logo-url', theme.logoUrl || ''));
+      form.appendChild(buildField('Heading Font', 'system-font-heading', theme.fontHeading || ''));
+      form.appendChild(buildField('Body Font', 'system-font-body', theme.fontBody || ''));
+      form.appendChild(buildField('Book Now Label Override', 'system-book-now-label', ui.bookNowLabel || ''));
+
+      form.appendChild(buildSectionHeading('Theme Colors', 'Visual tokens applied across the storefront shell.'));
+      form.appendChild(buildField('Theme Primary Color', 'system-theme-primary', theme.colorPrimary || ''));
+      form.appendChild(buildField('Theme Secondary Color', 'system-theme-secondary', theme.colorSecondary || ''));
+      form.appendChild(buildField('Theme Accent Color', 'system-theme-accent', theme.colorAccent || ''));
+      form.appendChild(buildField('Theme Surface Color', 'system-theme-surface', theme.colorSurface || ''));
+      form.appendChild(buildField('Theme Text Color', 'system-theme-text', theme.colorText || ''));
+
+      form.appendChild(buildSectionHeading('Header', 'Top navigation chrome, CTA behavior, and sticky state.'));
+      form.appendChild(buildToggleField('Show Menu Button', 'system-header-show-menu', headerUi.showMenuButton !== false));
+      form.appendChild(buildToggleField('Show Language Chip', 'system-header-show-language', headerUi.showLanguageChip !== false));
+      form.appendChild(buildField('Language Chip Label', 'system-header-language-label', headerUi.languageLabel || 'EN'));
+      form.appendChild(buildToggleField('Show Login Link', 'system-header-show-login', headerUi.showLoginLink !== false));
+      form.appendChild(buildField('Login Label', 'system-header-login-label', headerUi.loginLabel || 'Login'));
+      form.appendChild(buildField('Login Href', 'system-header-login-href', headerUi.loginHref || ''));
+      form.appendChild(buildToggleField('Show Header Book Now', 'system-header-show-book-now', headerUi.showBookNowButton !== false));
+      form.appendChild(buildToggleField('Solid Header On Scroll', 'system-header-solid-scroll', headerUi.solidOnScroll !== false));
+
+      form.appendChild(buildSectionHeading('Hero', 'Editorial shell toggles for map link, shortcuts, and search bar.'));
+      form.appendChild(buildToggleField('Show Hero Map Link', 'system-hero-show-map', heroUi.showMapLink !== false));
+      form.appendChild(buildField('Hero Map Label', 'system-hero-map-label', heroUi.mapLinkLabel || 'View map'));
+      form.appendChild(buildField('Hero Map Href', 'system-hero-map-href', heroUi.mapLinkHref || '#section-destinations'));
+      form.appendChild(buildToggleField('Show Hero Module Shortcuts', 'system-hero-show-shortcuts', heroUi.showModuleShortcuts !== false));
+      form.appendChild(buildToggleField('Show Hero Search Panel', 'system-hero-show-search', heroUi.showSearchPanel !== false));
+      form.appendChild(buildField('Hero Search Button Label', 'system-hero-search-label', heroUi.searchButtonLabel || 'Search'));
+      form.appendChild(buildToggleField('Show Hero Secondary CTA', 'system-hero-show-secondary-cta', heroUi.showSecondaryCta !== false));
+
+      form.appendChild(buildSectionHeading('Floating Controls', 'Book-now reveal and floating contact utilities.'));
+      form.appendChild(buildToggleField('Show Floating Book Now', 'system-floating-show-book-now', floatingUi.showBookNow !== false));
+      form.appendChild(buildToggleField('Reveal Floating Book Now On Scroll', 'system-floating-reveal-scroll', floatingUi.revealOnScroll !== false));
+      form.appendChild(buildToggleField('Show Floating Contact Dock', 'system-floating-show-contact-dock', Boolean(floatingUi.showContactDock)));
+      form.appendChild(buildToggleField('Floating Phone Button', 'system-floating-show-phone', floatingUi.showPhone !== false));
+      form.appendChild(buildToggleField('Floating Email Button', 'system-floating-show-email', floatingUi.showEmail !== false));
+      form.appendChild(buildToggleField('Floating WhatsApp Button', 'system-floating-show-whatsapp', floatingUi.showWhatsapp !== false));
+      form.appendChild(buildToggleField('Floating Instagram Button', 'system-floating-show-instagram', floatingUi.showInstagram !== false));
+
+      form.appendChild(buildSectionHeading('Footer And Social', 'Lower chrome, social rail, and footer sections.'));
+      form.appendChild(buildToggleField('Show Social Rail', 'system-social-rail-visible', socialRailUi.visible !== false));
+      form.appendChild(buildField('Menu Drawer Title', 'system-menu-drawer-title', menuDrawerUi.title || 'Curated Menu'));
+      form.appendChild(buildField('Footer Kicker Text', 'system-footer-kicker', footerUi.kickerText || 'Private journeys, quietly crafted'));
+      form.appendChild(buildToggleField('Show Footer Navigation', 'system-footer-show-navigation', footerUi.showNavigation !== false));
+      form.appendChild(buildToggleField('Show Footer Contacts', 'system-footer-show-contacts', footerUi.showContacts !== false));
+      form.appendChild(buildToggleField('Show Footer Socials', 'system-footer-show-socials', footerUi.showSocials !== false));
+      form.appendChild(buildToggleField('Show Footer Legal Links', 'system-footer-show-legal', footerUi.showLegalLinks !== false));
+
+      form.appendChild(buildSectionHeading('Navigation Tabs', 'Rename and toggle individual menu tabs without leaving the preview-first admin.'));
+      menuItems.forEach((item) => {
+        const suffix = toDomSuffix(item.item_key || item.page_key || item.id);
+        form.appendChild(buildField(`Menu Label: ${item.item_key || item.page_key || item.id}`, `system-menu-label-${suffix}`, item.label || ''));
+        form.appendChild(buildToggleField(`Menu Tab Visible: ${item.item_key || item.page_key || item.id}`, `system-menu-visible-${suffix}`, item.visible !== false));
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Variant switch failed', true);
+
+      form.appendChild(buildSectionHeading('SEO', 'Homepage metadata used by the storefront shell and crawlers.'));
+      form.appendChild(buildField('Home SEO Title', 'system-home-seo-title', homePage?.seo?.title || ''));
+      form.appendChild(buildField('Home SEO Description', 'system-home-seo-description', homePage?.seo?.description || '', true));
+      form.appendChild(buildField('Home SEO OG Image', 'system-home-seo-og-image', homePage?.seo?.og_image || ''));
+
+      form.appendChild(buildSectionHeading('Page Visibility', 'Toggle which pages remain active in the public storefront.'));
+      editablePages.forEach((page) => {
+        form.appendChild(buildToggleField(`Page Visible: ${page.title || page.page_key}`, `system-page-visible-${toDomSuffix(page.page_key)}`, page.visible !== false));
+      });
+
+      form.appendChild(buildSectionHeading('Contact System', 'Global contact form and channel wiring.'));
+      form.appendChild(buildToggleField('Contact Form Enabled', 'system-contact-form-enabled', contacts.contactForm?.enabled));
+      form.appendChild(buildField('Contact Form Label', 'system-contact-form-label', contacts.contactForm?.label || ''));
+      form.appendChild(buildField('Contact Form Endpoint', 'system-contact-form-endpoint', contacts.contactForm?.endpoint || ''));
+      form.appendChild(buildToggleField('Phone Enabled', 'system-phone-enabled', contacts.channels?.phone?.enabled));
+      form.appendChild(buildField('Phone Number', 'system-phone-value', contacts.channels?.phone?.value || ''));
+      form.appendChild(buildToggleField('Email Enabled', 'system-email-enabled', contacts.channels?.email?.enabled));
+      form.appendChild(buildField('Email Address', 'system-email-value', contacts.channels?.email?.value || ''));
+      form.appendChild(buildToggleField('WhatsApp Enabled', 'system-whatsapp-enabled', contacts.channels?.whatsapp?.enabled));
+      form.appendChild(buildField('WhatsApp Number / URL', 'system-whatsapp-value', contacts.channels?.whatsapp?.value || ''));
+      form.appendChild(buildToggleField('Zalo Enabled', 'system-zalo-enabled', contacts.channels?.zalo?.enabled));
+      form.appendChild(buildField('Zalo URL', 'system-zalo-value', contacts.channels?.zalo?.value || ''));
+      form.appendChild(buildToggleField('Address Enabled', 'system-address-enabled', contacts.channels?.address?.enabled));
+      form.appendChild(buildField('Footer Address', 'system-address-value', contacts.channels?.address?.value || ''));
+      form.appendChild(buildField('Address Map URL', 'system-address-map-url', contacts.channels?.address?.mapUrl || ''));
+      form.appendChild(buildToggleField('Instagram Enabled', 'system-instagram-enabled', contacts.channels?.instagram?.enabled));
+      form.appendChild(buildField('Instagram URL', 'system-instagram-value', contacts.channels?.instagram?.value || ''));
+      form.appendChild(buildToggleField('Facebook Enabled', 'system-facebook-enabled', contacts.channels?.facebook?.enabled));
+      form.appendChild(buildField('Facebook URL', 'system-facebook-value', contacts.channels?.facebook?.value || ''));
+      form.appendChild(buildToggleField('YouTube Enabled', 'system-youtube-enabled', contacts.channels?.youtube?.enabled));
+      form.appendChild(buildField('YouTube URL', 'system-youtube-value', contacts.channels?.youtube?.value || ''));
+
+      form.appendChild(buildSectionHeading('Legal And Contact Pages', 'Page-level content that should stay outside quick edit.'));
+      form.appendChild(buildToggleField('Contact Page Visible', 'system-contact-page-visible', contactPage?.visible));
+      form.appendChild(buildField('Contact Page Intro', 'system-contact-page-body', contactBlock?.content?.body || '', true));
+      form.appendChild(buildToggleField('Terms Visible', 'system-terms-visible', termsPage?.visible));
+      form.appendChild(buildField('Terms Body', 'system-terms-body', termsBlock?.content?.body || '', true));
+      form.appendChild(buildToggleField('Privacy Visible', 'system-privacy-visible', privacyPage?.visible));
+      form.appendChild(buildField('Privacy Body', 'system-privacy-body', privacyBlock?.content?.body || '', true));
+
+      openPanel();
+    }
+
+    function openContactEntityEditor(payload, managementScope, page, block) {
+      const channelKey = payload.entityChannelKey || payload.entityId;
+      const channel = state.bundle?.contacts?.channels?.[channelKey];
+      if (!channel) {
+        throw new Error('Contact channel no longer exists. Reload the preview and try again.');
+      }
+
+      state.selected = {
+        mode: 'contact',
+        entityId: channelKey,
+        entityType: 'contact',
+        pageKey: payload.pageKey,
+        blockId: payload.blockId,
+        sectionId: payload.sectionId,
+      };
+
+      $('panel-title').textContent = payload.entityLabel || channelKey;
+      $('panel-note').textContent = 'Editing the exact contact channel behind this card. Save updates the tenant contact record, not the generic page copy.';
+      $('panel-page-pill').textContent = `Page: ${page?.title || page?.page_key || payload.pageKey}`;
+      $('panel-block-pill').textContent = `Entity: Contact`;
+      $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
+
+      const form = $('panel-form');
+      form.innerHTML = '';
+      form.appendChild(buildField('Channel Label', 'field-title', payload.entityLabel || channelKey));
+      form.appendChild(buildField('Channel Value', 'field-value', channel.value || payload.entityValue || ''));
+      form.appendChild(buildToggleField('Channel Enabled', 'field-enabled', channel.enabled));
+
+      openPanel();
+    }
+
+    async function openEditor(payload) {
+      const page = state.bundle?.editor_model?.pages?.by_key?.[payload.pageKey];
+      const block = getBlock(payload.pageKey, payload.blockId);
+      const managementScope = resolveManagementScope(payload, page, block);
+
+      if (payload.entityId && payload.entityType === 'hotel') {
+        await openHotelEntityEditor(payload, managementScope, page, block);
         return;
       }
-      state.bundle = deepClone(data);
-      renderGroups();
-      fillVariantSelect();
-      syncHeader();
-      setStatus(`Variant switched to ${nextVariant}.`);
+
+      if (payload.entityId && payload.entityType === 'tour') {
+        await openTourEntityEditor(payload, managementScope, page, block);
+        return;
+      }
+
+      if (payload.entityId && payload.entityType === 'destination') {
+        await openTourEntityEditor(payload, managementScope, page, block);
+        return;
+      }
+
+      if ((payload.entityType || '').toLowerCase() === 'contact' || payload.entityChannelKey) {
+        openContactEntityEditor(payload, managementScope, page, block);
+        return;
+      }
+
+      const bindings = getEditBindings(block);
+
+      if (!page || !block || !bindings) {
+        setStatus('This block is not wired for quick edit yet.', true);
+        return;
+      }
+
+      openBlockEditor(payload, page, block, bindings, managementScope);
     }
 
-    function copyModel() {
-      if (!state.bundle) return;
-      navigator.clipboard.writeText(JSON.stringify(state.bundle.editor_model, null, 2));
-      setStatus('Editor model copied to clipboard.');
+    async function loadBundle() {
+      state.tenantId = $('tenant-id').value.trim() || state.tenantId;
+      if (!state.tenantId) {
+        setStatus('Tenant ID is required.', true);
+        return false;
+      }
+
+      localStorage.setItem('tam_tenant_id', state.tenantId);
+      setStatus('Loading storefront schema...');
+
+      const response = await fetch('/api/universal/site/config', {
+        headers: buildHeaders(state.tenantId),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || 'Failed to load universal site config');
+      }
+
+      state.bundle = payload;
+      applyAdminTheme();
+      fillPageSelect();
+      updatePublicLink();
+      setStatus(`Loaded ${state.bundle.site?.site_name || state.tenantId} with ${getActiveTheme().label || 'default theme'}.`);
+      return true;
     }
 
-    $('btn-load').addEventListener('click', loadConfig);
-    $('btn-reload').addEventListener('click', loadConfig);
-    $('btn-save').addEventListener('click', saveModel);
-    $('btn-bootstrap').addEventListener('click', runBootstrap);
-    $('btn-apply-variant').addEventListener('click', applyVariant);
-    $('btn-media-close').addEventListener('click', closeMediaLibrary);
-    $('btn-media-refresh').addEventListener('click', () => {
-      fetchTenantAssets(true)
-        .then(() => {
-          renderMediaLibrary();
-          setStatus('Tenant media library refreshed.');
-        })
-        .catch((error) => setStatus(error.message || 'Failed to refresh media library', true));
+    async function renderPreview() {
+      if (!state.bundle && !(await loadBundle())) return;
+
+      const response = await fetch(`/api/universal/render/${encodeURIComponent(state.tenantId)}?admin=1&slug=${encodeURIComponent(state.activeSlug)}`, {
+        headers: buildHeaders(state.tenantId),
+      });
+      const html = await response.text();
+
+      if (!response.ok) {
+        throw new Error(html || 'Failed to render storefront preview');
+      }
+
+      $('preview-frame').srcdoc = html;
+      setStatus(`Previewing ${state.activeSlug} with ${getActiveTheme().label || 'default theme'}.`);
+    }
+
+    async function saveSelection() {
+      if (!state.selected || !state.bundle) return;
+
+      state.pendingPreviewFocus = captureSelectionFocus(state.selected);
+      state.pendingPreviewScrollY = capturePreviewScroll();
+
+      if (state.selected.mode === 'block') {
+        const block = getBlock(state.selected.pageKey, state.selected.blockId);
+        if (!block) {
+          setStatus('Selected block no longer exists.', true);
+          return;
+        }
+
+        const content = block.content || (block.content = {});
+        const { bindings } = state.selected;
+        setValueAtPath(content, bindings.titlePath, $('field-title')?.value?.trim() || '');
+        setValueAtPath(content, bindings.bodyPath, $('field-body')?.value?.trim() || '');
+        if (bindings.imagePath) {
+          setValueAtPath(content, bindings.imagePath, $('field-image')?.value?.trim() || '');
+        }
+
+        setStatus('Saving storefront block...');
+        const response = await fetch('/api/universal/site/config', {
+          method: 'PATCH',
+          headers: {
+            ...buildHeaders(state.tenantId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ editor_model: state.bundle.editor_model }),
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Failed to save storefront block');
+        }
+
+        state.bundle = payload;
+      } else if (state.selected.mode === 'contact') {
+        const nextContacts = JSON.parse(JSON.stringify(state.bundle.contacts || { channels: {} }));
+        const channel = nextContacts.channels?.[state.selected.entityId];
+        if (!channel) {
+          throw new Error('Contact channel no longer exists. Reload the preview and try again.');
+        }
+
+        channel.value = $('field-value')?.value?.trim() || '';
+        channel.enabled = Boolean($('field-enabled')?.checked);
+
+        setStatus('Saving contact channel...');
+        const response = await fetch('/api/universal/site/contact', {
+          method: 'PUT',
+          headers: {
+            ...buildHeaders(state.tenantId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ contacts: nextContacts }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Failed to save contact channel');
+        }
+      } else if (state.selected.mode === 'hotel') {
+        const gallery = [$('field-image')?.value?.trim(), $('field-image-2')?.value?.trim()]
+          .filter(Boolean)
+          .map((src, index) => ({
+            id: `${state.selected.entityId}-gallery-${index + 1}`,
+            src,
+            alt: $('field-title')?.value?.trim() || '',
+            caption: index === 0 ? $('field-title')?.value?.trim() || '' : `Gallery ${index + 1}`,
+          }));
+
+        setStatus('Saving hotel entity...');
+        const response = await fetch(`/api/universal/hotels/${encodeURIComponent(state.selected.entityId)}`, {
+          method: 'PATCH',
+          headers: {
+            ...buildHeaders(state.tenantId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: $('field-title')?.value?.trim() || '',
+            description: $('field-body')?.value?.trim() || '',
+            address: $('field-address')?.value?.trim() || '',
+            gallery,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Failed to save hotel entity');
+        }
+      } else if (state.selected.mode === 'tour' || state.selected.mode === 'destination') {
+        const nextContentData = state.selected.tour?.content_data ? JSON.parse(JSON.stringify(state.selected.tour.content_data)) : {};
+        if (state.selected.mode === 'destination') {
+          nextContentData.destination_name = $('field-destination-name')?.value?.trim() || '';
+          nextContentData.destination_summary = $('field-destination-summary')?.value?.trim() || '';
+          nextContentData.destination_image = $('field-destination-image')?.value?.trim() || '';
+        } else {
+          const gallery = [$('field-gallery-1')?.value?.trim(), $('field-gallery-2')?.value?.trim(), $('field-gallery-3')?.value?.trim()]
+            .filter(Boolean)
+            .map((src, index) => ({
+              src,
+              alt: $('field-title')?.value?.trim() || `Gallery image ${index + 1}`,
+              caption: index === 0 ? $('field-destination-name')?.value?.trim() || '' : '',
+            }));
+          nextContentData.tour_name = $('field-title')?.value?.trim() || '';
+          nextContentData.hero_desc = $('field-body')?.value?.trim() || '';
+          nextContentData.description = $('field-body')?.value?.trim() || '';
+          nextContentData.tour_desc = $('field-body')?.value?.trim() || '';
+          nextContentData.destination_name = $('field-destination-name')?.value?.trim() || '';
+          nextContentData.hero_image = $('field-image')?.value?.trim() || '';
+          nextContentData.gallery_images = gallery;
+        }
+
+        setStatus(state.selected.mode === 'destination' ? 'Saving destination source...' : 'Saving canonical tour source...');
+        const response = await fetch(`/api/universal/tours/${encodeURIComponent(state.selected.entityId)}/canonical`, {
+          method: 'PATCH',
+          headers: {
+            ...buildHeaders(state.tenantId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: state.selected.mode === 'tour' ? $('field-title')?.value?.trim() || '' : undefined,
+            content_data: nextContentData,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Failed to save canonical tour source');
+        }
+        state.bundle = await (await fetch('/api/universal/site/config', { headers: buildHeaders(state.tenantId) })).json();
+      } else if (state.selected.mode === 'system') {
+        const nextPagesMap = new Map();
+        const termsPage = getPageByKey('terms');
+        const privacyPage = getPageByKey('privacy');
+        const contactPage = getPageByKey('contact-us') || getPageByKey('contact');
+        const homePage = getPageByKey('home');
+        const menuItems = JSON.parse(JSON.stringify(Array.isArray(state.bundle?.menu) ? state.bundle.menu : (state.bundle?.menu?.items || [])));
+        const editablePages = getPages().filter((page) => page.page_type !== 'system');
+        const upsertPagePatch = (page, patch) => {
+          if (!page?.id) return;
+          nextPagesMap.set(page.id, { ...(nextPagesMap.get(page.id) || { id: page.id }), ...patch });
+        };
+
+        menuItems.forEach((item) => {
+          const suffix = toDomSuffix(item.item_key || item.page_key || item.id);
+          const labelInput = $(`system-menu-label-${suffix}`);
+          const visibleInput = $(`system-menu-visible-${suffix}`);
+          if (labelInput) item.label = labelInput.value.trim() || item.label || item.page_key || item.item_key || 'Page';
+          if (visibleInput) item.visible = Boolean(visibleInput.checked);
+        });
+
+        if (homePage) {
+          upsertPagePatch(homePage, {
+            seo: {
+              ...(homePage.seo || {}),
+              title: $('system-home-seo-title')?.value?.trim() || '',
+              description: $('system-home-seo-description')?.value?.trim() || '',
+              og_image: $('system-home-seo-og-image')?.value?.trim() || '',
+            },
+          });
+        }
+
+        editablePages.forEach((page) => {
+          const toggle = $(`system-page-visible-${toDomSuffix(page.page_key)}`);
+          if (toggle) upsertPagePatch(page, { visible: Boolean(toggle.checked) });
+        });
+
+        if (termsPage) {
+          const termsBlocks = JSON.parse(JSON.stringify(Array.isArray(termsPage.blocks) ? termsPage.blocks : Object.values(termsPage.blocks || {})));
+          const termsBlock = termsBlocks.find((block) => ['legal', 'rich_text'].includes(block?.type));
+          if (termsBlock) termsBlock.content = { ...(termsBlock.content || {}), body: $('system-terms-body')?.value?.trim() || '' };
+          upsertPagePatch(termsPage, { visible: Boolean($('system-terms-visible')?.checked), blocks: termsBlocks });
+        }
+
+        if (privacyPage) {
+          const privacyBlocks = JSON.parse(JSON.stringify(Array.isArray(privacyPage.blocks) ? privacyPage.blocks : Object.values(privacyPage.blocks || {})));
+          const privacyBlock = privacyBlocks.find((block) => ['legal', 'rich_text'].includes(block?.type));
+          if (privacyBlock) privacyBlock.content = { ...(privacyBlock.content || {}), body: $('system-privacy-body')?.value?.trim() || '' };
+          upsertPagePatch(privacyPage, { visible: Boolean($('system-privacy-visible')?.checked), blocks: privacyBlocks });
+        }
+
+        if (contactPage) {
+          const contactBlocks = JSON.parse(JSON.stringify(Array.isArray(contactPage.blocks) ? contactPage.blocks : Object.values(contactPage.blocks || {})));
+          const contactBlock = contactBlocks.find((block) => ['contact', 'rich_text'].includes(block?.type));
+          if (contactBlock) contactBlock.content = { ...(contactBlock.content || {}), body: $('system-contact-page-body')?.value?.trim() || '' };
+          upsertPagePatch(contactPage, { visible: Boolean($('system-contact-page-visible')?.checked), blocks: contactBlocks });
+        }
+
+        const nextContacts = JSON.parse(JSON.stringify(state.bundle.contacts || { contactForm: {}, channels: {} }));
+        nextContacts.contactForm = {
+          ...(nextContacts.contactForm || {}),
+          enabled: Boolean($('system-contact-form-enabled')?.checked),
+          label: $('system-contact-form-label')?.value?.trim() || '',
+          endpoint: $('system-contact-form-endpoint')?.value?.trim() || '',
+        };
+        nextContacts.channels = nextContacts.channels || {};
+        nextContacts.channels.phone = {
+          ...(nextContacts.channels.phone || {}),
+          enabled: Boolean($('system-phone-enabled')?.checked),
+          value: $('system-phone-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.email = {
+          ...(nextContacts.channels.email || {}),
+          enabled: Boolean($('system-email-enabled')?.checked),
+          value: $('system-email-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.whatsapp = {
+          ...(nextContacts.channels.whatsapp || {}),
+          enabled: Boolean($('system-whatsapp-enabled')?.checked),
+          value: $('system-whatsapp-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.zalo = {
+          ...(nextContacts.channels.zalo || {}),
+          enabled: Boolean($('system-zalo-enabled')?.checked),
+          value: $('system-zalo-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.address = {
+          ...(nextContacts.channels.address || {}),
+          enabled: Boolean($('system-address-enabled')?.checked),
+          value: $('system-address-value')?.value?.trim() || '',
+          mapUrl: $('system-address-map-url')?.value?.trim() || '',
+        };
+        nextContacts.channels.instagram = {
+          ...(nextContacts.channels.instagram || {}),
+          enabled: Boolean($('system-instagram-enabled')?.checked),
+          value: $('system-instagram-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.facebook = {
+          ...(nextContacts.channels.facebook || {}),
+          enabled: Boolean($('system-facebook-enabled')?.checked),
+          value: $('system-facebook-value')?.value?.trim() || '',
+        };
+        nextContacts.channels.youtube = {
+          ...(nextContacts.channels.youtube || {}),
+          enabled: Boolean($('system-youtube-enabled')?.checked),
+          value: $('system-youtube-value')?.value?.trim() || '',
+        };
+
+        const nextTheme = {
+          ...(state.bundle.theme || {}),
+          logoUrl: $('system-logo-url')?.value?.trim() || '',
+          fontHeading: $('system-font-heading')?.value?.trim() || '',
+          fontBody: $('system-font-body')?.value?.trim() || '',
+          colorPrimary: $('system-theme-primary')?.value?.trim() || (state.bundle.theme?.colorPrimary || ''),
+          colorSecondary: $('system-theme-secondary')?.value?.trim() || (state.bundle.theme?.colorSecondary || ''),
+          colorAccent: $('system-theme-accent')?.value?.trim() || (state.bundle.theme?.colorAccent || ''),
+          colorSurface: $('system-theme-surface')?.value?.trim() || (state.bundle.theme?.colorSurface || ''),
+          colorText: $('system-theme-text')?.value?.trim() || (state.bundle.theme?.colorText || ''),
+          ui: {
+            ...(state.bundle.theme?.ui || {}),
+            bookNowLabel: $('system-book-now-label')?.value?.trim() || '',
+            header: {
+              ...(state.bundle.theme?.ui?.header || {}),
+              showMenuButton: Boolean($('system-header-show-menu')?.checked),
+              showLanguageChip: Boolean($('system-header-show-language')?.checked),
+              languageLabel: $('system-header-language-label')?.value?.trim() || 'EN',
+              showLoginLink: Boolean($('system-header-show-login')?.checked),
+              loginLabel: $('system-header-login-label')?.value?.trim() || 'Login',
+              loginHref: $('system-header-login-href')?.value?.trim() || '',
+              showBookNowButton: Boolean($('system-header-show-book-now')?.checked),
+              solidOnScroll: Boolean($('system-header-solid-scroll')?.checked),
+            },
+            hero: {
+              ...(state.bundle.theme?.ui?.hero || {}),
+              showMapLink: Boolean($('system-hero-show-map')?.checked),
+              mapLinkLabel: $('system-hero-map-label')?.value?.trim() || 'View map',
+              mapLinkHref: $('system-hero-map-href')?.value?.trim() || '#section-destinations',
+              showModuleShortcuts: Boolean($('system-hero-show-shortcuts')?.checked),
+              showSearchPanel: Boolean($('system-hero-show-search')?.checked),
+              searchButtonLabel: $('system-hero-search-label')?.value?.trim() || 'Search',
+              showSecondaryCta: Boolean($('system-hero-show-secondary-cta')?.checked),
+            },
+            socialRail: {
+              ...(state.bundle.theme?.ui?.socialRail || {}),
+              visible: Boolean($('system-social-rail-visible')?.checked),
+            },
+            menuDrawer: {
+              ...(state.bundle.theme?.ui?.menuDrawer || {}),
+              title: $('system-menu-drawer-title')?.value?.trim() || 'Curated Menu',
+            },
+            floating: {
+              ...(state.bundle.theme?.ui?.floating || {}),
+              showBookNow: Boolean($('system-floating-show-book-now')?.checked),
+              revealOnScroll: Boolean($('system-floating-reveal-scroll')?.checked),
+              showContactDock: Boolean($('system-floating-show-contact-dock')?.checked),
+              showPhone: Boolean($('system-floating-show-phone')?.checked),
+              showEmail: Boolean($('system-floating-show-email')?.checked),
+              showWhatsapp: Boolean($('system-floating-show-whatsapp')?.checked),
+              showInstagram: Boolean($('system-floating-show-instagram')?.checked),
+            },
+            footer: {
+              ...(state.bundle.theme?.ui?.footer || {}),
+              kickerText: $('system-footer-kicker')?.value?.trim() || 'Private journeys, quietly crafted',
+              showNavigation: Boolean($('system-footer-show-navigation')?.checked),
+              showContacts: Boolean($('system-footer-show-contacts')?.checked),
+              showSocials: Boolean($('system-footer-show-socials')?.checked),
+              showLegalLinks: Boolean($('system-footer-show-legal')?.checked),
+            },
+          },
+        };
+        const nextPages = Array.from(nextPagesMap.values());
+
+        setStatus('Saving system settings...');
+        const response = await fetch('/api/universal/site/config', {
+          method: 'PATCH',
+          headers: {
+            ...buildHeaders(state.tenantId),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            site: {
+              site_name: $('system-site-name')?.value?.trim() || '',
+              default_lang: $('system-default-lang')?.value?.trim() || 'en',
+              home_page_key: $('system-home-page')?.value || state.activeSlug,
+            },
+            theme: nextTheme,
+            contacts: nextContacts,
+            menu: { items: menuItems },
+            pages: nextPages,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Failed to save system settings');
+        }
+        state.bundle = payload;
+      }
+
+      await loadBundle();
+      closePanel();
+      await renderPreview();
+      setStatus('Saved. Preview returned to the edited entity.');
+    }
+
+    window.addEventListener('message', (event) => {
+      const previewWindow = getPreviewFrameWindow();
+      if (!previewWindow || event.source !== previewWindow) return;
+      if (event.data?.type === 'tam-universal-open-editor') {
+        openEditor(event.data).catch((error) => {
+          setStatus(error.message || 'Failed to open editor', true);
+        });
+      }
     });
-    $('btn-media-upload').addEventListener('click', () => {
-      uploadSelectedMediaFile().catch((error) => setStatus(error.message || 'Upload failed', true));
-    });
-    document.querySelectorAll('[data-media-close="true"]').forEach((node) => {
-      node.addEventListener('click', closeMediaLibrary);
-    });
-    (function init() {
-      const params = new URLSearchParams(location.search);
-      const tid = params.get('tid') || localStorage.getItem('tam_tenant_id') || '';
-      $('tenant-id').value = tid;
-      if (tid) {
-        state.tenantId = tid;
-        loadConfig().catch((error) => setStatus(error.message || 'Failed to initialize', true));
+
+    $('preview-frame').addEventListener('load', handlePreviewFrameLoad);
+
+    $('btn-load').addEventListener('click', async () => {
+      try {
+        await loadBundle();
+        await renderPreview();
+      } catch (error) {
+        setStatus(error.message || 'Failed to reload preview', true);
       }
-    })();
+    });
+
+    $('btn-system-panel').addEventListener('click', () => {
+      try {
+        openSystemPanel();
+      } catch (error) {
+        setStatus(error.message || 'Failed to open system panel', true);
+      }
+    });
+
+    $('page-select').addEventListener('change', async (event) => {
+      state.activeSlug = event.target.value;
+      updatePublicLink();
+      try {
+        await renderPreview();
+      } catch (error) {
+        setStatus(error.message || 'Failed to switch preview page', true);
+      }
+    });
+
+    $('btn-close-panel').addEventListener('click', closePanel);
+    $('panel-backdrop').addEventListener('click', closePanel);
+    $('btn-save').addEventListener('click', async () => {
+      try {
+        await saveSelection();
+      } catch (error) {
+        setStatus(error.message || 'Failed to save changes', true);
+      }
+    });
+
+    (async function init() {
+      state.tenantId = getTenantId();
+      $('tenant-id').value = state.tenantId;
+      try {
+        await loadBundle();
+        const homePage = findPageBySlug(state.bundle?.site?.home_page_key || 'home') || getPages()[0];
+        state.activeSlug = homePage?.slug || homePage?.page_key || 'home';
+        fillPageSelect();
+        updatePublicLink();
+        await renderPreview();
+        if (shouldOpenSystemPanel()) {
+          openSystemPanel();
+        }
+      } catch (error) {
+        setStatus(error.message || 'Failed to initialize preview-first admin', true);
+      }
+    }());
   </script>
 </body>
 </html>

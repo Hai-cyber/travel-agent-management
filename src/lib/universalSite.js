@@ -632,8 +632,8 @@ const VARIANT_DEFINITIONS = [
   }),
   buildTourVariant({
     key: 'tour-luxury',
-    label: 'Luxury Operator',
-    description: 'Editorial travel presentation for premium journey brands.',
+    label: 'Six Senses Immersive Frame',
+    description: 'Default storefront shell for premium journey brands with Six Senses-style editorial chrome.',
     layoutProfile: {
       shell: 'luxury-editorial',
       hero: 'editorial',
@@ -1038,6 +1038,50 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
     fontBody: variant.theme.fontBody,
     radius: variant.theme.radius,
     logoUrl: '',
+    ui: {
+      bookNowLabel: '',
+      header: {
+        showMenuButton: true,
+        showLanguageChip: true,
+        languageLabel: 'EN',
+        showLoginLink: true,
+        loginLabel: 'Login',
+        loginHref: '',
+        showBookNowButton: true,
+        solidOnScroll: true,
+      },
+      hero: {
+        showMapLink: true,
+        mapLinkLabel: 'View map',
+        mapLinkHref: '#section-destinations',
+        showModuleShortcuts: true,
+        showSearchPanel: true,
+        searchButtonLabel: 'Search',
+        showSecondaryCta: true,
+      },
+      socialRail: {
+        visible: true,
+      },
+      menuDrawer: {
+        title: 'Curated Menu',
+      },
+      floating: {
+        showBookNow: true,
+        revealOnScroll: true,
+        showContactDock: false,
+        showPhone: true,
+        showEmail: true,
+        showWhatsapp: true,
+        showInstagram: false,
+      },
+      footer: {
+        kickerText: 'Private journeys, quietly crafted',
+        showNavigation: true,
+        showContacts: true,
+        showSocials: true,
+        showLegalLinks: true,
+      },
+    },
   };
 }
 
@@ -1361,7 +1405,7 @@ export function recommendUniversalVariant(description = '') {
     }
   }
 
-  return (best && best.score > 0) ? best.variant : getVariantByKey('tour-adventure');
+  return (best && best.score > 0) ? best.variant : getVariantByKey('tour-luxury');
 }
 
 function buildBootstrapMediaSet(groupKey, variantKey) {

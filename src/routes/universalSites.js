@@ -15,6 +15,7 @@ import {
   slugify,
 } from '../lib/universalSite.js';
 import { ensureUniversalSiteInitialized, syncUniversalTourPage } from '../lib/universalSiteSync.js';
+import { resolveUniversalTheme } from '../lib/themes/index.js';
 
 const router = new Hono();
 
@@ -39,6 +40,22 @@ function parseJsonSafe(raw, fallback) {
   }
 }
 
+function mergeNestedObjects(base, patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    return base;
+  }
+
+  const output = Array.isArray(base) ? [...base] : { ...(base || {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      output[key] = mergeNestedObjects(output[key], value);
+      continue;
+    }
+    output[key] = value;
+  }
+  return output;
+}
+
 function normalizeSite(siteRow) {
   return siteRow ? {
     tenant_id: siteRow.tenant_id,
@@ -48,6 +65,7 @@ function normalizeSite(siteRow) {
     site_name: siteRow.site_name,
     default_lang: siteRow.default_lang,
     home_page_key: siteRow.home_page_key,
+    current_theme: siteRow.current_theme || '',
     created_at: siteRow.created_at,
     updated_at: siteRow.updated_at,
   } : null;
@@ -92,6 +110,30 @@ function normalizeContacts(row) {
   return parseJsonSafe(row?.channels_json, buildDefaultContacts());
 }
 
+function normalizeHotel(row) {
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    hotel_key: row.hotel_key,
+    tour_id: row.tour_id || '',
+    name: row.name,
+    description: row.description || '',
+    address: row.address || '',
+    gallery: parseJsonSafe(row.gallery_json, []),
+    status: row.status || 'draft',
+    sort_order: Number(row.sort_order || 0),
+    created_at: Number(row.created_at || 0),
+    updated_at: Number(row.updated_at || 0),
+  };
+}
+
+function normalizeTourCanonical(row) {
+  return row ? {
+    ...row,
+    content_data: parseJsonSafe(row.content_data, {}),
+  } : null;
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -99,6 +141,13 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function serializeDataAttributes(attributes) {
+  return Object.entries(attributes || {})
+    .filter(([, value]) => value !== undefined && value !== null && String(value) !== '')
+    .map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+    .join('');
 }
 
 function buildOptimizedImageUrl(source, width = 1280, fit = 'cover') {
@@ -227,12 +276,15 @@ function deriveAccommodationTitle(item, index) {
   return fallbacks[index % fallbacks.length];
 }
 
-function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = new Map()) {
+function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], priceLookup = new Map()) {
   const syncedByTourId = new Map(
     (syncedRows || []).map((row) => {
       const override = parseJsonSafe(row.content_override_json, {});
       return [row.tour_id, { row, override, snapshot: override.sync_snapshot || null }];
     })
+  );
+  const hotelByTourId = new Map(
+    (hotels || []).filter((hotel) => hotel?.tour_id).map((hotel) => [String(hotel.tour_id), hotel])
   );
 
   const items = (tours || []).map((tour, index) => {
@@ -260,6 +312,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
     const href = publicSlug ? buildUniversalPublicPath(tenantId, publicSlug) : buildUniversalPublicPath(tenantId, 'featured-tours');
     const priceFrom = snapshot?.price_from ?? priceLookup.get(tour.id) ?? null;
     const highlights = Array.isArray(snapshot?.highlights) ? snapshot.highlights : [];
+    const hotel = hotelByTourId.get(String(tour.id)) || null;
 
     return {
       tour_id: tour.id,
@@ -274,9 +327,12 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
       price_from: priceFrom,
       href,
       content,
+      override: synced?.override || {},
+      hotel,
       highlights,
       flags,
       created_at: Number(tour.created_at || 0),
+      public_slug: publicSlug || '',
     };
   });
 
@@ -292,6 +348,13 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
         body: normalizeStringValue(item.content?.destination_summary, item.route_label, item.summary),
         image: normalizeStringValue(item.content?.destination_image, item.gallery_images[1]?.src, item.hero_image, LUXURY_SAMPLE_HERO_URL),
         href: item.href,
+        entity_id: item.tour_id,
+        entity_type: 'destination',
+        entity_label: item.destination_title,
+        entity_title: item.destination_title,
+        entity_body: normalizeStringValue(item.content?.destination_summary, item.route_label, item.summary),
+        entity_image: normalizeStringValue(item.content?.destination_image, item.gallery_images[1]?.src, item.hero_image, LUXURY_SAMPLE_HERO_URL),
+        public_slug: item.public_slug,
       })),
     (item) => item.title.toLowerCase()
   ).slice(0, 4);
@@ -299,14 +362,25 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
   const accommodationBase = sortedItems.filter((item) => item.flags.accommodation);
   const accommodationItems = (accommodationBase.length ? accommodationBase : sortedItems.slice(0, 4)).slice(0, 4).map((item, index) => ({
     eyebrow: 'Stay',
-    title: deriveAccommodationTitle(item, index),
+    title: normalizeStringValue(
+      item.hotel?.name,
+      item.override?.accommodation_title,
+      item.override?.hotel_name,
+      deriveAccommodationTitle(item, index)
+    ),
     body: normalizeStringValue(
+      item.hotel?.description,
+      item.override?.accommodation_summary,
+      item.override?.stay_summary,
       item.content?.accommodation_summary,
       item.content?.stay_summary,
       item.summary,
       'Design-led rooms, calmer pacing, and hotel partnerships tuned to the route.'
     ),
     image: normalizeStringValue(
+      Array.isArray(item.hotel?.gallery) ? item.hotel.gallery[0]?.src : '',
+      item.override?.accommodation_image,
+      item.override?.hotel_image,
       item.content?.accommodation_image,
       item.content?.hotel_image,
       item.gallery_images[2]?.src,
@@ -315,6 +389,30 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
     ),
     href: item.href,
     image_layout: 'portrait',
+    address: normalizeStringValue(item.hotel?.address),
+    entity_id: item.hotel?.id || item.tour_id,
+    entity_type: 'hotel',
+    entity_label: normalizeStringValue(item.hotel?.name, item.override?.accommodation_title, item.override?.hotel_name, deriveAccommodationTitle(item, index)),
+    entity_title: normalizeStringValue(item.hotel?.name, item.override?.accommodation_title, item.override?.hotel_name, deriveAccommodationTitle(item, index)),
+    entity_body: normalizeStringValue(
+      item.hotel?.description,
+      item.override?.accommodation_summary,
+      item.override?.stay_summary,
+      item.content?.accommodation_summary,
+      item.content?.stay_summary,
+      item.summary
+    ),
+    entity_image: normalizeStringValue(
+      Array.isArray(item.hotel?.gallery) ? item.hotel.gallery[0]?.src : '',
+      item.override?.accommodation_image,
+      item.override?.hotel_image,
+      item.content?.accommodation_image,
+      item.content?.hotel_image,
+      item.gallery_images[2]?.src,
+      item.gallery_images[1]?.src,
+      item.hero_image
+    ),
+    public_slug: item.public_slug,
   }));
 
   const featuredCollectionImages = uniqueBy(
@@ -337,6 +435,13 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
       image: item.hero_image,
       href: item.href,
       meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
+      entity_id: item.tour_id,
+      entity_type: 'tour',
+      entity_label: item.title,
+      entity_title: item.title,
+      entity_body: item.summary,
+      entity_image: item.hero_image,
+      public_slug: item.public_slug,
     })),
     destination_listing: destinationItems,
     accommodation_listing: accommodationItems,
@@ -351,6 +456,13 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup = 
       image: item.hero_image,
       href: item.href,
       meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
+      entity_id: item.tour_id,
+      entity_type: 'tour',
+      entity_label: item.title,
+      entity_title: item.title,
+      entity_body: item.summary,
+      entity_image: item.hero_image,
+      public_slug: item.public_slug,
     })),
   };
 }
@@ -494,7 +606,7 @@ function renderPreviewHtml(siteBundle, tourPreview) {
 </html>`;
 }
 
-function renderPublicHtml(siteBundle, page, tourPreview) {
+function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const theme = siteBundle.theme || {};
   const site = siteBundle.site || {};
   const tourRuntime = siteBundle.tour_runtime || {};
@@ -509,6 +621,13 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
     .sort((left, right) => Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0));
   const runtime = siteBundle.variant_runtime || {};
   const profile = runtime.layout_profile || {};
+  const activeTheme = resolveUniversalTheme(site, runtime, {
+    escapeHtml,
+    buildUniversalPublicPath,
+    buildResponsiveImageMarkup,
+    normalizeStringValue,
+    clampNumber,
+  });
   const snapshot = tourPreview?.sync_snapshot || null;
   const seo = page?.seo || {};
   const primaryColor = theme.colorPrimary || '#0f5a3b';
@@ -526,7 +645,7 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
   const getPageTitle = (targetPage = page) => targetPage?.seo?.title || snapshot?.title || targetPage?.title || site.site_name || 'Travel Page';
   const getPageDescription = (targetPage = page) => targetPage?.seo?.description || snapshot?.about_section || snapshot?.summary || 'Travel experience page';
-  const isLuxuryShell = profile.shell === 'luxury-editorial';
+  const isLuxuryShell = activeTheme.key === 'six-senses';
   const channels = siteBundle.contacts?.channels || {};
   const legalPages = pages.filter((entry) => ['terms', 'privacy', 'impressum'].includes(entry.page_key) && entry.visible);
   const visibleContactEntries = Object.entries(channels).filter(([, value]) => value?.enabled && value?.value);
@@ -534,6 +653,18 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
     .map((key) => [key, channels[key]])
     .filter(([, value]) => value?.enabled && value?.value);
   const excludedHomeEmbeddedKeys = isLuxuryShell ? new Set(['about-us', 'contact-us']) : new Set();
+  const adminMode = options.adminMode === true;
+  const adminEditableTypes = new Set(['hero', 'gallery', 'features', 'rich_text']);
+
+  function resolveManagementTarget(targetPage, block) {
+    const pageKey = String(targetPage?.page_key || '').toLowerCase();
+    const blockType = String(block?.type || '').toLowerCase();
+
+    if (pageKey === 'accommodation') return 'hotel';
+    if (pageKey === 'contact-us' || pageKey === 'contact' || blockType === 'contact') return 'contact';
+    if (['tours', 'featured-tours', 'booking'].includes(pageKey) || ['hero', 'gallery', 'itinerary', 'pricing_spotlight', 'listing'].includes(blockType)) return 'tour';
+    return 'site-content';
+  }
 
   function resolveListingCards(source, targetPage = page) {
     if (String(source || '').includes('featured_tours')) {
@@ -705,9 +836,57 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
 
   const renderRichText = (text) => `<div class="prose prose-slate max-w-none">${escapeHtml(text || '').replace(/\n/g, '<br>')}</div>`;
 
+  const buildEditableEntityAttributes = ({ card, targetPage, block, managementTarget }) => {
+    const entityType = normalizeStringValue(card?.entity_type, managementTarget);
+    const entityId = normalizeStringValue(card?.entity_id, card?.tour_id, card?.channel_key);
+    const entityLabel = normalizeStringValue(card?.entity_label, card?.entity_title, card?.title, block?.label, entityType || 'Entity');
+    const entitySectionId = normalizeStringValue(card?.section_id, `${entityType || managementTarget}:${entityId || block?.id || block?.type}`);
+
+    return serializeDataAttributes({
+      'data-ve-entity': '1',
+      'data-ve-section': '1',
+      'data-section-id': entitySectionId,
+      'data-section-type': normalizeStringValue(card?.section_type, `${entityType || managementTarget}-entity`),
+      'data-section-label': entityLabel,
+      'data-admin-page-key': targetPage.page_key || page.page_key || 'home',
+      'data-admin-block-id': block.id || block.type,
+      'data-admin-block-type': block.type,
+      'data-admin-block-label': block.label || block.content?.heading || block.content?.headline || block.type,
+      'data-admin-management-target': managementTarget,
+      'data-entity-id': entityId,
+      'data-entity-type': entityType,
+      'data-entity-label': entityLabel,
+      'data-entity-title': card?.entity_title || card?.title || '',
+      'data-entity-body': card?.entity_body || card?.body || '',
+      'data-entity-image': card?.entity_image || card?.image || '',
+      'data-entity-value': card?.entity_value || '',
+      'data-entity-channel-key': card?.channel_key || '',
+      'data-entity-slug': card?.public_slug || '',
+    });
+  };
+
+  const wrapEditableEntityCard = ({ block, card, targetPage, contentHtml, className = 'universal-entity-card' }) => {
+    const managementTarget = resolveManagementTarget(targetPage, block);
+    return `<article class="${escapeHtml(className)}"${buildEditableEntityAttributes({ card, targetPage, block, managementTarget })}>${contentHtml}</article>`;
+  };
+
   const renderHero = (block, targetPage = page) => {
     const targetTitle = getPageTitle(targetPage);
     const targetDescription = getPageDescription(targetPage);
+    const themedHero = activeTheme.renderHero?.({
+      block,
+      targetPage,
+      targetTitle,
+      targetDescription,
+      homePageKey,
+      runtime,
+      snapshot,
+      site,
+      tourRuntime,
+      buildMenuHref,
+      resolveHeroModuleMenuItems,
+    });
+    if (themedHero) return themedHero;
     const content = block.content || {};
     const runtimeHero = targetPage.page_key === homePageKey ? tourRuntime.featured_tour : null;
     const image = content.hero_image || runtimeHero?.hero_image || snapshot?.hero_image || (isLuxuryShell ? LUXURY_SAMPLE_HERO_URL : '');
@@ -754,6 +933,14 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
 
   const renderGallery = (block, targetPage = page) => {
     const targetTitle = getPageTitle(targetPage);
+    const themedGallery = activeTheme.renderGallery?.({
+      block,
+      targetPage,
+      targetTitle,
+      tourRuntime,
+      gallery,
+    });
+    if (themedGallery) return themedGallery;
     const images = Array.isArray(block.content?.images) && block.content.images.length
       ? block.content.images
       : (tourRuntime.featured_collection?.gallery_images?.length ? tourRuntime.featured_collection.gallery_images : gallery);
@@ -776,6 +963,15 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   };
 
   const renderFeatures = (block) => {
+    const themedFeatures = activeTheme.renderFeatures?.({
+      block,
+      targetPage: page,
+      theme,
+      gallery,
+      highlights,
+      snapshot,
+    });
+    if (themedFeatures) return themedFeatures;
     const items = Array.isArray(block.content?.items) ? block.content.items : highlights;
     if (!items.length) return '';
     if (isLuxuryShell) {
@@ -786,9 +982,20 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   };
 
   const renderRich = (block, targetPage = page) => {
+    const themedRich = activeTheme.renderRich?.({
+      block,
+      targetPage,
+      targetDescription: getPageDescription(targetPage),
+      theme,
+      site,
+      homeSlug,
+      resolveListingCards,
+      wrapEditableEntityCard,
+    });
+    if (themedRich) return themedRich;
     if (isLuxuryShell && targetPage.page_key === 'accommodation') {
       const cards = resolveListingCards('tour_runtime.accommodation_listing', targetPage);
-      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(block.label || 'Accommodation')}</p><h2>${escapeHtml(block.content?.heading || 'Accommodation')}</h2></div><p>${escapeHtml(block.content?.body || getPageDescription(targetPage))}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>`).join('')}</div></section>`;
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(block.label || 'Accommodation')}</p><h2>${escapeHtml(block.content?.heading || 'Accommodation')}</h2></div><p>${escapeHtml(block.content?.body || getPageDescription(targetPage))}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>` })).join('')}</div></section>`;
     }
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(block.label || '')}</p><h2 class="mt-3 text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || block.label || '')}</h2><div class="mt-4 text-base leading-8 text-slate-700">${renderRichText(block.content?.body || getPageDescription(targetPage))}</div></section>`;
@@ -819,36 +1026,56 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   };
 
   const renderContact = (block) => {
-    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleContactEntries.length ? visibleContactEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(buildChannelLabel(key, value))}: ${escapeHtml(value.value)}</a>`).join('') : '<p class="text-slate-500">No contact channels configured yet.</p>'}</div></section>`;
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleContactEntries.length ? visibleContactEntries.map(([key, value]) => wrapEditableEntityCard({ block, targetPage: page, card: { entity_id: key, entity_type: 'contact', entity_label: buildChannelLabel(key, value), entity_title: buildChannelLabel(key, value), entity_body: value.value, entity_value: value.value, channel_key: key }, className: 'universal-entity-card universal-contact-entity', contentHtml: `<a href="${escapeHtml(buildChannelHref(key, value))}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(buildChannelLabel(key, value))}: ${escapeHtml(value.value)}</a>` })).join('') : '<p class="text-slate-500">No contact channels configured yet.</p>'}</div></section>`;
   };
 
   const renderListing = (block, targetPage = page) => {
+    const themedListing = activeTheme.renderListing?.({
+      block,
+      targetPage,
+      theme,
+      site,
+      homeSlug,
+      resolveListingCards,
+      wrapEditableEntityCard,
+    });
+    if (themedListing) return themedListing;
     if (isLuxuryShell) {
       const cards = resolveListingCards(block.data_bindings?.cards?.source, targetPage);
       const accentColor = normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73');
-      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>`).join('')}</div></section>`;
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>` })).join('')}</div></section>`;
     }
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
   };
   const renderBookingSlot = (block) => `<section class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(block.content?.cta_label || 'Continue')}</a></section>`;
 
+  const wrapAdminBlock = (block, targetPage, html) => {
+    if (!adminMode || !html || !adminEditableTypes.has(block.type)) return html;
+    const blockLabel = block.label || block.content?.heading || block.content?.headline || block.type;
+    const managementTarget = resolveManagementTarget(targetPage, block);
+    const sectionType = `${managementTarget}-${String(block.type || 'content')}`;
+    return `<div class="universal-admin-slot" data-universal-editable="1" data-ve-section="1" data-section-id="${escapeHtml(block.id || block.type)}" data-section-type="${escapeHtml(sectionType)}" data-section-label="${escapeHtml(blockLabel)}" data-admin-page-key="${escapeHtml(targetPage.page_key || page.page_key || 'home')}" data-admin-block-id="${escapeHtml(block.id || block.type)}" data-admin-block-type="${escapeHtml(block.type)}" data-admin-block-label="${escapeHtml(blockLabel)}" data-admin-management-target="${escapeHtml(managementTarget)}">${html}</div>`;
+  };
+
   const renderBlocksList = (blockList, targetPage = page) => blockList.map((block) => {
+    let html = '';
     switch (block.type) {
-      case 'hero': return renderHero(block, targetPage);
-      case 'gallery': return renderGallery(block, targetPage);
-      case 'features': return renderFeatures(block);
+      case 'hero': html = renderHero(block, targetPage); break;
+      case 'gallery': html = renderGallery(block, targetPage); break;
+      case 'features': html = renderFeatures(block); break;
       case 'rich_text':
-      case 'legal': return renderRich(block, targetPage);
-      case 'itinerary': return renderItinerary(block);
-      case 'pricing_spotlight': return renderPricing(block);
-      case 'contact': return renderContact(block);
+      case 'legal': html = renderRich(block, targetPage); break;
+      case 'itinerary': html = renderItinerary(block); break;
+      case 'pricing_spotlight': html = renderPricing(block); break;
+      case 'contact': html = renderContact(block); break;
       case 'listing':
       case 'reservation_entry':
-      case 'booking_entry': return renderListing(block, targetPage);
-      case 'booking_engine_slot': return renderBookingSlot(block);
-      default: return '';
+      case 'booking_entry': html = renderListing(block, targetPage); break;
+      case 'booking_engine_slot': html = renderBookingSlot(block); break;
+      default: html = ''; break;
     }
+    return wrapAdminBlock(block, targetPage, html);
   }).filter(Boolean).join('<div class="h-6"></div>');
 
   const buildMenuHref = (item) => {
@@ -898,27 +1125,26 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
   const featuredMenuItem = menuItems.find((item) => item.page_key === 'featured-tours') || null;
   const bookNowTarget = menuItems.find((item) => item.page_key === 'booking') || featuredMenuItem || menuItems[0] || null;
   const bookNowHref = bookNowTarget ? buildMenuHref(bookNowTarget) : '#pricing';
+  const bookNowLabel = theme.ui?.bookNowLabel || snapshot?.booking_cta_label || 'Book Now';
 
   const navMarkup = menuItems.length
     ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav>`
-    : '';
-  const luxuryDrawerMarkup = isLuxuryShell
-    ? `<div class="luxury-drawer-backdrop" data-luxury-close="true"></div><aside class="luxury-drawer" aria-label="Luxury navigation"><div class="luxury-drawer-head"><span>Curated Menu</span><button type="button" class="luxury-drawer-close" data-luxury-close="true">Close</button></div><nav class="luxury-drawer-nav">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''}>${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav></aside>`
-    : '';
-  const socialRailMarkup = isLuxuryShell && socialEntries.length
-    ? `<aside class="luxury-social-rail">${socialEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" target="_blank" rel="noreferrer" aria-label="${escapeHtml(buildChannelLabel(key, value))}">${escapeHtml(buildSocialMonogram(key))}</a>`).join('')}</aside>`
     : '';
   const logoMarkup = theme.logoUrl
     ? `<img src="${escapeHtml(theme.logoUrl)}" alt="${escapeHtml(site.site_name || 'Logo')}" class="luxury-logo-image" />`
     : `<span class="luxury-logo-text">${escapeHtml(site.site_name || 'Travel House')}</span>`;
   const footerMarkup = isLuxuryShell
-    ? `<footer class="luxury-footer"><div class="luxury-footer-grid"><div class="luxury-footer-brand"><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-footer-logo">${logoMarkup}</a><p class="luxury-footer-kicker">Private journeys, quietly crafted</p></div><div><p class="luxury-footer-heading">${escapeHtml(site.site_name || 'Travel House')}</p><div class="luxury-footer-links">${menuItems.slice(0, 8).map((item) => `<a href="${escapeHtml(buildMenuHref(item))}">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('') || '<span>Navigation stays tenant-controlled.</span>'}</div></div><div><p class="luxury-footer-heading">Get in touch</p><div class="luxury-footer-links">${['phone', 'email', 'address'].map((key) => channels[key]?.enabled && channels[key]?.value ? `<a href="${escapeHtml(buildChannelHref(key, channels[key]))}">${escapeHtml(channels[key].value)}</a>` : '').join('') || '<span>Concierge details can be configured per tenant.</span>'}</div></div><div><p class="luxury-footer-heading">Follow</p><div class="luxury-footer-socials">${socialEntries.map(([key, value]) => `<a href="${escapeHtml(buildChannelHref(key, value))}" target="_blank" rel="noreferrer">${escapeHtml(buildSocialMonogram(key))}</a>`).join('') || '<span>Social channels can be toggled per tenant.</span>'}</div><div class="luxury-footer-links luxury-footer-legal">${legalPages.map((entry) => `<a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, entry.slug || entry.page_key))}">${escapeHtml(entry.title)}</a>`).join('')}</div></div></div></footer>`
+    ? activeTheme.renderFooter?.({ site, homeSlug, menuItems, channels, socialEntries, legalPages, logoMarkup, buildMenuHref, buildChannelHref, buildSocialMonogram, buildChannelLabel, theme })
     : '';
   const headerMarkup = isLuxuryShell
-    ? `<header class="luxury-header"><div class="luxury-header-inner"><div class="luxury-header-left"><button type="button" class="luxury-menu-toggle" aria-label="Open navigation"><span></span><span></span><span></span></button></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-logo">${logoMarkup}</a><div class="luxury-header-right"><span class="luxury-lang-chip">EN</span><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-login-link">Login</a><a href="${escapeHtml(bookNowHref)}" class="luxury-book-now">Book Now</a></div></div></header>${luxuryDrawerMarkup}${socialRailMarkup}`
+    ? activeTheme.renderHeader?.({ site, homeSlug, menuItems, buildMenuHref, bookNowTarget, bookNowLabel, socialEntries, buildChannelHref, buildChannelLabel, buildSocialMonogram, logoMarkup, theme })
     : `<header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p><p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p></div>${navMarkup}<a href="#pricing" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(snapshot?.booking_cta_label || 'Enquire')}</a></div></header>`;
+  const floatingBookNowMarkup = isLuxuryShell
+    ? activeTheme.renderFloatingBookNow?.({ buildMenuHref, bookNowTarget, bookNowLabel, channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme })
+    : '';
+  const adminPreviewScript = '';
   const shellScript = isLuxuryShell
-    ? `<script>(function(){const body=document.body;const open=document.querySelector('.luxury-menu-toggle');const closers=document.querySelectorAll('[data-luxury-close="true"]');const hero=document.querySelector('.luxury-hero');const setState=(next)=>{body.dataset.menuOpen=next?'true':'false';};const refreshHeader=()=>{const trigger=hero?Math.max(hero.offsetHeight-140,240):240;body.dataset.headerSolid=window.scrollY>trigger?'true':'false';};if(open){open.addEventListener('click',()=>setState(body.dataset.menuOpen!=='true'));}closers.forEach((node)=>node.addEventListener('click',()=>setState(false)));document.addEventListener('keydown',(event)=>{if(event.key==='Escape'){setState(false);}});window.addEventListener('scroll',refreshHeader,{passive:true});window.addEventListener('resize',refreshHeader);refreshHeader();document.querySelectorAll('[data-luxury-gallery]').forEach((gallery)=>{const items=[...gallery.querySelectorAll('[data-gallery-item]')];const thumbs=[...gallery.querySelectorAll('[data-gallery-thumb]')];const show=(index)=>{if(!items.length)return;const next=((index%items.length)+items.length)%items.length;gallery.dataset.galleryIndex=String(next);items.forEach((item,itemIndex)=>item.classList.toggle('is-active',itemIndex===next));thumbs.forEach((thumb,thumbIndex)=>thumb.classList.toggle('is-active',thumbIndex===next));};gallery.querySelectorAll('[data-gallery-nav]').forEach((button)=>button.addEventListener('click',()=>show(Number(gallery.dataset.galleryIndex||0)+Number(button.dataset.galleryNav||0))));thumbs.forEach((thumb,thumbIndex)=>thumb.addEventListener('click',()=>show(thumbIndex)));show(0);});})();</script>`
+    ? activeTheme.buildScript?.({ theme })
     : '';
 
   return `<!DOCTYPE html>
@@ -946,6 +1172,17 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
     html { scroll-behavior: smooth; }
     body { background: var(--color-surface); color: var(--color-text); font-family: ${escapeHtml(theme.fontBody || 'Inter, system-ui, sans-serif')}; }
     h1, h2, h3 { font-family: ${escapeHtml(theme.fontHeading || 'Inter, system-ui, sans-serif')}; }
+    .universal-entity-card {
+      position: relative;
+      display: block;
+      min-width: 0;
+    }
+    .universal-entity-card > a,
+    .universal-entity-card > div,
+    .universal-entity-card > article {
+      display: block;
+      height: 100%;
+    }
     ${isLuxuryShell ? `
     body.luxury-editorial {
       background:
@@ -979,6 +1216,12 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
       border-bottom: 1px solid transparent;
       transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
       pointer-events: auto;
+    }
+    body[data-header-solid='false'] .luxury-header-inner {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
     }
     body[data-header-solid='true'] .luxury-header-inner {
       background: rgba(246, 240, 231, 0.88);
@@ -1072,6 +1315,52 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
       letter-spacing: 0.18em;
       text-transform: uppercase;
       box-shadow: 0 12px 28px rgba(127, 63, 115, 0.22);
+    }
+    .luxury-floating-book-now {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 58;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 22px;
+      border-radius: 999px;
+      text-decoration: none;
+      color: #fffaf8;
+      background: linear-gradient(135deg, #7f3f73 0%, #5a3b27 100%);
+      border: 1px solid rgba(255, 250, 248, 0.24);
+      box-shadow: 0 18px 42px rgba(50, 26, 45, 0.24);
+      backdrop-filter: blur(16px);
+      transform: translateY(24px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+    }
+    body[data-book-now-visible='true'] .luxury-floating-book-now {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .luxury-floating-book-now:hover {
+      box-shadow: 0 22px 52px rgba(50, 26, 45, 0.3);
+    }
+    .luxury-floating-book-now-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .luxury-floating-book-now-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(255, 250, 248, 0.16);
+      font-size: 16px;
+      line-height: 1;
     }
     .luxury-drawer-backdrop {
       position: fixed;
@@ -1694,6 +1983,11 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
       .luxury-book-now {
         padding: 12px 16px;
       }
+      .luxury-floating-book-now {
+        right: 16px;
+        bottom: 16px;
+        padding: 14px 18px;
+      }
       .luxury-search-panel {
         grid-template-columns: 1fr;
       }
@@ -1711,14 +2005,16 @@ function renderPublicHtml(siteBundle, page, tourPreview) {
     ` : ''}
   </style>
 </head>
-<body class="min-h-screen ${escapeHtml(profile.shell || 'universal-shell')}" data-menu-open="false" data-header-solid="false">
+<body class="min-h-screen ${escapeHtml(activeTheme.bodyClass || profile.shell || 'universal-shell')}" data-menu-open="false" data-header-solid="false" data-book-now-visible="false">
   ${headerMarkup}
+  ${floatingBookNowMarkup}
   <main class="${isLuxuryShell ? 'luxury-main-shell mx-auto max-w-[1380px] px-4 pt-0 pb-0 sm:px-6' : 'mx-auto max-w-6xl px-4 py-8 sm:px-6'}">
     ${renderedBlocks || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h1 class="text-3xl font-semibold text-slate-950">${escapeHtml(title)}</h1><p class="mt-4 text-slate-600">${escapeHtml(description)}</p></section>`}
     ${renderedEmbeddedSections ? `<div class="h-10"></div>${renderedEmbeddedSections}` : ''}
   </main>
   ${footerMarkup}
   ${shellScript}
+  ${adminPreviewScript}
 </body>
 </html>`;
 }
@@ -1739,6 +2035,101 @@ async function requireTenant(c) {
   }
 
   return { tenantId, tenant };
+}
+
+async function listHotels(tenantId, db) {
+  const { results } = await db
+    .prepare(
+      `SELECT *
+       FROM tenant_universal_hotels
+       WHERE tenant_id = ?
+       ORDER BY sort_order ASC, created_at ASC`
+    )
+    .bind(tenantId)
+    .all();
+
+  return (results || []).map(normalizeHotel);
+}
+
+async function ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows) {
+  const existingHotels = await listHotels(tenantId, db);
+  const existingByTourId = new Set(existingHotels.map((hotel) => String(hotel.tour_id || '')).filter(Boolean));
+  const syncedByTourId = new Map((syncedRows || []).map((row) => [String(row.tour_id), parseJsonSafe(row.content_override_json, {})]));
+  const missingTours = (tours || []).filter((tour) => !existingByTourId.has(String(tour.id)));
+  if (!missingTours.length) {
+    return existingHotels;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const statements = [];
+
+  missingTours.forEach((tour, index) => {
+    const content = parseJsonSafe(tour.content_data, {});
+    const override = syncedByTourId.get(String(tour.id)) || {};
+    const snapshot = override.sync_snapshot || {};
+    const hotelName = normalizeStringValue(
+      override.accommodation_title,
+      override.hotel_name,
+      content.accommodation_title,
+      content.accommodation_name,
+      content.hotel_name,
+      `${normalizeStringValue(snapshot.title, tour.title, `Tour ${index + 1}`)} House`
+    );
+    const hotelDescription = normalizeStringValue(
+      override.accommodation_summary,
+      override.stay_summary,
+      content.accommodation_summary,
+      content.stay_summary,
+      snapshot.summary,
+      'A temporary hotel profile used to decorate accommodation and tour storytelling.'
+    );
+    const gallery = [
+      normalizeStringValue(
+        override.accommodation_image,
+        override.hotel_image,
+        content.accommodation_image,
+        content.hotel_image,
+        Array.isArray(snapshot.gallery_images) ? snapshot.gallery_images[0]?.src : '',
+        LUXURY_SAMPLE_ACCOMMODATION_IMAGES[index % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
+      ),
+      normalizeStringValue(
+        Array.isArray(snapshot.gallery_images) ? snapshot.gallery_images[1]?.src : '',
+        LUXURY_SAMPLE_ACCOMMODATION_IMAGES[(index + 1) % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
+      ),
+    ].filter(Boolean).map((src, galleryIndex) => ({
+      id: `hotel-${tour.id}-${galleryIndex + 1}`,
+      src,
+      alt: hotelName,
+      caption: galleryIndex === 0 ? hotelName : `${hotelName} detail ${galleryIndex + 1}`,
+    }));
+
+    statements.push(
+      db.prepare(
+        `INSERT INTO tenant_universal_hotels
+         (id, tenant_id, hotel_key, tour_id, name, description, address, gallery_json, status, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        nanoid(),
+        tenantId,
+        `tour-${tour.id}`,
+        String(tour.id),
+        hotelName,
+        hotelDescription,
+        normalizeStringValue(content.address, content.hotel_address, content.accommodation_address),
+        JSON.stringify(gallery),
+        'draft',
+        index,
+        now,
+        now,
+      )
+    );
+  });
+
+  if (statements.length) {
+    await db.batch(statements);
+  }
+
+  return listHotels(tenantId, db);
 }
 
 async function listPages(tenantId, db) {
@@ -1809,11 +2200,15 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
   const contactsRow = await db.prepare('SELECT * FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenantId).first();
   const runtime = buildVariantRuntimeConfig(siteRow.group_key, siteRow.variant_key);
   const site = normalizeSite(siteRow);
+  const tenantSiteConfig = parseJsonSafe(tenant.site_config, {});
+  site.current_theme = typeof tenantSiteConfig.current_theme === 'string' ? tenantSiteConfig.current_theme.trim() : '';
   const theme = normalizeTheme(themeRow);
   const contacts = normalizeContacts(contactsRow);
   const menu = await listMenuItems(tenantId, db);
   const pages = await listPages(tenantId, db);
+  const activeTheme = resolveUniversalTheme(site, runtime);
   let tourRuntime = {};
+  let hotels = [];
 
   if (site.group_key === 'tour_operator') {
     const [{ results: tours }, { results: priceRows }] = await db.batch([
@@ -1841,16 +2236,23 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
       }
     }
 
+    hotels = await ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows);
     const priceLookup = new Map(priceRows.map((row) => [row.tour_id, row.price_from]));
-    tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, priceLookup);
+    tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels, priceLookup);
   }
 
   return {
     site,
     theme,
+    active_theme: {
+      key: activeTheme.key,
+      label: activeTheme.label,
+      admin: activeTheme.admin,
+    },
     contacts,
     menu,
     pages,
+    hotels,
     tour_runtime: tourRuntime,
     ...buildEditorStoreBundle({ site, theme, contacts, menu, pages, runtime }),
     groups: Object.values(UNIVERSAL_GROUPS),
@@ -2326,6 +2728,187 @@ router.put('/site/contact', async (c) => {
   return c.json({ ok: true, contacts });
 });
 
+router.get('/site/hotels', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+  return c.json({ ok: true, hotels: await listHotels(ctx.tenantId, c.env.DB) });
+});
+
+router.get('/hotels/:hotelId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM tenant_universal_hotels WHERE tenant_id = ? AND id = ?')
+    .bind(ctx.tenantId, c.req.param('hotelId'))
+    .first();
+
+  if (!row) {
+    return jsonError(c, 404, 'Hotel not found');
+  }
+
+  return c.json({ ok: true, hotel: normalizeHotel(row) });
+});
+
+router.patch('/hotels/:hotelId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const updates = [];
+  const binds = [];
+  const setValue = (column, value) => {
+    if (value === undefined) return;
+    updates.push(`${column} = ?`);
+    binds.push(value);
+  };
+
+  if ('name' in body) {
+    const nextName = String(body.name || '').trim();
+    if (!nextName) return jsonError(c, 400, 'name cannot be empty');
+    setValue('name', nextName);
+  }
+  if ('description' in body) {
+    setValue('description', String(body.description || '').trim());
+  }
+  if ('address' in body) {
+    setValue('address', String(body.address || '').trim());
+  }
+  if ('gallery' in body) {
+    if (!Array.isArray(body.gallery)) return jsonError(c, 400, 'gallery must be an array');
+    setValue('gallery_json', JSON.stringify(body.gallery));
+  }
+  if ('status' in body) {
+    setValue('status', String(body.status || 'draft').trim() || 'draft');
+  }
+
+  if (!updates.length) {
+    return jsonError(c, 400, 'No valid fields provided');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  updates.push('updated_at = ?');
+  binds.push(now, ctx.tenantId, c.req.param('hotelId'));
+
+  const result = await c.env.DB
+    .prepare(`UPDATE tenant_universal_hotels SET ${updates.join(', ')} WHERE tenant_id = ? AND id = ?`)
+    .bind(...binds)
+    .run();
+
+  if (!result.meta?.changes) {
+    return jsonError(c, 404, 'Hotel not found');
+  }
+
+  await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM tenant_universal_hotels WHERE tenant_id = ? AND id = ?')
+    .bind(ctx.tenantId, c.req.param('hotelId'))
+    .first();
+
+  return c.json({ ok: true, hotel: normalizeHotel(row) });
+});
+
+router.get('/tours/:tourId/canonical', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .first();
+
+  if (!row) {
+    return jsonError(c, 404, 'Tour not found');
+  }
+
+  return c.json({ ok: true, tour: normalizeTourCanonical(row) });
+});
+
+router.patch('/tours/:tourId/canonical', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const current = await c.env.DB
+    .prepare('SELECT * FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .first();
+
+  if (!current) {
+    return jsonError(c, 404, 'Tour not found');
+  }
+
+  const updates = [];
+  const binds = [];
+  const setValue = (column, value) => {
+    if (value === undefined) return;
+    updates.push(`${column} = ?`);
+    binds.push(value);
+  };
+
+  if ('title' in body) {
+    const nextTitle = String(body.title || '').trim();
+    if (!nextTitle) return jsonError(c, 400, 'title cannot be empty');
+    setValue('title', nextTitle);
+  }
+
+  if ('slug' in body) {
+    const nextSlug = slugify(body.slug);
+    if (!nextSlug) return jsonError(c, 400, 'slug is invalid');
+    setValue('slug', nextSlug);
+  }
+
+  if ('duration_text' in body) {
+    setValue('duration_text', String(body.duration_text || '').trim());
+  }
+
+  if ('content_data' in body) {
+    if (!body.content_data || typeof body.content_data !== 'object' || Array.isArray(body.content_data)) {
+      return jsonError(c, 400, 'content_data must be an object');
+    }
+    const nextContent = mergeNestedObjects(parseJsonSafe(current.content_data, {}), body.content_data);
+    setValue('content_data', JSON.stringify(nextContent));
+  }
+
+  if (!updates.length) {
+    return jsonError(c, 400, 'No valid fields provided');
+  }
+
+  binds.push(c.req.param('tourId'), ctx.tenantId);
+  await c.env.DB
+    .prepare(`UPDATE tours SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`)
+    .bind(...binds)
+    .run();
+
+  const syncResult = await syncUniversalTourPage(c.env, ctx.tenantId, c.req.param('tourId'));
+  if (!syncResult.ok) {
+    return jsonError(c, syncResult.status || 500, syncResult.error || 'Failed to sync universal tour page');
+  }
+
+  const refreshed = await c.env.DB
+    .prepare('SELECT * FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .first();
+
+  return c.json({ ok: true, tour: normalizeTourCanonical(refreshed), sync: syncResult });
+});
+
 router.get('/site/menu', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
@@ -2582,6 +3165,58 @@ router.get('/tours/:tourId/page', async (c) => {
   });
 });
 
+router.patch('/tours/:tourId/page', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return jsonError(c, 400, 'Body must be an object');
+  }
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? AND tour_id = ?')
+    .bind(ctx.tenantId, c.req.param('tourId'))
+    .first();
+
+  if (!row) {
+    return jsonError(c, 404, 'Universal tour page not found. Call sync first.');
+  }
+
+  if ('content_override' in body && (!body.content_override || typeof body.content_override !== 'object' || Array.isArray(body.content_override))) {
+    return jsonError(c, 400, 'content_override must be an object');
+  }
+
+  const currentOverride = parseJsonSafe(row.content_override_json, {});
+  const nextOverride = body.content_override ? mergeNestedObjects(currentOverride, body.content_override) : currentOverride;
+  const nextBookingCta = normalizeStringValue(body.booking_cta_label, nextOverride?.sync_snapshot?.booking_cta_label, row.booking_cta_label);
+  const now = Math.floor(Date.now() / 1000);
+
+  await c.env.DB
+    .prepare('UPDATE tenant_universal_tour_pages SET content_override_json = ?, booking_cta_label = ?, updated_at = ? WHERE tenant_id = ? AND tour_id = ?')
+    .bind(JSON.stringify(nextOverride), nextBookingCta || row.booking_cta_label, now, ctx.tenantId, c.req.param('tourId'))
+    .run();
+
+  await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
+
+  return c.json({
+    ok: true,
+    tour_page: {
+      ...row,
+      content_override: nextOverride,
+      booking_cta_label: nextBookingCta || row.booking_cta_label,
+      updated_at: now,
+    },
+  });
+});
+
 router.get('/render/:tenantId', async (c) => {
   const tenantId = c.req.param('tenantId');
   const callerTenantId = getTenantId(c);
@@ -2600,18 +3235,50 @@ router.get('/render/:tenantId', async (c) => {
 
   const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env);
   const requestedTourId = c.req.query('tourId')?.trim();
+  const requestedSlug = slugify(c.req.query('slug') || '') || siteBundle.site?.home_page_key || 'home';
+  const adminMode = c.req.query('admin') === '1';
+
+  let pageRow = await c.env.DB
+    .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? AND slug = ? LIMIT 1')
+    .bind(tenantId, requestedSlug)
+    .first();
+
+  if (!pageRow) {
+    pageRow = await c.env.DB
+      .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? AND page_key = ? LIMIT 1')
+      .bind(tenantId, requestedSlug)
+      .first();
+  }
+
+  if (!pageRow) {
+    pageRow = await c.env.DB
+      .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? ORDER BY CASE WHEN page_key = ? THEN 0 ELSE 1 END, created_at ASC LIMIT 1')
+      .bind(tenantId, siteBundle.site?.home_page_key || 'home')
+      .first();
+  }
+
+  if (!pageRow) {
+    return jsonError(c, 404, 'Universal page not found');
+  }
+
+  const page = normalizePage(pageRow);
 
   const tourPageRow = requestedTourId
     ? await c.env.DB
         .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? AND tour_id = ?')
         .bind(tenantId, requestedTourId)
         .first()
+    : page.page_type === 'tour_detail'
+      ? await c.env.DB
+          .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? AND slug = ? LIMIT 1')
+          .bind(tenantId, page.slug)
+          .first()
     : await c.env.DB
         .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? ORDER BY updated_at DESC LIMIT 1')
         .bind(tenantId)
         .first();
 
-  const previewHtml = renderPreviewHtml(siteBundle, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null);
+  const previewHtml = renderPublicHtml(siteBundle, page, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null, { adminMode });
   return new Response(previewHtml, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',

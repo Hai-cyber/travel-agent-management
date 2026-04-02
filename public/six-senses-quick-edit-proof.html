@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Six Senses Quick Edit Proof</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #081017;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #081017;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(6,10,18,0.28);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 30;
+      pointer-events: none;
+    }
+    .editor {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      width: min(360px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(9,15,24,0.92);
+      box-shadow: 0 24px 60px rgba(2,6,23,0.36);
+      padding: 18px;
+      z-index: 31;
+      display: grid;
+      gap: 12px;
+    }
+    .editor h3 {
+      margin: 0;
+      font: 600 22px/1.1 "Space Grotesk", Inter, sans-serif;
+      color: #f8fafc;
+    }
+    .editor p {
+      margin: 0;
+      color: rgba(248,250,252,0.72);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+    .field label {
+      color: #f8fafc;
+      font-size: 12px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .field input,
+    .field textarea {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.08);
+      color: #f8fafc;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    .field textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1 1 140px;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font: 700 13px/1 Inter, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: rgba(127,63,115,0.9);
+      color: #fff;
+    }
+    .btn.alt {
+      background: rgba(255,255,255,0.1);
+      color: #f8fafc;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .hud {
+      position: fixed;
+      left: 18px;
+      top: 18px;
+      z-index: 32;
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(8,16,23,0.56);
+      color: #f8fafc;
+      font: 700 11px/1 Inter, system-ui, sans-serif;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    @media (max-width: 720px) {
+      .editor {
+        top: auto;
+        right: 12px;
+        left: 12px;
+        bottom: 14px;
+        width: auto;
+        max-height: calc(100vh - 92px);
+      }
+      .hud {
+        left: 14px;
+        top: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <iframe class="frame" src="/api/tenant/preview?tid=ten-demo-001" title="Six Senses storefront background"></iframe>
+  <div class="backdrop"></div>
+  <div class="hud">Quick Edit Proof</div>
+  <aside class="editor" aria-label="Quick edit popup proof">
+    <h3>Quick Edit</h3>
+    <p>This is the small slide-over the customer sees after clicking an editable content block. It stays visually quiet so the storefront still dominates the screen.</p>
+    <div class="field">
+      <label>Headline</label>
+      <input type="text" value="Reconnect with wild stillness" />
+    </div>
+    <div class="field">
+      <label>Body Text</label>
+      <textarea>Immersive journeys through limestone bays, quiet mountain lodges, and slow luxury moments curated for private travelers.</textarea>
+    </div>
+    <div class="field">
+      <label>Image URL</label>
+      <input type="url" value="https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1600&q=80" />
+    </div>
+    <div class="toolbar">
+      <button class="btn primary" type="button">Apply</button>
+      <button class="btn alt" type="button">Close</button>
+    </div>
+  </aside>
+</body>
+</html>

@@ -32,6 +32,7 @@ echo ""
 echo "=== 4) Marking task as done ==="
 UPDATE=$(curl -s -X PATCH $BASE/api/tasks/$TASK_ID \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: ten-demo-001" \
   -d '{"status":"done"}')
 
 echo "$UPDATE"

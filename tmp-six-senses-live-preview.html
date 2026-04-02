@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title></title>
+  <meta name="description" content="">
+  <meta property="og:title" content="">
+  <meta property="og:description" content="">
+  <link rel="stylesheet" href="/css/cruip-global.css">
+  <link rel="stylesheet" href="/css/theme-presets.css">
+  <style>
+    html {
+      background: var(--bg);
+    }
+    .site-chrome {
+      width: 100%;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      position: relative;
+      isolation: isolate;
+      background: color-mix(in srgb, var(--bg, #0f172a) 84%, white 16%);
+    }
+    .site-chrome-header {
+      border-bottom: none;
+    }
+    .site-chrome-footer {
+      border-top: none;
+      margin-top: 3rem;
+    }
+    .site-chrome-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: row !important;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .site-chrome-brand {
+      flex: 0 0 auto;
+      display: inline-flex;
+      flex-direction: row !important;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--t, #e5e7eb);
+      text-decoration: none;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-brand span {
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-brand-text {
+      display: inline-block;
+      white-space: nowrap !important;
+      line-height: 1;
+      transform-origin: left center;
+    }
+    .site-chrome-logo {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--brand-primary, #2563eb) 14%, white 86%);
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+    }
+    .site-chrome-logo-sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .site-chrome-nav {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-panel {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .site-chrome-menu-toggle {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 20%, white 80%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: 700 0.82rem/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .site-chrome-menu-toggle-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .site-chrome-nav ul,
+    .site-chrome-footer-nav ul {
+      display: flex;
+      flex-direction: row !important;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-nav a,
+    .site-chrome-footer-nav a {
+      color: color-mix(in srgb, var(--t, #e5e7eb) 85%, white 15%);
+      text-decoration: none;
+      font-size: 0.92rem;
+      white-space: nowrap !important;
+    .site-chrome-panel {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .site-chrome-menu-toggle {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 20%, white 80%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: 700 0.82rem/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .site-chrome-menu-toggle-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+      width: auto !important;
+      max-width: none !important;
+    }
+    .site-chrome-actions {
+      display: flex;
+      flex-direction: row !important;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex: 0 0 auto;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .chrome-action {
+      border: 1px solid color-mix(in srgb, var(--brand-primary, #2563eb) 22%, white 78%);
+      background: transparent;
+      color: var(--t, #e5e7eb);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .chrome-action-primary {
+      background: var(--brand-primary, #2563eb);
+      color: white;
+      border-color: transparent;
+    }
+    .chrome-action-icon {
+      min-width: 52px;
+    }
+    .site-chrome-footer-inner {
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      color: color-mix(in srgb, var(--t, #e5e7eb) 72%, white 28%);
+      font-size: 0.86rem;
+    }
+    .site-chrome-footer-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+    }
+    .site-chrome-nav a,
+    .site-chrome-footer-nav a,
+    .site-chrome-brand,
+    .chrome-action {
+      transition: color .18s ease, background-color .18s ease, transform .18s ease;
+    }
+    .site-chrome-font-clean .site-chrome-nav a,
+    .site-chrome-font-clean .site-chrome-footer-nav a {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.01em;
+      font-weight: 600;
+    }
+    .site-chrome-font-elegant .site-chrome-nav a,
+    .site-chrome-font-elegant .site-chrome-footer-nav a {
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+      text-transform: none;
+    }
+    .site-chrome-font-compact .site-chrome-nav a,
+    .site-chrome-font-compact .site-chrome-footer-nav a {
+      font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      letter-spacing: 0.08em;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-brand .site-chrome-brand-text {
+      font-family: 'Avenir Next', 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-floral .site-chrome-brand-text {
+      font-family: 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', cursive;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .site-chrome-logo-font-luxe .site-chrome-brand-text {
+      font-family: 'Didot', 'Bodoni 72', 'Times New Roman', serif;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .site-chrome-logo-font-script .site-chrome-brand-text {
+      font-family: 'Brush Script MT', 'Segoe Script', cursive;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: none;
+    }
+    .site-chrome-logo-size-sm .site-chrome-brand-text {
+      font-size: 0.95rem;
+    }
+    .site-chrome-logo-size-md .site-chrome-brand-text {
+      font-size: 1.15rem;
+    }
+    .site-chrome-logo-size-lg .site-chrome-brand-text {
+      font-size: 1.38rem;
+    }
+    .site-chrome-logo-size-xl .site-chrome-brand-text {
+      font-size: 1.68rem;
+    }
+    .site-chrome-shape-rounded {
+      margin: 14px auto 0;
+      max-width: min(1220px, calc(100% - 28px));
+      border-radius: 24px;
+      overflow: hidden;
+    }
+    .site-chrome-shape-capsule {
+      margin: 16px auto 0;
+      max-width: min(1180px, calc(100% - 40px));
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .site-chrome-shape-floating {
+      margin: 18px auto 0;
+      max-width: min(1140px, calc(100% - 48px));
+      border-radius: 28px;
+      overflow: hidden;
+      transform: translateY(0);
+    }
+    .site-chrome-shape-bar {
+      margin: 0;
+      max-width: none;
+      border-radius: 0;
+    }
+    .site-chrome-header.site-chrome-shape-bar + #canvas {
+      margin-top: 0;
+    }
+    .site-chrome-ornament {
+      position: absolute;
+      inset: auto 20px 0 20px;
+      pointer-events: none;
+    }
+    .site-chrome-ornament-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+      bottom: 0;
+    }
+    .site-chrome-ornament-glow {
+      height: 28px;
+      bottom: -12px;
+      filter: blur(18px);
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--brand-primary, #2563eb) 36%, white 64%), transparent 70%);
+      opacity: .35;
+    }
+    .site-chrome-ornament-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      bottom: 10px;
+    }
+    .site-chrome-ornament-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.38);
+      display: inline-block;
+    }
+    .site-chrome-effect-glass {
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+    }
+    .site-chrome-effect-frost {
+      background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.12));
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
+    }
+    .site-chrome-effect-shadow {
+      background: color-mix(in srgb, var(--bg, #0f172a) 72%, white 28%);
+      box-shadow: 0 24px 60px rgba(2, 6, 23, 0.28);
+    }
+    .site-chrome-effect-outline {
+      background: color-mix(in srgb, var(--bg, #0f172a) 88%, white 12%);
+      box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+    }
+    /* Six Senses frame override for live storefront shell */
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Manrope:wght@400;500;600;700&display=swap');
+    .site-chrome.site-chrome-header {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0;
+      width: 100%;
+      z-index: 100 !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: none !important;
+      border: 0 !important;
+      pointer-events: none;
+      isolation: auto;
+    }
+    .site-chrome.site-chrome-header .site-chrome-inner {
+      position: relative;
+      max-width: none;
+      min-height: 108px;
+      padding: 22px 28px 0;
+      display: block;
+      pointer-events: auto;
+    }
+    .site-chrome.site-chrome-header .site-chrome-brand {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      color: #fff !important;
+      text-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      font-family: 'Cormorant Garamond', serif !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.26em !important;
+      text-transform: uppercase;
+      z-index: 3;
+    }
+    .site-chrome.site-chrome-header .site-chrome-brand-text {
+      font-family: 'Cormorant Garamond', serif !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.26em !important;
+      text-transform: uppercase;
+      font-size: clamp(1.1rem, 1.4vw, 1.7rem) !important;
+    }
+    .site-chrome.site-chrome-header .site-chrome-logo {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+      filter: brightness(0) invert(1);
+    }
+    .site-chrome.site-chrome-header .site-chrome-menu-toggle {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      display: inline-flex !important;
+      width: 54px;
+      height: 54px;
+      justify-content: center;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.28);
+      background: rgba(10, 10, 10, 0.08);
+      color: #fff;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      margin-left: 0;
+      padding: 0;
+      z-index: 4;
+    }
+    .site-chrome.site-chrome-header .site-chrome-menu-toggle-label {
+      display: none;
+    }
+    .site-chrome.site-chrome-header .site-chrome-menu-toggle-icon {
+      font-size: 1.15rem;
+      line-height: 1;
+    }
+    .site-chrome.site-chrome-header .site-chrome-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(420px, calc(100vw - 32px));
+      height: 100vh;
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 112px 28px 28px;
+      background: rgba(12, 12, 12, 0.72);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transform: translateX(108%);
+      transition: transform .22s ease;
+      z-index: 3;
+      border-left: 1px solid rgba(255,255,255,0.12);
+    }
+    .site-chrome-header[data-mobile-menu-open="1"] .site-chrome-panel {
+      transform: translateX(0);
+      display: grid !important;
+    }
+    .site-chrome.site-chrome-header .site-chrome-nav,
+    .site-chrome.site-chrome-header .site-chrome-actions {
+      display: block !important;
+      width: 100%;
+      flex: none;
+    }
+    .site-chrome.site-chrome-header .site-chrome-nav ul {
+      display: grid !important;
+      gap: 14px;
+      justify-items: start;
+    }
+    .site-chrome.site-chrome-header .site-chrome-nav a {
+      color: #fff !important;
+      font-family: 'Cormorant Garamond', serif !important;
+      font-size: clamp(1.6rem, 2.2vw, 2.2rem) !important;
+      font-weight: 400 !important;
+      letter-spacing: 0.06em !important;
+      text-transform: none;
+    }
+    .site-chrome.site-chrome-header .site-chrome-actions {
+      display: grid !important;
+      gap: 10px;
+      justify-items: start;
+      margin-top: 12px;
+    }
+    .site-chrome.site-chrome-header .chrome-action {
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      background: transparent;
+      text-transform: uppercase;
+      font-size: .74rem;
+      letter-spacing: .22em;
+      font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    }
+    .site-chrome.site-chrome-header .chrome-action-primary {
+      background: #7f3f73;
+      border-color: transparent;
+    }
+    .site-frame-book-now {
+      position: fixed;
+      top: 124px;
+      right: 22px;
+      z-index: 99;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-height: 156px;
+      padding: 16px 10px;
+      border-radius: 14px;
+      background: #7f3f73;
+      color: #fff;
+      text-decoration: none;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      text-transform: uppercase;
+      font: 700 .72rem/1 'Manrope', ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .24em;
+      box-shadow: 0 18px 40px rgba(127, 63, 115, 0.24);
+    }
+    .site-frame-social-rail {
+      position: fixed;
+      right: 32px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 98;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+    }
+    .site-frame-social-rail::before {
+      content: '';
+      width: 1px;
+      height: 72px;
+      background: rgba(255,255,255,0.34);
+    }
+    .site-frame-social-rail a {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.26);
+      color: #fff;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: 600 .54rem/1 'Manrope', ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .18em;
+      background: rgba(10, 10, 10, 0.06);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    #canvas > [data-ve-section]:first-child {
+      position: relative;
+      min-height: 100vh;
+      margin-top: 0 !important;
+      overflow: hidden;
+    }
+    #canvas > [data-ve-section]:first-child::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7));
+      z-index: 1;
+      pointer-events: none;
+    }
+    #canvas > [data-ve-section]:first-child > * {
+      min-height: 100vh !important;
+      position: relative;
+    }
+    #canvas > [data-ve-section]:first-child img:first-of-type,
+    #canvas > [data-ve-section]:first-child video:first-of-type {
+      width: 100% !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+    }
+    #canvas > [data-ve-section]:first-child h1,
+    #canvas > [data-ve-section]:first-child h2 {
+      position: relative;
+      z-index: 2;
+      color: #fff !important;
+      font-family: 'Cormorant Garamond', serif !important;
+      font-weight: 300 !important;
+      letter-spacing: .12em !important;
+      text-transform: uppercase;
+    }
+    #canvas > [data-ve-section]:first-child p,
+    #canvas > [data-ve-section]:first-child a,
+    #canvas > [data-ve-section]:first-child span,
+    #canvas > [data-ve-section]:first-child button {
+      position: relative;
+      z-index: 2;
+    }
+    #canvas > [data-ve-section]:first-child p {
+      color: rgba(255,255,255,.9) !important;
+    }
+    #canvas > [data-ve-section]:first-child [class*="text-xs"],
+    #canvas > [data-ve-section]:first-child [class*="text-sm"] {
+      font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important;
+      text-transform: uppercase;
+      letter-spacing: .22em !important;
+    }
+    #canvas > [data-ve-section]:first-child [class*="max-w"],
+    #canvas > [data-ve-section]:first-child [class*="container"],
+    #canvas > [data-ve-section]:first-child [class*="mx-auto"] {
+      position: relative;
+      z-index: 2;
+    }
+    @media (max-width: 900px) {
+      .site-chrome-inner {
+        flex-wrap: wrap;
+      }
+      .site-chrome-menu-toggle {
+        display: inline-flex;
+      }
+      .site-chrome-panel {
+        display: none;
+        order: 3;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding-top: 12px;
+      }
+      .site-chrome-header[data-mobile-menu-open="1"] .site-chrome-panel {
+        display: flex;
+      }
+      .site-chrome-nav,
+      .site-chrome-actions {
+        width: 100%;
+      }
+      .site-chrome-nav ul {
+        flex-direction: column !important;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .site-chrome-actions {
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .site-chrome-footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+    @media (max-width: 520px) {
+      .site-chrome-menu-toggle-label {
+        display: none;
+      }
+      .site-chrome-menu-toggle {
+        padding-inline: 10px;
+      }
+    }
+    /*
+     * VE Canvas Layout Guard
+     * ----------------------------------------------------------------------
+     * Injected by siteStudio.js into every canvas render (editor + preview).
+     *
+     * Problem: Cruip template headers use various positions (absolute, sticky,
+     * fixed, static). When position:absolute is used the header overlaps the
+     * first snippet because absolute elements are out of normal flow.
+     *
+     * Solution — CSS-level, no JS timing required:
+     *   1. body becomes a flex column ? header is always a flex item
+     *   2. body > header is forced sticky so it:
+     *        a) stays at the top of the viewport on scroll, AND
+     *        b) occupies space in the flex column (unlike absolute)
+     *   3. #canvas gets flex-grow:1 so it fills remaining space naturally
+     *   4. explicit z-index layering so header always paints above snippets
+     *
+     * cfg.header_height (optional) is also injected as padding-top on
+     * #canvas — a server-side guarantee, zero JS timing required.
+     */
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--t);
+    }
+    body > header {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0;
+      width: 100%;
+      z-index: 9999 !important;
+      isolation: isolate;
+    }
+    #canvas {
+      flex-grow: 1;
+      position: relative;
+      z-index: 1;
+    }
+    #canvas > [data-ve-section]:first-child {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+    #canvas > [data-ve-section]:first-child > *:first-child {
+      margin-top: 0 !important;
+    }
+    @media (max-width: 900px) {
+      .site-frame-social-rail {
+        display: none;
+      }
+      .site-frame-book-now {
+        top: auto;
+        bottom: 18px;
+        right: 18px;
+        min-height: 112px;
+        width: 42px;
+      }
+      .site-chrome.site-chrome-header .site-chrome-brand {
+        top: 22px;
+      }
+      .site-chrome.site-chrome-header .site-chrome-inner {
+        min-height: 92px;
+        padding: 18px 18px 0;
+      }
+      .site-chrome.site-chrome-header .site-chrome-menu-toggle {
+        top: 18px;
+        right: 18px;
+        width: 48px;
+        height: 48px;
+      }
+    }
+  </style>
+</head>
+<body style="background-color:var(--bg);color:var(--t)" class="font-inter antialiased overflow-x-hidden">
+<header class="site-chrome site-chrome-header site-chrome-effect-glass site-chrome-shape-bar site-chrome-font-clean site-chrome-logo-font-brand site-chrome-logo-size-md site-chrome-ornament-none" data-ve-chrome="minimal-header">
+  <div class="site-chrome-inner">
+    <a href="/" class="site-chrome-brand"><span class="site-chrome-brand-text">Brand</span></a>
+    <button type="button" class="site-chrome-menu-toggle" data-chrome-menu-toggle aria-expanded="false" aria-label="Open menu">
+      <span class="site-chrome-menu-toggle-icon">?</span>
+      <span class="site-chrome-menu-toggle-label">Menu</span>
+    </button>
+    <div class="site-chrome-panel">
+      <nav class="site-chrome-nav" aria-label="Primary">
+        <ul><li><a href="/">Home</a></li></ul>
+      </nav>
+      <div class="site-chrome-actions"></div>
+    </div>
+  </div>
+  
+</header>
+<a href="#contact" class="site-frame-book-now" data-ve-chrome="book-now">Book Now</a>
+<aside class="site-frame-social-rail" aria-label="Social links"><a href="#" target="_blank" rel="noreferrer">IG</a><a href="#" target="_blank" rel="noreferrer">FB</a><a href="#" target="_blank" rel="noreferrer">WA</a></aside>
+<main id="canvas" data-ve-surface="site-preview">
+  <!-- empty canvas — add sections via the Visual Editor -->
+</main>
+<footer class="site-chrome site-chrome-footer site-chrome-effect-glass site-chrome-shape-bar site-chrome-font-clean site-chrome-logo-font-brand site-chrome-logo-size-md site-chrome-ornament-none" data-ve-chrome="minimal-footer">
+  <div class="site-chrome-inner site-chrome-footer-inner">
+    <div class="site-chrome-footer-copy"><span class="site-chrome-brand-text">Brand · 2026</span></div>
+    
+  </div>
+</footer>
+<script>
+(function(){
+  document.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-chrome-menu-toggle]');
+    if (!btn) return;
+    var header = btn.closest('.site-chrome-header');
+    if (!header) return;
+    var isOpen = header.getAttribute('data-mobile-menu-open') === '1';
+    header.setAttribute('data-mobile-menu-open', isOpen ? '0' : '1');
+    btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  });
+}());
+</script>
+<script src="/editor-bridge.js"></script>
+</body>
+</html>

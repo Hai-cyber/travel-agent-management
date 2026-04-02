@@ -1,16 +1,13 @@
-// Register PATCH /api/tasks/:taskId route for CHK‑R11
+import { updateTask } from "../services/tasks.js";
+
+// Task Routes for CHK-R11
 export default function registerTaskRoutes(app) {
-  if (!app || typeof app !== 'object') return;
-  if (!app.taskRoutes) app.taskRoutes = [];
-  app.taskRoutes.push({
-    method: 'PATCH',
-    pattern: new URLPattern({ pathname: '/api/tasks/:taskId' }),
-    handler: (req, env, match) => handleUpdateTask(req, env, { taskId: match.pathname.groups.taskId })
+  if (!app || typeof app.patch !== 'function') return;
+
+  app.patch('/api/tasks/:taskId', async (c) => {
+    return handleUpdateTask(c.req.raw, c.env, { taskId: c.req.param('taskId') });
   });
 }
-// Task Routes for CHK‑R11
-
-import { updateTask } from "../services/tasks.js";
 
 export async function handleUpdateTask(request, env, params) {
   // [SEC] Tenant isolation: bắt buộc X-Tenant-ID header

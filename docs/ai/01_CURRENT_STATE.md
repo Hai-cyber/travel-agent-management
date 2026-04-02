@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-01 (merged 2026-03-30 runtime verification + 2026-03-31 universal foundation)
+Last updated: 2026-04-02 (includes verified fixes for CHK-R11 and CHK-R18, plus preserved multi-skin storefront context)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -52,7 +52,7 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 **Task System (CHK-R11)**
 - Task generation is working locally: service-item `POST` creates rows in `stop_service_tasks`
 - Service-item `GET` returns embedded tasks for each item
-- `PATCH /api/tasks/:taskId` is currently broken in local runtime: endpoint returned `404` on 2026-03-30 because the route is not mounted into the main Worker router
+- `PATCH /api/tasks/:taskId` is working locally again after the route was remounted into the live Hono router; verified on 2026-04-02 with direct PowerShell API calls against `stop-001`
 
 **Pricing Engine (CHK-R12/foundation)**
 - `GET /api/pricing/calculate` — single segment or compare-all mode
@@ -88,7 +88,7 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; returns `guest_portal_token`
 - `GET /api/bookings/order/:id` — agent view; guest object is present but masked as `***` until identity unlock
 - `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm step
-- `POST /api/bookings/order/:id/confirm-receipt` — intended to unlock identity and increment `total_revenue_tracked`; local verification on 2026-03-30 found a defect where the endpoint returns `500` after mutating the order and revenue because the `tenant_audit_log` insert does not match the current schema
+- `POST /api/bookings/order/:id/confirm-receipt` — unlocks identity, increments `total_revenue_tracked`, and now writes a compatible `tenant_audit_log` row with `changed_at`/`changed_by`; verified locally on 2026-04-02
 
 **Guest Portal — no auth required (CHK-R19)**
 - `GET /api/bookings/public/:token` — guest views own booking status, pax, total, upload link; verified locally on 2026-03-30
@@ -115,10 +115,13 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 ### Universal Site API foundation (CHK-R35)
 - Legacy Site Studio remains intact.
 - New parallel namespace: `/api/universal/*`
+- Default storefront UI is the `tour-luxury` shell, treated as the `Six Senses Immersive Frame` visual baseline rather than a Cruip legacy storefront.
 - New D1 scaffold tables: `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`, `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`
+- New temporary D1 entity table for decorative accommodation/runtime editing: `tenant_universal_hotels`
 - New library: `src/lib/universalSite.js`
   - defines 3 groups: `tour_operator`, `stay_accommodation`, `transport_service`
   - defines 5 stabilized variants: `tour-adventure`, `tour-luxury`, `stay-boutique`, `stay-resort`, `transfer-private`
+  - `tour-luxury` maps to the `Six Senses Immersive Frame` storefront baseline with Cormorant Garamond headings and Source Sans 3 body copy
   - seeds standard pages, menu items, theme tokens, contact schema, and editor schema
 - New routes: `src/routes/universalSites.js`
   - `GET /api/universal/health`
@@ -132,9 +135,16 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
   - `PATCH /api/universal/site/pages/:pageId`
   - `POST /api/universal/tours/:tourId/page/sync`
   - `GET /api/universal/tours/:tourId/page`
+- Theme architecture now exists under `src/lib/themes/`
+  - `src/lib/themes/index.js` resolves the active storefront skin
+  - `src/lib/themes/six-senses.js` preserves the first saved premium skin module
+  - `GET /api/universal/site/config` returns `active_theme` so the admin and storefront can stay in sync
 - `GET /api/universal/site/config` now returns a structured editor schema for frontend-driven controls (`text`, `rich_text`, `color`, `image_upload`, `link`, `toggle`, `repeater`)
 - Travel universal tour pages are scaffolded as auto-bound records keyed by `tour_id`; booking CTA label defaults to `I like this tour`
-- This is stabilized foundation scaffolding only; final editor UI is not yet built on top of these APIs
+- Public storefront rendering now defaults to the Six Senses-style luxury editorial chrome: invisible fixed header on first paint, Cormorant Garamond wordmark/headings, and a floating `Book Now` CTA on scroll
+- Public storefront rendering supports preview-first contextual editing metadata, hotel/tour/destination/contact quick-edit handoff, and an expanded Website Design system panel for chrome toggles and site-level settings
+- Current runtime truth for skins: the architecture is multi-skin-ready, but only the first preserved skin module is implemented in runtime today: `six-senses`
+- This is stabilized multi-skin foundation scaffolding; more skins are planned but not yet implemented in runtime
 
 ### Managed responsive chrome (CHK-R34)
 - `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.
@@ -142,6 +152,8 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - Tapping the toggle expands the primary nav and chrome action buttons in-place; desktop keeps the full horizontal header.
 
 ### Scripts
+- `npm run db:migrate:local` — reconciles the `0012_stop_services_config.sql` ledger row if `tour_stops.services_config` already exists locally, then runs `wrangler d1 migrations apply travel_agent_db --local`
+- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE, reuses or starts local Wrangler dev, verifies task patch on `stop-001`, verifies seeded pricing calculate for `tour-001` / `segment-standard` on `2026-07-10`, then verifies booking proof + confirm + audit row end to end
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
   - 24 deep categories: hero-video, gallery-grid, booking-form, travel-itinerary, map-section + originals
   - Hybrid multi-label tagging (one snippet → N categories)
@@ -168,9 +180,9 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)
 - `test/test_pricing.sh`, `test/test_tasks.sh`, `test/test_all_services.sh` and per-group scripts
 
-## Local verification on 2026-03-30
+## Local verification on 2026-04-02
 
-Verified against `npx wrangler dev` on `http://127.0.0.1:8787` with direct API calls from PowerShell.
+Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:8788` in this session) with direct API calls from PowerShell.
 
 ### Confirmed working in local runtime
 - `GET /`
@@ -183,19 +195,23 @@ Verified against `npx wrangler dev` on `http://127.0.0.1:8787` with direct API c
 - `POST /api/bookings/order`
 - `GET /api/bookings/order/:id`
 - `POST /api/bookings/order/:id/proof`
+- `POST /api/bookings/order/:id/confirm-receipt`
 - `GET /api/bookings/public/:token`
 - `POST/GET/PATCH /api/stops/stop-001/accommodations`
+- `PATCH /api/tasks/:taskId`
 
 ### Confirmed defects in local runtime
-- `PATCH /api/tasks/:taskId` returns `404 Not Found`
-- `POST /api/bookings/order/:id/confirm-receipt` returns `500 Internal Server Error`, even though the order transitions to `CONFIRMED`, identity unlocks, and `tenants.total_revenue_tracked` increments
-- Local D1 migration ledger is out of sync for `0012_stop_services_config.sql`; re-applying migrations attempts to add `services_config` again and fails with `duplicate column name: services_config`
+- No currently reproduced runtime defects in the task, pricing-calculate, and booking flows covered by `npm test` on 2026-04-02
 
 ### Notes on test method
-- Bash shell scripts in `test/` were not directly runnable in this Windows environment because `bash` was not installed
-- Direct live API calls were used instead of treating the shell scripts as proof of correctness
+- Windows verification now has a first-class entrypoint: `npm test`
+- The smoke runner is Node-based and does not require `bash`
+- It reuses a running local Worker when available and otherwise starts its own Wrangler dev instance on port `8790`
 
 ## Planned / Target (not yet implemented)
+- Multi-skin expansion beyond Six Senses: more storefront skins will be added under `src/lib/themes/`, with each tenant selecting its active skin through tenant site configuration
+- Tenant creation seed packs: tours, hotels, galleries, destinations, and related decorative/runtime content should be normalized so a new tenant can be created with preloaded seed data and a chosen skin in one step
+- Skin-aware tenant bootstrap/load flow: tenant chooses a skin, then matching seed content is loaded automatically rather than manually assembled after creation
 - Calendar endpoints and reminder cadence
 - Domain onboarding flow (automated DNS verification)
 - Publish gate checklist endpoints

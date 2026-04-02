@@ -1,6 +1,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { formatMoney, formatDateTime, translate, resolveLocaleFromAcceptLanguage } from './utils/formatter.js';
+import {
+  formatMoney,
+  formatDateTime,
+  translate,
+  resolveLocaleFromAcceptLanguage,
+  getLocaleMessages,
+  normalizeLocale,
+  getSupportedLocales,
+} from './utils/formatter.js';
 import {
   handleCreateServiceItem,
   handleGetServiceItems,
@@ -58,6 +66,16 @@ const UNDER_CONSTRUCTION_HTML = `<!DOCTYPE html>
 </html>`;
 
 const app = new Hono();
+
+app.get('/api/i18n', (c) => {
+  const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
+  return c.json({ ok: true, lang, supported: getSupportedLocales(), messages: getLocaleMessages(lang) });
+});
+
+app.get('/api/i18n/:lang', (c) => {
+  const lang = normalizeLocale(c.req.param('lang'));
+  return c.json({ ok: true, lang, supported: getSupportedLocales(), messages: getLocaleMessages(lang) });
+});
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // Allow the admin dashboard (any origin) to call /api/* — handles OPTIONS

@@ -1,11 +1,28 @@
 // src/utils/formatter.js
-// Tiện ích I18n: định dạng tiền tệ, ngày tháng, và bản địa hóa chuỗi
+// I18n helpers for locale lookup, translation, and formatting.
 
 import vi from '../locales/vi.json';
 import en from '../locales/en.json';
+import zh from '../locales/zh.json';
 
 // ── Translation registry ──────────────────────────────────────────────────────
-const LOCALES = { vi, en };
+const LOCALES = { en, vi, zh };
+
+export function getSupportedLocales() {
+  return Object.keys(LOCALES);
+}
+
+export function normalizeLocale(lang) {
+  const fallback = 'en';
+  if (!lang) return fallback;
+
+  const base = String(lang).trim().toLowerCase().split('-')[0];
+  return LOCALES[base] ? base : fallback;
+}
+
+export function getLocaleMessages(lang = 'en') {
+  return LOCALES[normalizeLocale(lang)] ?? LOCALES.en;
+}
 
 // ── Currency config ───────────────────────────────────────────────────────────
 // Locale mặc định cho từng mã tiền tệ
@@ -115,7 +132,7 @@ export function formatDateTime(date, locale, options) {
  * @returns {string}
  */
 export function translate(key, lang = 'en', vars = {}) {
-  const dict  = LOCALES[lang] ?? LOCALES['en'];
+  const dict  = getLocaleMessages(lang);
   const parts = key.split('.');
 
   let node = dict;
@@ -296,7 +313,7 @@ export function dualPrice(amountUSD, tenantConfig) {
 export function resolveLocaleFromAcceptLanguage(acceptLang) {
   if (!acceptLang) return 'en';
 
-  const supported = Object.keys(LOCALES);
+  const supported = getSupportedLocales();
 
   // Parse "fr-FR,fr;q=0.9,en;q=0.8" → sorted [['fr', 0.9], ['en', 0.8]]
   const langs = acceptLang

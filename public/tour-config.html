@@ -322,25 +322,31 @@
     Tour Config
   </h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
-    <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" />
-    <input type="text" id="input-tenant" placeholder="e.g. ten-demo-001"    spellcheck="false" />
+    <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" data-i18n-placeholder="tour_config.header.base_url_placeholder" />
+    <input type="text" id="input-tenant" placeholder="e.g. ten-demo-001"    spellcheck="false" data-i18n-placeholder="tour_config.header.tenant_placeholder" />
     <button type="submit" class="btn-connect">Connect</button>
     <span id="connect-status"></span>
   </form>
   <div class="topbar-right">
-    <a href="dashboard.html">Dashboard</a>
-    <a href="category-manager.html">Category Manager</a>
+    <label for="input-ui-lang" style="font-size:12px;color:#94a3b8">Lang</label>
+    <select id="input-ui-lang" style="background:#313244;border:1px solid #45475a;color:#cdd6f4;padding:5px 8px;border-radius:5px;font-size:12px">
+      <option value="en">EN</option>
+      <option value="vi">VI</option>
+      <option value="zh">ZH</option>
+    </select>
+    <a href="dashboard.html" data-i18n="tour_config.header.dashboard">Dashboard</a>
+    <a href="category-manager.html" data-i18n="tour_config.header.category_manager">Category Manager</a>
   </div>
 </header>
 
 <!-- -- Tabs -- -->
 <nav class="tabs" id="tab-nav">
-  <button class="tab-btn active" data-tab="tours">Tours</button>
-  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled>Content</button>
-  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled>Stops</button>
-  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled>Price Config</button>
-  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled>Preview</button>
-  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled>Publish</button>
+  <button class="tab-btn active" data-tab="tours" data-i18n="tour_config.tabs.tours">Tours</button>
+  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled data-i18n="tour_config.tabs.content">Content</button>
+  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled data-i18n="tour_config.tabs.stops">Stops</button>
+  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled data-i18n="tour_config.tabs.pricing">Price Config</button>
+  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled data-i18n="tour_config.tabs.preview">Preview</button>
+  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled data-i18n="tour_config.tabs.publish">Publish</button>
 </nav>
 
 <!-- --------------------------------  TAB 1: TOUR  --------------------------- -->
@@ -351,11 +357,11 @@
     <div>
       <div class="card">
         <div class="card-header">
-          <h2>Existing Tours</h2>
-          <button class="btn btn-primary btn-sm" id="btn-new-tour">+ New</button>
+          <h2 data-i18n="tour_config.tours.existing">Existing Tours</h2>
+          <button class="btn btn-primary btn-sm" id="btn-new-tour" data-i18n="tour_config.tours.new">+ New</button>
         </div>
         <div class="card-body" style="padding:12px">
-          <div class="empty-state" id="tour-list-placeholder">Connect to load tours.</div>
+          <div class="empty-state" id="tour-list-placeholder" data-i18n="tour_config.tours.connect_to_load">Connect to load tours.</div>
           <ul class="tour-list" id="tour-list" style="display:none"></ul>
         </div>
       </div>
@@ -366,40 +372,40 @@
       <!-- Create form (shown when New is clicked) -->
       <div class="card" id="create-tour-card" style="display:none">
         <div class="card-header">
-          <h2>Create New Tour</h2>
-          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">&larr; Cancel</button>
+          <h2 data-i18n="tour_config.tours.create_new">Create New Tour</h2>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-create">&larr; <span data-i18n="tour_config.tours.cancel">Cancel</span></button>
         </div>
         <div class="card-body">
           <form id="create-tour-form">
             <div class="field-row cols-2">
               <div class="field">
-                <label>Title *</label>
-                <input type="text" id="new-title" placeholder="e.g. Ha Long Bay 3D2N" required />
+                <label data-i18n="tour_config.tours.title">Title *</label>
+                <input type="text" id="new-title" placeholder="e.g. Ha Long Bay 3D2N" required data-i18n-placeholder="tour_config.tours.title_placeholder" />
               </div>
               <div class="field">
-                <label>Duration Text</label>
-                <input type="text" id="new-duration" placeholder="3 days 2 nights" />
+                <label data-i18n="tour_config.tours.duration_text">Duration Text</label>
+                <input type="text" id="new-duration" placeholder="3 days 2 nights" data-i18n-placeholder="tour_config.tours.duration_placeholder" />
               </div>
             </div>
             <div class="field-row cols-2">
               <div class="field">
-                <label>Language</label>
+                <label data-i18n="language.label">Language</label>
                 <select id="new-lang">
-                  <option value="vi">Vietnamese (vi)</option>
-                  <option value="en">English (en)</option>
-                  <option value="zh">Chinese (zh)</option>
+                  <option value="vi" data-i18n="language.vi">Vietnamese</option>
+                  <option value="en" data-i18n="language.en">English</option>
+                  <option value="zh" data-i18n="language.zh">Chinese</option>
                 </select>
               </div>
               <div class="field">
-                <label>Status</label>
+                <label data-i18n="tour_config.tours.status">Status</label>
                 <select id="new-status">
-                  <option value="draft">draft</option>
-                  <option value="on_sale">on_sale</option>
+                  <option value="draft" data-i18n="common.draft">draft</option>
+                  <option value="on_sale" data-i18n="common.on_sale">on_sale</option>
                 </select>
               </div>
             </div>
             <div class="btn-row" style="margin-top:4px">
-              <button type="submit" class="btn btn-success">+ Create Tour</button>
+              <button type="submit" class="btn btn-success" data-i18n="tour_config.tours.create">+ Create Tour</button>
             </div>
           </form>
         </div>
@@ -413,17 +419,17 @@
         </div>
         <div class="card-body">
           <div class="field-row cols-2" style="font-size:13px; color:#475569; row-gap:10px">
-            <div><strong>ID</strong><br><button class="copy-id" id="tour-detail-id" title="Click to copy"></button></div>
-            <div><strong>Slug</strong><br><code id="tour-detail-slug"></code></div>
-            <div><strong>Language</strong><br><span id="tour-detail-lang"></span></div>
-            <div><strong>Duration</strong><br><span id="tour-detail-duration"></span></div>
-            <div><strong>Published</strong><br><span id="tour-detail-published"></span></div>
+            <div><strong data-i18n="tour_config.tours.detail_id">ID</strong><br><button class="copy-id" id="tour-detail-id" title="Click to copy" data-i18n-title="tour_config.tours.copy_id_title"></button></div>
+            <div><strong data-i18n="tour_config.tours.detail_slug">Slug</strong><br><code id="tour-detail-slug"></code></div>
+            <div><strong data-i18n="tour_config.tours.detail_language">Language</strong><br><span id="tour-detail-lang"></span></div>
+            <div><strong data-i18n="tour_config.tours.detail_duration">Duration</strong><br><span id="tour-detail-duration"></span></div>
+            <div><strong data-i18n="tour_config.tours.detail_published">Published</strong><br><span id="tour-detail-published"></span></div>
           </div>
           <hr />
           <div class="btn-row">
-            <button class="btn btn-primary"   id="btn-goto-content">Edit Content &rarr;</button>
-            <button class="btn btn-ghost"     id="btn-goto-stops">Stops &rarr;</button>
-            <button class="btn btn-ghost"     id="btn-goto-preview">Preview &rarr;</button>
+            <button class="btn btn-primary"   id="btn-goto-content" data-i18n="tour_config.tours.edit_content">Edit Content &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-stops" data-i18n="tour_config.tours.goto_stops">Stops &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-preview" data-i18n="tour_config.tours.goto_preview">Preview &rarr;</button>
           </div>
         </div>
       </div>
@@ -431,7 +437,7 @@
       <div class="card" id="tour-hint-card">
         <div class="card-body">
           <div class="empty-state" style="padding:20px">
-            Select a tour from the list, or click <strong>+ New</strong> to create one.
+            <span data-i18n="tour_config.tours.hint">Select a tour from the list, or click + New to create one.</span>
           </div>
         </div>
       </div>
@@ -442,44 +448,44 @@
 <!-- ----------------------------  TAB 2: CONTENT  ---------------------------- -->
 <section class="panel" id="panel-content">
   <div id="content-selected-notice" class="selected-notice" style="display:none">
-    Editing: <strong id="content-tour-name-label"></strong>
+    <span data-i18n="tour_config.content.editing">Editing:</span> <strong id="content-tour-name-label"></strong>
     <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="content-tour-id-label"></span>
   </div>
 
   <!-- Basic fields (PATCH /api/tours/:id) -->
   <div class="card">
-    <div class="card-header"><h2>Tour Metadata</h2></div>
+    <div class="card-header"><h2 data-i18n="tour_config.content.metadata">Tour Metadata</h2></div>
     <div class="card-body">
       <form id="meta-form">
         <div class="field-row cols-2">
           <div class="field">
-            <label>Title</label>
-            <input type="text" id="meta-title" placeholder="e.g. Ha Long Bay 3D2N" />
+            <label data-i18n="tour_config.tours.title">Title</label>
+            <input type="text" id="meta-title" placeholder="e.g. Ha Long Bay 3D2N" data-i18n-placeholder="tour_config.tours.title_placeholder" />
           </div>
           <div class="field">
-            <label>Duration Text</label>
-            <input type="text" id="meta-duration" placeholder="e.g. 3 days 2 nights" />
+            <label data-i18n="tour_config.tours.duration_text">Duration Text</label>
+            <input type="text" id="meta-duration" placeholder="e.g. 3 days 2 nights" data-i18n-placeholder="tour_config.tours.duration_placeholder" />
           </div>
         </div>
         <div class="field-row cols-2">
           <div class="field">
-            <label>Status</label>
+            <label data-i18n="tour_config.tours.status">Status</label>
             <select id="meta-status">
-              <option value="draft">draft</option>
-              <option value="on_sale">on_sale</option>
+              <option value="draft" data-i18n="common.draft">draft</option>
+              <option value="on_sale" data-i18n="common.on_sale">on_sale</option>
             </select>
           </div>
           <div class="field">
-            <label>Language</label>
+            <label data-i18n="language.label">Language</label>
             <select id="meta-lang">
-              <option value="vi">vi</option>
-              <option value="en">en</option>
-              <option value="zh">zh</option>
+              <option value="vi" data-i18n="language.vi">Vietnamese</option>
+              <option value="en" data-i18n="language.en">English</option>
+              <option value="zh" data-i18n="language.zh">Chinese</option>
             </select>
           </div>
         </div>
         <div class="btn-row">
-          <button type="submit" class="btn btn-primary">Save Metadata</button>
+          <button type="submit" class="btn btn-primary" data-i18n="tour_config.content.save_metadata">Save Metadata</button>
         </div>
       </form>
     </div>
@@ -487,52 +493,52 @@
 
   <!-- content_data editor -->
   <div class="card">
-    <div class="card-header"><h2>Content Data (website copy)</h2></div>
+    <div class="card-header"><h2 data-i18n="tour_config.content.content_data">Content Data (website copy)</h2></div>
     <div class="card-body">
       <div class="field-row cols-2">
         <div class="field">
-          <label>Tour Name (display)</label>
-          <input type="text" id="cd-tour-name" placeholder="e.g. Ha Long Bay 3D2N" />
+          <label data-i18n="tour_config.content.tour_name">Tour Name (display)</label>
+          <input type="text" id="cd-tour-name" placeholder="e.g. Ha Long Bay 3D2N" data-i18n-placeholder="tour_config.content.tour_name_placeholder" />
         </div>
         <div class="field">
-          <label>Tour Code</label>
-          <input type="text" id="cd-tour-code" placeholder="HNX-HAL-3N2D" />
-        </div>
-      </div>
-      <div class="field-row cols-2">
-        <div class="field">
-          <label>Base Price (display)</label>
-          <input type="number" id="cd-base-price" placeholder="2500000" />
-        </div>
-        <div class="field">
-          <label>Duration (copy)</label>
-          <input type="text" id="cd-duration" placeholder="3 Days / 2 Nights" />
+          <label data-i18n="tour_config.content.tour_code">Tour Code</label>
+          <input type="text" id="cd-tour-code" placeholder="HNX-HAL-3N2D" data-i18n-placeholder="tour_config.content.tour_code_placeholder" />
         </div>
       </div>
       <div class="field-row cols-2">
         <div class="field">
-          <label>Highlights <small style="font-weight:400;text-transform:none">One per line</small></label>
-          <textarea id="cd-highlights" placeholder="Cave cruise&#10;Sunset views&#10;5-star hotel"></textarea>
+          <label data-i18n="tour_config.content.base_price">Base Price (display)</label>
+          <input type="number" id="cd-base-price" placeholder="2500000" data-i18n-placeholder="tour_config.content.base_price_placeholder" />
         </div>
         <div class="field">
-          <label>Includes <small style="font-weight:400;text-transform:none">One per line</small></label>
-          <textarea id="cd-includes" placeholder="Hotel 2 nights&#10;Daily breakfast&#10;Tour guide"></textarea>
+          <label data-i18n="tour_config.content.duration_copy">Duration (copy)</label>
+          <input type="text" id="cd-duration" placeholder="3 Days / 2 Nights" data-i18n-placeholder="tour_config.content.duration_copy_placeholder" />
+        </div>
+      </div>
+      <div class="field-row cols-2">
+        <div class="field">
+          <label><span data-i18n="tour_config.content.highlights">Highlights</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One per line</small></label>
+          <textarea id="cd-highlights" placeholder="Cave cruise&#10;Sunset views&#10;5-star hotel" data-i18n-placeholder="tour_config.content.highlights_placeholder"></textarea>
+        </div>
+        <div class="field">
+          <label><span data-i18n="tour_config.content.includes">Includes</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One per line</small></label>
+          <textarea id="cd-includes" placeholder="Hotel 2 nights&#10;Daily breakfast&#10;Tour guide" data-i18n-placeholder="tour_config.content.includes_placeholder"></textarea>
         </div>
       </div>
       <div class="field">
-        <label>Excludes <small style="font-weight:400;text-transform:none">One per line</small></label>
-        <textarea id="cd-excludes" placeholder="International flights&#10;Travel insurance" style="min-height:60px"></textarea>
+        <label><span data-i18n="tour_config.content.excludes">Excludes</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One per line</small></label>
+        <textarea id="cd-excludes" placeholder="International flights&#10;Travel insurance" style="min-height:60px" data-i18n-placeholder="tour_config.content.excludes_placeholder"></textarea>
       </div>
 
       <div style="margin-top:14px;padding:14px;border:1px solid #E5E7EB;border-radius:10px;background:#FAFAFA">
-        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:10px">Universal Site Placement</div>
+        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:10px" data-i18n="tour_config.content.universal_site_placement">Universal Site Placement</div>
         <div class="field-row cols-2">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-featured" /> Featured Tours</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-destination" /> Destinations</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-featured" /> <span data-i18n="tour_config.content.featured_tours">Featured Tours</span></label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-destination" /> <span data-i18n="tour_config.content.destinations">Destinations</span></label>
         </div>
         <div class="field-row cols-2" style="margin-top:8px">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-accommodation" /> Accommodation</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-hero" /> Hero Spotlight</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-accommodation" /> <span data-i18n="tour_config.content.accommodation">Accommodation</span></label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-hero" /> <span data-i18n="tour_config.content.hero_spotlight">Hero Spotlight</span></label>
         </div>
       </div>
 
@@ -540,33 +546,33 @@
 
       <!-- Itinerary builder -->
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
-        <strong style="font-size:13px">Itinerary</strong>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day">+ Add Day</button>
+        <strong style="font-size:13px" data-i18n="tour_config.content.itinerary">Itinerary</strong>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day" data-i18n="tour_config.content.add_day">+ Add Day</button>
       </div>
       <ul class="itin-list" id="itin-list"></ul>
       <div id="add-day-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px">
         <div class="field-row cols-3">
           <div class="field">
-            <label>Day #</label>
+            <label data-i18n="tour_config.content.day_number">Day #</label>
             <input type="number" id="day-num" min="1" value="1" />
           </div>
           <div class="field" style="grid-column: span 2">
-            <label>Title</label>
-            <input type="text" id="day-title" placeholder="Arrival in Hanoi" />
+            <label data-i18n="tour_config.content.day_title">Title</label>
+            <input type="text" id="day-title" placeholder="Arrival in Hanoi" data-i18n-placeholder="tour_config.content.day_title_placeholder" />
           </div>
         </div>
         <div class="field">
-          <label>Description</label>
-          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at the airport, transfer to hotel..."></textarea>
+          <label data-i18n="tour_config.content.description">Description</label>
+          <textarea id="day-desc" style="min-height:60px" placeholder="Arrive at the airport, transfer to hotel..." data-i18n-placeholder="tour_config.content.day_description_placeholder"></textarea>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn btn-primary btn-sm" id="btn-save-day">+ Add</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-day">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-save-day" data-i18n="tour_config.content.save_day">+ Add</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-day" data-i18n="tour_config.tours.cancel">Cancel</button>
         </div>
       </div>
 
       <div class="btn-row" style="margin-top:8px">
-        <button type="button" class="btn btn-success" id="btn-save-content">Save Content</button>
+        <button type="button" class="btn btn-success" id="btn-save-content" data-i18n="tour_config.content.save_content">Save Content</button>
       </div>
     </div>
   </div>
@@ -575,8 +581,8 @@
 <!-- ----------------------------  TAB 3: STOPS  ------------------------------ -->
 <section class="panel" id="panel-stops">
   <div class="selected-notice" id="stops-notice" style="display:none; margin-bottom:0">
-    <span>Itinerary for: <strong id="stops-tour-label"></strong></span>
-    <span style="margin-left:auto;font-size:11px;opacity:.7">Customer picks a date — days auto-calculate from nights</span>
+    <span><span data-i18n="tour_config.stops.itinerary_for">Itinerary for:</span> <strong id="stops-tour-label"></strong></span>
+    <span style="margin-left:auto;font-size:11px;opacity:.7" data-i18n="tour_config.stops.auto_days_note">Customer picks a date - days auto-calculate from nights</span>
   </div>
 
   <div class="stops-workspace" style="margin-top:20px">
@@ -584,30 +590,30 @@
     <div>
       <div class="card">
         <div class="card-header">
-          <h2>Stop Builder</h2>
+          <h2 data-i18n="tour_config.stops.builder">Stop Builder</h2>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server">&#x21BA;</button>
-            <button class="btn btn-primary btn-sm" id="btn-show-add-stop">+ Add Stop</button>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server" data-i18n-title="tour_config.stops.reload_title">&#x21BA;</button>
+            <button class="btn btn-primary btn-sm" id="btn-show-add-stop" data-i18n="tour_config.stops.add_stop">+ Add Stop</button>
           </div>
         </div>
         <div id="stops-rows-container">
-          <div class="empty-state">Select a tour first.</div>
+          <div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div>
         </div>
         <!-- Quick-add form -->
         <div class="stop-quick-form" id="stop-quick-form" style="display:none">
           <div class="stop-quick-row">
-            <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" />
+            <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" data-i18n-placeholder="tour_config.stops.label_placeholder" />
             <div class="nights-pill">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-              <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" />
-              <span style="font-size:12px;color:#94a3b8">nights</span>
+              <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" data-i18n-title="tour_config.stops.nights_title" />
+              <span style="font-size:12px;color:#94a3b8" data-i18n="tour_config.stops.nights">nights</span>
             </div>
             <div class="stop-meal-group">
-              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast">B</button>
-              <button type="button" class="meal-toggle" id="sq-l" title="Lunch">L</button>
-              <button type="button" class="meal-toggle" id="sq-d" title="Dinner">D</button>
+              <button type="button" class="meal-toggle" id="sq-b" title="Breakfast" data-i18n-title="tour_config.stops.breakfast">B</button>
+              <button type="button" class="meal-toggle" id="sq-l" title="Lunch" data-i18n-title="tour_config.stops.lunch">L</button>
+              <button type="button" class="meal-toggle" id="sq-d" title="Dinner" data-i18n-title="tour_config.stops.dinner">D</button>
             </div>
-            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop">Add &rarr;</button>
+            <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop" data-i18n="tour_config.stops.confirm_add">Add &rarr;</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">&times;</button>
           </div>
         </div>
@@ -621,12 +627,12 @@
         <div class="card-header">
           <h2>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            Itinerary
+            <span data-i18n="tour_config.stops.itinerary">Itinerary</span>
           </h2>
           <span id="total-days-badge" style="font-size:13px;font-weight:800;color:#6366F1;margin-left:auto;letter-spacing:.03em"></span>
         </div>
         <div id="itin-preview-panel">
-          <div class="empty-state">Add stops to see preview.</div>
+          <div class="empty-state" data-i18n="tour_config.stops.add_stops_preview">Add stops to see preview.</div>
         </div>
       </div>
     </div>
@@ -636,8 +642,8 @@
 <!-- ----------------------------  TAB 4: PRICE CONFIG  ----------------------- -->
 <section class="panel" id="panel-pricing" style="max-width:1200px">
   <div class="selected-notice" id="pricing-notice" style="display:none; margin-bottom:20px">
-    <span>Pricing for: <strong id="pricing-tour-label"></strong></span>
-    <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto">&#x21BA; Refresh</button>
+    <span><span data-i18n="tour_config.pricing.pricing_for">Pricing for:</span> <strong id="pricing-tour-label"></strong></span>
+    <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto"><span aria-hidden="true">&#x21BA;</span> <span data-i18n="tour_config.pricing.refresh">Refresh</span></button>
   </div>
 
   <!-- TWO-COLUMN GRID -->
@@ -649,9 +655,9 @@
       <!-- Price Settings -->
       <div class="card" style="margin-bottom:0">
         <div class="card-header" style="padding:12px 16px;gap:12px">
-          <h2 style="font-size:13px">Price Settings</h2>
+          <h2 style="font-size:13px" data-i18n="tour_config.pricing.settings">Price Settings</h2>
           <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-            <label for="price-currency-sel" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#94a3b8">Display Currency</label>
+            <label for="price-currency-sel" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#94a3b8" data-i18n="currency.display_currency">Display Currency</label>
             <select id="price-currency-sel" style="border:1px solid #6366F1;border-radius:6px;padding:5px 12px;font-size:13px;font-weight:700;color:#6366F1;background:#EEF2FF;cursor:pointer;font-family:inherit">
               <option value="EUR" selected>EUR &mdash; &euro; (de-DE)</option>
               <option value="USD">USD &mdash; $ (en-US)</option>
@@ -664,86 +670,86 @@
       <!-- Seasons + Pax Bands row -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
         <div class="card" style="margin-bottom:0">
-          <div class="card-header"><h2>Seasons</h2></div>
-          <div id="pricing-seasons-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+          <div class="card-header"><h2 data-i18n="tour_config.pricing.seasons">Seasons</h2></div>
+          <div id="pricing-seasons-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
           <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Season</div>
-            <input id="sn-name" placeholder="Name (e.g. High Season)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_season">Add Season</div>
+            <input id="sn-name" placeholder="Name (e.g. High Season)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" data-i18n-placeholder="tour_config.pricing.season_name_placeholder" />
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-              <input id="sn-smon" type="number" placeholder="From month" min="1" max="12" title="From month (1-12)" style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
-              <input id="sn-sday" type="number" placeholder="From day"   min="1" max="31" title="From day (1-31)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
-              <input id="sn-emon" type="number" placeholder="To month"   min="1" max="12" title="To month (1-12)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
-              <input id="sn-eday" type="number" placeholder="To day"     min="1" max="31" title="To day (1-31)"     style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" />
+              <input id="sn-smon" type="number" placeholder="From month" min="1" max="12" title="From month (1-12)" style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" data-i18n-placeholder="tour_config.pricing.from_month" data-i18n-title="tour_config.pricing.from_month" />
+              <input id="sn-sday" type="number" placeholder="From day"   min="1" max="31" title="From day (1-31)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" data-i18n-placeholder="tour_config.pricing.from_day" data-i18n-title="tour_config.pricing.from_day" />
+              <input id="sn-emon" type="number" placeholder="To month"   min="1" max="12" title="To month (1-12)"   style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" data-i18n-placeholder="tour_config.pricing.to_month" data-i18n-title="tour_config.pricing.to_month" />
+              <input id="sn-eday" type="number" placeholder="To day"     min="1" max="31" title="To day (1-31)"     style="border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px;width:100%" data-i18n-placeholder="tour_config.pricing.to_day" data-i18n-title="tour_config.pricing.to_day" />
             </div>
-            <button class="btn btn-primary btn-sm" id="btn-add-season" style="width:100%">+ Add Season</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-season" style="width:100%" data-i18n="tour_config.pricing.add_season_button">+ Add Season</button>
           </div>
         </div>
 
         <div class="card" style="margin-bottom:0">
-          <div class="card-header"><h2>Pax Bands</h2></div>
-          <div id="pricing-paxbands-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+          <div class="card-header"><h2 data-i18n="tour_config.pricing.pax_bands">Pax Bands</h2></div>
+          <div id="pricing-paxbands-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
           <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Pax Band</div>
-            <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_pax_band">Add Pax Band</div>
+            <input id="pb-name" placeholder="Name (e.g. Group 10+)" style="width:100%;margin-bottom:6px;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" data-i18n-placeholder="tour_config.pricing.pax_band_name_placeholder" />
             <div style="display:flex;gap:6px;margin-bottom:6px">
-              <input id="pb-min" type="number" placeholder="Min pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" />
-              <input id="pb-max" type="number" placeholder="Max pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" />
+              <input id="pb-min" type="number" placeholder="Min pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" data-i18n-placeholder="tour_config.pricing.min_pax" />
+              <input id="pb-max" type="number" placeholder="Max pax" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 7px;font-size:12px" min="1" data-i18n-placeholder="tour_config.pricing.max_pax" />
             </div>
-            <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%">+ Add</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-paxband" style="width:100%" data-i18n="tour_config.pricing.add_pax_band">+ Add</button>
           </div>
         </div>
       </div>
 
       <!-- Segments -->
       <div class="card" style="margin-bottom:0">
-        <div class="card-header"><h2>Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto">Tenant-level &middot; rename inline</span></div>
-        <div id="pricing-segments-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div class="card-header"><h2 data-i18n="tour_config.pricing.segments">Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.tenant_level_rename">Tenant-level · rename inline</span></div>
+        <div id="pricing-segments-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
         <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Add Segment</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_segment">Add Segment</div>
           <div style="display:flex;gap:8px;margin-bottom:6px">
-            <input id="sg-name" placeholder="Label (e.g. Standard)" style="flex:2;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
-            <input id="sg-code" placeholder="Code (e.g. STD)" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" />
+            <input id="sg-name" placeholder="Label (e.g. Standard)" style="flex:2;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" data-i18n-placeholder="tour_config.pricing.segment_label_placeholder" />
+            <input id="sg-code" placeholder="Code (e.g. STD)" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit" data-i18n-placeholder="tour_config.pricing.segment_code_placeholder" />
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-add-segment" style="width:100%">+ Add Segment</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-segment" style="width:100%" data-i18n="tour_config.pricing.add_segment_button">+ Add Segment</button>
         </div>
       </div>
 
       <!-- Tour Prices -->
       <div class="card" style="margin-bottom:0">
         <div class="card-header">
-          <h2>Tour Prices</h2>
-          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Per person &middot; season &times; segment &times; pax band</span>
+          <h2 data-i18n="tour_config.pricing.tour_prices">Tour Prices</h2>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.per_person_note">Per person · season × segment × pax band</span>
         </div>
-        <div id="pricing-prices-body" class="card-body"><div class="empty-state">Select a tour first.</div></div>
+        <div id="pricing-prices-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
         <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Add Price Row</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px" data-i18n="tour_config.pricing.add_price_row">Add Price Row</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Season</label><select id="ap-season" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Segment</label><select id="ap-segment" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Pax Band</label><select id="ap-paxband" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.season">Season</label><select id="ap-season" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.segment">Segment</label><select id="ap-segment" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.pax_band">Pax Band</label><select id="ap-paxband" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Child</label><input id="ap-child"  type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.shared_room">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.private_room">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.child">Child</label><input id="ap-child"  type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.infant">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-save-price">Save Price Row</button>
+          <button class="btn btn-primary btn-sm" id="btn-save-price" data-i18n="tour_config.pricing.save_price_row">Save Price Row</button>
         </div>
       </div>
 
       <!-- Pricing Definitions -->
       <div class="card" style="margin-bottom:0">
         <div class="card-header">
-          <h2>Pricing Definitions</h2>
-          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Shown as fine print in Booking View</span>
+          <h2 data-i18n="tour_config.pricing.definitions">Pricing Definitions</h2>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.booking_view">Booking View</span>
         </div>
         <div class="card-body">
-          <p style="font-size:11.5px;color:#64748b;line-height:1.55;margin:0 0 10px;font-family:'Inter',sans-serif">One definition per line. These appear as a <em>Good to Know</em> section below the price total.</p>
+          <p style="font-size:11.5px;color:#64748b;line-height:1.55;margin:0 0 10px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.definitions_help">One definition per line. These appear as a Good to Know section below the price total.</p>
           <textarea id="pricing-defs-editor" rows="5" spellcheck="true"
             style="width:100%;border:1px solid #E5E7EB;border-radius:7px;padding:8px 10px;font-size:12.5px;font-family:'Inter',sans-serif;color:#374151;line-height:1.65;resize:vertical;box-sizing:border-box"
-            placeholder="One rule per line&#10;e.g. Children: Ages 3-14, sharing a room with parents."></textarea>
-          <button class="btn btn-primary btn-sm" id="btn-save-defs" style="margin-top:8px">Apply Definitions</button>
+            placeholder="One rule per line&#10;e.g. Children: Ages 3-14, sharing a room with parents." data-i18n-placeholder="tour_config.pricing.definitions_placeholder"></textarea>
+          <button class="btn btn-primary btn-sm" id="btn-save-defs" style="margin-top:8px" data-i18n="tour_config.pricing.apply_definitions">Apply Definitions</button>
         </div>
       </div>
 
@@ -755,8 +761,8 @@
         <div id="bv-panel-inner">
 
         <div class="card-header" style="background:#fff;border-bottom:1px solid #E5E7EB;flex-shrink:0;padding:12px 20px">
-          <h2 style="color:#1e293b;font-family:'Inter',sans-serif">Booking View</h2>
-          <span style="font-size:12px;color:#94a3b8;margin-left:8px;font-family:'Inter',sans-serif">live price calculator</span>
+          <h2 style="color:#1e293b;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.booking_view">Booking View</h2>
+          <span style="font-size:12px;color:#94a3b8;margin-left:8px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.live_price_calculator">live price calculator</span>
         </div>
 
         <div id="bv-panel-body">
@@ -764,7 +770,7 @@
           <!-- Disclaimer -->
           <div style="display:flex;gap:9px;align-items:flex-start;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:7px;padding:10px 13px;margin-bottom:14px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <p style="margin:0;font-size:11.5px;color:#1D4ED8;line-height:1.6;font-family:'Inter',sans-serif">Prices are live and calculated based on your specific <strong>travel date</strong> and <strong>group size</strong>.</p>
+            <p style="margin:0;font-size:11.5px;color:#1D4ED8;line-height:1.6;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.live_price_notice">Prices are live and calculated based on your specific travel date and group size.</p>
           </div>
 
           <!-- Compact summary (shown after CTA clicked, replaces Phase 1 visually) -->
@@ -772,31 +778,31 @@
             <div style="display:flex;align-items:center;gap:4px">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               <span id="bv-compact-text"></span>
-              <button id="btn-edit-prefs">Edit</button>
+              <button id="btn-edit-prefs" data-i18n="tour_config.pricing.edit">Edit</button>
             </div>
           </div>
 
           <!-- ===== PHASE 1: conversational inputs ===== -->
           <div id="bv-phase1">
             <p style="font-size:15px;line-height:2.4;color:#374151;font-family:'Inter',sans-serif;margin:0 0 6px;font-weight:500">
-              We plan to travel on
+              <span data-i18n="tour_config.pricing.phase1_travel_on">We plan to travel on</span>
               <input type="date" id="calc-date" class="bv-conv-input" />.<br>
-              We are
+              <span data-i18n="tour_config.pricing.phase1_we_are">We are</span>
               <input type="number" id="bv-adult-count" class="bv-conv-input" min="0" value="" placeholder="0" />
-              adults and
+              <span data-i18n="tour_config.pricing.phase1_adults_and">adults and</span>
               <input type="number" id="bv-child-count" class="bv-conv-input" min="0" value="0" />
-              children,<br>
-              staying in
+              <span data-i18n="tour_config.pricing.phase1_children">children,</span><br>
+              <span data-i18n="tour_config.pricing.phase1_staying_in">staying in</span>
               <input type="number" id="bv-double-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
-              double&nbsp;rooms and
+              <span data-i18n="tour_config.pricing.phase1_double_rooms_and">double rooms and</span>
               <input type="number" id="bv-single-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
-              single&nbsp;rooms.
+              <span data-i18n="tour_config.pricing.phase1_single_rooms">single rooms.</span>
             </p>
             <div id="bv-room-hint" style="display:none;font-size:11.5px;font-family:'Inter',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px"></div>
             <button id="btn-calc-price" class="btn btn-primary" disabled
               style="width:100%;padding:12px 0;font-size:14px;font-weight:700;font-family:'Inter',sans-serif;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Calculate Final Price for my Group
+              <span data-i18n="tour_config.pricing.calculate_final_price">Calculate Final Price for my Group</span>
             </button>
           </div>
 
@@ -807,7 +813,7 @@
             <div style="margin-bottom:12px">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif">Pricing Tier</div>
               <div id="seg-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
-                <span style="color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif">Select a tour to see pricing tiers.</span>
+                <span style="color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.select_tier_hint">Select a tour to see pricing tiers.</span>
               </div>
             </div>
 
@@ -816,10 +822,10 @@
               <table style="width:100%;border-collapse:collapse">
                 <thead style="position:sticky;top:0;background:#F8FAFC;z-index:1">
                   <tr style="border-bottom:2px solid #E5E7EB">
-                    <th style="text-align:left;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Traveller Type</th>
-                    <th style="text-align:right;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Price / person</th>
-                    <th style="text-align:center;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Qty</th>
-                    <th style="text-align:right;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif">Subtotal</th>
+                    <th style="text-align:left;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.traveller_type">Traveller Type</th>
+                    <th style="text-align:right;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.price_per_person">Price / person</th>
+                    <th style="text-align:center;padding:7px 8px;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.qty">Qty</th>
+                    <th style="text-align:right;padding:7px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.subtotal">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody id="pax-rows-body">
@@ -833,7 +839,7 @@
 
             <!-- Good to Know / Pricing Definitions -->
             <div id="bv-defs" style="display:none;margin-top:14px;padding-top:12px;border-top:1px dashed #E5E7EB">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif">Good to Know</div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.good_to_know">Good to Know</div>
               <ul id="bv-defs-list" style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px"></ul>
             </div>
 
@@ -853,7 +859,7 @@
               <div id="calc-total" style="font-size:36px;font-weight:900;color:#6366F1;line-height:1;letter-spacing:-.5px;font-family:'Inter',sans-serif">&mdash;</div>
               <div id="calc-meta" style="font-size:11.5px;color:#64748b;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;font-family:'Inter',sans-serif">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span id="calc-meta-text">Calculating&hellip;</span>
+                <span id="calc-meta-text" data-i18n="tour_config.pricing.calculating">Calculating...</span>
               </div>
               <div id="calc-rate-status" style="display:none;margin-top:8px;padding:4px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;font-size:11px;font-weight:700;color:#15803D;font-family:'Inter',sans-serif;letter-spacing:.02em;display:inline-block"></div>
             </div>
@@ -872,31 +878,28 @@
 <section class="panel" id="panel-preview">
   <div class="preview-toolbar">
     <span id="preview-url-label" style="font-family:monospace;font-size:12px;color:#94a3b8">—</span>
-    <button class="btn btn-ghost btn-sm" id="btn-reload-preview">&#x21BA; Reload</button>
-    <button class="btn btn-primary btn-sm" id="btn-open-preview">&#x2197; Open in tab</button>
+    <button class="btn btn-ghost btn-sm" id="btn-reload-preview"><span aria-hidden="true">&#x21BA;</span> <span data-i18n="tour_config.preview.reload">Reload</span></button>
+    <button class="btn btn-primary btn-sm" id="btn-open-preview"><span aria-hidden="true">&#x2197;</span> <span data-i18n="tour_config.preview.open_in_tab">Open in tab</span></button>
   </div>
-  <iframe id="preview-frame" src="about:blank" title="Tour Preview"></iframe>
+  <iframe id="preview-frame" src="about:blank" title="Tour Preview" data-i18n-title="tour_config.preview.title"></iframe>
 </section>
 
 <!-- ================================================================  TAB 6: PUBLISH  ================================================================ -->
 <section class="panel" id="panel-publish">
   <div class="card" style="max-width:600px">
-    <div class="card-header"><h2>Publish Tour</h2></div>
+    <div class="card-header"><h2 data-i18n="tour_config.publish.title">Publish Tour</h2></div>
     <div class="card-body">
       <div id="publish-selected-notice" class="selected-notice" style="display:none; margin-bottom:16px">
-        Tour: <strong id="publish-tour-label"></strong>
+        <span data-i18n="tour_config.publish.tour">Tour:</span> <strong id="publish-tour-label"></strong>
       </div>
-      <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.7">
-        Publishing renders your tour page from the template + content data and saves it to R2.<br>
-        Requires <strong>ACTIVE subscription</strong> and at least one electronic payment gateway.
-      </p>
+      <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.7" data-i18n="tour_config.publish.description">Publishing renders your tour page from the template + content data and saves it to R2. Requires ACTIVE subscription and at least one electronic payment gateway.</p>
       <div class="field">
-        <label>Template ID <small style="font-weight:400;text-transform:none">(default = "default")</small></label>
-        <input type="text" id="pub-template-id" value="default" placeholder="default" />
+        <label><span data-i18n="tour_config.publish.template_id">Template ID</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.publish.template_default">default = "default"</small></label>
+        <input type="text" id="pub-template-id" value="default" placeholder="default" data-i18n-placeholder="tour_config.publish.template_default_value" />
       </div>
       <div class="btn-row">
-        <button class="btn btn-success" id="btn-publish" disabled>Publish Now</button>
-        <button class="btn btn-ghost"   id="btn-switch-template" disabled>Switch Template</button>
+        <button class="btn btn-success" id="btn-publish" disabled data-i18n="tour_config.publish.publish_now">Publish Now</button>
+        <button class="btn btn-ghost"   id="btn-switch-template" disabled data-i18n="tour_config.publish.switch_template">Switch Template</button>
       </div>
       <div class="publish-result" id="publish-result"></div>
     </div>
@@ -909,15 +912,81 @@
 <script>
 'use strict';
 
+const pageParams = new URLSearchParams(window.location.search);
+
 /* --------------------------------  STATE  ---------------------------------- */
 const S = {
-  tenantId: localStorage.getItem('tc_tenant') ?? '',
+  tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tc_tenant') || '',
   baseUrl:  localStorage.getItem('tc_base')   ?? window.location.origin,
   tour:     null,    // selected tour full object
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
+  uiLang: localStorage.getItem('tc_ui_lang') ?? ((navigator.language || 'en').toLowerCase().split('-')[0]),
 };
+
+let UI_MESSAGES = {};
+
+function getNestedValue(dict, key) {
+  return String(key).split('.').reduce((node, part) => node?.[part], dict);
+}
+
+function applyVars(template, vars = {}) {
+  return String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => vars[name] ?? `{{${name}}}`);
+}
+
+function ti(key, vars = {}) {
+  return applyVars(getNestedValue(UI_MESSAGES, key) ?? key, vars);
+}
+
+function formatUiDate(dateLike) {
+  if (!dateLike) return ti('common.not_yet');
+  const locale = { en: 'en-GB', vi: 'vi-VN', zh: 'zh-CN' }[S.uiLang] ?? 'en-GB';
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(dateLike));
+}
+
+function applyStaticTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (el.tagName === 'TITLE') {
+      el.textContent = ti(key);
+      return;
+    }
+    el.textContent = ti(key);
+  });
+
+  root.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    el.setAttribute('placeholder', ti(el.getAttribute('data-i18n-placeholder')));
+  });
+
+  root.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.setAttribute('title', ti(el.getAttribute('data-i18n-title')));
+  });
+
+  document.title = ti('tour_config.meta.title');
+  const langSel = document.getElementById('input-ui-lang');
+  if (langSel) langSel.value = S.uiLang;
+
+  const currencySel = document.getElementById('price-currency-sel');
+  if (currencySel) {
+    [...currencySel.options].forEach((option) => {
+      option.textContent = ti(`currency.${option.value}`);
+    });
+  }
+}
+
+async function loadUiLocale(lang = S.uiLang) {
+  const locale = String(lang || 'en').toLowerCase().split('-')[0];
+  const res = await fetch(`${S.baseUrl}/api/i18n/${encodeURIComponent(locale)}`, {
+    headers: { 'Accept-Language': locale },
+  });
+  const payload = await res.json();
+  UI_MESSAGES = payload?.messages || {};
+  S.uiLang = payload?.lang || locale;
+  localStorage.setItem('tc_ui_lang', S.uiLang);
+  document.documentElement.lang = S.uiLang;
+  applyStaticTranslations();
+}
 
 /* --------------------------------  HELPERS  -------------------------------- */
 let toastTimer;
@@ -966,13 +1035,25 @@ function unlockTabs() {
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.panel')  .forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
+  if (window.location.hash.replace(/^#/, '') !== name) {
+    history.replaceState({}, '', `${window.location.pathname}${window.location.search}#${name}`);
+  }
   if (name === 'pricing') loadPricing();
   if (name === 'preview')  loadPreview();
 }
 
+function applyHashTab() {
+  const requested = window.location.hash.replace(/^#/, '').trim().toLowerCase();
+  if (!requested) return;
+  const tab = document.querySelector(`.tab-btn[data-tab="${requested}"]`);
+  if (tab && !tab.disabled) {
+    switchTab(requested);
+  }
+}
+
 function copyText(text) {
   navigator.clipboard?.writeText(text).catch(() => {});
-  toast('Copied: ' + text);
+  toast(ti('common.copied', { value: text }));
 }
 
 function badgeClass(status) {
@@ -983,16 +1064,28 @@ function badgeClass(status) {
 // Auto-connect if tenantId already saved in localStorage
 document.getElementById('input-base').value   = S.baseUrl;
 document.getElementById('input-tenant').value = S.tenantId;
+document.getElementById('input-ui-lang').value = S.uiLang;
+document.getElementById('input-ui-lang').addEventListener('change', async (event) => {
+  await loadUiLocale(event.target.value);
+  renderTourList();
+  renderItinerary();
+  renderDefs();
+  if (S.tour) {
+    selectTour(S.tour);
+  }
+});
+
+loadUiLocale().catch(() => {});
 
 if (S.tenantId) {
   (async () => {
     const status = document.getElementById('connect-status');
-    status.textContent = 'Reconnecting…';
+    status.textContent = ti('tour_config.message.reconnecting');
     try {
       const data = await api('/api/tours');
       S.tours = data.tours ?? [];
       renderTourList();
-      status.textContent = `✓ ${S.tours.length} tours`;
+      status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
     } catch (err) {
       status.textContent = '✗ ' + err.message;
     }
@@ -1007,16 +1100,16 @@ document.getElementById('connect-form').addEventListener('submit', async e => {
   localStorage.setItem('tc_tenant', S.tenantId);
 
   const status = document.getElementById('connect-status');
-  status.textContent = 'Connecting…';
+  status.textContent = ti('tour_config.message.connecting');
   try {
     const data = await api('/api/tours');
     S.tours = data.tours ?? [];
     renderTourList();
-    status.textContent = `✓ ${S.tours.length} tours`;
-    toast(`Connected — ${S.tours.length} tour(s) found`);
+    status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
+    toast(ti('tour_config.message.connected_count', { count: S.tours.length }));
   } catch (err) {
     status.textContent = '✗ error';
-    toast('Connect failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.connect_failed', { error: err.message }), 'err');
   }
 });
 
@@ -1025,7 +1118,7 @@ function renderTourList() {
   const placeholder = document.getElementById('tour-list-placeholder');
   const list        = document.getElementById('tour-list');
   if (!S.tours.length) {
-    placeholder.textContent = 'No tours yet. Click + New.';
+    placeholder.textContent = ti('tour_config.message.no_tours_yet');
     placeholder.style.display = '';
     list.style.display = 'none';
     return;
@@ -1041,10 +1134,10 @@ function renderTourList() {
       <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
       <div class="tour-item-meta">${esc(t.id.slice(0,8))}&hellip;</div>
       <div class="tour-item-actions">
-        <button class="act-copy" title="Copy tour" data-id="${esc(t.id)}">
+        <button class="act-copy" title="${esc(ti('tour_config.tours.copy_tour'))}" data-id="${esc(t.id)}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
-        <button class="act-del" title="Delete tour" data-id="${esc(t.id)}" data-title="${esc(t.title)}">
+        <button class="act-del" title="${esc(ti('tour_config.tours.delete_tour'))}" data-id="${esc(t.id)}" data-title="${esc(t.title)}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>`;
@@ -1069,6 +1162,7 @@ function selectTour(t) {
   if (calcBtn) calcBtn.disabled = true;
   renderTourList();
   unlockTabs();
+  applyHashTab();
 
   // Show detail card
   document.getElementById('tour-hint-card').style.display        = 'none';
@@ -1086,7 +1180,7 @@ function selectTour(t) {
   document.getElementById('tour-detail-lang').textContent        = t.lang     ?? '—';
   document.getElementById('tour-detail-duration').textContent    = t.duration_text ?? '—';
   document.getElementById('tour-detail-published').textContent   = t.published_at
-    ? new Date(t.published_at * 1000).toLocaleDateString() : 'Not yet';
+    ? formatUiDate(t.published_at * 1000) : ti('common.not_yet');
 
   // Pre-fill content tab
   prefillContent(t);
@@ -1118,7 +1212,7 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
   };
   try {
     const data = await api('/api/tours', { method: 'POST', body: JSON.stringify(body) });
-    toast(`Tour created: ${data.id}`);
+    toast(ti('tour_config.message.tour_created', { id: data.id }));
     // Reload list
     const listData = await api('/api/tours');
     S.tours = listData.tours ?? [];
@@ -1128,7 +1222,7 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
     document.getElementById('create-tour-card').style.display = 'none';
     e.target.reset();
   } catch (err) {
-    toast('Create failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.create_failed', { error: err.message }), 'err');
   }
 });
 
@@ -1140,7 +1234,7 @@ document.getElementById('btn-goto-preview').addEventListener('click', () => { sw
 async function copyTour(t) {
   try {
     const data = await api(`/api/tours/${t.id}/copy`, { method: 'POST', body: JSON.stringify({}) });
-    toast(`Copied: "${data.title}" (${data.copied_stops} stops, ${data.copied_prices} prices)`);
+    toast(ti('tour_config.message.copy_success', { title: data.title, stops: data.copied_stops, prices: data.copied_prices }));
     const listData = await api('/api/tours');
     S.tours = listData.tours ?? [];
     const newTour = S.tours.find(x => x.id === data.id) ??
@@ -1148,19 +1242,19 @@ async function copyTour(t) {
     renderTourList();
     selectTour(newTour);
   } catch (err) {
-    toast('Copy failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.copy_failed', { error: err.message }), 'err');
   }
 }
 
 /* ----------------------------  DELETE TOUR  --------------------------------- */
 async function deleteTour(t) {
   const confirmed = confirm(
-    `Delete "${t.title}"?\n\nThis removes the tour, all its stops, all its prices, and the published page.\n\nThis cannot be undone.`
+    ti('tour_config.message.delete_tour_confirm', { title: t.title })
   );
   if (!confirmed) return;
   try {
     await api(`/api/tours/${t.id}`, { method: 'DELETE' });
-    toast(`"${t.title}" deleted.`);
+    toast(ti('tour_config.message.tour_deleted', { title: t.title }));
     if (S.tour?.id === t.id) {
       S.tour = null;
       S.stops = [];
@@ -1172,7 +1266,7 @@ async function deleteTour(t) {
     S.tours = listData.tours ?? [];
     renderTourList();
   } catch (err) {
-    toast('Delete failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.delete_failed', { error: err.message }), 'err');
   }
 }
 
@@ -1218,12 +1312,12 @@ function renderItinerary() {
     const li = document.createElement('li');
     li.className = 'itin-item';
     li.innerHTML = `
-      <span class="itin-day-badge">Day ${d.day}</span>
+      <span class="itin-day-badge">${esc(`${ti('tour_config.content.day_number').replace(' #', '')} ${d.day}`)}</span>
       <div class="itin-content">
         <div class="itin-title">${esc(d.title)}</div>
         <div class="itin-desc">${esc(d.description ?? '')}</div>
       </div>
-      <button class="btn-icon-del" data-index="${i}" title="Remove">
+      <button class="btn-icon-del" data-index="${i}" title="${esc(ti('tour_config.stops.remove'))}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
       </button>`;
     li.querySelector('[data-index]').addEventListener('click', () => {
@@ -1248,20 +1342,20 @@ document.getElementById('btn-save-day').addEventListener('click', () => {
   const num   = Number(document.getElementById('day-num').value);
   const title = document.getElementById('day-title').value.trim();
   const desc  = document.getElementById('day-desc').value.trim();
-  if (!title) { toast('Day title is required', 'err'); return; }
+  if (!title) { toast(ti('tour_config.message.day_title_required'), 'err'); return; }
   S.itinerary.push({ day: num, title, description: desc });
   S.itinerary.sort((a, b) => a.day - b.day);
   renderItinerary();
   document.getElementById('add-day-form').style.display = 'none';
   document.getElementById('day-title').value = '';
   document.getElementById('day-desc').value  = '';
-  toast('Day added');
+  toast(ti('tour_config.message.day_added'));
 });
 
 // Save metadata
 document.getElementById('meta-form').addEventListener('submit', async e => {
   e.preventDefault();
-  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
   const body = {};
   const title = document.getElementById('meta-title').value.trim();
   if (title)  body.title         = title;
@@ -1272,19 +1366,19 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
     Object.assign(S.tour, body);
-    toast('Metadata saved ✓');
+    toast(ti('tour_config.message.metadata_saved'));
     // Refresh list label
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) Object.assign(t, body);
     renderTourList();
   } catch (err) {
-    toast('Save failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.save_failed', { error: err.message }), 'err');
   }
 });
 
 // Save content_data
 document.getElementById('btn-save-content').addEventListener('click', async () => {
-  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
   const lines = t => t.split('\n').map(l => l.trim()).filter(Boolean);
   const cd = {
     tour_name:  document.getElementById('cd-tour-name').value.trim()  || undefined,
@@ -1307,9 +1401,9 @@ document.getElementById('btn-save-content').addEventListener('click', async () =
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: cd }) });
     S.tour.content_data = cd;
-    toast('Content saved ✓');
+    toast(ti('tour_config.message.content_saved'));
   } catch (err) {
-    toast('Save failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.save_failed', { error: err.message }), 'err');
   }
 });
 
@@ -1332,7 +1426,7 @@ function renderItinPreview() {
   const panel = document.getElementById('itin-preview-panel');
   const badge = document.getElementById('total-days-badge');
   if (!S.stops.length) {
-    panel.innerHTML = '<div class="empty-state">Add stops to see preview.</div>';
+    panel.innerHTML = `<div class="empty-state">${esc(ti('tour_config.stops.add_stops_preview'))}</div>`;
     badge.textContent = '';
     return;
   }
@@ -1342,8 +1436,8 @@ function renderItinPreview() {
   let html = '';
   calc.forEach(s => {
     const dayLabel = s._dayFrom === s._dayTo
-      ? `Day ${s._dayFrom}`
-      : `Day ${s._dayFrom}–${s._dayTo}`;
+      ? ti('tour_config.stops.day_label_single', { day: s._dayFrom })
+      : ti('tour_config.stops.day_label_range', { from: s._dayFrom, to: s._dayTo });
     const meals = [
       s.meal_breakfast && 'B',
       s.meal_lunch     && 'L',
@@ -1351,17 +1445,17 @@ function renderItinPreview() {
     ].filter(Boolean);
     const mealBadge = meals.length ? `<span class="itin-meal-badge">${meals.join('\u2009')}</span>` : '';
     const nightsTxt = Number(s.nights) > 0
-      ? `${s.nights} night${s.nights > 1 ? 's' : ''}`
-      : 'day trip';
+      ? ti(s.nights > 1 ? 'tour_config.stops.nights_count_other' : 'tour_config.stops.nights_count_one', { count: s.nights })
+      : ti('tour_config.stops.day_trip');
     // Service icons from services_config
     const cfg   = parseSvcCfg(s);
     const lModes = Array.isArray(cfg.local)     ? cfg.local     : [];
     const iModes = Array.isArray(cfg.intercity) ? cfg.intercity : [];
     const svcParts = [
-      cfg.hotel ? 'Hotel' : null,
-      cfg.guide ? 'Guide' : null,
-      lModes.length ? `Local:${lModes.join('/')}` : null,
-      iModes.length ? `Intercity:${iModes.join('/')}` : null,
+      cfg.hotel ? ti('tour_config.stops.hotel') : null,
+      cfg.guide ? ti('tour_config.stops.guide') : null,
+      lModes.length ? `${ti('tour_config.stops.local_transport')}: ${lModes.join('/')}` : null,
+      iModes.length ? `${ti('tour_config.stops.intercity')}: ${iModes.join('/')}` : null,
     ].filter(Boolean);
     const svcBadge = svcParts.length
       ? `<span style="font-size:11px;color:#64748b;margin-left:4px">${svcParts.join(' · ')}</span>` : '';
@@ -1378,7 +1472,7 @@ function renderItinPreview() {
         </div>
       </div>`;
   });
-  html += `<div class="itin-total-bar"><span>Total</span><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${totalNights + 1} days&nbsp;&nbsp;<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>${totalNights} nights</span></div>`;
+  html += `<div class="itin-total-bar"><span>${esc(ti('tour_config.stops.total'))}</span><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(ti('tour_config.stops.days_count', { count: totalNights + 1 }))}&nbsp;&nbsp;<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>${esc(ti(totalNights === 1 ? 'tour_config.stops.nights_count_one' : 'tour_config.stops.nights_count_other', { count: totalNights }))}</span></div>`;
   panel.innerHTML = html;
 }
 
@@ -1389,7 +1483,7 @@ function parseSvcCfg(stop) {
 function renderStopRows() {
   const container = document.getElementById('stops-rows-container');
   if (!S.stops.length) {
-    container.innerHTML = '<div class="empty-state">No stops yet. Click <strong>+ Add Stop</strong>.</div>';
+    container.innerHTML = `<div class="empty-state">${ti('tour_config.stops.no_stops_yet')}</div>`;
     renderItinPreview();
     return;
   }
@@ -1410,44 +1504,44 @@ function renderStopRows() {
     card.innerHTML = `
       <div class="stop-card-main">
         <span class="stop-row-num">${i + 1}</span>
-        <span class="stop-row-label" title="ID: ${esc(s.id)}">${esc(s.label)}</span>
+        <span class="stop-row-label" title="${esc(ti('tour_config.stops.id_title', { id: s.id }))}">${esc(s.label)}</span>
         <div class="stop-nights-wrap">
-          <input type="number" class="nights-inp" data-sid="${esc(s.id)}" value="${Number(s.nights)}" min="0" max="60" title="Nights" />
-          <span style="font-size:11px;color:#94a3b8">nights</span>
+          <input type="number" class="nights-inp" data-sid="${esc(s.id)}" value="${Number(s.nights)}" min="0" max="60" title="${esc(ti('tour_config.stops.nights_title'))}" />
+          <span style="font-size:11px;color:#94a3b8">${esc(ti('tour_config.stops.nights'))}</span>
         </div>
         <div class="stop-row-actions">
-          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="Move up">&uarr;</button>` : `<span style="width:28px"></span>`}
-          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="Move down">&darr;</button>` : `<span style="width:28px"></span>`}
-          <button class="btn-icon-del del-stop-btn" data-sid="${esc(s.id)}" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          ${i > 0                  ? `<button class="btn btn-ghost btn-sm move-up" data-sid="${esc(s.id)}" title="${esc(ti('tour_config.stops.move_up'))}">&uarr;</button>` : `<span style="width:28px"></span>`}
+          ${i < S.stops.length - 1 ? `<button class="btn btn-ghost btn-sm move-dn" data-sid="${esc(s.id)}" title="${esc(ti('tour_config.stops.move_down'))}">&darr;</button>` : `<span style="width:28px"></span>`}
+          <button class="btn-icon-del del-stop-btn" data-sid="${esc(s.id)}" title="${esc(ti('tour_config.stops.delete'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div class="stop-svc-row">
         <div class="svc-row-group">
-          <span class="svc-row-group-label">Essentials</span>
-          <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel">Hotel</button>
+          <span class="svc-row-group-label">${esc(ti('tour_config.stops.essentials'))}</span>
+          <button class="svc-toggle ${hotel}" data-sid="${esc(s.id)}" data-svc="hotel">${esc(ti('tour_config.stops.hotel'))}</button>
           <button class="meal-toggle ${mB}" data-sid="${esc(s.id)}" data-meal="breakfast">B</button>
           <button class="meal-toggle ${mL}" data-sid="${esc(s.id)}" data-meal="lunch">L</button>
           <button class="meal-toggle ${mD}" data-sid="${esc(s.id)}" data-meal="dinner">D</button>
-          <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide">Guide</button>
+          <button class="svc-toggle ${guide}" data-sid="${esc(s.id)}" data-svc="guide">${esc(ti('tour_config.stops.guide'))}</button>
         </div>
         <div class="svc-row-group">
-          <span class="svc-row-group-label">Local Transport</span>
+          <span class="svc-row-group-label">${esc(ti('tour_config.stops.local_transport'))}</span>
           ${lModes.map(m => `<button class="svc-toggle${local.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="local" data-mode="${m}">${m}</button>`).join('')}
         </div>
         <div class="svc-row-group">
-          <span class="svc-row-group-label">Intercity</span>
+          <span class="svc-row-group-label">${esc(ti('tour_config.stops.intercity'))}</span>
           ${iModes.map(m => `<button class="svc-toggle${icty.includes(m) ? ' active' : ''}" data-sid="${esc(s.id)}" data-grp="intercity" data-mode="${m}">${m}</button>`).join('')}
         </div>
         <div class="svc-row-group">
-          <span class="svc-row-group-label">Customer Sees</span>
+          <span class="svc-row-group-label">${esc(ti('tour_config.stops.customer_sees'))}</span>
           ${['hotel','guide','local','intercity'].map(k => {
             const on = cfg.pub?.[k] ?? 1;
-            return `<label class="pub-check"><input type="checkbox" class="pub-toggle" data-sid="${esc(s.id)}" data-pub="${k}" ${on ? 'checked' : ''}>${k.charAt(0).toUpperCase()+k.slice(1)}</label>`;
+            return `<label class="pub-check"><input type="checkbox" class="pub-toggle" data-sid="${esc(s.id)}" data-pub="${k}" ${on ? 'checked' : ''}>${esc(ti(`tour_config.stops.pub_${k}`))}</label>`;
           }).join('')}
         </div>
       </div>
       <div class="stop-desc-row">
-        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="Describe this stop — activities, highlights, notes…">${esc(s.description || '')}</textarea>
+        <textarea class="stop-desc-inp" data-sid="${esc(s.id)}" rows="1" placeholder="${esc(ti('tour_config.stops.description_placeholder'))}">${esc(s.description || '')}</textarea>
       </div>`;
     container.appendChild(card);
   });
@@ -1554,7 +1648,7 @@ function renderStopRows() {
 async function patchStop(stopId, fields) {
   try {
     await api(`/api/tours/${S.tour.id}/stops/${stopId}`, { method: 'PATCH', body: JSON.stringify(fields) });
-  } catch (err) { toast('Auto-save failed: ' + err.message, 'err'); }
+  } catch (err) { toast(ti('tour_config.message.auto_save_failed', { error: err.message }), 'err'); }
 }
 
 async function moveStop(stopId, dir) {
@@ -1577,28 +1671,28 @@ async function loadStops() {
   document.getElementById('stops-notice').style.display   = '';
   document.getElementById('stops-tour-label').textContent = S.tour.title;
   const container = document.getElementById('stops-rows-container');
-  container.innerHTML = '<div class="loading">Loading…</div>';
+  container.innerHTML = `<div class="loading">${esc(ti('common.loading'))}</div>`;
   try {
     const data = await api(`/api/tours/${S.tour.id}/stops`);
     S.stops = data.stops ?? [];
     renderStopRows();
     renderItinPreview();
   } catch (err) {
-    container.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
+    container.innerHTML = `<div class="empty-state">${esc(ti('common.error'))}: ${esc(err.message)}</div>`;
   }
 }
 
 async function deleteStop(stopId) {
-  if (!confirm('Delete this stop?')) return;
+  if (!confirm(ti('tour_config.message.delete_stop_confirm'))) return;
   try {
     await api(`/api/tours/${S.tour.id}/stops/${stopId}`, { method: 'DELETE' });
     S.stops = S.stops.filter(s => s.id !== stopId);
     S.stops.forEach((s, i) => { s.sort_order = i; });
     renderStopRows();
     renderItinPreview();
-    toast('Stop deleted');
+    toast(ti('tour_config.message.stop_deleted'));
   } catch (err) {
-    toast('Delete failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.delete_failed', { error: err.message }), 'err');
   }
 }
 
@@ -1622,9 +1716,9 @@ document.getElementById('sq-label').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-confirm-add-stop').click(); }
 });
 document.getElementById('btn-confirm-add-stop').addEventListener('click', async () => {
-  if (!S.tour) { toast('Select a tour first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
   const label  = document.getElementById('sq-label').value.trim();
-  if (!label) { toast('Label is required', 'err'); document.getElementById('sq-label').focus(); return; }
+  if (!label) { toast(ti('tour_config.message.label_required'), 'err'); document.getElementById('sq-label').focus(); return; }
   const nights = Math.max(Number(document.getElementById('sq-nights').value) || 0, 0);
   const mB = document.getElementById('sq-b').classList.contains('active') ? 1 : 0;
   const mL = document.getElementById('sq-l').classList.contains('active') ? 1 : 0;
@@ -1658,9 +1752,9 @@ document.getElementById('btn-confirm-add-stop').addEventListener('click', async 
     document.getElementById('sq-label').focus(); // stay open for next stop
     renderStopRows();
     renderItinPreview();
-    toast(`"${label}" added`);
+    toast(ti('tour_config.message.stop_added', { label }));
   } catch (err) {
-    toast('Add stop failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.add_stop_failed', { error: err.message }), 'err');
   } finally {
     btn.disabled = false;
   }
@@ -1672,28 +1766,28 @@ async function updatePricingItem(group, id, field, newVal, oldVal) {
   if (!str || str === String(oldVal ?? '').trim()) return;
   try {
     await api(`/api/pricing/${group}/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: str }) });
-    toast('Saved \u2713');
+    toast(ti('tour_config.message.saved'));
   } catch (e) {
-    toast('Save failed: ' + e.message, 'err');
+    toast(ti('tour_config.message.save_failed', { error: e.message }), 'err');
   }
 }
 
 async function deletePricingItem(group, id) {
   try {
     await api(`/api/pricing/${group}/${id}`, { method: 'DELETE' });
-    toast('Deleted');
+    toast(ti('tour_config.message.deleted'));
     loadPricing();
   } catch (e) {
-    toast('Delete failed: ' + e.message, 'err');
+    toast(ti('tour_config.message.delete_failed', { error: e.message }), 'err');
   }
 }
 
 /* ----------------------------  TAB 4: PRICE CONFIG (BOOKING VIEW)  --------- */
 const PAX_TYPES = [
-  { key: 'adult_shared_room_count', label: 'Adult (Shared Room)',   priceField: 'adult_shared_room_price' },
-  { key: 'adult_single_room_count', label: 'Adult (Private Room)',  priceField: 'adult_single_room_price' },
-  { key: 'child_count',             label: 'Child (with parents)',  priceField: 'child_shared_with_parents_price' },
-  { key: 'infant_count',            label: 'Infant',                priceField: 'infant_price' },
+  { key: 'adult_shared_room_count', labelKey: 'pricing.adult_shared',  priceField: 'adult_shared_room_price' },
+  { key: 'adult_single_room_count', labelKey: 'pricing.adult_single',  priceField: 'adult_single_room_price' },
+  { key: 'child_count',             labelKey: 'tour_config.pricing.child_with_parents', priceField: 'child_shared_with_parents_price' },
+  { key: 'infant_count',            labelKey: 'tour_config.pricing.infant', priceField: 'infant_price' },
 ];
 let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
 let _calcState   = {
@@ -1721,6 +1815,7 @@ if (_pricingDefs.length && !_pricingDefs.some(d => d.toLowerCase().includes('inf
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('pricing-defs-editor');
   if (ta) ta.value = _pricingDefs.join('\n');
+  applyHashTab();
 });
 
 function renderDefs() {
@@ -1937,7 +2032,7 @@ function renderPaxRows(priceRow) {
     // Shared-room steps in pairs of 2 (a double must be fully occupied to count as shared).
     const delta     = t.key === 'adult_shared_room_count' ? 2 : 1;
     html += `<tr style="border-bottom:1px solid #f1f5f9">
-      <td style="padding:10px 0;color:#1e293b;font-size:14px;font-family:'Inter',sans-serif">${t.label}</td>
+      <td style="padding:10px 0;color:#1e293b;font-size:14px;font-family:'Inter',sans-serif">${esc(ti(t.labelKey))}</td>
       <td style="text-align:right;padding:10px 8px;color:#475569;font-size:13px;font-family:'Inter',sans-serif">${fmtMoney(unitPrice)}</td>
       <td style="text-align:center;padding:10px 8px">
         <div class="qty-wrap">
@@ -1977,7 +2072,7 @@ async function runCalc() {
 
   if (!segId || totalPax === 0) {
     totalEl.textContent = '\u2014';
-    metaEl.textContent  = totalPax === 0 ? 'Add travellers above to calculate' : 'Select a pricing tier';
+    metaEl.textContent  = totalPax === 0 ? ti('tour_config.pricing.add_travellers_above') : ti('tour_config.pricing.select_pricing_tier_short');
     hideStatus();
     return;
   }
@@ -1989,14 +2084,14 @@ async function runCalc() {
     0
   );
   totalEl.textContent = fmtMoney(localTotal);
-  metaEl.textContent  = 'Total for your group';
+  metaEl.textContent  = ti('tour_config.pricing.total_for_group');
   updateSurplusHint();
 
   // Show local pax-band immediately, then try to upgrade with season name from API
   const localPb = [..._pricingData.paxBands]
     .sort((a, b) => a.min_pax - b.min_pax)
     .find(b => totalPax >= b.min_pax && totalPax <= b.max_pax);
-  if (localPb) showStatus(`Band: ${localPb.name} (${localPb.min_pax}\u2013${localPb.max_pax} pax)`);
+  if (localPb) showStatus(ti('tour_config.pricing.band_summary', { name: localPb.name, min: localPb.min_pax, max: localPb.max_pax }));
   else hideStatus();
 
   // Fire API in background — used ONLY to fetch season/band labels, never to override the total
@@ -2012,8 +2107,8 @@ async function runCalc() {
     });
     // If pax changed while the request was in flight, drop stale result
     if (segId !== _calcState.segmentId) return;
-    const seasonLabel = result.applied_season_name ? `Current Rate: ${result.applied_season_name}` : '';
-    const bandLabel   = result.pax_band_name        ? `Band: ${result.pax_band_name}` : '';
+    const seasonLabel = result.applied_season_name ? ti('tour_config.pricing.current_rate', { season: result.applied_season_name }) : '';
+    const bandLabel   = result.pax_band_name        ? ti('tour_config.pricing.band_current', { name: result.pax_band_name }) : '';
     const statusText  = [seasonLabel, bandLabel].filter(Boolean).join('  \u2502  ');
     statusText ? showStatus(statusText) : hideStatus();
   } catch (_e) {
@@ -2045,7 +2140,7 @@ async function loadPricing() {
   // Segment tabs
   const tabsEl = document.getElementById('seg-tabs');
   if (!segments.length) {
-    tabsEl.innerHTML = '<span style="color:#94a3b8;font-size:13px">No segments configured. Add them in Manage below.</span>';
+    tabsEl.innerHTML = `<span style="color:#94a3b8;font-size:13px">${esc(ti('tour_config.pricing.no_segments_configured'))}</span>`;
     _calcState.segmentId = null;
   } else {
     if (!_calcState.segmentId || !segments.find(s => s.id === _calcState.segmentId)) {
@@ -2058,53 +2153,53 @@ async function loadPricing() {
 
   // Admin -- Seasons
   const sBody = document.getElementById('pricing-seasons-body');
-  sBody.innerHTML = !seasons.length ? '<div class="empty-state">No seasons yet.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Name</th><th>From (mm/dd)</th><th>To (mm/dd)</th><th></th></tr></thead><tbody>${
+  sBody.innerHTML = !seasons.length ? `<div class="empty-state">${esc(ti('tour_config.pricing.no_seasons_yet'))}</div>` :
+    `<table class="price-matrix"><thead><tr><th>${esc(ti('tour_config.pricing.name'))}</th><th>${esc(ti('tour_config.pricing.from_mmdd'))}</th><th>${esc(ti('tour_config.pricing.to_mmdd'))}</th><th></th></tr></thead><tbody>${
       seasons.map(s => `<tr>
         <td><input class="price-name-inp" value="${esc(s.name)}" data-orig="${esc(s.name)}"
           onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
         <td style="white-space:nowrap">
-          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.start_month}" title="Month"
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.start_month}" title="${esc(ti('tour_config.pricing.month_title'))}"
             onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','start_month',this.value,${s.start_month})" onkeydown="if(event.key==='Enter')this.blur()" />
           <span style="color:#94a3b8">/</span>
-          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.start_day}" title="Day"
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.start_day}" title="${esc(ti('tour_config.pricing.day_title'))}"
             onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','start_day',this.value,${s.start_day})" onkeydown="if(event.key==='Enter')this.blur()" />
         </td>
         <td style="white-space:nowrap">
-          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.end_month}" title="Month"
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="12" value="${s.end_month}" title="${esc(ti('tour_config.pricing.month_title'))}"
             onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','end_month',this.value,${s.end_month})" onkeydown="if(event.key==='Enter')this.blur()" />
           <span style="color:#94a3b8">/</span>
-          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.end_day}" title="Day"
+          <input type="number" class="price-input" style="width:40px;padding:3px 4px" min="1" max="31" value="${s.end_day}" title="${esc(ti('tour_config.pricing.day_title'))}"
             onblur="updatePricingItem('tenant-seasons','${esc(s.id)}','end_day',this.value,${s.end_day})" onkeydown="if(event.key==='Enter')this.blur()" />
         </td>
-        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')" title="Delete season"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('tenant-seasons','${esc(s.id)}')" title="${esc(ti('tour_config.pricing.delete_season'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
   // Admin -- Pax Bands
   const pbBody = document.getElementById('pricing-paxbands-body');
-  pbBody.innerHTML = !paxBands.length ? '<div class="empty-state">No pax bands.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Name</th><th>Range</th><th></th></tr></thead><tbody>${
+  pbBody.innerHTML = !paxBands.length ? `<div class="empty-state">${esc(ti('tour_config.pricing.no_pax_bands'))}</div>` :
+    `<table class="price-matrix"><thead><tr><th>${esc(ti('tour_config.pricing.name'))}</th><th>${esc(ti('tour_config.pricing.range'))}</th><th></th></tr></thead><tbody>${
       paxBands.map(p => `<tr>
         <td><input class="price-name-inp" value="${esc(p.name)}" data-orig="${esc(p.name)}"
           onblur="updatePricingItem('pax-bands','${esc(p.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
         <td style="font-size:12px;color:#475569">${p.min_pax} - ${p.max_pax} pax</td>
-        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pax-bands','${esc(p.id)}')" title="Delete pax band"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pax-bands','${esc(p.id)}')" title="${esc(ti('tour_config.pricing.delete_pax_band'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
   // Admin -- Segments
   const gBody = document.getElementById('pricing-segments-body');
-  gBody.innerHTML = !segments.length ? '<div class="empty-state">No segments.</div>' :
-    `<table class="price-matrix"><thead><tr><th>Label (click to edit)</th><th>Code</th><th></th></tr></thead><tbody>${
+  gBody.innerHTML = !segments.length ? `<div class="empty-state">${esc(ti('tour_config.pricing.no_segments'))}</div>` :
+    `<table class="price-matrix"><thead><tr><th>${esc(ti('tour_config.pricing.label_click_to_edit'))}</th><th>${esc(ti('tour_config.pricing.code'))}</th><th></th></tr></thead><tbody>${
       segments.map(g => `<tr>
         <td><input class="price-name-inp" value="${esc(g.name)}" data-orig="${esc(g.name)}"
           onblur="updatePricingItem('pricing-segments','${esc(g.id)}','name',this.value,this.dataset.orig).then(()=>this.dataset.orig=this.value.trim())"
           onkeydown="if(event.key==='Enter')this.blur()" /></td>
         <td><code style="font-size:11px">${esc(g.code)}</code></td>
-        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')" title="Delete segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+        <td class="del-col"><button class="btn-icon-del" onclick="deletePricingItem('pricing-segments','${esc(g.id)}')" title="${esc(ti('tour_config.pricing.delete_segment'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
       </tr>`).join('')
     }</tbody></table>`;
 
@@ -2114,9 +2209,9 @@ async function loadPricing() {
   const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax} - ${p.max_pax})`]));
   const pBody = document.getElementById('pricing-prices-body');
   pBody.innerHTML = !prices.length
-    ? '<div class="empty-state">No prices yet. Add them below.</div>'
+    ? `<div class="empty-state">${esc(ti('tour_config.pricing.no_prices_yet'))}</div>`
     : `<div style="overflow-x:auto"><table class="price-matrix">
-        <thead><tr><th>Season</th><th>Segment</th><th>Pax Band</th><th>Shared</th><th>Private</th><th>Child</th><th>Infant</th><th></th></tr></thead>
+      <thead><tr><th>${esc(ti('tour_config.pricing.season'))}</th><th>${esc(ti('tour_config.pricing.segment'))}</th><th>${esc(ti('tour_config.pricing.pax_band'))}</th><th>${esc(ti('tour_config.pricing.shared_room'))}</th><th>${esc(ti('tour_config.pricing.private_room'))}</th><th>${esc(ti('tour_config.pricing.child'))}</th><th>${esc(ti('tour_config.pricing.infant'))}</th><th></th></tr></thead>
         <tbody>${prices.map(p => `<tr>
           <td>${esc(seasonMap[p.season_id]  ?? p.season_id)}</td>
           <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
@@ -2125,7 +2220,7 @@ async function loadPricing() {
           <td class="num">${fmtMoney(p.adult_single_room_price ?? 0)}</td>
           <td class="num">${fmtMoney(p.child_shared_with_parents_price ?? 0)}</td>
           <td class="num">${fmtMoney(p.infant_price ?? 0)}</td>
-          <td class="del-col"><span style="display:inline-flex;align-items:center;gap:2px"><button class="btn-icon-copy" onclick="copyPriceRow('${esc(p.season_id)}','${esc(p.segment_id)}','${esc(p.pax_band_id)}',${p.adult_shared_room_price??0},${p.adult_single_room_price??0},${p.child_shared_with_parents_price??0},${p.infant_price??0})" title="Copy to form"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="btn-icon-del" onclick="deletePricingItem('tour-prices','${esc(p.id)}')" title="Delete price"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></span></td>
+          <td class="del-col"><span style="display:inline-flex;align-items:center;gap:2px"><button class="btn-icon-copy" onclick="copyPriceRow('${esc(p.season_id)}','${esc(p.segment_id)}','${esc(p.pax_band_id)}',${p.adult_shared_room_price??0},${p.adult_single_room_price??0},${p.child_shared_with_parents_price??0},${p.infant_price??0})" title="${esc(ti('tour_config.pricing.copy_to_form'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="btn-icon-del" onclick="deletePricingItem('tour-prices','${esc(p.id)}')" title="${esc(ti('tour_config.pricing.delete_price'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></span></td>
         </tr>`).join('')}
         </tbody></table></div>`;
 
@@ -2168,7 +2263,7 @@ function copyPriceRow(seasonId, segmentId, paxBandId, shared, single, child, inf
   form.style.outline = '2px solid #6366F1';
   form.style.borderRadius = '8px';
   setTimeout(() => { form.style.outline = ''; form.style.borderRadius = ''; }, 1400);
-  toast('Row copied to form — adjust and save ✓');
+  toast(ti('tour_config.pricing.row_copied'));
 }
 
 document.getElementById('seg-tabs').addEventListener('click', e => {
@@ -2250,7 +2345,7 @@ document.getElementById('btn-save-defs').addEventListener('click', () => {
   _pricingDefs = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
   try { localStorage.setItem('bv_pricing_defs', JSON.stringify(_pricingDefs)); } catch(_e) {}
   if (_bvRevealed) renderDefs();
-  toast('Pricing definitions updated \u2713');
+  toast(ti('tour_config.message.pricing_definitions_updated'));
 });
 
 document.getElementById('btn-add-season').addEventListener('click', async () => {
@@ -2259,45 +2354,45 @@ document.getElementById('btn-add-season').addEventListener('click', async () => 
   const sday = Number(document.getElementById('sn-sday').value);
   const emon = Number(document.getElementById('sn-emon').value);
   const eday = Number(document.getElementById('sn-eday').value);
-  if (!name || !smon || !sday || !emon || !eday) { toast('Name, from month/day and to month/day are all required', 'err'); return; }
-  if (smon < 1 || smon > 12 || emon < 1 || emon > 12) { toast('Month must be 1\u201312', 'err'); return; }
-  if (sday < 1 || sday > 31 || eday < 1 || eday > 31) { toast('Day must be 1\u201331', 'err'); return; }
+  if (!name || !smon || !sday || !emon || !eday) { toast(ti('tour_config.message.season_fields_required'), 'err'); return; }
+  if (smon < 1 || smon > 12 || emon < 1 || emon > 12) { toast(ti('tour_config.message.month_range'), 'err'); return; }
+  if (sday < 1 || sday > 31 || eday < 1 || eday > 31) { toast(ti('tour_config.message.day_range'), 'err'); return; }
   try {
     await api('/api/pricing/tenant-seasons', { method: 'POST', body: JSON.stringify({
       name, start_month: smon, start_day: sday, end_month: emon, end_day: eday,
     }) });
     ['sn-name','sn-smon','sn-sday','sn-emon','sn-eday'].forEach(id => document.getElementById(id).value = '');
-    toast('Season added \u2713');
+    toast(ti('tour_config.message.season_added'));
     loadPricing();
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+  } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }
 });
 
 document.getElementById('btn-add-segment').addEventListener('click', async () => {
   const name = document.getElementById('sg-name').value.trim();
   const code = document.getElementById('sg-code').value.trim().toUpperCase();
-  if (!name || !code) { toast('Label and code are required', 'err'); return; }
+  if (!name || !code) { toast(ti('tour_config.message.segment_fields_required'), 'err'); return; }
   try {
     await api('/api/pricing/pricing-segments', { method: 'POST', body: JSON.stringify({ name, code }) });
     document.getElementById('sg-name').value = '';
     document.getElementById('sg-code').value = '';
-    toast('Segment added \u2713');
+    toast(ti('tour_config.message.segment_added'));
     loadPricing();
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+  } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }
 });
 
 document.getElementById('btn-add-paxband').addEventListener('click', async () => {
   const name = document.getElementById('pb-name').value.trim();
   const min  = Number(document.getElementById('pb-min').value);
   const max  = Number(document.getElementById('pb-max').value);
-  if (!name || !min || !max) { toast('Name, min and max pax are required', 'err'); return; }
+  if (!name || !min || !max) { toast(ti('tour_config.message.pax_band_fields_required'), 'err'); return; }
   try {
     await api('/api/pricing/pax-bands', { method: 'POST', body: JSON.stringify({ name, min_pax: min, max_pax: max }) });
     document.getElementById('pb-name').value = '';
     document.getElementById('pb-min').value  = '';
     document.getElementById('pb-max').value  = '';
-    toast('Pax band added \u2713');
+    toast(ti('tour_config.message.pax_band_added'));
     loadPricing();
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+  } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }
 });
 
 document.getElementById('btn-save-price').addEventListener('click', async () => {
@@ -2305,7 +2400,7 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
   const season_id   = document.getElementById('ap-season').value;
   const segment_id  = document.getElementById('ap-segment').value;
   const pax_band_id = document.getElementById('ap-paxband').value;
-  if (!season_id || !segment_id || !pax_band_id) { toast('Select season, segment and pax band', 'err'); return; }
+  if (!season_id || !segment_id || !pax_band_id) { toast(ti('tour_config.message.price_row_fields_required'), 'err'); return; }
   const body = {
     tour_id:   S.tour.id,
     season_id, segment_id, pax_band_id,
@@ -2317,9 +2412,9 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
   try {
     await api('/api/pricing/tour-prices', { method: 'POST', body: JSON.stringify(body) });
     ['ap-shared','ap-single','ap-child','ap-infant'].forEach(id => document.getElementById(id).value = '');
-    toast('Price row saved \u2713');
+    toast(ti('tour_config.message.price_row_saved'));
     loadPricing();
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+  } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }
 });
 
 /* ----------------------------  TAB 5: PREVIEW  ----------------------------- */
@@ -2345,10 +2440,10 @@ function loadPreview() {
         .catch(e => {
           const isNoTemplate = e.message && e.message.includes('Template not found');
           document.body.innerHTML = '<div style="font-family:sans-serif;padding:32px;max-width:560px">' +
-            '<h2 style="color:#dc2626;margin:0 0 12px">Preview unavailable</h2>' +
+            '<h2 style="color:#dc2626;margin:0 0 12px">${esc(ti('tour_config.preview.unavailable'))}</h2>' +
             '<p style="color:#475569;margin:0 0 16px">' + e.message + '</p>' +
-            (isNoTemplate ? '<p style="color:#475569;font-size:13px">A default HTML template must be uploaded to R2 before preview works.<br>' +
-              'Go to the <strong>Publish</strong> tab, or upload a template via:<br>' +
+            (isNoTemplate ? '<p style="color:#475569;font-size:13px">${esc(ti('tour_config.preview.default_template_required'))}<br>' +
+              '${esc(ti('tour_config.preview.publish_upload_hint'))}<br>' +
               '<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">PUT ${baseUrl}/api/tours/templates/default</code></p>' : '') +
             '</div>';
         });
@@ -2373,12 +2468,12 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
     result.className   = 'publish-result';
     result.style.display = '';
     result.innerHTML   = `
-      <h4>✓ Published Successfully</h4>
-      <p><strong>Slug:</strong> <code>${esc(data.slug)}</code></p>
-      <p><strong>R2 Key:</strong> <code>${esc(data.r2_key)}</code></p>
-      <p><strong>Template:</strong> <code>${esc(data.template_id)}</code></p>
-      <p><strong>Published at:</strong> ${esc(data.published_at)}</p>`;
-    toast('Published ✓');
+      <h4>${esc(ti('tour_config.publish.published_success'))}</h4>
+      <p><strong>${esc(ti('tour_config.publish.slug'))}</strong> <code>${esc(data.slug)}</code></p>
+      <p><strong>${esc(ti('tour_config.publish.r2_key'))}</strong> <code>${esc(data.r2_key)}</code></p>
+      <p><strong>${esc(ti('tour_config.publish.template'))}</strong> <code>${esc(data.template_id)}</code></p>
+      <p><strong>${esc(ti('tour_config.publish.published_at'))}</strong> ${esc(data.published_at)}</p>`;
+    toast(ti('tour_config.message.published'));
     S.tour.status = 'on_sale';
     const t = S.tours.find(t => t.id === S.tour.id);
     if (t) t.status = 'on_sale';
@@ -2386,22 +2481,22 @@ document.getElementById('btn-publish').addEventListener('click', async () => {
   } catch (err) {
     result.className   = 'publish-result err';
     result.style.display = '';
-    result.innerHTML   = `<h4>✗ Publish Failed</h4><p>${esc(err.message)}</p>`;
-    toast('Publish failed: ' + err.message, 'err');
+    result.innerHTML   = `<h4>${esc(ti('tour_config.publish.publish_failed'))}</h4><p>${esc(err.message)}</p>`;
+    toast(ti('tour_config.message.publish_failed', { error: err.message }), 'err');
   }
 });
 
 document.getElementById('btn-switch-template').addEventListener('click', async () => {
   if (!S.tour) return;
   const tmplId = document.getElementById('pub-template-id').value.trim();
-  if (!tmplId) { toast('Enter template ID', 'err'); return; }
+  if (!tmplId) { toast(ti('tour_config.message.template_required'), 'err'); return; }
   try {
     const data = await api(`/api/tours/${S.tour.id}/switch-template`, {
       method: 'POST', body: JSON.stringify({ template_id: tmplId })
     });
-    toast(`Template switched to "${data.new_template_id}"`);
+    toast(ti('tour_config.message.template_switched', { template: data.new_template_id }));
   } catch (err) {
-    toast('Switch failed: ' + err.message, 'err');
+    toast(ti('tour_config.message.switch_failed', { error: err.message }), 'err');
   }
 });
 
