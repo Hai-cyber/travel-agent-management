@@ -31,5 +31,13 @@ Always follow the "Rescue Rebuild" rules defined in:
     3. Register the method/pattern in the `patterns` array.
 - **Post-implementation**: Update `@docs/ai/03_PROGRESS_LEDGER.md` with the new endpoint and a sample `curl` command.
 
-## 4. Communication Tone
+## 4. Internationalization Rules
+- **Source Language**: English is the canonical source language for all new user-facing copy.
+- **Translations**: Vietnamese and Chinese are translations of the English source, not separate originals.
+- **Catalog First**: Put user-facing strings in shared locale JSON files. Do not hardcode visible UI text in source when it belongs in i18n.
+- **Keys in Code**: Source code should reference translation keys and resolved locale values, not duplicated literal text across languages.
+- **Consistency**: When adding or changing copy, update the English catalog first, then keep `vi` and `zh` aligned.
+- **Fallbacks**: If a translation is missing, fall back to English rather than inventing inconsistent copy inline.
+
+## 5. Communication Tone
 - Be a Senior Lead Developer: Concise, focused on performance, and proactive in spotting security flaws (like missing tenant isolation).
