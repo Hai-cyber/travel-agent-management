@@ -47,6 +47,10 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R41 | Product Tier Catalog + Signup Selection | done | Public tier catalog endpoint exists, tenants persist `product_tier_key`, and signup now requires choosing an active tier before onboarding creates the tenant. | 2026-04-03 | Active tiers today: landing starter + tour operator pro; hotel and bundle tiers are exposed as future roadmap entries |
 | CHK-R42 | SaaS Pricing Marketing Page + Admin Editor | done | Public home page now markets all 4 tiers, reads platform marketing config from D1, and a protected SaaS editor can update hero/trust/tier copy without code changes. | 2026-04-03 | Emphasizes 6 free months, no-card signup, SSL, edge speed, and transparent pricing logic |
 | CHK-R43 | Tour Draft Media Upload + Live Preview | done | `public/tour-config.html` now supports tenant-media upload in Content, richer hero/destination/accommodation/gallery draft fields, and preview resolves through the synced universal draft render with legacy fallback. | 2026-04-03 | Live deploy verified; recommendation: make production deploy explicit with `wrangler deploy --env=""` to remove Wrangler environment ambiguity warnings |
+| CHK-R44 | Password Recovery Flow | done | Added D1-backed password reset tokens, public forgot/reset endpoints, a reset-password page, login forgot-password entrypoint, signed webhook delivery for real reset emails, smoke coverage for request → webhook → validate → reset → login, a verified Google Apps Script production mailer handoff, production Turnstile protection on forgot-password, and a soft email/IP cooldown ledger for reset requests. | 2026-04-03 | Webhook contract documented; delivery signs `<timestamp>.<raw_json_body>` with `PASSWORD_RESET_WEBHOOK_SECRET`; production forgot-password now requires a valid Turnstile token and soft throttles repeated reset requests. |
+- CHK-R44 follow-up completed: production now also enforces Turnstile on `POST /api/auth/login`, `POST /api/auth/google`, `POST /api/auth/signup-onboarding`, and `POST /api/auth/signup-google`; `GET /api/auth/turnstile-config` exposes login/signup/forgot-password widget metadata to the auth pages.
+- CHK-R44 follow-up completed: added `db/migrations/0035_auth_action_attempts.sql` and a lenient forgot-password throttle policy intended to fit normal human retry behavior while suppressing obvious reset-link spam.
+- CHK-R44 rollout note: production Turnstile initially failed with client error `110200` (`Domain not authorized`); the fix was to add `tours-market.com` to the widget Hostname Management allowlist in Cloudflare rather than changing Worker code.
 
 ### 2026-03-25
 - CHK‑R09 (Service Items CRUD) completed 100%: routing, service layer, schema alignment, D1 integration, manual testing. All groups (accommodations, meals, guides, local transports, intercity legs) fully CRUD-able via Worker API. No Node modules, no require(), no schema errors. Foundation is robust and clean.
@@ -78,11 +82,23 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 - CHK-R42 completed: added signup deep-link tier preselection so pricing CTAs can send users into `/signup.html?tier=...` with the matching plan already active.
 - CHK-R42 completed: tightened the homepage CTA to explicitly promise `no card` + `6 free months`, and added a new dashboard launch guide with inline subdomain setup plus step-by-step links for skin, website, tours, destinations, gallery, and future hotel expansion.
 - CHK-R43 completed: `public/tour-config.html` now edits richer draft content fields, uploads tenant-hosted media directly from the Content tab, and renders draft preview through `/api/universal/render/:tenantId` after syncing the tour page.
+- CHK-R44 completed: added `db/migrations/0034_password_reset_tokens.sql`, `POST /api/auth/forgot-password`, `GET /api/auth/reset-password/:token`, and `POST /api/auth/reset-password` for password recovery without weakening the existing session model.
+- CHK-R44 completed: `public/login.html` now links into `public/reset-password.html`, which supports both requesting a reset link and submitting a new password from a tokenized URL.
+- CHK-R44 completed: the reset-email handoff now POSTs an email-ready JSON payload to `PASSWORD_RESET_WEBHOOK_URL`, signs it with optional `PASSWORD_RESET_WEBHOOK_SECRET`, and has a local verified mock receiver in `scripts/mock-password-reset-webhook.mjs`.
+- CHK-R44 completed: `npm test` now verifies the full reset flow locally, including signed webhook delivery, token validation, password update, and a fresh login with the new password.
+- CHK-R44 completed: production now points to a verified Google Apps Script Web App at `/macros/s/AKfycbwtLvd8sI-81R3V4e9B1kcZ4iAC7zCnBZqAbDFSQLoqiEnTRpiboTR1cabKIALlgKnlWg/exec`, and live `POST /api/auth/forgot-password` recovered after applying remote migration `0034_password_reset_tokens.sql`.
+- CHK-R44 completed: production now exposes `GET /api/auth/turnstile-config`, renders Cloudflare Turnstile on `public/reset-password.html`, and rejects forgot-password requests without a valid Turnstile token.
 - Production deploy completed successfully to `tours-market.com` on 2026-04-03 after a clean `npm test`, no pending remote migrations, and live verification of `/`, `/api/auth/product-tiers`, and `/api/marketing-site`.
 - Deploy recommendation captured from this release: use `wrangler deploy --config ./wrangler.jsonc --env=""` (or another explicit target) because Wrangler warns when multiple environments exist and no deploy target is specified.
 
 ```bash
 curl -H "Accept-Language: en" "http://localhost:8787/api/auth/product-tiers"
+```
+
+```bash
+curl -X POST "http://127.0.0.1:8787/api/auth/forgot-password" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"owner@example.com","return_origin":"http://127.0.0.1:8787"}'
 ```
 
 - CHK-R29: Visual Editor header overlap fixed with CSS-first 3-layer strategy (sticky flex + JS fallback + server-side padding-top from cfg.header_height). Covers all Cruip header positions: absolute (stellar-html), sticky (mosaic-html), static (open-pro-html).

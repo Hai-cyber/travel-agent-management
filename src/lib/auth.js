@@ -4,6 +4,7 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const SESSION_COOKIE_NAME = 'tam_session';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+export const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
 
 const PASSWORD_ALGO = 'pbkdf2_sha256';
 const PASSWORD_ITERATIONS = 100000;
@@ -33,9 +34,17 @@ function randomToken() {
   return randomHex(32);
 }
 
+export function createOpaqueToken() {
+  return randomToken();
+}
+
 async function sha256Hex(value) {
   const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(String(value)));
   return bytesToHex(new Uint8Array(digest));
+}
+
+export async function sha256Token(value) {
+  return sha256Hex(value);
 }
 
 async function derivePasswordHex(password, saltHex, iterations) {
@@ -128,6 +137,71 @@ export async function createAuthSession(db, { userId, tenantId, now = Math.floor
     .run();
 
   return { token, expiresAt };
+}
+
+export async function createPasswordResetToken(db, {
+  userId,
+  tenantId = null,
+  email,
+  now = Math.floor(Date.now() / 1000),
+  ttlSeconds = PASSWORD_RESET_TTL_SECONDS,
+  requestedIp = null,
+  requestedUserAgent = null,
+}) {
+  const resetId = crypto.randomUUID();
+  const token = randomToken();
+  const tokenHash = await sha256Hex(token);
+  const expiresAt = now + ttlSeconds;
+
+  await db.batch([
+    db.prepare(
+      `UPDATE password_reset_tokens
+          SET used_at = ?
+        WHERE user_id = ?
+          AND used_at IS NULL
+          AND expires_at > ?`
+    ).bind(now, userId, now),
+    db.prepare(
+      `INSERT INTO password_reset_tokens
+         (id, user_id, tenant_id, email, token_hash, created_at, expires_at, used_at, requested_ip, requested_ua)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+    ).bind(resetId, userId, tenantId, email, tokenHash, now, expiresAt, requestedIp, requestedUserAgent),
+  ]);
+
+  return { token, expiresAt };
+}
+
+export async function getPasswordResetTokenRecord(db, token, now = Math.floor(Date.now() / 1000)) {
+  if (!token) return null;
+
+  const tokenHash = await sha256Hex(token);
+  return db
+    .prepare(
+      `SELECT prt.id, prt.user_id, prt.tenant_id, prt.email, prt.created_at, prt.expires_at,
+              u.email AS user_email, u.google_sub
+         FROM password_reset_tokens prt
+         JOIN users u
+           ON u.id = prt.user_id
+        WHERE prt.token_hash = ?
+          AND prt.used_at IS NULL
+          AND prt.expires_at > ?
+        LIMIT 1`
+    )
+    .bind(tokenHash, now)
+    .first();
+}
+
+export async function consumePasswordResetToken(db, {
+  tokenRecordId,
+  userId,
+  passwordHash,
+  now = Math.floor(Date.now() / 1000),
+}) {
+  await db.batch([
+    db.prepare('UPDATE users SET hash = ? WHERE id = ?').bind(passwordHash, userId),
+    db.prepare('DELETE FROM auth_sessions WHERE user_id = ?').bind(userId),
+    db.prepare('UPDATE password_reset_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL').bind(now, tokenRecordId),
+  ]);
 }
 
 export function setAuthSessionCookie(c, token, ttlSeconds = SESSION_TTL_SECONDS) {

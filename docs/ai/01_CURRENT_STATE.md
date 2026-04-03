@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-03 (includes live deploy verification for starter tenant seed bootstrap, signup tiers, SaaS marketing page, and richer tour draft preview)
+Last updated: 2026-04-03 (includes live deploy verification for starter tenant seed bootstrap, signup tiers, SaaS marketing page, richer tour draft preview, and local password recovery flow)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -33,7 +33,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0033; local runtime verified against current dev DB)
+### D1 Tables (repo migrations 0001–0034; local runtime verified against current dev DB)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -41,7 +41,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 `booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`,
 `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`,
 `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
-`tenant_universal_hotels`, `auth_users`, `tenant_memberships`, `auth_sessions`, `app_settings`
+`tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`,
@@ -53,10 +53,14 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 **Auth / Onboarding / SaaS Marketing**
 - `GET /api/auth/session` — cookie-backed session status for tenant admin UIs
-- `POST /api/auth/login` — email/password sign-in
-- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key` and redirects new tenants into the guided dashboard flow
-- `POST /api/auth/google` — Google sign-in via GIS ID token
-- `POST /api/auth/signup-google` — Google signup with `product_tier_key`
+- `POST /api/auth/login` — email/password sign-in; production requires a valid Cloudflare Turnstile token
+- `POST /api/auth/forgot-password` — prepares a password reset token for an existing account; response stays generic, while local dev and the authenticated same-user path can expose a debug reset URL; production requires a valid Cloudflare Turnstile token, applies a soft email/IP cooldown window, and POSTs a signed email-ready payload to a verified Google Apps Script mailer behind `PASSWORD_RESET_WEBHOOK_URL`
+- `GET /api/auth/turnstile-config` — public auth-page config endpoint that tells the frontend whether login/signup/forgot-password Turnstile protection is enabled and exposes the public site key/action when configured
+- `GET /api/auth/reset-password/:token` — validates a password reset token and returns masked email context for the reset form
+- `POST /api/auth/reset-password` — updates the password, revokes existing auth sessions for that user, and consumes the reset token
+- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key`, a valid Turnstile token in production, and redirects new tenants into the guided dashboard flow
+- `POST /api/auth/google` — Google sign-in via GIS ID token; production requires a valid Turnstile token
+- `POST /api/auth/signup-google` — Google signup with `product_tier_key`; production requires a valid Turnstile token
 - `GET /api/auth/product-tiers` — public localized tier catalog used by signup and pricing CTAs
 - `GET /api/marketing-site` — public pricing/marketing content payload sourced from D1 `app_settings`
 - `GET|PUT /api/admin/marketing-site` — protected SaaS marketing page editor API
@@ -112,7 +116,8 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 ### Frontend Assets
 - `public/index.html` — live SaaS pricing / trust landing page for 4 tiers
-- `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup
+- `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup; login now includes a forgot-password path
+- `public/reset-password.html` — localized request/reset page for password recovery tokens
 - `public/dashboard.html` — tenant admin landing page with subdomain locking and guided launch sequence
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
@@ -177,7 +182,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `npm run backfill:tenant-seed` — audits/builds SQL for missing legacy tenant seed gaps
 - `npm run backfill:tenant-seed:apply` — applies the remote SQL backfill for missing stop/price/service minimums
 - `npm run clean:wrangler` / `npm run dev:clean` — clears Wrangler temp cache before local dev when needed
-- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE, reuses or starts local Wrangler dev, verifies task patch on `stop-001`, verifies seeded pricing calculate for `tour-001` / `segment-standard` on `2026-07-10`, then verifies booking proof + confirm + audit row end to end
+- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE and booking-compliant with an enabled electronic gateway plus bank transfer, starts a dedicated Wrangler dev instance on `8790`, verifies task patch on `stop-001`, verifies seeded pricing calculate for `tour-001` / `segment-standard` using the current `season-high` fixture date, verifies booking proof + confirm + audit row end to end, then verifies forgot-password request + signed webhook delivery + token validation + password reset + sign-in with the new password
+- `docs/PASSWORD_RESET_WEBHOOK.md` — production contract for the reset-email webhook payload, headers, HMAC signature, and current Google Apps Script production receiver setup
+- `docs/GOOGLE_APPS_SCRIPT_PASSWORD_RESET.md` — receiver implementation notes and verified Google Apps Script rollout details
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
   - 24 deep categories: hero-video, gallery-grid, booking-form, travel-itinerary, map-section + originals
   - Hybrid multi-label tagging (one snippet → N categories)
@@ -207,7 +214,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)
 - `test/test_pricing.sh`, `test/test_tasks.sh`, `test/test_all_services.sh` and per-group scripts
 
-## Local verification on 2026-04-02
+## Local verification on 2026-04-03
 
 Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:8788` in this session) with direct API calls from PowerShell.
 
@@ -228,12 +235,12 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
 - `PATCH /api/tasks/:taskId`
 
 ### Confirmed defects in local runtime
-- No currently reproduced runtime defects in the task, pricing-calculate, and booking flows covered by `npm test` on 2026-04-02
+- No currently reproduced runtime defects in the task, pricing-calculate, booking, and password-reset flows covered by `npm test` on 2026-04-03
 
 ### Notes on test method
 - Windows verification now has a first-class entrypoint: `npm test`
 - The smoke runner is Node-based and does not require `bash`
-- It reuses a running local Worker when available and otherwise starts its own Wrangler dev instance on port `8790`
+- It starts a dedicated local Wrangler dev instance on port `8790` unless `SMOKE_BASE_URL` is provided explicitly
 
 ## Live verification on 2026-04-03
 

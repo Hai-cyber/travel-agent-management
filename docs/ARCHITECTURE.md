@@ -46,5 +46,6 @@ System context, components, and deployment topology.
 
 ## Bảo mật
 - JWT cookie (HttpOnly) (tương lai)
-- Turnstile cho signup (tương lai)
+- Turnstile is now active on production forgot-password, signup, and login; backend Siteverify remains required for all three flows
+- Turnstile widget hostnames must be explicitly authorized in Cloudflare Hostname Management; production hit client error `110200` until `tours-market.com` was added to the widget allowlist
 - Secrets qua Wrangler

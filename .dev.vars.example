@@ -2,3 +2,18 @@
 # Current Google Sign-In implementation uses Google Identity Services ID tokens,
 # so only the public client ID is required here.
 GOOGLE_CLIENT_ID=373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com
+
+# Optional Turnstile protection for forgot-password. Leave unset locally unless
+# you also want to verify local requests against a real Turnstile widget.
+TURNSTILE_SITE_KEY=replace-with-your-turnstile-site-key
+TURNSTILE_SECRET_KEY=replace-with-your-turnstile-secret-key
+
+# Optional password reset webhook integration.
+# The Worker POSTs a signed JSON payload to this URL whenever a reset link is prepared.
+# Keep the URL empty to stay in local log-only mode.
+PASSWORD_RESET_WEBHOOK_URL=http://127.0.0.1:9999/password-reset
+
+# Shared secret used to sign the webhook body as:
+#   HMAC_SHA256(secret, "<unix_timestamp>.<raw_json_body>")
+# The signature is sent in the X-TravelAgent-Signature header as: v1=<hex>
+PASSWORD_RESET_WEBHOOK_SECRET=replace-with-a-long-random-secret

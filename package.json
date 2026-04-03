@@ -10,6 +10,7 @@
 		"dev:clean": "node ./scripts/clean-wrangler-cache.mjs && wrangler dev --config ./wrangler.jsonc",
 		"deploy": "wrangler deploy --config ./wrangler.jsonc",
 		"dev": "wrangler dev --config ./wrangler.jsonc",
+		"mock:webhook:password-reset": "node ./scripts/mock-password-reset-webhook.mjs",
 		"start": "wrangler dev --config ./wrangler.jsonc",
 		"test": "node ./scripts/smoke-local.mjs",
 		"test:local": "node ./scripts/smoke-local.mjs"

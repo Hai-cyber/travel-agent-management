@@ -274,6 +274,8 @@
       padding: 0 10px;
     }
     .google-slot { margin-top: 14px; display: flex; justify-content: center; min-height: 42px; }
+    .turnstile-shell { margin-top: 16px; display: none; }
+    .turnstile-note { color: #475569; font-size: 12px; margin-bottom: 8px; font-family: 'Segoe UI', sans-serif; }
     .error-msg,
     .success-msg {
       font-size: 13px;
@@ -370,6 +372,11 @@
           </label>
           <input id="f-password" type="password" placeholder="Create a password with at least 8 characters" required minlength="8" autocomplete="new-password" />
 
+          <div class="turnstile-shell" id="turnstile-shell">
+            <div class="turnstile-note" id="turnstile-note">Complete verification before creating your account.</div>
+            <div id="turnstile-container"></div>
+          </div>
+
           <button class="btn" id="submit-btn" type="submit">Create account</button>
           <div class="signup-proof" id="signup-offer">0 EUR for 6 months, then your selected plan. Cancel anytime.</div>
 
@@ -407,12 +414,16 @@
   const googleFallbackBtn = document.getElementById('google-fallback-btn');
   const tierGrid = document.getElementById('tier-grid');
   const tierBlock = document.getElementById('tier-block');
+  const turnstileShell = document.getElementById('turnstile-shell');
   const i18n = await window.travelAgentAuthI18n.init('signup');
   const marketingPayload = await fetch('/api/marketing-site', {
     headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
   }).then((res) => res.json()).catch(() => null);
   const launchOffer = marketingPayload?.ok ? (marketingPayload.site || {}) : null;
   let selectedProductTierKey = '';
+  let turnstileConfig = null;
+  let turnstileToken = '';
+  let turnstileWidgetId = null;
 
   function page(key, fallback) {
     return i18n.page(key, fallback);
@@ -459,6 +470,7 @@
   document.getElementById('signup-offer').textContent = launchOffer
     ? `${launchOffer.launch_offer_badge || '0 EUR for 6 months'}. ${launchOffer.launch_offer_terms || 'Then your selected plan starts. Cancel anytime.'}`
     : page('offer', '0 EUR for 6 months, then your selected plan. Cancel anytime.');
+  document.getElementById('turnstile-note').textContent = page('turnstile_note', 'Complete verification before creating your account.');
 
   const tierCatalog = await fetch('/api/auth/product-tiers', {
     headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
@@ -501,14 +513,7 @@
     syncTierSelection();
   }
 
-  const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
-  if (googleConfig?.enabled && googleConfig?.client_id) {
-    googleHint.textContent = shared('google_hint_signup_enabled', 'You can use email or Google to create your account.');
-    await loadGoogleClient(googleConfig.client_id);
-  } else {
-    googleFallbackBtn.disabled = true;
-    googleFallbackBtn.style.display = 'block';
-  }
+  await initTurnstile();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -527,6 +532,10 @@
       showError(page('missing_fields', 'Please choose a product tier and complete all required fields.'));
       return;
     }
+    if (turnstileConfig?.enabled && !turnstileToken) {
+      showError(page('turnstile_required', 'Please complete the verification challenge.'));
+      return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner"></span>${page('busy', 'Creating account...')}`;
@@ -538,13 +547,14 @@
           'Content-Type': 'application/json',
           'Accept-Language': document.documentElement.lang || navigator.language || 'en',
         },
-        body: JSON.stringify({ email, tenant_name: name, password, product_tier_key: selectedProductTierKey }),
+        body: JSON.stringify({ email, tenant_name: name, password, product_tier_key: selectedProductTierKey, turnstile_token: turnstileToken }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         showError(data.error || `Error ${res.status}. Please try again.`);
+        resetTurnstile();
         resetBtn();
         return;
       }
@@ -554,9 +564,25 @@
       setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 800);
     } catch (_) {
       showError(shared('network_error', 'Connection error. Please try again.'));
+      resetTurnstile();
       resetBtn();
     }
   });
+
+  const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
+  if (googleConfig?.enabled && googleConfig?.client_id) {
+    googleHint.textContent = shared('google_hint_signup_enabled', 'You can use email or Google to create your account.');
+    try {
+      await loadGoogleClient(googleConfig.client_id);
+    } catch (_) {
+      googleHint.textContent = shared('google_load_failed', 'Google Sign-In could not be loaded. Please use email and password.');
+      googleFallbackBtn.disabled = true;
+      googleFallbackBtn.style.display = 'block';
+    }
+  } else {
+    googleFallbackBtn.disabled = true;
+    googleFallbackBtn.style.display = 'block';
+  }
 
   async function loadGoogleClient(clientId) {
     await new Promise((resolve, reject) => {
@@ -597,6 +623,10 @@
           showError(page('tier_required_error', 'Please choose a product tier.'));
           return;
         }
+        if (turnstileConfig?.enabled && !turnstileToken) {
+          showError(page('turnstile_required', 'Please complete the verification challenge.'));
+          return;
+        }
         setBusy(shared('google_continue', 'Continue with Google'));
         try {
           const res = await fetch('/api/auth/signup-google', {
@@ -605,11 +635,12 @@
               'Content-Type': 'application/json',
               'Accept-Language': document.documentElement.lang || navigator.language || 'en',
             },
-            body: JSON.stringify({ id_token: response.credential, tenant_name: name, product_tier_key: selectedProductTierKey }),
+            body: JSON.stringify({ id_token: response.credential, tenant_name: name, product_tier_key: selectedProductTierKey, turnstile_token: turnstileToken }),
           });
           const data = await res.json();
           if (!res.ok) {
             showError(data.error || page('google_error', 'Google sign-up failed.'));
+            resetTurnstile();
             resetBtn();
             return;
           }
@@ -618,6 +649,7 @@
           setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 500);
         } catch (_) {
           showError(shared('network_error', 'Connection error. Please try again.'));
+          resetTurnstile();
           resetBtn();
         }
       },
@@ -637,6 +669,12 @@
     errEl.style.display = 'block';
   }
 
+  function showTurnstileError(reason) {
+    const base = page('turnstile_error', 'Verification could not be loaded. Please refresh and try again.');
+    const detail = reason ? ` [${reason}]` : '';
+    showError(`${base}${detail}`);
+  }
+
   function setBusy(label) {
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner"></span>${label}`;
@@ -645,6 +683,13 @@
   function resetBtn() {
     btn.disabled = false;
     btn.textContent = page('submit', 'Create account');
+  }
+
+  function resetTurnstile() {
+    turnstileToken = '';
+    if (turnstileWidgetId != null && window.turnstile?.reset) {
+      window.turnstile.reset(turnstileWidgetId);
+    }
   }
 
   function syncTierSelection() {
@@ -661,6 +706,67 @@
       '"': '&quot;',
       "'": '&#39;',
     }[char] || char));
+  }
+
+  async function initTurnstile() {
+    try {
+      const response = await fetch('/api/auth/turnstile-config', {
+        headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
+      });
+      const data = await response.json();
+      turnstileConfig = data?.signup || null;
+      if (!turnstileConfig?.enabled || !turnstileConfig?.site_key) {
+        return;
+      }
+
+      turnstileShell.style.display = 'block';
+      await loadTurnstileScript();
+      turnstileWidgetId = window.turnstile.render('#turnstile-container', {
+        sitekey: turnstileConfig.site_key,
+        action: turnstileConfig.action || 'signup',
+        theme: 'light',
+        callback(tokenValue) {
+          turnstileToken = tokenValue || '';
+        },
+        'expired-callback'() {
+          turnstileToken = '';
+        },
+        'error-callback'(code) {
+          turnstileToken = '';
+          showTurnstileError(code || 'turnstile_error_callback');
+        },
+      });
+    } catch (error) {
+      turnstileShell.style.display = 'block';
+      showTurnstileError(error?.message || 'turnstile_init_failed');
+    }
+  }
+
+  async function loadTurnstileScript() {
+    if (window.turnstile?.render) return;
+    if (window.__turnstileLoader) {
+      await window.__turnstileLoader;
+      return;
+    }
+
+    window.__turnstileLoader = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => reject(new Error('turnstile_load_timeout')), 8000);
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      script.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error('turnstile_load_failed'));
+      };
+      document.head.appendChild(script);
+    });
+
+    await window.__turnstileLoader;
   }
 })();
 </script>

@@ -20,6 +20,59 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
+Date: 2026-04-03
+Checkpoint: CHK-R44 password recovery flow
+Goal of session: Add a safe forgot-password flow to login, including D1-backed reset tokens, a public reset page, and local smoke verification.
+
+### What was completed this session
+
+- Added `db/migrations/0034_password_reset_tokens.sql` so password recovery tokens are stored in D1 with expiry, single-use semantics, and optional tenant context
+- Extended `src/lib/auth.js` with shared helpers to issue, validate, and consume password reset tokens while revoking old `auth_sessions` after a successful reset
+- Added auth endpoints in `src/routes/onboarding.js`: `POST /api/auth/forgot-password`, `GET /api/auth/reset-password/:token`, and `POST /api/auth/reset-password`
+- Hardened the reset-email delivery handoff: the Worker now POSTs a localized email-ready payload to `PASSWORD_RESET_WEBHOOK_URL` and signs `<timestamp>.<raw_json_body>` with `PASSWORD_RESET_WEBHOOK_SECRET` when configured
+- Added production Turnstile protection for forgot-password, signup, and login: `GET /api/auth/turnstile-config` now exposes the public site key/action map, `public/reset-password.html`, `public/login.html`, and `public/signup.html` render the widget when enabled, and the backend verifies tokens against Cloudflare Siteverify before processing public auth actions
+- Added `db/migrations/0035_auth_action_attempts.sql` plus a soft forgot-password cooldown ledger so repeated reset requests from the same email/IP are quietly suppressed instead of creating unbounded token churn
+- Resolved the live Turnstile rollout issue: client error `110200` was caused by the widget hostname allowlist missing `tours-market.com`; the working fix was Cloudflare Hostname Management, not a code rollback
+- Added `public/reset-password.html` and linked `public/login.html` into it with a new forgot-password action
+- Added EN/VI/ZH auth copy for forgot-password and reset-password states
+- Added `scripts/mock-password-reset-webhook.mjs` plus local `.dev.vars` wiring so the signed webhook path can be verified end to end
+- Extended `scripts/smoke-local.mjs` so `npm test` now verifies the full password reset cycle: request link, signed webhook delivery, validate token, confirm reset, and sign in with the new password
+
+### Files changed
+```
+db/migrations/0034_password_reset_tokens.sql
+db/migrations/0035_auth_action_attempts.sql
+src/lib/auth.js
+src/routes/onboarding.js
+public/login.html
+public/signup.html
+public/reset-password.html
+src/locales/en.json
+src/locales/vi.json
+src/locales/zh.json
+scripts/smoke-local.mjs
+scripts/mock-password-reset-webhook.mjs
+docs/PASSWORD_RESET_WEBHOOK.md
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- No delivery audit trail exists yet for password reset email sends beyond webhook/app logs
+- No account-lockout or suspicious-login throttle exists yet for repeated login failures
+
+### Known risks / TODOs
+- Anonymous forgot-password requests intentionally return a generic response and do not expose the reset link; local debug exposure is limited to local-origin or authenticated same-user flows to avoid leaking tokens in production
+- Google Apps Script is now the live mailer bridge; if it is replaced later, keep the same signed webhook contract or rotate both `PASSWORD_RESET_WEBHOOK_URL` and `PASSWORD_RESET_WEBHOOK_SECRET` together
+
+### Suggested next prompt
+```
+Add a lightweight delivery audit trail for password reset emails, then decide whether login also needs a soft failed-attempt throttle in addition to Turnstile.
+```
+
+---
+
 Date: 2026-04-02
 Checkpoint: Multi-skin storefront preservation + Website Design handoff
 Goal of session: Preserve the real storefront direction in code and docs: save Six Senses as the first skin module, keep the runtime multi-skin-ready, expand Website Design system settings, and record the future seed-by-skin tenant workflow.

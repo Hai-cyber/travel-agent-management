@@ -7,9 +7,8 @@ const NODE_BIN = process.platform === 'win32' ? 'node.exe' : 'node';
 const POWERSHELL_BIN = 'powershell.exe';
 const DB_NAME = 'travel_agent_db';
 const TENANT_ID = 'ten-demo-001';
-const DEFAULT_PORTS = [8788, 8787];
 const SPAWN_PORT = 8790;
-const PRICING_SMOKE_DATE = '2026-07-10';
+const DEFAULT_PRICING_SMOKE_DATE = '2026-10-10';
 const PRICING_SMOKE_EXPECTED_TOTAL = 1360;
 
 let failures = 0;
@@ -25,6 +24,10 @@ function fail(message) {
 
 function info(message) {
   console.log(`INFO ${message}`);
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
 }
 
 function quotePowerShell(value) {
@@ -96,14 +99,6 @@ async function resolveBaseUrl() {
     return { baseUrl: process.env.SMOKE_BASE_URL, server: null, reused: true };
   }
 
-  for (const port of DEFAULT_PORTS) {
-    const baseUrl = `http://127.0.0.1:${port}`;
-    if (await isServerReady(baseUrl)) {
-      info(`Reusing running Wrangler dev server at ${baseUrl}`);
-      return { baseUrl, server: null, reused: true };
-    }
-  }
-
   const baseUrl = `http://127.0.0.1:${SPAWN_PORT}`;
   info(`No running local Worker detected, starting Wrangler dev on ${baseUrl}`);
 
@@ -136,8 +131,43 @@ function ensureTenantFixtures() {
   info('Refreshing local pricing seed data');
   runNpx(['wrangler', 'd1', 'execute', DB_NAME, '--local', '--file', 'db/seed_test.sql']);
 
-  info(`Ensuring ${TENANT_ID} is ACTIVE for booking smoke`);
-  runD1Json(`UPDATE tenants SET subscription_status = 'ACTIVE' WHERE id = '${TENANT_ID}';`);
+  info(`Ensuring ${TENANT_ID} is ACTIVE and booking-compliant for smoke`);
+  runD1Json(
+    `UPDATE tenants
+        SET subscription_status = 'ACTIVE',
+            payment_methods = json_array(
+              json_object(
+                'id', 'BANK_TRANSFER',
+                'label', 'Chuyen khoan ngan hang',
+                'enabled', json('true'),
+                'category', 'manual'
+              ),
+              json_object(
+                'id', 'STRIPE',
+                'label', 'Stripe',
+                'enabled', json('true'),
+                'category', 'instant',
+                'requires_key', json('true')
+              )
+            )
+      WHERE id = '${TENANT_ID}';`
+  );
+}
+
+function resolvePricingSmokeDate() {
+  const season = runD1Json(
+    `SELECT start_month, start_day
+       FROM tenant_seasons
+      WHERE tenant_id = '${TENANT_ID}'
+        AND id = 'season-high'
+      LIMIT 1;`
+  )[0];
+
+  if (!season) {
+    return DEFAULT_PRICING_SMOKE_DATE;
+  }
+
+  return `2026-${pad2(season.start_month)}-${pad2(season.start_day)}`;
 }
 
 function mintBearerToken() {
@@ -172,6 +202,25 @@ function mintBearerToken() {
   );
 
   return token;
+}
+
+function getPrimaryUserEmail() {
+  const rows = runD1Json(
+    `SELECT u.email
+       FROM memberships m
+       JOIN users u
+         ON u.id = m.user_id
+      WHERE m.tenant_id = '${TENANT_ID}'
+      ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, u.email ASC
+      LIMIT 1;`
+  );
+
+  const email = rows[0]?.email;
+  if (!email) {
+    throw new Error(`No user email found for tenant ${TENANT_ID}`);
+  }
+
+  return email;
 }
 
 async function requestJson(url, options = {}) {
@@ -338,9 +387,10 @@ async function runBookingSmoke(baseUrl) {
 
 async function runPricingSmoke(baseUrl, token) {
   info('Running pricing calculate smoke flow');
+  const pricingSmokeDate = resolvePricingSmokeDate();
 
   const pricing = await requestJson(
-    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(PRICING_SMOKE_DATE)}&segment_id=segment-standard&adult_shared_room_count=2`,
+    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(pricingSmokeDate)}&segment_id=segment-standard&adult_shared_room_count=2`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -374,7 +424,76 @@ async function runPricingSmoke(baseUrl, token) {
     return;
   }
 
-  pass('Calculated seeded high-season standard pricing correctly');
+  pass(`Calculated seeded high-season standard pricing correctly for ${pricingSmokeDate}`);
+}
+
+async function runPasswordResetSmoke(baseUrl, token) {
+  info('Running password reset smoke flow');
+  const email = getPrimaryUserEmail();
+
+  const request = await requestJson(`${baseUrl}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+      Origin: baseUrl,
+    },
+    body: JSON.stringify({ email, return_origin: baseUrl }),
+  });
+
+  if (!request.response.ok || !request.body?.ok || !request.body?.dev_reset_url) {
+    fail(`Password reset smoke request failed: ${request.text}`);
+    return;
+  }
+  if (request.body.delivery !== 'webhook') {
+    fail(`Password reset smoke expected webhook delivery, received ${request.body.delivery ?? 'missing'}`);
+    return;
+  }
+  pass('Prepared forgot-password reset link');
+
+  const resetUrl = new URL(request.body.dev_reset_url);
+  const resetToken = resetUrl.searchParams.get('token');
+  if (!resetToken) {
+    fail('Password reset smoke did not receive a tokenized dev reset URL');
+    return;
+  }
+
+  const validate = await requestJson(`${baseUrl}/api/auth/reset-password/${encodeURIComponent(resetToken)}`);
+  if (!validate.response.ok || !validate.body?.ok) {
+    fail(`Password reset smoke token validation failed: ${validate.text}`);
+    return;
+  }
+  pass('Validated password reset token');
+
+  const newPassword = `Reset-${Date.now()}-Pass!`;
+  const confirm = await requestJson(`${baseUrl}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ token: resetToken, password: newPassword }),
+  });
+
+  if (!confirm.response.ok || !confirm.body?.ok) {
+    fail(`Password reset smoke confirm failed: ${confirm.text}`);
+    return;
+  }
+  pass('Confirmed password reset');
+
+  const login = await requestJson(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password: newPassword }),
+  });
+
+  if (!login.response.ok || !login.body?.ok) {
+    fail(`Password reset smoke login failed: ${login.text}`);
+    return;
+  }
+  pass('Verified sign-in with reset password');
 }
 
 async function main() {
@@ -388,6 +507,7 @@ async function main() {
     await runTaskSmoke(baseUrl, token);
     await runPricingSmoke(baseUrl, token);
     await runBookingSmoke(baseUrl);
+    await runPasswordResetSmoke(baseUrl, token);
   } finally {
     if (server) {
       info('Stopping Wrangler dev started by smoke test');

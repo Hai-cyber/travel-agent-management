@@ -71,7 +71,8 @@
 	"vars": {
 		"STRIPE_PRICE_ID": "price_REPLACE_ME",
 		"PLATFORM_BASE_URL": "https://tours-market.com",
-		"GOOGLE_CLIENT_ID": "373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com"
+		"GOOGLE_CLIENT_ID": "373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com",
+		"TURNSTILE_SITE_KEY": "0x4AAAAAAC0RoU63f5ipBatl"
 	},
 	"env": {
 		"staging": {
