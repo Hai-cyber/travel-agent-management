@@ -23,14 +23,15 @@
       padding: 5px 10px; border-radius: 5px; font-size: 13px; font-family: monospace;
     }
     .connect-form input:focus { outline: none; border-color: #cba6f7; }
-    #input-base   { width: 220px; }
-    #input-tenant { width: 200px; }
+    #input-base,
+    #input-tenant { display: none; }
     .btn-connect {
       background: #cba6f7; color: #1e1e2e; border: none; border-radius: 5px;
       padding: 5px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
     }
     .btn-connect:hover { background: #b4befe; }
     #connect-status { font-size: 12px; color: #a6e3a1; }
+    .context-note { font-size: 12px; color: #94a3b8; }
     .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
     .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
     .topbar-right a:hover { color: #cdd6f4; }
@@ -268,6 +269,82 @@
     }
     .preview-toolbar span { font-size: 12px; color: #94a3b8; flex: 1; font-family: monospace; }
 
+    .media-field {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .asset-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .asset-upload {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      width: fit-content;
+    }
+    .asset-upload:hover { background: #eef2ff; border-color: #a5b4fc; color: #4338ca; }
+    .asset-upload input { display: none; }
+    .asset-note { font-size: 11px; color: #94a3b8; }
+    .image-preview,
+    .gallery-preview-grid {
+      min-height: 74px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 10px;
+    }
+    .image-preview.is-empty,
+    .gallery-preview-grid.is-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 12px;
+      text-align: center;
+    }
+    .image-preview img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      display: block;
+      border-radius: 8px;
+    }
+    .gallery-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+    }
+    .gallery-preview-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .gallery-preview-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #e2e8f0;
+    }
+    .gallery-preview-card span {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
     /* -- Publish result -- */
     .publish-result {
       background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;
@@ -324,7 +401,8 @@
   <form class="connect-form" id="connect-form" autocomplete="off">
     <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" data-i18n-placeholder="tour_config.header.base_url_placeholder" />
     <input type="text" id="input-tenant" placeholder="e.g. ten-demo-001"    spellcheck="false" data-i18n-placeholder="tour_config.header.tenant_placeholder" />
-    <button type="submit" class="btn-connect">Connect</button>
+    <span class="context-note">Tenant context is loaded automatically from your signed-in admin session.</span>
+    <button type="submit" class="btn-connect">Reload</button>
     <span id="connect-status"></span>
   </form>
   <div class="topbar-right">
@@ -334,6 +412,7 @@
       <option value="vi">VI</option>
       <option value="zh">ZH</option>
     </select>
+    <a id="tenant-admin-link" href="dashboard.html">Tenant Admin</a>
     <a href="dashboard.html" data-i18n="tour_config.header.dashboard">Dashboard</a>
     <a href="category-manager.html" data-i18n="tour_config.header.category_manager">Category Manager</a>
   </div>
@@ -528,6 +607,73 @@
       <div class="field">
         <label><span data-i18n="tour_config.content.excludes">Excludes</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One per line</small></label>
         <textarea id="cd-excludes" placeholder="International flights&#10;Travel insurance" style="min-height:60px" data-i18n-placeholder="tour_config.content.excludes_placeholder"></textarea>
+      </div>
+
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Hero Summary</label>
+          <textarea id="cd-hero-desc" placeholder="Two or three lines that sell the journey in the preview hero." style="min-height:96px"></textarea>
+        </div>
+        <div class="field">
+          <label>Story / Long Description</label>
+          <textarea id="cd-tour-desc" placeholder="Longer editorial copy for the body of the tour page." style="min-height:96px"></textarea>
+        </div>
+      </div>
+
+      <div class="field-row cols-2">
+        <div class="field media-field">
+          <label>Hero Image URL</label>
+          <input type="text" id="cd-hero-image" placeholder="https://..." spellcheck="false" />
+          <div class="asset-tools">
+            <label class="asset-upload">Upload hero image<input type="file" id="cd-hero-image-upload" accept="image/*" data-target-field="cd-hero-image" /></label>
+            <span class="asset-note">Upload to tenant media and preview immediately here.</span>
+          </div>
+          <div id="cd-hero-image-preview" class="image-preview is-empty">Hero image preview appears here.</div>
+        </div>
+        <div class="field media-field">
+          <label>Gallery Images <small style="font-weight:400;text-transform:none">One URL per line</small></label>
+          <textarea id="cd-gallery-images" placeholder="https://...&#10;https://..." style="min-height:120px" spellcheck="false"></textarea>
+          <div class="asset-tools">
+            <label class="asset-upload">Upload gallery image<input type="file" id="cd-gallery-images-upload" accept="image/*" data-target-field="cd-gallery-images" data-append="1" /></label>
+            <span class="asset-note">Each upload appends a new line so the gallery keeps growing.</span>
+          </div>
+          <div id="cd-gallery-images-preview" class="gallery-preview-grid is-empty">Gallery previews appear here as soon as you paste or upload images.</div>
+        </div>
+      </div>
+
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Destination Name</label>
+          <input type="text" id="cd-destination-name" placeholder="e.g. Hoi An" />
+        </div>
+        <div class="field media-field">
+          <label>Destination Image URL</label>
+          <input type="text" id="cd-destination-image" placeholder="https://..." spellcheck="false" />
+          <div class="asset-tools">
+            <label class="asset-upload">Upload destination image<input type="file" id="cd-destination-image-upload" accept="image/*" data-target-field="cd-destination-image" /></label>
+          </div>
+          <div id="cd-destination-image-preview" class="image-preview is-empty">Destination image preview appears here.</div>
+        </div>
+      </div>
+
+      <div class="field-row cols-2">
+        <div class="field">
+          <label>Accommodation Title</label>
+          <input type="text" id="cd-accommodation-title" placeholder="e.g. Lotus Heritage Suites" />
+        </div>
+        <div class="field media-field">
+          <label>Accommodation Image URL</label>
+          <input type="text" id="cd-accommodation-image" placeholder="https://..." spellcheck="false" />
+          <div class="asset-tools">
+            <label class="asset-upload">Upload accommodation image<input type="file" id="cd-accommodation-image-upload" accept="image/*" data-target-field="cd-accommodation-image" /></label>
+          </div>
+          <div id="cd-accommodation-image-preview" class="image-preview is-empty">Accommodation image preview appears here.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Accommodation Summary</label>
+        <textarea id="cd-accommodation-summary" placeholder="Describe the stay, tone, and why it belongs on the tour page." style="min-height:88px"></textarea>
       </div>
 
       <div style="margin-top:14px;padding:14px;border:1px solid #E5E7EB;border-radius:10px;background:#FAFAFA">
@@ -916,8 +1062,8 @@ const pageParams = new URLSearchParams(window.location.search);
 
 /* --------------------------------  STATE  ---------------------------------- */
 const S = {
-  tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tc_tenant') || '',
-  baseUrl:  localStorage.getItem('tc_base')   ?? window.location.origin,
+  tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '',
+  baseUrl:  window.location.origin,
   tour:     null,    // selected tour full object
   tours:    [],
   stops:    [],
@@ -1013,6 +1159,191 @@ function readBool(value, fallback = false) {
   return fallback;
 }
 
+function parseContentData(tour) {
+  if (!tour?.content_data) return {};
+  try {
+    return typeof tour.content_data === 'string' ? JSON.parse(tour.content_data) : (tour.content_data || {});
+  } catch {
+    return {};
+  }
+}
+
+function normalizeGalleryImages(raw, fallbackTitle = 'Gallery') {
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((entry, index) => {
+    if (typeof entry === 'string') {
+      return {
+        src: entry.trim(),
+        alt: `${fallbackTitle} ${index + 1}`,
+        caption: index === 0 ? fallbackTitle : `Gallery ${index + 1}`,
+      };
+    }
+    return {
+      src: String(entry?.src || '').trim(),
+      alt: String(entry?.alt || `${fallbackTitle} ${index + 1}`).trim(),
+      caption: String(entry?.caption || (index === 0 ? fallbackTitle : `Gallery ${index + 1}`)).trim(),
+    };
+  }).filter((entry) => entry.src);
+}
+
+function galleryImagesToLines(raw, fallbackTitle) {
+  return normalizeGalleryImages(raw, fallbackTitle).map((entry) => entry.src).join('\n');
+}
+
+function collectGalleryImages() {
+  const fallbackTitle = document.getElementById('cd-tour-name').value.trim() || S.tour?.title || 'Gallery';
+  return String(document.getElementById('cd-gallery-images').value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((src, index) => ({
+      src,
+      alt: `${fallbackTitle} ${index + 1}`,
+      caption: index === 0 ? fallbackTitle : `Gallery ${index + 1}`,
+    }));
+}
+
+function renderSingleImagePreview(previewId, imageUrl, emptyMessage) {
+  const node = document.getElementById(previewId);
+  if (!node) return;
+  const src = String(imageUrl || '').trim();
+  if (!src) {
+    node.className = 'image-preview is-empty';
+    node.textContent = emptyMessage;
+    return;
+  }
+  node.className = 'image-preview';
+  node.innerHTML = `<img src="${esc(src)}" alt="${esc(previewId)}" loading="lazy" />`;
+}
+
+function renderGalleryPreview(previewId, images, emptyMessage) {
+  const node = document.getElementById(previewId);
+  if (!node) return;
+  if (!images.length) {
+    node.className = 'gallery-preview-grid is-empty';
+    node.textContent = emptyMessage;
+    return;
+  }
+  node.className = 'gallery-preview-grid';
+  node.innerHTML = images.map((item, index) => `
+    <div class="gallery-preview-card">
+      <img src="${esc(item.src)}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" />
+      <span>${esc(item.caption || item.alt || `Gallery ${index + 1}`)}</span>
+    </div>
+  `).join('');
+}
+
+function renderContentMediaPreviews() {
+  renderSingleImagePreview('cd-hero-image-preview', document.getElementById('cd-hero-image')?.value, 'Hero image preview appears here.');
+  renderSingleImagePreview('cd-destination-image-preview', document.getElementById('cd-destination-image')?.value, 'Destination image preview appears here.');
+  renderSingleImagePreview('cd-accommodation-image-preview', document.getElementById('cd-accommodation-image')?.value, 'Accommodation image preview appears here.');
+  renderGalleryPreview('cd-gallery-images-preview', collectGalleryImages(), 'Gallery previews appear here as soon as you paste or upload images.');
+}
+
+function applyAssetToField(targetFieldId, assetUrl, appendMode = false) {
+  const field = document.getElementById(targetFieldId);
+  if (!field) return;
+  const nextValue = String(assetUrl || '').trim();
+  if (!nextValue) return;
+  if (appendMode) {
+    const lines = String(field.value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.includes(nextValue)) lines.push(nextValue);
+    field.value = lines.join('\n');
+  } else {
+    field.value = nextValue;
+  }
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function uploadTourAssetFile(file) {
+  const formData = new FormData();
+  formData.set('file', file);
+  const response = await fetch('/api/tenant/assets/upload', {
+    method: 'POST',
+    headers: {
+      'X-Tenant-ID': S.tenantId,
+    },
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload;
+}
+
+function bindContentAssetInputs() {
+  ['cd-hero-image', 'cd-destination-image', 'cd-accommodation-image', 'cd-gallery-images'].forEach((id) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    field.addEventListener('input', renderContentMediaPreviews);
+    field.addEventListener('change', renderContentMediaPreviews);
+  });
+
+  document.querySelectorAll('[data-target-field]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        toast(`Uploading ${file.name}...`);
+        const uploaded = await uploadTourAssetFile(file);
+        applyAssetToField(input.dataset.targetField || '', uploaded.url || '', input.dataset.append === '1');
+        toast('Image uploaded and inserted into the draft.');
+      } catch (error) {
+        toast(error.message || 'Image upload failed.', 'err');
+      } finally {
+        input.value = '';
+      }
+    });
+  });
+}
+
+function buildContentDraftPayload() {
+  const lines = (text) => String(text || '').split('\n').map((line) => line.trim()).filter(Boolean);
+  const cd = {
+    tour_name: document.getElementById('cd-tour-name').value.trim() || undefined,
+    tour_code: document.getElementById('cd-tour-code').value.trim() || undefined,
+    base_price: Number(document.getElementById('cd-base-price').value) || undefined,
+    duration: document.getElementById('cd-duration').value.trim() || undefined,
+    hero_desc: document.getElementById('cd-hero-desc').value.trim() || undefined,
+    tour_desc: document.getElementById('cd-tour-desc').value.trim() || undefined,
+    hero_image: document.getElementById('cd-hero-image').value.trim() || undefined,
+    gallery_images: collectGalleryImages(),
+    destination_name: document.getElementById('cd-destination-name').value.trim() || undefined,
+    destination_title: document.getElementById('cd-destination-name').value.trim() || undefined,
+    destination_image: document.getElementById('cd-destination-image').value.trim() || undefined,
+    accommodation_title: document.getElementById('cd-accommodation-title').value.trim() || undefined,
+    accommodation_summary: document.getElementById('cd-accommodation-summary').value.trim() || undefined,
+    accommodation_image: document.getElementById('cd-accommodation-image').value.trim() || undefined,
+    highlights: lines(document.getElementById('cd-highlights').value),
+    includes: lines(document.getElementById('cd-includes').value),
+    excludes: lines(document.getElementById('cd-excludes').value),
+    itinerary: S.itinerary,
+    universal_modules: {
+      featured_tours: document.getElementById('cd-flag-featured').checked,
+      featured: document.getElementById('cd-flag-featured').checked,
+      destinations: document.getElementById('cd-flag-destination').checked,
+      accommodation: document.getElementById('cd-flag-accommodation').checked,
+      hero: document.getElementById('cd-flag-hero').checked,
+    },
+  };
+  Object.keys(cd).forEach((key) => {
+    if (cd[key] === undefined) delete cd[key];
+  });
+  if (!cd.gallery_images?.length) delete cd.gallery_images;
+  return cd;
+}
+
+async function saveContentDraft(showSuccessToast = true) {
+  if (!S.tour) throw new Error(ti('tour_config.message.select_tour_first'));
+  const contentData = buildContentDraftPayload();
+  await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: contentData }) });
+  S.tour.content_data = contentData;
+  const listTour = S.tours.find((tour) => tour.id === S.tour.id);
+  if (listTour) listTour.content_data = contentData;
+  if (showSuccessToast) toast(ti('tour_config.message.content_saved'));
+  return contentData;
+}
+
 const h = () => ({
   'Content-Type':  'application/json',
   'X-Tenant-ID':   S.tenantId,
@@ -1061,7 +1392,34 @@ function badgeClass(status) {
 }
 
 /* ----------------------------  CONNECT  ------------------------------------ */
-// Auto-connect if tenantId already saved in localStorage
+async function resolveTenantContext() {
+  if (S.tenantId) return S.tenantId;
+  const sessionPayload = await fetch('/api/auth/session').then((response) => response.json()).catch(() => null);
+  if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
+    window.location.replace('/login.html');
+    return '';
+  }
+  S.tenantId = sessionPayload.session.tenant_id;
+  localStorage.setItem('tam_tenant_id', S.tenantId);
+  localStorage.setItem('tc_tenant', S.tenantId);
+  return S.tenantId;
+}
+
+async function connectWithCurrentTenant() {
+  const status = document.getElementById('connect-status');
+  const tenantId = await resolveTenantContext();
+  if (!tenantId) return;
+  status.textContent = ti('tour_config.message.reconnecting');
+  try {
+    const data = await api('/api/tours');
+    S.tours = data.tours ?? [];
+    renderTourList();
+    status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
+  } catch (err) {
+    status.textContent = '✗ ' + err.message;
+  }
+}
+
 document.getElementById('input-base').value   = S.baseUrl;
 document.getElementById('input-tenant').value = S.tenantId;
 document.getElementById('input-ui-lang').value = S.uiLang;
@@ -1077,40 +1435,13 @@ document.getElementById('input-ui-lang').addEventListener('change', async (event
 
 loadUiLocale().catch(() => {});
 
-if (S.tenantId) {
-  (async () => {
-    const status = document.getElementById('connect-status');
-    status.textContent = ti('tour_config.message.reconnecting');
-    try {
-      const data = await api('/api/tours');
-      S.tours = data.tours ?? [];
-      renderTourList();
-      status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
-    } catch (err) {
-      status.textContent = '✗ ' + err.message;
-    }
-  })();
-}
+connectWithCurrentTenant().catch(() => {});
+bindContentAssetInputs();
+renderContentMediaPreviews();
 
 document.getElementById('connect-form').addEventListener('submit', async e => {
   e.preventDefault();
-  S.baseUrl  = document.getElementById('input-base').value.trim().replace(/\/$/, '');
-  S.tenantId = document.getElementById('input-tenant').value.trim();
-  localStorage.setItem('tc_base',   S.baseUrl);
-  localStorage.setItem('tc_tenant', S.tenantId);
-
-  const status = document.getElementById('connect-status');
-  status.textContent = ti('tour_config.message.connecting');
-  try {
-    const data = await api('/api/tours');
-    S.tours = data.tours ?? [];
-    renderTourList();
-    status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
-    toast(ti('tour_config.message.connected_count', { count: S.tours.length }));
-  } catch (err) {
-    status.textContent = '✗ error';
-    toast(ti('tour_config.message.connect_failed', { error: err.message }), 'err');
-  }
+  await connectWithCurrentTenant();
 });
 
 /* ----------------------------  TAB 1: TOUR  -------------------------------- */
@@ -1284,14 +1615,20 @@ function prefillContent(tour) {
   document.getElementById('meta-lang').value        = tour.lang      ?? 'vi';
 
   // content_data
-  let cd = {};
-  if (tour.content_data) {
-    try { cd = typeof tour.content_data === 'string' ? JSON.parse(tour.content_data) : tour.content_data; } catch {}
-  }
+  const cd = parseContentData(tour);
   document.getElementById('cd-tour-name').value   = cd.tour_name  ?? '';
   document.getElementById('cd-tour-code').value   = cd.tour_code  ?? '';
   document.getElementById('cd-base-price').value  = cd.base_price ?? '';
   document.getElementById('cd-duration').value    = cd.duration   ?? '';
+  document.getElementById('cd-hero-desc').value   = cd.hero_desc ?? '';
+  document.getElementById('cd-tour-desc').value   = cd.tour_desc ?? '';
+  document.getElementById('cd-hero-image').value  = cd.hero_image ?? '';
+  document.getElementById('cd-gallery-images').value = galleryImagesToLines(cd.gallery_images, cd.tour_name || tour.title || 'Gallery');
+  document.getElementById('cd-destination-name').value = cd.destination_name ?? cd.destination_title ?? '';
+  document.getElementById('cd-destination-image').value = cd.destination_image ?? '';
+  document.getElementById('cd-accommodation-title').value = cd.accommodation_title ?? '';
+  document.getElementById('cd-accommodation-summary').value = cd.accommodation_summary ?? '';
+  document.getElementById('cd-accommodation-image').value = cd.accommodation_image ?? '';
   document.getElementById('cd-highlights').value  = (cd.highlights ?? []).join('\n');
   document.getElementById('cd-includes').value    = (cd.includes   ?? []).join('\n');
   document.getElementById('cd-excludes').value    = (cd.excludes   ?? []).join('\n');
@@ -1303,6 +1640,7 @@ function prefillContent(tour) {
 
   S.itinerary = cd.itinerary ?? [];
   renderItinerary();
+  renderContentMediaPreviews();
 }
 
 function renderItinerary() {
@@ -1378,30 +1716,8 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
 
 // Save content_data
 document.getElementById('btn-save-content').addEventListener('click', async () => {
-  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
-  const lines = t => t.split('\n').map(l => l.trim()).filter(Boolean);
-  const cd = {
-    tour_name:  document.getElementById('cd-tour-name').value.trim()  || undefined,
-    tour_code:  document.getElementById('cd-tour-code').value.trim()  || undefined,
-    base_price: Number(document.getElementById('cd-base-price').value) || undefined,
-    duration:   document.getElementById('cd-duration').value.trim()   || undefined,
-    highlights: lines(document.getElementById('cd-highlights').value),
-    includes:   lines(document.getElementById('cd-includes').value),
-    excludes:   lines(document.getElementById('cd-excludes').value),
-    itinerary:  S.itinerary,
-    universal_modules: {
-      featured_tours: document.getElementById('cd-flag-featured').checked,
-      destinations: document.getElementById('cd-flag-destination').checked,
-      accommodation: document.getElementById('cd-flag-accommodation').checked,
-      hero: document.getElementById('cd-flag-hero').checked,
-    },
-  };
-  // Clean undefined keys
-  Object.keys(cd).forEach(k => cd[k] === undefined && delete cd[k]);
   try {
-    await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: cd }) });
-    S.tour.content_data = cd;
-    toast(ti('tour_config.message.content_saved'));
+    await saveContentDraft(true);
   } catch (err) {
     toast(ti('tour_config.message.save_failed', { error: err.message }), 'err');
   }
@@ -2418,44 +2734,75 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
 });
 
 /* ----------------------------  TAB 5: PREVIEW  ----------------------------- */
-function loadPreview() {
-  if (!S.tour) return;
-  const url   = `${S.baseUrl}/api/tours/${S.tour.id}/preview`;
-  const frame = document.getElementById('preview-frame');
-  document.getElementById('preview-url-label').textContent = url;
-  const tenantId = S.tenantId;
-  const baseUrl  = S.baseUrl;
-  const tourId   = S.tour.id;
-  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body>
+function buildPreviewShellHtml(url) {
+  const requestUrl = JSON.stringify(url);
+  const tenantId = JSON.stringify(S.tenantId);
+  const unavailableTitle = esc(ti('tour_config.preview.unavailable'));
+  const defaultTemplateRequired = esc(ti('tour_config.preview.default_template_required'));
+  const uploadHint = esc(ti('tour_config.preview.publish_upload_hint'));
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Tour Preview</title><style>body{margin:0;background:#fff;font-family:Inter,system-ui,sans-serif}</style></head><body>
     <script>
-      fetch('${url}', {headers:{'X-Tenant-ID':'${tenantId}'}})
-        .then(r => {
-          const ct = r.headers.get('content-type') || '';
-          if (ct.includes('application/json') || !r.ok) {
-            return r.json().then(j => { throw new Error(j.error || ('HTTP ' + r.status)); });
+      fetch(${requestUrl}, { headers: { 'X-Tenant-ID': ${tenantId} } })
+        .then(async (response) => {
+          const contentType = response.headers.get('content-type') || '';
+          if (!response.ok || contentType.includes('application/json')) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || ('HTTP ' + response.status));
           }
-          return r.text();
+          return response.text();
         })
-        .then(t => { document.open(); document.write(t); document.close(); })
-        .catch(e => {
-          const isNoTemplate = e.message && e.message.includes('Template not found');
-          document.body.innerHTML = '<div style="font-family:sans-serif;padding:32px;max-width:560px">' +
-            '<h2 style="color:#dc2626;margin:0 0 12px">${esc(ti('tour_config.preview.unavailable'))}</h2>' +
-            '<p style="color:#475569;margin:0 0 16px">' + e.message + '</p>' +
-            (isNoTemplate ? '<p style="color:#475569;font-size:13px">${esc(ti('tour_config.preview.default_template_required'))}<br>' +
-              '${esc(ti('tour_config.preview.publish_upload_hint'))}<br>' +
-              '<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">PUT ${baseUrl}/api/tours/templates/default</code></p>' : '') +
-            '</div>';
+        .then((html) => { document.open(); document.write(html); document.close(); })
+        .catch((error) => {
+          const isNoTemplate = String(error.message || '').includes('Template not found');
+          document.body.innerHTML = '<div style="padding:32px;max-width:640px">'
+            + '<h2 style="color:#dc2626;margin:0 0 12px">${unavailableTitle}</h2>'
+            + '<p style="color:#475569;line-height:1.6;margin:0 0 16px">' + String(error.message || 'Preview unavailable') + '</p>'
+            + (isNoTemplate ? '<p style="color:#475569;font-size:13px;line-height:1.6">${defaultTemplateRequired}<br>${uploadHint}</p>' : '')
+            + '</div>';
         });
     <\/script></body></html>`;
-  const blob  = new Blob([html], { type: 'text/html' });
-  frame.src   = URL.createObjectURL(blob);
+}
+
+async function resolvePreviewUrl() {
+  try {
+    await saveContentDraft(false);
+  } catch (error) {
+    console.warn('[tour-config preview] content save before preview failed', error?.message || error);
+  }
+
+  try {
+    await api(`/api/universal/tours/${S.tour.id}/page/sync`, { method: 'POST' });
+    const pagePayload = await api(`/api/universal/tours/${S.tour.id}/page`);
+    const slug = pagePayload?.tour_page?.slug;
+    if (!slug) throw new Error('Universal tour page slug missing.');
+    return `${S.baseUrl}/api/universal/render/${encodeURIComponent(S.tenantId)}?tourId=${encodeURIComponent(S.tour.id)}&slug=${encodeURIComponent(slug)}&admin=1`;
+  } catch (error) {
+    console.warn('[tour-config preview] falling back to legacy preview', error?.message || error);
+    return `${S.baseUrl}/api/tours/${S.tour.id}/preview`;
+  }
+}
+
+async function loadPreview() {
+  if (!S.tour) return;
+  const frame = document.getElementById('preview-frame');
+  document.getElementById('preview-url-label').textContent = 'Syncing tour draft preview...';
+  const url = await resolvePreviewUrl();
+  document.getElementById('preview-url-label').textContent = url;
+  frame.srcdoc = buildPreviewShellHtml(url);
 }
 
 document.getElementById('btn-reload-preview').addEventListener('click', loadPreview);
-document.getElementById('btn-open-preview').addEventListener('click', () => {
+document.getElementById('btn-open-preview').addEventListener('click', async () => {
   if (!S.tour) return;
-  window.open(`${S.baseUrl}/api/tours/${S.tour.id}/preview`, '_blank');
+  const previewWindow = window.open('', '_blank');
+  if (!previewWindow) {
+    toast('Preview popup was blocked by the browser.', 'err');
+    return;
+  }
+  const url = await resolvePreviewUrl();
+  previewWindow.document.open();
+  previewWindow.document.write(buildPreviewShellHtml(url));
+  previewWindow.document.close();
 });
 
 /* ----------------------------  TAB 5: PUBLISH  ------------------------------ */

@@ -378,7 +378,7 @@ billing.get('/status', async (c) => {
 
   if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
 
-  const TRIAL_DAYS   = 14;
+  const TRIAL_DAYS   = 180;
   const createdAt    = tenant.created_at ?? 0;
   const trialEndsAt  = createdAt + TRIAL_DAYS * 86400;
   const nowS         = Math.floor(Date.now() / 1000);

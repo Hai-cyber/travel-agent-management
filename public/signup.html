@@ -1,80 +1,264 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Đăng ký — TravelAgent</title>
+  <title>Sign Up - TravelAgent</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: Georgia, 'Times New Roman', serif;
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 28%),
+        radial-gradient(circle at right center, rgba(59, 130, 246, 0.18), transparent 24%),
+        linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
       min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      justify-content: center;
       padding: 24px;
     }
     .page-shell {
       width: 100%;
-      max-width: 520px;
+      max-width: 1160px;
     }
-    .launch-watermark {
+    .card {
+      width: 100%;
+    }
+    .hero-head {
       margin-bottom: 14px;
-      padding: 10px 14px;
-      border-radius: 14px;
-      background: rgba(124, 58, 237, .14);
-      border: 1px solid rgba(255,255,255,.28);
-      color: #faf5ff;
-      font-size: 12px;
+    }
+    .headline {
+      font-size: clamp(22px, 3vw, 30px);
+      line-height: 1.1;
+      letter-spacing: -.02em;
+      color: #ffffff;
+      max-width: 24ch;
+    }
+    .signup-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .plan-column,
+    .form-column {
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .plan-column {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(191, 219, 254, 0.95);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+    }
+    .form-column {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(229, 231, 235, 0.92);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+    }
+    .section-kicker {
+      color: #2563eb;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 11px;
       font-weight: 800;
       letter-spacing: .12em;
       text-transform: uppercase;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 12px 34px rgba(0,0,0,.14);
+      margin-bottom: 10px;
     }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 40px;
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .section-title {
+      color: #111827;
+      font-size: 20px;
+      line-height: 1.15;
+    }
+    .section-copy,
+    .hint,
+    .form-copy {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.6;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .required-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #0f172a;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .tier-block {
+      margin-top: 12px;
+      border-radius: 12px;
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    .tier-block.invalid {
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, .12);
+    }
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 16px;
+      margin-top: 14px;
+      padding-bottom: 0;
+      align-items: start;
+    }
+    .tier-card {
       width: 100%;
-      max-width: 460px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      text-align: left;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      background: rgba(255,255,255,.88);
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, transform .15s, background .15s;
+      position: relative;
+      overflow: hidden;
     }
-    .logo { font-size: 28px; font-weight: 800; color: #7c3aed; margin-bottom: 6px; }
-    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 32px; }
-    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; margin-top: 16px; }
-    input, select {
-      width: 100%; padding: 10px 14px;
-      border: 1.5px solid #e2e8f0; border-radius: 8px;
-      font-size: 14px; color: #1e293b;
-      outline: none; transition: border-color .15s;
+    .tier-card::after {
+      content: '';
+      position: absolute;
+      inset: auto -24px -24px auto;
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, .07);
     }
-    input:focus, select:focus { border-color: #7c3aed; }
+    .tier-card:hover:not(:disabled) {
+      border-color: #2563eb;
+      box-shadow: 0 16px 34px rgba(37, 99, 235, .16);
+      transform: translateY(-1px);
+    }
+    .tier-card.active {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, .12), 0 16px 34px rgba(37, 99, 235, .16);
+      background: linear-gradient(180deg, #fff 0%, #eff6ff 100%);
+    }
+    .tier-card:nth-child(1),
+    .tier-card:nth-child(2) {
+      z-index: 2;
+    }
+    .tier-card:nth-child(3),
+    .tier-card:nth-child(4) {
+      margin-top: -26px;
+    }
+    .tier-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .tier-name { color: #0f172a; font-size: 16px; font-weight: 800; }
+    .tier-tagline { color: #6b7280; font-size: 12px; margin-top: 4px; font-family: 'Segoe UI', sans-serif; }
+    .tier-badge {
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #fff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .tier-price { color: #111827; font-size: 13px; font-weight: 800; margin-top: 10px; position: relative; z-index: 1; font-family: 'Segoe UI', sans-serif; }
+    .tier-description { color: #475569; font-size: 12px; line-height: 1.55; margin-top: 8px; position: relative; z-index: 1; font-family: 'Segoe UI', sans-serif; }
+    .tier-features {
+      margin-top: 10px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.55;
+      padding-left: 18px;
+      position: relative;
+      z-index: 1;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .field-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 6px;
+      margin-top: 16px;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1e293b;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: 'Segoe UI', sans-serif;
+      background: #fff;
+    }
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+    }
+    .signup-proof {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 700;
+      font-family: 'Segoe UI', sans-serif;
+    }
     .btn {
-      display: block; width: 100%; margin-top: 28px;
-      padding: 13px; background: #7c3aed; color: #fff;
-      border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
-      cursor: pointer; transition: background .15s;
+      display: block;
+      width: 100%;
+      margin-top: 22px;
+      padding: 14px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, opacity .15s;
+      font-family: 'Segoe UI', sans-serif;
+      box-shadow: 0 18px 34px rgba(29, 78, 216, .28);
     }
-    .btn:hover:not(:disabled) { background: #6d28d9; }
-    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
     .btn-secondary {
       background: #fff;
       color: #0f172a;
       border: 1.5px solid #dbe4f0;
       margin-top: 14px;
+      box-shadow: none;
     }
     .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
-    .error-msg  { color: #dc2626; font-size: 13px; margin-top: 12px; display: none; }
-    .success-msg { color: #16a34a; font-size: 13px; margin-top: 12px; display: none; }
-    .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: #64748b; }
-    .login-link a { color: #7c3aed; text-decoration: none; font-weight: 600; }
     .divider {
       position: relative;
       margin-top: 18px;
       text-align: center;
       color: #94a3b8;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
+      font-family: 'Segoe UI', sans-serif;
     }
     .divider::before {
       content: '';
@@ -89,48 +273,122 @@
       background: #fff;
       padding: 0 10px;
     }
-    .hint { margin-top: 10px; font-size: 12px; color: #64748b; text-align: center; }
     .google-slot { margin-top: 14px; display: flex; justify-content: center; min-height: 42px; }
+    .error-msg,
+    .success-msg {
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .error-msg { color: #dc2626; }
+    .success-msg { color: #16a34a; }
+    .login-link {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 13px;
+      color: #64748b;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .login-link a { color: #2563eb; text-decoration: none; font-weight: 700; }
     .spinner {
-      display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
-      border-radius: 50%; animation: spin .6s linear infinite; vertical-align: -3px; margin-right: 6px;
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: -3px;
+      margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 900px) {
+      .signup-layout {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+      .tier-grid {
+        grid-template-columns: 1fr;
+        padding-bottom: 0;
+      }
+      .tier-card:nth-child(3),
+      .tier-card:nth-child(4) {
+        margin-top: 0;
+      }
+    }
+    @media (max-width: 640px) {
+      body { padding: 14px; }
+      .plan-column, .form-column { padding: 14px; }
+      .headline { max-width: none; }
+    }
   </style>
 </head>
 <body>
 <div class="page-shell">
-  <div class="launch-watermark">Pre-launch only · Chưa mở bán công khai</div>
   <div class="card">
-    <div class="logo">🧭 TravelAgent</div>
-    <div class="subtitle">Tạo nền tảng quản lý tour của bạn — miễn phí 14 ngày</div>
+    <div class="hero-head">
+      <h1 class="headline" id="signup-title">Sign up to create your tour platform with 0 EUR.</h1>
+    </div>
 
     <form id="signup-form" novalidate>
-      <label for="f-email">Email của bạn</label>
-      <input id="f-email" type="email" placeholder="agency@example.com" required autocomplete="email" />
+      <div class="signup-layout">
+        <section class="plan-column">
+          <div class="section-kicker">Required first step</div>
+          <div class="section-title-row">
+            <h2 class="section-title" id="tier-title">Choose your product tier</h2>
+            <span class="required-badge">Required</span>
+          </div>
+          <p class="section-copy" id="tier-hint">Pick one tier now. Launch pricing is 0 EUR for 6 months, then your selected monthly plan starts. Cancel anytime.</p>
+          <div class="tier-block" id="tier-block">
+            <div class="tier-grid" id="tier-grid"></div>
+          </div>
+        </section>
 
-      <label for="f-name">Tên công ty / đại lý</label>
-      <input id="f-name" type="text" placeholder="Sunset Travel Agency" required maxlength="80" />
+        <section class="form-column">
+          <div class="section-kicker">Create account</div>
+          <div class="section-title-row">
+            <h2 class="section-title">Keep signup clean</h2>
+          </div>
+          <p class="form-copy" id="signup-proof">Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.</p>
 
-      <label for="f-password">Mật khẩu</label>
-      <input id="f-password" type="password" placeholder="Tối thiểu 8 ký tự" required minlength="8" autocomplete="new-password" />
+          <label class="field-label" for="f-email">
+            <span id="label-email">Email</span>
+            <span class="required-badge">Required</span>
+          </label>
+          <input id="f-email" type="email" placeholder="agency@example.com" required autocomplete="email" />
 
-      <button class="btn" id="submit-btn" type="submit">Bắt đầu dùng thử miễn phí</button>
+          <label class="field-label" for="f-name">
+            <span id="label-name">Brand / team / agency name</span>
+            <span class="required-badge">Required</span>
+          </label>
+          <input id="f-name" type="text" placeholder="Sunset Journeys" required maxlength="80" />
 
-      <div class="divider"><span>hoặc</span></div>
-      <div class="google-slot" id="google-slot"></div>
-      <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Tiếp tục với Google</button>
-      <div class="hint" id="google-hint">Google sign-up sẽ hiện khi `GOOGLE_CLIENT_ID` được cấu hình.</div>
+          <label class="field-label" for="f-password">
+            <span id="label-password">Create password</span>
+            <span class="required-badge">Required</span>
+          </label>
+          <input id="f-password" type="password" placeholder="Create a password with at least 8 characters" required minlength="8" autocomplete="new-password" />
 
-      <div class="error-msg"   id="error-msg"></div>
-      <div class="success-msg" id="success-msg">✅ Đang khởi tạo workspace của bạn…</div>
+          <button class="btn" id="submit-btn" type="submit">Create account</button>
+          <div class="signup-proof" id="signup-offer">0 EUR for 6 months, then your selected plan. Cancel anytime.</div>
+
+          <div class="divider"><span id="divider-or">or</span></div>
+          <div class="google-slot" id="google-slot"></div>
+          <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Continue with Google</button>
+          <div class="hint" id="google-hint">Google sign-in will appear when GOOGLE_CLIENT_ID is configured.</div>
+
+          <div class="error-msg" id="error-msg"></div>
+          <div class="success-msg" id="success-msg">Your workspace is being created...</div>
+        </section>
+      </div>
     </form>
 
-    <div class="login-link">Đã có tài khoản? <a href="/login.html">Đăng nhập →</a></div>
+    <div class="login-link"><span id="login-prompt">Already have an account?</span> <a id="login-link" href="/login.html">Sign in -></a></div>
   </div>
 </div>
 
+<script src="/auth-page-i18n.js"></script>
 <script>
 (async () => {
   const sessionRes = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
@@ -140,62 +398,162 @@
     return;
   }
 
-  const form    = document.getElementById('signup-form');
-  const errEl   = document.getElementById('error-msg');
-  const okEl    = document.getElementById('success-msg');
-  const btn     = document.getElementById('submit-btn');
+  const form = document.getElementById('signup-form');
+  const errEl = document.getElementById('error-msg');
+  const okEl = document.getElementById('success-msg');
+  const btn = document.getElementById('submit-btn');
   const googleSlot = document.getElementById('google-slot');
   const googleHint = document.getElementById('google-hint');
   const googleFallbackBtn = document.getElementById('google-fallback-btn');
+  const tierGrid = document.getElementById('tier-grid');
+  const tierBlock = document.getElementById('tier-block');
+  const i18n = await window.travelAgentAuthI18n.init('signup');
+  const marketingPayload = await fetch('/api/marketing-site', {
+    headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
+  }).then((res) => res.json()).catch(() => null);
+  const launchOffer = marketingPayload?.ok ? (marketingPayload.site || {}) : null;
+  let selectedProductTierKey = '';
+
+  function page(key, fallback) {
+    return i18n.page(key, fallback);
+  }
+
+  function shared(key, fallback) {
+    return i18n.shared(key, fallback);
+  }
+
+  function setTierRequiredState(isInvalid) {
+    tierBlock.classList.toggle('invalid', Boolean(isInvalid));
+  }
+
+  function buildTierPriceLine(tier) {
+    const badge = String(launchOffer?.launch_offer_badge || '').trim() || '0 EUR for 6 months';
+    const terms = String(launchOffer?.launch_offer_terms || '').trim() || 'Then your selected plan starts. Cancel anytime.';
+    if (tier.available_for_signup) {
+      return `${badge}. Then ${tier.price_label || 'your selected monthly plan'}. ${lowerFirst(terms)}`;
+    }
+    return `${tier.price_label || 'Pricing announced later'}. ${tier.availability_label || 'Future tier'}.`;
+  }
+
+  function lowerFirst(value) {
+    const text = String(value || '').trim();
+    return text ? text.charAt(0).toLowerCase() + text.slice(1) : '';
+  }
+
+  document.title = page('meta_title', 'Sign Up - TravelAgent');
+  document.getElementById('signup-title').textContent = launchOffer?.signup_title || 'Sign up to create your tour platform with 0 EUR.';
+  document.getElementById('label-email').textContent = shared('email_label', 'Email');
+  document.getElementById('label-name').textContent = page('name_label', 'Brand / team / agency name');
+  document.getElementById('label-password').textContent = page('password_label', 'Create password');
+  document.getElementById('f-email').placeholder = shared('email_placeholder', 'agency@example.com');
+  document.getElementById('f-name').placeholder = page('name_placeholder', 'Sunset Journeys');
+  document.getElementById('f-password').placeholder = page('password_placeholder', 'Create a password with at least 8 characters');
+  document.getElementById('submit-btn').textContent = page('submit', 'Create account');
+  document.getElementById('divider-or').textContent = shared('or', 'or');
+  document.getElementById('google-fallback-btn').textContent = shared('google_continue', 'Continue with Google');
+  document.getElementById('google-hint').textContent = shared('google_hint_disabled', 'Google sign-in will appear when GOOGLE_CLIENT_ID is configured.');
+  document.getElementById('success-msg').textContent = page('success', 'Your workspace is being created...');
+  document.getElementById('login-prompt').textContent = page('login_prompt', 'Already have an account?');
+  document.getElementById('login-link').textContent = page('login_link', 'Sign in ->');
+  document.getElementById('signup-proof').textContent = launchOffer?.signup_requirement_copy || page('proof', 'Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.');
+  document.getElementById('signup-offer').textContent = launchOffer
+    ? `${launchOffer.launch_offer_badge || '0 EUR for 6 months'}. ${launchOffer.launch_offer_terms || 'Then your selected plan starts. Cancel anytime.'}`
+    : page('offer', '0 EUR for 6 months, then your selected plan. Cancel anytime.');
+
+  const tierCatalog = await fetch('/api/auth/product-tiers', {
+    headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
+  }).then((res) => res.json()).catch(() => null);
+
+  if (tierCatalog?.ok && Array.isArray(tierCatalog?.tiers)) {
+    document.getElementById('tier-title').textContent = tierCatalog.title || 'Choose your product tier';
+    document.getElementById('tier-hint').textContent = page('tier_hint', 'Pick one tier now. Launch pricing is 0 EUR for 6 months, then your selected monthly plan starts. Cancel anytime.');
+    const requestedTierKey = new URLSearchParams(window.location.search).get('tier');
+    const availableTierKeys = new Set(tierCatalog.tiers.filter((tier) => tier.available_for_signup).map((tier) => tier.key));
+    selectedProductTierKey = availableTierKeys.has(requestedTierKey) ? requestedTierKey : '';
+    tierGrid.innerHTML = '';
+
+    tierCatalog.tiers.forEach((tier) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tier-card';
+      button.dataset.tierKey = tier.key;
+      button.disabled = !tier.available_for_signup;
+      button.innerHTML = `
+        <div class="tier-row">
+          <div>
+            <div class="tier-name">${escapeHtml(tier.name || tier.key)}</div>
+            <div class="tier-tagline">${escapeHtml(tier.tagline || '')}</div>
+          </div>
+          <span class="tier-badge">${escapeHtml(tier.availability_label || '')}</span>
+        </div>
+        <div class="tier-price">${escapeHtml(buildTierPriceLine(tier))}</div>
+        <div class="tier-description">${escapeHtml(tier.description || '')}</div>
+        <ul class="tier-features">${(Array.isArray(tier.feature_bullets) ? tier.feature_bullets : []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+      `;
+      button.addEventListener('click', () => {
+        if (!tier.available_for_signup) return;
+        selectedProductTierKey = tier.key;
+        setTierRequiredState(false);
+        syncTierSelection();
+      });
+      tierGrid.appendChild(button);
+    });
+    syncTierSelection();
+  }
 
   const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
   if (googleConfig?.enabled && googleConfig?.client_id) {
-    googleHint.textContent = 'Bạn có thể dùng email hoặc Google để tạo tài khoản.';
+    googleHint.textContent = shared('google_hint_signup_enabled', 'You can use email or Google to create your account.');
     await loadGoogleClient(googleConfig.client_id);
   } else {
     googleFallbackBtn.disabled = true;
     googleFallbackBtn.style.display = 'block';
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errEl.style.display = 'none';
 
     const email = document.getElementById('f-email').value.trim();
-    const name  = document.getElementById('f-name').value.trim();
+    const name = document.getElementById('f-name').value.trim();
     const password = document.getElementById('f-password').value;
 
+    if (!selectedProductTierKey) {
+      setTierRequiredState(true);
+      showError(page('tier_required_error', 'Please choose a product tier.'));
+      return;
+    }
     if (!email || !name || !password) {
-      showError('Vui lòng điền đầy đủ thông tin.');
+      showError(page('missing_fields', 'Please choose a product tier and complete all required fields.'));
       return;
     }
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Đang khởi tạo…';
+    btn.innerHTML = `<span class="spinner"></span>${page('busy', 'Creating account...')}`;
 
     try {
       const res = await fetch('/api/auth/signup-onboarding', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, tenant_name: name, password }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': document.documentElement.lang || navigator.language || 'en',
+        },
+        body: JSON.stringify({ email, tenant_name: name, password, product_tier_key: selectedProductTierKey }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        showError(data.error || `Lỗi ${res.status}. Vui lòng thử lại.`);
+        showError(data.error || `Error ${res.status}. Please try again.`);
         resetBtn();
         return;
       }
 
-      // Success — persist tenant, redirect
       localStorage.setItem('tam_tenant_id', data.tenant_id);
       okEl.style.display = 'block';
       setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 800);
-
-    } catch (err) {
-      showError('Lỗi kết nối. Vui lòng thử lại.');
+    } catch (_) {
+      showError(shared('network_error', 'Connection error. Please try again.'));
       resetBtn();
     }
   });
@@ -220,30 +578,38 @@
     });
 
     if (!window.google?.accounts?.id) {
-      googleHint.textContent = 'Không tải được Google Sign-In. Vui lòng dùng email/password.';
+      googleHint.textContent = shared('google_load_failed', 'Google Sign-In could not be loaded. Please use email and password.');
       return;
     }
 
-    googleHint.textContent = 'Bạn có thể dùng email hoặc Google để tạo tài khoản.';
+    googleHint.textContent = shared('google_hint_signup_enabled', 'You can use email or Google to create your account.');
     googleFallbackBtn.style.display = 'none';
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: async (response) => {
         const name = document.getElementById('f-name').value.trim();
         if (!name) {
-          showError('Nhập tên công ty trước khi tiếp tục với Google.');
+          showError(page('name_required_for_google', 'Enter your brand, team, or working name before continuing with Google.'));
           return;
         }
-        setBusy('Đang kết nối Google…');
+        if (!selectedProductTierKey) {
+          setTierRequiredState(true);
+          showError(page('tier_required_error', 'Please choose a product tier.'));
+          return;
+        }
+        setBusy(shared('google_continue', 'Continue with Google'));
         try {
           const res = await fetch('/api/auth/signup-google', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_token: response.credential, tenant_name: name }),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept-Language': document.documentElement.lang || navigator.language || 'en',
+            },
+            body: JSON.stringify({ id_token: response.credential, tenant_name: name, product_tier_key: selectedProductTierKey }),
           });
           const data = await res.json();
           if (!res.ok) {
-            showError(data.error || 'Google signup failed.');
+            showError(data.error || page('google_error', 'Google sign-up failed.'));
             resetBtn();
             return;
           }
@@ -251,7 +617,7 @@
           okEl.style.display = 'block';
           setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 500);
         } catch (_) {
-          showError('Lỗi kết nối với Google. Vui lòng thử lại.');
+          showError(shared('network_error', 'Connection error. Please try again.'));
           resetBtn();
         }
       },
@@ -267,16 +633,34 @@
   }
 
   function showError(msg) {
-    errEl.textContent    = msg;
-    errEl.style.display  = 'block';
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
   }
+
   function setBusy(label) {
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner"></span>${label}`;
   }
+
   function resetBtn() {
-    btn.disabled     = false;
-    btn.textContent  = 'Bắt đầu dùng thử miễn phí';
+    btn.disabled = false;
+    btn.textContent = page('submit', 'Create account');
+  }
+
+  function syncTierSelection() {
+    Array.from(tierGrid.querySelectorAll('.tier-card')).forEach((card) => {
+      card.classList.toggle('active', card.dataset.tierKey === selectedProductTierKey);
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char] || char));
   }
 })();
 </script>

@@ -29,6 +29,10 @@
     }
     .btn-connect:hover { background: #b4befe; }
     #connect-status { font-size: 12px; color: #a6e3a1; }
+    .context-note { font-size: 12px; color: #94a3b8; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
+    .topbar-right a:hover { color: #cdd6f4; }
 
     /* ── Tabs ── */
     .tabs {
@@ -206,10 +210,14 @@
 <header class="topbar">
   <h1>⚙ Category Manager</h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
-    <input type="text" id="tenant-id-input" placeholder="Tenant ID …" spellcheck="false" />
-    <button type="submit" class="btn-connect">Connect</button>
+    <input type="hidden" id="tenant-id-input" />
+    <span class="context-note">Tenant context is loaded automatically from your signed-in admin session.</span>
+    <button type="submit" class="btn-connect">Reload</button>
     <span id="connect-status"></span>
   </form>
+  <div class="topbar-right">
+    <a id="tenant-admin-link" href="/dashboard.html">Tenant Admin</a>
+  </div>
 </header>
 
 <!-- Tabs -->
@@ -227,7 +235,7 @@
       <small style="color:#6b7280;font-size:12px">Sắp xếp bằng cột #. Danh mục active hiện trên trang Listing.</small>
     </div>
     <div id="cats-table-wrap">
-      <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+      <div class="empty-state">Đang chờ ngữ cảnh tenant từ phiên quản trị.</div>
     </div>
     <!-- Add form -->
     <form class="add-form" id="cat-add-form" style="display:none">
@@ -245,7 +253,7 @@
   <div class="card">
     <div class="card-header"><h2>Gán danh mục cho Tour</h2></div>
     <div id="tours-table-wrap">
-      <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+      <div class="empty-state">Đang chờ ngữ cảnh tenant từ phiên quản trị.</div>
     </div>
   </div>
 </section>
@@ -260,7 +268,7 @@
     <div class="card-header"><h2>Thứ tự danh mục trên Trang chủ</h2></div>
     <div class="card-body">
       <div id="sorter-wrap">
-        <div class="empty-state">Nhập Tenant ID và nhấn Connect để tải dữ liệu.</div>
+        <div class="empty-state">Đang chờ ngữ cảnh tenant từ phiên quản trị.</div>
       </div>
       <div class="save-bar" style="display:none" id="sorter-save-bar">
         <button class="btn btn-success" id="save-layout-btn">💾 Lưu thứ tự</button>
@@ -278,7 +286,7 @@
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
-  tenantId:       '',
+  tenantId:       localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '',
   categories:     [],   // [{id, name, slug, sort_order, is_active}]
   tours:          [],   // [{id, title, slug, status, category_id}]
   sorterOrder:    [],   // [categoryId, ...] — drag-reorderable array
@@ -863,36 +871,41 @@ document.getElementById('tab-nav').addEventListener('click', (e) => {
 });
 
 // ── Connect ───────────────────────────────────────────────────────────────────
-document.getElementById('connect-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const id = document.getElementById('tenant-id-input').value.trim();
-  if (!id) return;
-  state.tenantId = id;
+async function resolveTenantContext() {
+  if (state.tenantId) return state.tenantId;
+  const sessionPayload = await fetch('/api/auth/session').then((response) => response.json()).catch(() => null);
+  if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
+    window.location.replace('/login.html');
+    return '';
+  }
+  state.tenantId = sessionPayload.session.tenant_id;
+  localStorage.setItem('tam_tenant_id', state.tenantId);
+  localStorage.setItem('tc_tenant', state.tenantId);
+  document.getElementById('tenant-id-input').value = state.tenantId;
+  return state.tenantId;
+}
 
+async function connectCurrentTenant() {
   const status = document.getElementById('connect-status');
+  const tenantId = await resolveTenantContext();
+  if (!tenantId) return;
   status.textContent = 'Đang kết nối…';
-
   try {
     await loadAll();
     status.textContent = `✓ ${state.categories.length} danh mục, ${state.tours.length} tour`;
-    // Persist to URL for convenience
-    const url = new URL(window.location);
-    url.searchParams.set('tid', id);
-    history.replaceState(null, '', url);
   } catch (e) {
     status.textContent = '✗ Lỗi: ' + e.message;
     state.tenantId = '';
   }
+}
+
+document.getElementById('connect-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await connectCurrentTenant();
 });
 
-// Pre-fill tenant ID from ?tid= query param
 (function init() {
-  const params = new URLSearchParams(window.location.search);
-  const tid = params.get('tid');
-  if (tid) {
-    document.getElementById('tenant-id-input').value = tid;
-    document.getElementById('connect-form').dispatchEvent(new Event('submit'));
-  }
+  connectCurrentTenant().catch(() => {});
 })();
 </script>
 </body>

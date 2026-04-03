@@ -177,6 +177,107 @@
       "locked_guest": "***（未验证）"
     }
   },
+  "auth": {
+    "shared": {
+      "email_label": "电子邮箱",
+      "email_placeholder": "agency@example.com",
+      "password_label": "密码",
+      "google_hint_disabled": "配置 GOOGLE_CLIENT_ID 后将显示 Google 登录。",
+      "google_hint_signup_enabled": "您可以使用电子邮箱或 Google 创建账户。",
+      "google_hint_login_enabled": "您可以使用电子邮箱或 Google 登录。",
+      "google_load_failed": "无法加载 Google Sign-In，请使用电子邮箱和密码。",
+      "google_continue": "使用 Google 继续",
+      "or": "或",
+      "network_error": "连接错误，请重试。"
+    },
+    "signup": {
+      "meta_title": "注册 - TravelAgent",
+      "watermark": "上线优惠 - 前 6 个月 0 EUR，之后按所选套餐收费。可随时取消。",
+      "subtitle": "前 6 个月 0 EUR，之后开始按您选择的套餐收费。可随时取消。",
+      "name_label": "品牌 / 团队 / 代理名称",
+      "name_placeholder": "Sunset Journeys",
+      "password_label": "创建密码",
+      "password_placeholder": "创建一个至少 8 个字符的密码",
+      "proof": "必填：选择产品层级、输入邮箱并创建密码。您的品牌名、团队名或工作名称会用来初始化工作区。",
+      "offer": "前 6 个月 0 EUR，之后按所选套餐收费。可随时取消。",
+      "tier_hint": "请先选择一个 tier。上线优惠为前 6 个月 0 EUR，之后按您选择的月费套餐收费。可随时取消。",
+      "tier_required_error": "请选择一个产品层级。",
+      "submit": "创建账户",
+      "busy": "正在创建账户...",
+      "success": "正在创建您的工作区...",
+      "login_prompt": "已有账户？",
+      "login_link": "登录 ->",
+      "missing_fields": "请选择产品层级并完成所有必填字段。",
+      "name_required_for_google": "继续使用 Google 前，请先输入您的品牌名、团队名或工作名称。",
+      "google_error": "Google 注册失败。"
+    },
+    "login": {
+      "meta_title": "登录 - TravelAgent",
+      "subtitle": "登录您的旅游运营控制台。",
+      "password_placeholder": "输入您的密码",
+      "submit": "登录",
+      "busy": "正在登录...",
+      "success": "登录成功，正在跳转...",
+      "signup_prompt": "还没有账户？",
+      "signup_link": "创建账户 ->",
+      "missing_fields": "请输入电子邮箱和密码。",
+      "google_error": "Google 登录失败。",
+      "default_error": "登录失败。"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "选择您的产品方案",
+    "catalog_hint": "请先从当前可用方案开始。未来方案会展示出来，便于提前规划。",
+    "per_user_month": "EUR {{price}} / 用户 / 月",
+    "status_active": "当前可用",
+    "status_future": "未来方案",
+    "tiers": {
+      "starter_landing": {
+        "name": "Landing Page Starter",
+        "tagline": "适合早期旅行社的简单线上展示",
+        "description": "仅含落地页、平台子域名和联系表单，不含在线支付。",
+        "features": [
+          "落地页构建器",
+          "包含平台子域名",
+          "仅联系表单",
+          "不含在线支付"
+        ]
+      },
+      "tour_operator_pro": {
+        "name": "Tour Operator Pro",
+        "tagline": "运行旅行团业务并在线销售行程",
+        "description": "面向旅行团运营的软件，支持公开售卖行程、在线支付，并要求使用自定义域名。",
+        "features": [
+          "旅行团运营软件",
+          "公开售卖行程",
+          "支持在线支付",
+          "必须使用自定义域名"
+        ]
+      },
+      "hotel_operator_pro": {
+        "name": "Hotel Operator Pro",
+        "tagline": "面向直销住宿业务的酒店管理软件",
+        "description": "酒店管理软件，支持自定义域名与在线支付。该方案属于未来开发内容。",
+        "features": [
+          "酒店运营软件",
+          "支持在线支付",
+          "必须使用自定义域名",
+          "未来开发方案"
+        ]
+      },
+      "tour_hotel_suite": {
+        "name": "Tours + Hotel Suite",
+        "tagline": "适用于旅游与酒店业务的一体化运营方案",
+        "description": "整合旅行团与酒店运营，支持自定义域名和在线支付。该方案属于未来开发内容。",
+        "features": [
+          "旅行团与酒店一体化运营",
+          "支持在线支付",
+          "必须使用自定义域名",
+          "未来开发方案"
+        ]
+      }
+    }
+  },
   "widget": {
     "title": "查询价格并预订",
     "button_label": "立即预订",

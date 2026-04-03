@@ -23,6 +23,7 @@ import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.
 import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
+import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes from './routes/universalSites.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -222,6 +223,7 @@ registerCategoryRoutes && registerCategoryRoutes(app);
 registerPaymentRoutes && registerPaymentRoutes(app);
 registerAdminRoutes && registerAdminRoutes(app);
 registerBillingRoutes && registerBillingRoutes(app);
+registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];

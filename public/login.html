@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Đăng nhập — TravelAgent</title>
+  <title>Sign In - TravelAgent</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -105,30 +105,31 @@
 <div class="page-shell">
   <div class="card">
     <div class="logo">🧭 TravelAgent</div>
-    <div class="subtitle">Đăng nhập vào dashboard quản lý tour của bạn.</div>
+    <div class="subtitle" id="subtitle">Sign in to your tour operations dashboard.</div>
 
     <form id="login-form" novalidate>
-      <label for="f-email">Email</label>
+      <label id="label-email" for="f-email">Email</label>
       <input id="f-email" type="email" placeholder="agency@example.com" required autocomplete="email" />
 
-      <label for="f-password">Mật khẩu</label>
-      <input id="f-password" type="password" placeholder="Nhập mật khẩu" required autocomplete="current-password" />
+      <label id="label-password" for="f-password">Password</label>
+      <input id="f-password" type="password" placeholder="Enter your password" required autocomplete="current-password" />
 
-      <button class="btn" id="submit-btn" type="submit">Đăng nhập</button>
+      <button class="btn" id="submit-btn" type="submit">Sign in</button>
 
-      <div class="divider"><span>hoặc</span></div>
+      <div class="divider"><span id="divider-or">or</span></div>
       <div class="google-slot" id="google-slot"></div>
-      <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Tiếp tục với Google</button>
-      <div class="hint" id="google-hint">Google sign-in sẽ hiện khi `GOOGLE_CLIENT_ID` được cấu hình.</div>
+      <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Continue with Google</button>
+      <div class="hint" id="google-hint">Google sign-in will appear when GOOGLE_CLIENT_ID is configured.</div>
 
       <div class="error-msg" id="error-msg"></div>
-      <div class="success-msg" id="success-msg">Đăng nhập thành công. Đang chuyển hướng…</div>
+      <div class="success-msg" id="success-msg">Signed in successfully. Redirecting...</div>
     </form>
 
-    <div class="signup-link">Chưa có tài khoản? <a href="/signup.html">Tạo tài khoản →</a></div>
+    <div class="signup-link"><span id="signup-prompt">Don't have an account?</span> <a id="signup-link" href="/signup.html">Create account -></a></div>
   </div>
 </div>
 
+<script src="/auth-page-i18n.js"></script>
 <script>
 (async () => {
   const sessionRes = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
@@ -145,10 +146,33 @@
   const googleSlot = document.getElementById('google-slot');
   const googleHint = document.getElementById('google-hint');
   const googleFallbackBtn = document.getElementById('google-fallback-btn');
+  const i18n = await window.travelAgentAuthI18n.init('login');
+
+  function page(key, fallback) {
+    return i18n.page(key, fallback);
+  }
+
+  function shared(key, fallback) {
+    return i18n.shared(key, fallback);
+  }
+
+  document.title = page('meta_title', 'Sign In - TravelAgent');
+  document.getElementById('subtitle').textContent = page('subtitle', 'Sign in to your tour operations dashboard.');
+  document.getElementById('label-email').textContent = shared('email_label', 'Email');
+  document.getElementById('label-password').textContent = shared('password_label', 'Password');
+  document.getElementById('f-email').placeholder = shared('email_placeholder', 'agency@example.com');
+  document.getElementById('f-password').placeholder = page('password_placeholder', 'Enter your password');
+  document.getElementById('submit-btn').textContent = page('submit', 'Sign in');
+  document.getElementById('divider-or').textContent = shared('or', 'or');
+  document.getElementById('google-fallback-btn').textContent = shared('google_continue', 'Continue with Google');
+  document.getElementById('google-hint').textContent = shared('google_hint_disabled', 'Google sign-in will appear when GOOGLE_CLIENT_ID is configured.');
+  document.getElementById('success-msg').textContent = page('success', 'Signed in successfully. Redirecting...');
+  document.getElementById('signup-prompt').textContent = page('signup_prompt', 'Don\'t have an account?');
+  document.getElementById('signup-link').textContent = page('signup_link', 'Create account ->');
 
   const googleConfig = await fetch('/api/auth/google/config').then((res) => res.json()).catch(() => ({ enabled: false }));
   if (googleConfig?.enabled && googleConfig?.client_id) {
-    googleHint.textContent = 'Bạn có thể đăng nhập bằng email hoặc Google.';
+    googleHint.textContent = shared('google_hint_login_enabled', 'You can sign in with email or Google.');
     await loadGoogleClient(googleConfig.client_id);
   } else {
     googleFallbackBtn.disabled = true;
@@ -162,21 +186,24 @@
     const email = document.getElementById('f-email').value.trim();
     const password = document.getElementById('f-password').value;
     if (!email || !password) {
-      showError('Vui lòng nhập email và mật khẩu.');
+      showError(page('missing_fields', 'Please enter your email and password.'));
       return;
     }
 
-    setBusy('Đang đăng nhập…');
+    setBusy(page('busy', 'Signing in...'));
 
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': document.documentElement.lang || navigator.language || 'en',
+        },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
-        showError(data.error || 'Đăng nhập thất bại.');
+        showError(data.error || page('default_error', 'Sign-in failed.'));
         resetBtn();
         return;
       }
@@ -185,7 +212,7 @@
       okEl.style.display = 'block';
       setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
     } catch (_) {
-      showError('Lỗi kết nối. Vui lòng thử lại.');
+      showError(shared('network_error', 'Connection error. Please try again.'));
       resetBtn();
     }
   });
@@ -213,7 +240,7 @@
     });
 
     if (!window.google?.accounts?.id) {
-      googleHint.textContent = 'Không tải được Google Sign-In. Vui lòng dùng email/password.';
+      googleHint.textContent = shared('google_load_failed', 'Google Sign-In could not be loaded. Please use email and password.');
       return;
     }
 
@@ -221,16 +248,19 @@
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: async (response) => {
-        setBusy('Đang kết nối Google…');
+        setBusy(shared('google_continue', 'Continue with Google'));
         try {
           const res = await fetch('/api/auth/google', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept-Language': document.documentElement.lang || navigator.language || 'en',
+            },
             body: JSON.stringify({ id_token: response.credential }),
           });
           const data = await res.json();
           if (!res.ok) {
-            showError(data.error || 'Google login failed.');
+            showError(data.error || page('google_error', 'Google sign-in failed.'));
             resetBtn();
             return;
           }
@@ -238,7 +268,7 @@
           okEl.style.display = 'block';
           setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
         } catch (_) {
-          showError('Lỗi kết nối với Google.');
+          showError(shared('network_error', 'Connection error. Please try again.'));
           resetBtn();
         }
       },
@@ -265,7 +295,7 @@
 
   function resetBtn() {
     btn.disabled = false;
-    btn.textContent = 'Đăng nhập';
+    btn.textContent = page('submit', 'Sign in');
   }
 })();
 </script>

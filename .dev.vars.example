@@ -1,0 +1,4 @@
+# Local Wrangler dev overrides.
+# Current Google Sign-In implementation uses Google Identity Services ID tokens,
+# so only the public client ID is required here.
+GOOGLE_CLIENT_ID=373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com

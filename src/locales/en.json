@@ -177,6 +177,107 @@
       "locked_guest": "*** (unverified)"
     }
   },
+  "auth": {
+    "shared": {
+      "email_label": "Email",
+      "email_placeholder": "agency@example.com",
+      "password_label": "Password",
+      "google_hint_disabled": "Google sign-in will appear when GOOGLE_CLIENT_ID is configured.",
+      "google_hint_signup_enabled": "You can use email or Google to create your account.",
+      "google_hint_login_enabled": "You can sign in with email or Google.",
+      "google_load_failed": "Google Sign-In could not be loaded. Please use email and password.",
+      "google_continue": "Continue with Google",
+      "or": "or",
+      "network_error": "Connection error. Please try again."
+    },
+    "signup": {
+      "meta_title": "Sign Up - TravelAgent",
+      "watermark": "Launch offer - 0 EUR for 6 months, then your selected plan. Cancel anytime.",
+      "subtitle": "0 EUR for 6 months, then your selected plan starts. Cancel anytime.",
+      "name_label": "Brand / team / agency name",
+      "name_placeholder": "Sunset Journeys",
+      "password_label": "Create password",
+      "password_placeholder": "Create a password with at least 8 characters",
+      "proof": "Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.",
+      "offer": "0 EUR for 6 months, then your selected plan. Cancel anytime.",
+      "tier_hint": "Pick one tier now. Launch pricing is 0 EUR for 6 months, then your selected monthly plan starts. Cancel anytime.",
+      "tier_required_error": "Please choose a product tier.",
+      "submit": "Create account",
+      "busy": "Creating account...",
+      "success": "Your workspace is being created...",
+      "login_prompt": "Already have an account?",
+      "login_link": "Sign in ->",
+      "missing_fields": "Please choose a product tier and complete all required fields.",
+      "name_required_for_google": "Enter your brand, team, or working name before continuing with Google.",
+      "google_error": "Google sign-up failed."
+    },
+    "login": {
+      "meta_title": "Sign In - TravelAgent",
+      "subtitle": "Sign in to your tour operations dashboard.",
+      "password_placeholder": "Enter your password",
+      "submit": "Sign in",
+      "busy": "Signing in...",
+      "success": "Signed in successfully. Redirecting...",
+      "signup_prompt": "Don't have an account?",
+      "signup_link": "Create account ->",
+      "missing_fields": "Please enter your email and password.",
+      "google_error": "Google sign-in failed.",
+      "default_error": "Sign-in failed."
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Choose your product plan",
+    "catalog_hint": "Start with an active plan now. Future tiers are shown for roadmap visibility.",
+    "per_user_month": "EUR {{price}} / user / month",
+    "status_active": "Available now",
+    "status_future": "Future tier",
+    "tiers": {
+      "starter_landing": {
+        "name": "Landing Page Starter",
+        "tagline": "A simple web presence for early-stage agencies",
+        "description": "Landing page, platform subdomain, contact form only, and no online payment.",
+        "features": [
+          "Landing page builder",
+          "Platform subdomain included",
+          "Contact form only",
+          "No online payment"
+        ]
+      },
+      "tour_operator_pro": {
+        "name": "Tour Operator Pro",
+        "tagline": "Run tour operations and sell tours online",
+        "description": "Tour operations workspace with public tour selling, online payment support, and a required custom domain.",
+        "features": [
+          "Tour operations software",
+          "Public tour selling flow",
+          "Online payment support",
+          "Custom domain required"
+        ]
+      },
+      "hotel_operator_pro": {
+        "name": "Hotel Operator Pro",
+        "tagline": "Hotel management software for direct hospitality sales",
+        "description": "Hotel management software with custom domain and payment support. Planned as a future development tier.",
+        "features": [
+          "Hotel operations software",
+          "Online payment support",
+          "Custom domain required",
+          "Future development tier"
+        ]
+      },
+      "tour_hotel_suite": {
+        "name": "Tours + Hotel Suite",
+        "tagline": "Combined operations for travel and hospitality businesses",
+        "description": "Unified tours plus hotel operations with a custom domain and payment support. Planned as a future development tier.",
+        "features": [
+          "Tours plus hotel operations",
+          "Online payment support",
+          "Custom domain required",
+          "Future development tier"
+        ]
+      }
+    }
+  },
   "widget": {
     "title": "Check Price & Book",
     "button_label": "Book Now",

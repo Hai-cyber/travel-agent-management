@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SaaS Admin - Pricing Marketing Editor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --surface: rgba(255, 255, 255, 0.9);
+      --shadow: 0 24px 80px rgba(15, 23, 42, 0.2);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 24%),
+        radial-gradient(circle at right center, rgba(59, 130, 246, 0.16), transparent 24%),
+        linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
+    }
+    .shell { width: min(1180px, calc(100% - 28px)); margin: 28px auto; }
+    .masthead, .panel, .tier-editor, .status {
+      background: var(--surface);
+      border: 1px solid rgba(191, 219, 254, 0.45);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+    .masthead, .panel, .tier-editor { padding: 22px; }
+    .masthead { margin-bottom: 18px; display: grid; gap: 14px; }
+    h1, h2, h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; letter-spacing: -0.03em; }
+    h1 { font-size: clamp(34px, 5vw, 52px); }
+    h2 { font-size: 28px; margin-bottom: 12px; }
+    h3 { font-size: 24px; margin-bottom: 10px; }
+    .hint, .status, label small, .tier-note { color: var(--muted); }
+    .grid, .row, .tier-grid { display: grid; gap: 18px; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+    .status { padding: 14px 18px; margin-bottom: 18px; font-weight: 700; }
+    label { display: grid; gap: 7px; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid rgba(16, 33, 45, 0.12);
+      border-radius: 18px;
+      padding: 12px 14px;
+      font: 500 14px/1.5 "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      resize: vertical;
+    }
+    textarea { min-height: 104px; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .btn {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 18px;
+      cursor: pointer;
+      text-decoration: none;
+      font: 700 13px/1 "Segoe UI", sans-serif;
+      letter-spacing: 0.03em;
+    }
+    .btn-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #eff6ff; }
+    .btn-secondary { background: rgba(255,255,255,0.72); color: var(--ink); border: 1px solid rgba(16, 33, 45, 0.12); }
+    .tier-header { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .tier-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.1);
+      color: #1d4ed8;
+      font: 700 11px/1 "Segoe UI", sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    @media (max-width: 920px) {
+      .grid, .tier-grid, .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="masthead">
+      <div>
+        <h1>SaaS Pricing Page Editor</h1>
+        <p class="hint">Edit the public 4-tier pricing story without touching code. This writes platform-level marketing copy, not tenant site copy.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-secondary" href="/">Open public page</a>
+        <a class="btn btn-secondary" href="/signup.html">Open signup</a>
+      </div>
+    </section>
+    <div class="status" id="status">Enter your admin secret, then load the current marketing config.</div>
+
+    <section class="panel" style="margin-bottom:18px">
+      <h2>Access</h2>
+      <div class="row">
+        <label>Admin secret<input id="admin-secret" type="password" autocomplete="current-password" placeholder="X-Admin-Secret" /></label>
+        <label>Last update<input id="updated-at" type="text" readonly placeholder="Not loaded yet" /></label>
+      </div>
+      <div class="actions"><button class="btn btn-secondary" id="btn-load" type="button">Load config</button></div>
+    </section>
+
+    <form id="editor-form">
+      <section class="grid">
+        <div class="panel">
+          <h2>Hero</h2>
+          <label>Announcement bar<input id="announcement_bar" /></label>
+          <label>Launch offer badge<input id="launch_offer_badge" placeholder="0 EUR for 6 months" /></label>
+          <label>Launch offer terms<input id="launch_offer_terms" placeholder="Then your selected plan starts. Cancel anytime." /></label>
+          <label>Signup title<input id="signup_title" placeholder="Sign up to create your tour platform with 0 EUR." /></label>
+          <label>Signup requirement copy<textarea id="signup_requirement_copy"></textarea></label>
+          <label>Hero badge<input id="hero_badge" /></label>
+          <label>Hero title<textarea id="hero_title"></textarea></label>
+          <label>Hero subtitle<textarea id="hero_subtitle"></textarea></label>
+          <label>Hero trust points
+            <textarea id="hero_trust_points" placeholder="One point per line"></textarea>
+            <small>Use this to push the 6 free months, no card, SSL, speed, and pricing transparency.</small>
+          </label>
+        </div>
+        <div class="panel">
+          <h2>CTA + Plans Copy</h2>
+          <div class="row">
+            <label>Primary CTA label<input id="primary_cta_label" /></label>
+            <label>Primary CTA URL<input id="primary_cta_url" /></label>
+          </div>
+          <div class="row">
+            <label>Secondary CTA label<input id="secondary_cta_label" /></label>
+            <label>Secondary CTA URL<input id="secondary_cta_url" /></label>
+          </div>
+          <label>Plans section title<input id="plans_title" /></label>
+          <label>Plans section subtitle<textarea id="plans_subtitle"></textarea></label>
+          <label>Waitlist URL for future tiers<input id="waitlist_url" /></label>
+        </div>
+        <div class="panel">
+          <h2>Trust Cards</h2>
+          <label>Spotlight cards
+            <textarea id="spotlight_cards" placeholder="Eyebrow | Title | Body"></textarea>
+            <small>One card per line. Format: Eyebrow | Title | Body</small>
+          </label>
+          <label>Transparency title<input id="transparency_title" /></label>
+          <label>Transparency body<textarea id="transparency_body"></textarea></label>
+          <label>Transparency points<textarea id="transparency_points" placeholder="One point per line"></textarea></label>
+        </div>
+        <div class="panel">
+          <h2>FAQ + Bottom CTA</h2>
+          <label>FAQ title<input id="faq_title" /></label>
+          <label>FAQ items
+            <textarea id="faq_items" placeholder="Question | Answer"></textarea>
+            <small>One FAQ per line. Format: Question | Answer</small>
+          </label>
+          <label>Bottom CTA title<input id="bottom_cta_title" /></label>
+          <label>Bottom CTA body<textarea id="bottom_cta_body"></textarea></label>
+          <div class="row">
+            <label>Bottom CTA label<input id="bottom_cta_label" /></label>
+            <label>Bottom CTA URL<input id="bottom_cta_url" /></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:18px">
+        <h2>Tier Messaging</h2>
+        <p class="hint">These fields override how each plan is sold on the public page while keeping the actual runtime tier catalog intact.</p>
+        <div class="tier-grid" id="tier-grid"></div>
+      </section>
+
+      <div class="actions" style="margin-bottom:40px">
+        <button class="btn btn-primary" id="btn-save" type="submit">Save marketing page</button>
+        <button class="btn btn-secondary" id="btn-reset" type="button">Reload from server</button>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    const fieldIds = [
+      'announcement_bar', 'launch_offer_badge', 'launch_offer_terms', 'signup_title', 'signup_requirement_copy', 'hero_badge', 'hero_title', 'hero_subtitle',
+      'plans_title', 'plans_subtitle', 'transparency_title', 'transparency_body',
+      'faq_title', 'bottom_cta_title', 'bottom_cta_body', 'waitlist_url'
+    ];
+
+    document.getElementById('btn-load').addEventListener('click', loadConfig);
+    document.getElementById('btn-reset').addEventListener('click', loadConfig);
+    document.getElementById('editor-form').addEventListener('submit', saveConfig);
+
+    const storedSecret = localStorage.getItem('tam_admin_secret');
+    if (storedSecret) document.getElementById('admin-secret').value = storedSecret;
+
+    async function loadConfig() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      setStatus('Loading marketing page config...');
+      try {
+        const response = await fetch('/api/admin/marketing-site', { headers: { 'X-Admin-Secret': secret } });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Failed to load marketing config.');
+        fillForm(payload.config, payload.preview?.tiers || []);
+        document.getElementById('updated-at').value = payload.config.updated_at
+          ? new Date(payload.config.updated_at * 1000).toLocaleString()
+          : 'Default config (not saved yet)';
+        setStatus('Marketing page config loaded.');
+      } catch (error) {
+        setStatus(error.message || 'Failed to load marketing config.', true);
+      }
+    }
+
+    async function saveConfig(event) {
+      event.preventDefault();
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      setStatus('Saving marketing page config...');
+      try {
+        const response = await fetch('/api/admin/marketing-site', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+          body: JSON.stringify(collectForm()),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Failed to save marketing config.');
+        fillForm(payload.config, payload.preview?.tiers || []);
+        document.getElementById('updated-at').value = new Date(payload.config.updated_at * 1000).toLocaleString();
+        setStatus('Marketing page config saved. Reload the public page to review changes.');
+      } catch (error) {
+        setStatus(error.message || 'Failed to save marketing config.', true);
+      }
+    }
+
+    function fillForm(config, tiers) {
+      fieldIds.forEach((id) => { const node = document.getElementById(id); if (node) node.value = config[id] || ''; });
+      document.getElementById('primary_cta_label').value = config.primary_cta?.label || '';
+      document.getElementById('primary_cta_url').value = config.primary_cta?.url || '';
+      document.getElementById('secondary_cta_label').value = config.secondary_cta?.label || '';
+      document.getElementById('secondary_cta_url').value = config.secondary_cta?.url || '';
+      document.getElementById('bottom_cta_label').value = config.bottom_cta?.label || '';
+      document.getElementById('bottom_cta_url').value = config.bottom_cta?.url || '';
+      document.getElementById('hero_trust_points').value = joinLines(config.hero_trust_points || []);
+      document.getElementById('transparency_points').value = joinLines(config.transparency_points || []);
+      document.getElementById('spotlight_cards').value = (config.spotlight_cards || []).map((item) => `${item.eyebrow || ''} | ${item.title || ''} | ${item.body || ''}`).join('\n');
+      document.getElementById('faq_items').value = (config.faq_items || []).map((item) => `${item.question || ''} | ${item.answer || ''}`).join('\n');
+      document.getElementById('tier-grid').innerHTML = tiers.map((tier) => {
+        const override = config.tier_overrides?.[tier.key] || {};
+        return `
+          <article class="tier-editor" data-tier-key="${escapeHtml(tier.key)}">
+            <div class="tier-header">
+              <div>
+                <h3>${escapeHtml(tier.name || tier.key)}</h3>
+                <div class="tier-note">${escapeHtml(tier.price_label || '')}</div>
+              </div>
+              <span class="tier-pill">${escapeHtml(tier.availability_label || '')}</span>
+            </div>
+            <label>Marketing badge<input data-field="badge" value="${escapeHtml(override.badge || '')}" /></label>
+            <label>Audience<input data-field="audience" value="${escapeHtml(override.audience || '')}" /></label>
+            <label>Sales pitch<textarea data-field="pitch">${escapeHtml(override.pitch || '')}</textarea></label>
+            <label>Feature bullets<textarea data-field="feature_bullets" placeholder="One bullet per line">${escapeHtml(joinLines(override.feature_bullets || []))}</textarea></label>
+            <label>Footnote / note<textarea data-field="note">${escapeHtml(override.note || '')}</textarea></label>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function collectForm() {
+      const tierOverrides = {};
+      document.querySelectorAll('.tier-editor').forEach((card) => {
+        const tierKey = card.dataset.tierKey;
+        tierOverrides[tierKey] = {
+          badge: card.querySelector('[data-field="badge"]').value.trim(),
+          audience: card.querySelector('[data-field="audience"]').value.trim(),
+          pitch: card.querySelector('[data-field="pitch"]').value.trim(),
+          feature_bullets: splitLines(card.querySelector('[data-field="feature_bullets"]').value),
+          note: card.querySelector('[data-field="note"]').value.trim(),
+        };
+      });
+      return {
+        announcement_bar: document.getElementById('announcement_bar').value.trim(),
+        hero_badge: document.getElementById('hero_badge').value.trim(),
+        hero_title: document.getElementById('hero_title').value.trim(),
+        hero_subtitle: document.getElementById('hero_subtitle').value.trim(),
+        primary_cta: {
+          label: document.getElementById('primary_cta_label').value.trim(),
+          url: document.getElementById('primary_cta_url').value.trim(),
+        },
+        secondary_cta: {
+          label: document.getElementById('secondary_cta_label').value.trim(),
+          url: document.getElementById('secondary_cta_url').value.trim(),
+        },
+        hero_trust_points: splitLines(document.getElementById('hero_trust_points').value),
+        spotlight_cards: parseRows(document.getElementById('spotlight_cards').value, ['eyebrow', 'title', 'body']),
+        plans_title: document.getElementById('plans_title').value.trim(),
+        plans_subtitle: document.getElementById('plans_subtitle').value.trim(),
+        transparency_title: document.getElementById('transparency_title').value.trim(),
+        transparency_body: document.getElementById('transparency_body').value.trim(),
+        transparency_points: splitLines(document.getElementById('transparency_points').value),
+        faq_title: document.getElementById('faq_title').value.trim(),
+        faq_items: parseRows(document.getElementById('faq_items').value, ['question', 'answer']),
+        bottom_cta_title: document.getElementById('bottom_cta_title').value.trim(),
+        bottom_cta_body: document.getElementById('bottom_cta_body').value.trim(),
+        bottom_cta: {
+          label: document.getElementById('bottom_cta_label').value.trim(),
+          url: document.getElementById('bottom_cta_url').value.trim(),
+        },
+        waitlist_url: document.getElementById('waitlist_url').value.trim(),
+        tier_overrides: tierOverrides,
+      };
+    }
+
+    function parseRows(value, keys) {
+      return splitLines(value).map((line) => {
+        const parts = line.split('|').map((part) => part.trim());
+        return Object.fromEntries(keys.map((key, index) => [key, parts[index] || '']));
+      }).filter((item) => Object.values(item).some(Boolean));
+    }
+
+    function splitLines(value) {
+      return String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    }
+
+    function joinLines(items) {
+      return Array.isArray(items) ? items.join('\n') : '';
+    }
+
+    function getSecret() {
+      const secret = document.getElementById('admin-secret').value.trim();
+      if (secret) localStorage.setItem('tam_admin_secret', secret);
+      return secret;
+    }
+
+    function setStatus(message, isError) {
+      const node = document.getElementById('status');
+      node.textContent = message;
+      node.style.color = isError ? '#8a2c2e' : '#42525d';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char] || char));
+    }
+  </script>
+</body>
+</html>

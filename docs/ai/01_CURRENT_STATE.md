@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-02 (includes verified fixes for CHK-R11 and CHK-R18, plus preserved multi-skin storefront context)
+Last updated: 2026-04-03 (includes live deploy verification for starter tenant seed bootstrap, signup tiers, SaaS marketing page, and richer tour draft preview)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -33,18 +33,33 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0022; local runtime verified against current dev DB)
+### D1 Tables (repo migrations 0001–0033; local runtime verified against current dev DB)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
 `tenant_seasons`, `pricing_segments`, `pax_bands`, `tour_prices`,
-`booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`
+`booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`,
+`tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`,
+`tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
+`tenant_universal_hotels`, `auth_users`, `tenant_memberships`, `auth_sessions`, `app_settings`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`,
-`notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`
+`notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`
 
-### API Endpoints (all tenant-scoped via `X-Tenant-ID` header)
+### API Endpoints
+
+Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
+
+**Auth / Onboarding / SaaS Marketing**
+- `GET /api/auth/session` — cookie-backed session status for tenant admin UIs
+- `POST /api/auth/login` — email/password sign-in
+- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key` and redirects new tenants into the guided dashboard flow
+- `POST /api/auth/google` — Google sign-in via GIS ID token
+- `POST /api/auth/signup-google` — Google signup with `product_tier_key`
+- `GET /api/auth/product-tiers` — public localized tier catalog used by signup and pricing CTAs
+- `GET /api/marketing-site` — public pricing/marketing content payload sourced from D1 `app_settings`
+- `GET|PUT /api/admin/marketing-site` — protected SaaS marketing page editor API
 
 **Service Items (CHK-R09/R10)**
 - `POST/GET/PATCH /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}`
@@ -62,9 +77,10 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `GET /api/pricing/metadata`
 
 **Tenants (CHK-R14/R15/R17)**
-- `PATCH /api/tenants/settings` — updateable: `exchange_rate`, `target_currency`, `pricing_policy`, `infant_policy_text`, `custom_domain`, `subscription_status`, `payment_config_json`
-- `GET /api/tenants/settings` — includes read-only: `total_revenue_tracked`, `commission_threshold`
+- `PATCH /api/tenants/settings` — updateable: `exchange_rate`, `target_currency`, `pricing_policy`, `infant_policy_text`, `custom_domain`, `subscription_status`, `payment_config_json`, `subdomain`, `onboarding_step`
+- `GET /api/tenants/settings` — includes read-only: `total_revenue_tracked`, `commission_threshold`, `product_tier_key`
 - `GET /api/tenants/audit-log` — last 100 entries for `custom_domain` / `payment_config_json` changes
+- Platform subdomains are now validated and effectively one-time lockable: once a tenant saves `subdomain`, later changes are rejected
 
 **Site Studio (CHK-R20 to R24/R29-R33)**
 - `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline
@@ -95,10 +111,15 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `POST /api/bookings/public/:token/proof` — guest uploads bank slip via token URL; present in runtime, not re-tested in the 2026-03-30 pass
 
 ### Frontend Assets
+- `public/index.html` — live SaaS pricing / trust landing page for 4 tiers
+- `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup
+- `public/dashboard.html` — tenant admin landing page with subdomain locking and guided launch sequence
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)
 - `public/tour-config.html` — agent admin UI (CHK-R25/R26)
+- `public/product-modules.html` — dedicated destination / hotel / gallery module manager distinct from quick skin editing
+- `public/saas-admin.html` — protected editor for public pricing/marketing copy
 - `public/inject.js` — Site Studio client injection layer (CHK-R22)
 - `public/visual-editor.html` — Visual Editor split-layout shell (CHK-R23/R29-R33)
   - Drag-and-drop snippets from sidebar onto canvas iframe (CHK-R31)
@@ -153,6 +174,9 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 
 ### Scripts
 - `npm run db:migrate:local` — reconciles the `0012_stop_services_config.sql` ledger row if `tour_stops.services_config` already exists locally, then runs `wrangler d1 migrations apply travel_agent_db --local`
+- `npm run backfill:tenant-seed` — audits/builds SQL for missing legacy tenant seed gaps
+- `npm run backfill:tenant-seed:apply` — applies the remote SQL backfill for missing stop/price/service minimums
+- `npm run clean:wrangler` / `npm run dev:clean` — clears Wrangler temp cache before local dev when needed
 - `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE, reuses or starts local Wrangler dev, verifies task patch on `stop-001`, verifies seeded pricing calculate for `tour-001` / `segment-standard` on `2026-07-10`, then verifies booking proof + confirm + audit row end to end
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
   - 24 deep categories: hero-video, gallery-grid, booking-form, travel-itinerary, map-section + originals
@@ -164,8 +188,11 @@ Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json
 - `scripts/seed-site-templates.mjs` — uploads template files to SITE_TEMPLATES R2
 - `scripts/seed-snippets-from-templates.mjs` — legacy extractor (superseded by syncAllSnippets.mjs)
 
-### tour-config.html detail (CHK-R25/R26)
+### tour-config.html detail (CHK-R25/R26/R43)
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
+  - **Content tab**: richer draft payload editing for `hero_desc`, `tour_desc`, `destination_*`, `accommodation_*`, hero image, and gallery images
+  - **Tenant media upload**: content tab image fields now upload through `/api/tenant/assets/upload` and render inline preview blocks for hero, destination, accommodation, and gallery media
+  - **Preview tab**: saves current draft content, syncs `/api/universal/tours/:tourId/page`, and prefers the universal draft detail render via `/api/universal/render/:tenantId`, with legacy `/api/tours/:id/preview` kept as fallback
   - **Price Config tab**:
     - **Left panel (65%)**: Season editor, Pax Bands, Segments, Tour Prices, Pricing Definitions editor (4 default rules, localStorage-persisted)
     - **Right panel (35%) — Customer Booking View**:
@@ -207,6 +234,17 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
 - Windows verification now has a first-class entrypoint: `npm test`
 - The smoke runner is Node-based and does not require `bash`
 - It reuses a running local Worker when available and otherwise starts its own Wrangler dev instance on port `8790`
+
+## Live verification on 2026-04-03
+
+- Remote D1 migrations were checked with `npx wrangler d1 migrations apply travel_agent_db --remote --config ./wrangler.jsonc` and there were no pending migrations
+- Production deploy completed successfully via `npm run deploy`
+- Live Worker version after deploy: `b908bca5-3ad4-4814-8583-010ef1c88931`
+- Verified live responses:
+  - `https://tours-market.com/` → `200 OK`
+  - `https://tours-market.com/api/auth/product-tiers` → localized active/future tier catalog returned correctly
+  - `https://tours-market.com/api/marketing-site` → public marketing payload returned correctly from runtime
+- Wrangler emitted one operational warning during deploy: because multiple environments exist in `wrangler.jsonc`, future production deploys should explicitly pass `--env=""` (or an explicit target env) to avoid ambiguity
 
 ## Planned / Target (not yet implemented)
 - Multi-skin expansion beyond Six Senses: more storefront skins will be added under `src/lib/themes/`, with each tenant selecting its active skin through tenant site configuration

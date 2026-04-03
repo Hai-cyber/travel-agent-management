@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Product Modules</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #dbe4f0;
+      --brand: #0f4c81;
+      --brand-soft: #dbeafe;
+      --ok: #166534;
+      --danger: #b91c1c;
+      --shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #eef5ff 0%, var(--bg) 240px);
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      max-width: 760px;
+    }
+
+    .top-actions,
+    .mode-tabs,
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill,
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+    }
+
+    .pill.active,
+    .button.primary {
+      border-color: transparent;
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .button.ghost {
+      background: transparent;
+    }
+
+    .button.small {
+      min-height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar { overflow: hidden; }
+
+    .sidebar-head,
+    .editor-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-head h2,
+    .editor-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .sidebar-head p,
+    .editor-head p,
+    .empty,
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .sidebar-actions {
+      padding: 0 20px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .entity-list {
+      display: grid;
+      gap: 0;
+      max-height: calc(100vh - 280px);
+      overflow: auto;
+    }
+
+    .entity-item {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-bottom: 1px solid #eef2f7;
+      background: transparent;
+      padding: 16px 18px;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+    }
+
+    .entity-item-main {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .entity-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #eff6ff, #f8fafc);
+      display: grid;
+      place-items: center;
+    }
+
+    .entity-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .entity-thumb-placeholder {
+      padding: 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .entity-copy {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .entity-item.active { background: #eff6ff; }
+
+    .entity-item strong { font-size: 15px; }
+
+    .entity-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .entity-flags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .flag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .flag.active {
+      background: #dbeafe;
+      color: #0f4c81;
+    }
+
+    .editor-body {
+      padding: 20px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field span,
+    .subheading {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #334155;
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+
+    .field textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .toggle-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #f8fbff;
+    }
+
+    .toggle input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .gallery-rows {
+      display: grid;
+      gap: 12px;
+    }
+
+    .gallery-row {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+    }
+
+    .gallery-row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .gallery-row-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 12px;
+    }
+
+    .gallery-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+    }
+
+    .status.ok { color: var(--ok); border-color: rgba(22, 101, 52, 0.18); background: #f0fdf4; }
+    .status.error { color: var(--danger); border-color: rgba(185, 28, 28, 0.18); background: #fef2f2; }
+
+    .helper-card {
+      padding: 16px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+    }
+
+    .asset-tools {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .asset-tools-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .upload-label {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-label input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .asset-palette {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .asset-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .asset-chip:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #0f4c81;
+    }
+
+    .asset-chip small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .preview-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .preview-grid.multi {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .preview-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+    }
+
+    .preview-media {
+      position: relative;
+      min-height: 140px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #eff6ff, #f8fafc);
+      border: 1px solid #e2e8f0;
+      display: grid;
+      place-items: center;
+    }
+
+    .preview-media.compact {
+      min-height: 104px;
+    }
+
+    .preview-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preview-placeholder {
+      padding: 20px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 600;
+    }
+
+    .preview-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .preview-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #0f4c81;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .preview-url {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+
+    @media (max-width: 980px) {
+      .layout,
+      .grid.two,
+      .toggle-grid,
+      .gallery-row-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .entity-item-main {
+        grid-template-columns: 1fr;
+      }
+
+      .entity-thumb {
+        width: 100%;
+        height: 160px;
+      }
+
+      .entity-list { max-height: none; }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar panel">
+      <div class="brand">
+        <h1>Product Modules</h1>
+        <p>Use these modules as the product source of truth. Quick edit stays for shell and skin adjustments only; destinations, hotels, and gallery content should be managed here.</p>
+      </div>
+      <div class="top-actions">
+        <a id="link-dashboard" class="button ghost" href="/dashboard.html">Tenant Admin</a>
+        <a id="link-quick-edit" class="button ghost" href="/universal-admin.html">Quick Edit Skin</a>
+        <a id="link-system" class="button ghost" href="/universal-admin.html?panel=system&onboarding=system">Full System Panel</a>
+      </div>
+    </div>
+
+    <div class="mode-tabs">
+      <a class="pill" data-mode-link="destinations" href="#">Destinations</a>
+      <a class="pill" data-mode-link="hotels" href="#">Hotels</a>
+      <a class="pill" data-mode-link="gallery" href="#">Gallery</a>
+    </div>
+
+    <div id="status" class="status">Loading modules...</div>
+
+    <div class="layout">
+      <aside class="panel sidebar">
+        <div class="sidebar-head">
+          <h2 id="list-title">Items</h2>
+          <p id="list-note">Select an item to edit its module data.</p>
+        </div>
+        <div id="list-actions" class="sidebar-actions"></div>
+        <div id="entity-list" class="entity-list"></div>
+      </aside>
+
+      <section class="panel editor">
+        <div class="editor-head">
+          <h2 id="editor-title">Module Editor</h2>
+          <p id="editor-note">Choose a destination, hotel, or gallery source from the list.</p>
+        </div>
+        <div id="editor-body" class="editor-body">
+          <p class="empty">No item selected yet.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      tenantId: '',
+      mode: 'destinations',
+      tours: [],
+      hotels: [],
+      assets: [],
+      selectedTourId: '',
+      selectedHotelId: '',
+      currentTour: null,
+      currentHotel: null,
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function esc(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function parseJson(value, fallback = {}) {
+      if (!value) return fallback;
+      if (typeof value === 'object') return value;
+      try { return JSON.parse(value); }
+      catch { return fallback; }
+    }
+
+    function readBool(value, fallback = false) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value !== 0;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+        if (['false', '0', 'no', 'off', 'disabled'].includes(normalized)) return false;
+      }
+      return fallback;
+    }
+
+    function getParams() {
+      return new URLSearchParams(window.location.search);
+    }
+
+    function setStatus(message, kind = '') {
+      const node = $('status');
+      node.textContent = message;
+      node.className = kind ? `status ${kind}` : 'status';
+    }
+
+    function getTenantIdFromParams() {
+      const params = getParams();
+      return params.get('tid') || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '';
+    }
+
+    function getModeFromParams() {
+      const params = getParams();
+      const mode = String(params.get('mode') || 'destinations').trim().toLowerCase();
+      return ['destinations', 'hotels', 'gallery'].includes(mode) ? mode : 'destinations';
+    }
+
+    function api(path, options = {}) {
+      const headers = Object.assign({
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': state.tenantId,
+      }, options.headers || {});
+      return fetch(path, { ...options, headers }).then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        return payload;
+      });
+    }
+
+    function updateLinks() {
+      $('link-dashboard').href = `/dashboard.html`;
+      $('link-quick-edit').href = '/universal-admin.html';
+      $('link-system').href = '/universal-admin.html?panel=system&onboarding=system';
+      document.querySelectorAll('[data-mode-link]').forEach((link) => {
+        const mode = link.dataset.modeLink;
+        link.href = `/product-modules.html?mode=${encodeURIComponent(mode)}`;
+        link.classList.toggle('active', mode === state.mode);
+      });
+    }
+
+    function getTourContent(tour) {
+      return parseJson(tour?.content_data, {});
+    }
+
+    function getTourModules(tour) {
+      return getTourContent(tour).universal_modules || {};
+    }
+
+    function getRecentImageAssets(limit = 8) {
+      return (Array.isArray(state.assets) ? state.assets : [])
+        .filter((item) => String(item?.mime || '').startsWith('image/'))
+        .slice(0, limit);
+    }
+
+    function getImagePreviewHtml(url, options = {}) {
+      const label = options.label || 'Preview';
+      const badge = options.badge || '';
+      const compact = options.compact === true;
+      const emptyMessage = options.emptyMessage || 'No image selected yet. Paste a URL or upload from tenant media.';
+      const cleanUrl = String(url || '').trim();
+      if (!cleanUrl) {
+        return `
+          <div class="preview-card">
+            <div class="preview-media ${compact ? 'compact' : ''}">
+              <div class="preview-placeholder">${esc(emptyMessage)}</div>
+            </div>
+            <div class="preview-meta">
+              <span>${esc(label)}</span>
+              ${badge ? `<span class="preview-badge">${esc(badge)}</span>` : ''}
+            </div>
+          </div>`;
+      }
+
+      return `
+        <div class="preview-card">
+          <div class="preview-media ${compact ? 'compact' : ''}">
+            <img src="${esc(cleanUrl)}" alt="${esc(label)}" loading="lazy" />
+          </div>
+          <div class="preview-meta">
+            <span>${esc(label)}</span>
+            ${badge ? `<span class="preview-badge">${esc(badge)}</span>` : ''}
+          </div>
+          <div class="preview-url">${esc(cleanUrl)}</div>
+        </div>`;
+    }
+
+    function getImagePreviewListHtml(urls, options = {}) {
+      const labelPrefix = options.labelPrefix || 'Image';
+      const emptyMessage = options.emptyMessage || 'No images yet. Add one URL per line or upload from tenant media.';
+      const compact = options.compact !== false;
+      const items = (Array.isArray(urls) ? urls : []).map((entry) => String(entry || '').trim()).filter(Boolean);
+      if (!items.length) {
+        return `<div class="preview-grid">${getImagePreviewHtml('', { label: labelPrefix, compact, emptyMessage })}</div>`;
+      }
+
+      return `<div class="preview-grid multi">${items.map((url, index) => getImagePreviewHtml(url, {
+        label: `${labelPrefix} ${index + 1}`,
+        badge: index === 0 ? (options.primaryBadge || 'Primary') : '',
+        compact,
+      })).join('')}</div>`;
+    }
+
+    function buildFieldPreview(targetId, options = {}) {
+      return `<div id="${esc(targetId)}" class="preview-grid"></div>`;
+    }
+
+    function getDestinationPreviewUrl(tour) {
+      const content = getTourContent(tour);
+      return content.destination_image || content.hero_image || buildGalleryObjects(content.gallery_images || [], tour.title || 'Destination')[0]?.src || '';
+    }
+
+    function getHotelPreviewUrl(hotel) {
+      return buildGalleryObjects(hotel?.gallery || [], hotel?.name || 'Hotel')[0]?.src || '';
+    }
+
+    function getGallerySourcePreviewUrl(tour) {
+      const content = getTourContent(tour);
+      return buildGalleryObjects(content.gallery_images || [], tour.title || 'Gallery')[0]?.src || content.hero_image || '';
+    }
+
+    function renderSinglePreview(inputId, previewId, options = {}) {
+      const field = $(inputId);
+      const preview = $(previewId);
+      if (!field || !preview) return;
+      preview.innerHTML = getImagePreviewHtml(field.value, options);
+    }
+
+    function renderMultiPreview(textareaId, previewId, options = {}) {
+      const field = $(textareaId);
+      const preview = $(previewId);
+      if (!field || !preview) return;
+      const urls = String(field.value || '').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+      preview.innerHTML = getImagePreviewListHtml(urls, options);
+    }
+
+    function bindPreviewInputs() {
+      document.querySelectorAll('[data-preview-target]').forEach((field) => {
+        const previewId = field.dataset.previewTarget || '';
+        const mode = field.dataset.previewMode || 'single';
+        const label = field.dataset.previewLabel || 'Preview';
+        const emptyMessage = field.dataset.previewEmpty || '';
+        const primaryBadge = field.dataset.previewPrimaryBadge || 'Primary';
+        const renderPreview = () => {
+          if (mode === 'multi') {
+            renderMultiPreview(field.id, previewId, { labelPrefix: label, emptyMessage, primaryBadge });
+            return;
+          }
+          renderSinglePreview(field.id, previewId, { label, emptyMessage, badge: field.dataset.previewBadge || '' });
+        };
+        field.oninput = renderPreview;
+        field.onchange = renderPreview;
+        renderPreview();
+      });
+    }
+
+    function buildAssetPaletteButtons(targetInputId, appendMode = false) {
+      const items = getRecentImageAssets();
+      if (!items.length) {
+        return '<div class="hint">No tenant-hosted image yet. Upload once here, then reuse across modules.</div>';
+      }
+
+      return items.map((item) => `
+        <button
+          type="button"
+          class="asset-chip"
+          data-asset-pick
+          data-target-input="${esc(targetInputId)}"
+          data-asset-mode="${appendMode ? 'append' : 'replace'}"
+          data-asset-url="${esc(item.url || '')}"
+          title="${esc(item.url || '')}"
+        >
+          ${esc(item.filename || 'asset')}
+          <small>tenant</small>
+        </button>`).join('');
+    }
+
+    function buildAssetTools(targetInputId, options = {}) {
+      const appendMode = options.append === true;
+      const accept = options.accept || 'image/*';
+      const uploadLabel = options.uploadLabel || 'Upload image';
+      const libraryLabel = options.libraryLabel || 'Recent uploads';
+      const note = options.note || 'Tenant-hosted images stay inside your own Cloudflare asset path, so storefront loads are faster and tenants do not need outside URLs.';
+      return `
+        <div class="asset-tools">
+          <div class="asset-tools-head">
+            <label class="button ghost small upload-label">
+              ${esc(uploadLabel)}
+              <input type="file" accept="${esc(accept)}" data-asset-file-input data-target-input="${esc(targetInputId)}" data-asset-mode="${appendMode ? 'append' : 'replace'}" />
+            </label>
+            <span class="hint">${esc(libraryLabel)}</span>
+          </div>
+          <div class="asset-palette" data-asset-palette data-target-input="${esc(targetInputId)}" data-asset-mode="${appendMode ? 'append' : 'replace'}">${buildAssetPaletteButtons(targetInputId, appendMode)}</div>
+          <div class="hint">${esc(note)}</div>
+        </div>`;
+    }
+
+    function buildGalleryObjects(items, fallbackAlt) {
+      return (Array.isArray(items) ? items : [])
+        .map((entry, index) => {
+          if (typeof entry === 'string') {
+            return { src: entry, alt: fallbackAlt || `Gallery image ${index + 1}`, caption: index === 0 ? (fallbackAlt || '') : '' };
+          }
+          if (entry?.src) return { src: entry.src, alt: entry.alt || fallbackAlt || '', caption: entry.caption || '' };
+          return null;
+        })
+        .filter((entry) => entry?.src);
+    }
+
+    function getDestinationLabel(tour) {
+      const content = getTourContent(tour);
+      return content.destination_name || tour.title || 'Untitled destination';
+    }
+
+    function getHotelLabel(hotel) {
+      return hotel?.name || hotel?.hotel_key || 'Untitled hotel';
+    }
+
+    function getDestinationFlags(tour) {
+      const content = getTourContent(tour);
+      const modules = getTourModules(tour);
+      return {
+        module: readBool(modules.destinations ?? content.show_in_destinations, true),
+        home: readBool(modules.home_destinations ?? content.show_on_home_destinations, false),
+      };
+    }
+
+    function getHotelFlags(hotel, tour) {
+      const content = getTourContent(tour);
+      const modules = getTourModules(tour);
+      return {
+        module: readBool(modules.accommodation ?? content.show_in_accommodation, true),
+        home: readBool(modules.home_accommodation ?? content.show_on_home_accommodation, false),
+        status: String(hotel?.status || 'draft'),
+      };
+    }
+
+    function getGalleryHomeSelections(tour) {
+      const content = getTourContent(tour);
+      const modules = getTourModules(tour);
+      const raw = Array.isArray(modules.home_gallery_images)
+        ? modules.home_gallery_images
+        : (Array.isArray(content.home_gallery_images) ? content.home_gallery_images : []);
+      return new Set(raw.map((entry) => typeof entry === 'string' ? entry : entry?.src || '').filter(Boolean));
+    }
+
+    async function loadSourceData() {
+      const [toursResult, hotelsResult, assetsResult] = await Promise.allSettled([
+        api('/api/tours'),
+        api('/api/universal/site/hotels'),
+        api('/api/tenant/assets'),
+      ]);
+      if (toursResult.status !== 'fulfilled') throw toursResult.reason;
+      if (hotelsResult.status !== 'fulfilled') throw hotelsResult.reason;
+      state.tours = Array.isArray(toursResult.value.tours) ? toursResult.value.tours : [];
+      state.hotels = Array.isArray(hotelsResult.value.hotels) ? hotelsResult.value.hotels : [];
+      state.assets = assetsResult.status === 'fulfilled' && Array.isArray(assetsResult.value.items)
+        ? assetsResult.value.items
+        : [];
+      if (!state.selectedTourId && state.tours[0]) state.selectedTourId = state.tours[0].id;
+      if (!state.selectedHotelId && state.hotels[0]) state.selectedHotelId = state.hotels[0].id;
+    }
+
+    function applyAssetToField(targetInputId, assetUrl, appendMode = false) {
+      const field = document.getElementById(targetInputId);
+      if (!field) return;
+      const nextValue = String(assetUrl || '').trim();
+      if (!nextValue) return;
+
+      if (appendMode) {
+        const lines = String(field.value || '').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+        if (!lines.includes(nextValue)) lines.push(nextValue);
+        field.value = lines.join('\n');
+      } else {
+        field.value = nextValue;
+      }
+
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function refreshAssetPalettes() {
+      document.querySelectorAll('[data-asset-palette]').forEach((node) => {
+        const targetInputId = node.dataset.targetInput || '';
+        const appendMode = node.dataset.assetMode === 'append';
+        node.innerHTML = buildAssetPaletteButtons(targetInputId, appendMode);
+      });
+      bindAssetToolActions();
+    }
+
+    async function uploadAssetFile(file) {
+      const formData = new FormData();
+      formData.set('file', file);
+      const response = await fetch('/api/tenant/assets/upload', {
+        method: 'POST',
+        headers: {
+          'X-Tenant-ID': state.tenantId,
+        },
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+      return payload;
+    }
+
+    function bindAssetToolActions() {
+      document.querySelectorAll('[data-asset-pick]').forEach((button) => {
+        button.onclick = () => {
+          applyAssetToField(button.dataset.targetInput || '', button.dataset.assetUrl || '', button.dataset.assetMode === 'append');
+          setStatus('Tenant-hosted image inserted into the current module form.', 'ok');
+        };
+      });
+
+      document.querySelectorAll('[data-asset-file-input]').forEach((input) => {
+        input.onchange = async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          try {
+            setStatus(`Uploading ${file.name} to tenant media library...`);
+            const uploaded = await uploadAssetFile(file);
+            applyAssetToField(input.dataset.targetInput || '', uploaded.url || '', input.dataset.assetMode === 'append');
+            state.assets = [{
+              filename: uploaded.filename,
+              r2_key: uploaded.r2_key,
+              url: uploaded.url,
+              size: uploaded.size,
+              mime: uploaded.mime,
+              uploaded_at: new Date().toISOString(),
+            }, ...state.assets.filter((item) => item.filename !== uploaded.filename)];
+            refreshAssetPalettes();
+            setStatus('Image uploaded to tenant library and inserted into the form.', 'ok');
+          } catch (error) {
+            setStatus(error.message || 'Image upload failed.', 'error');
+          } finally {
+            input.value = '';
+          }
+        };
+      });
+    }
+
+    async function selectTour(tourId) {
+      state.selectedTourId = tourId;
+      state.selectedHotelId = '';
+      const payload = await api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`);
+      state.currentTour = payload.tour || null;
+      render();
+    }
+
+    async function selectHotel(hotelId) {
+      state.selectedHotelId = hotelId;
+      const hotelPayload = await api(`/api/universal/hotels/${encodeURIComponent(hotelId)}`);
+      state.currentHotel = hotelPayload.hotel || null;
+      if (state.currentHotel?.tour_id) {
+        state.selectedTourId = state.currentHotel.tour_id;
+        const tourPayload = await api(`/api/universal/tours/${encodeURIComponent(state.currentHotel.tour_id)}/canonical`);
+        state.currentTour = tourPayload.tour || null;
+      } else {
+        state.currentTour = null;
+      }
+      render();
+    }
+
+    function renderListActions() {
+      const node = $('list-actions');
+      if (state.mode === 'destinations') {
+        node.innerHTML = '<button id="btn-add-destination" class="button primary small" type="button">Add Destination</button>';
+        $('btn-add-destination').addEventListener('click', () => {
+          createDestinationModule().catch((error) => setStatus(error.message || 'Failed to create destination', 'error'));
+        });
+        return;
+      }
+      if (state.mode === 'hotels') {
+        node.innerHTML = '<button id="btn-add-hotel" class="button primary small" type="button">Add Hotel</button>';
+        $('btn-add-hotel').addEventListener('click', () => {
+          createHotelModule().catch((error) => setStatus(error.message || 'Failed to create hotel', 'error'));
+        });
+        return;
+      }
+      node.innerHTML = '<div class="hint">Open a gallery source, then use the image-level Add button inside the editor.</div>';
+    }
+
+    function renderList() {
+      renderListActions();
+      const list = $('entity-list');
+      const mode = state.mode;
+      if (mode === 'hotels') {
+        $('list-title').textContent = 'Hotel Modules';
+        $('list-note').textContent = 'Each hotel keeps its own name, address, description, media, and homepage toggle.';
+        list.innerHTML = state.hotels.length
+          ? state.hotels.map((hotel) => {
+              const linkedTour = state.tours.find((tour) => String(tour.id) === String(hotel.tour_id)) || null;
+              const flags = getHotelFlags(hotel, linkedTour);
+              return `
+                <button type="button" class="entity-item ${state.selectedHotelId === hotel.id ? 'active' : ''}" data-hotel-id="${esc(hotel.id)}">
+                  <div class="entity-item-main">
+                    <div class="entity-thumb">
+                      ${getHotelPreviewUrl(hotel) ? `<img src="${esc(getHotelPreviewUrl(hotel))}" alt="${esc(getHotelLabel(hotel))}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
+                    </div>
+                    <div class="entity-copy">
+                      <strong>${esc(getHotelLabel(hotel))}</strong>
+                      <span class="entity-meta">${esc(hotel.address || 'No address yet')}</span>
+                      <div class="entity-flags">
+                        <span class="flag ${flags.module ? 'active' : ''}">Module</span>
+                        <span class="flag ${flags.home ? 'active' : ''}">Home</span>
+                        <span class="flag ${flags.status === 'active' ? 'active' : ''}">${esc(flags.status)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>`;
+            }).join('')
+          : '<p class="empty" style="padding:18px">No hotel module found yet.</p>';
+        list.querySelectorAll('[data-hotel-id]').forEach((button) => {
+          button.addEventListener('click', () => {
+            selectHotel(button.dataset.hotelId).catch((error) => setStatus(error.message || 'Failed to open hotel module', 'error'));
+          });
+        });
+        return;
+      }
+
+      $('list-title').textContent = mode === 'gallery' ? 'Gallery Sources' : 'Destination Modules';
+      $('list-note').textContent = mode === 'gallery'
+        ? 'Each source tour owns its image set. Pick exactly which images go to the homepage gallery.'
+        : 'Each destination owns its name, story, image, and homepage toggle.';
+      list.innerHTML = state.tours.length
+        ? state.tours.map((tour) => {
+            const content = getTourContent(tour);
+            const flags = getDestinationFlags(tour);
+            const homeGalleryCount = getGalleryHomeSelections(tour).size;
+            const subtitle = mode === 'gallery'
+              ? `${buildGalleryObjects(content.gallery_images, tour.title).length} images, ${homeGalleryCount} on home`
+              : (content.destination_summary || tour.title || 'No description yet');
+            return `
+              <button type="button" class="entity-item ${state.selectedTourId === tour.id ? 'active' : ''}" data-tour-id="${esc(tour.id)}">
+                <div class="entity-item-main">
+                  <div class="entity-thumb">
+                    ${(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour)) ? `<img src="${esc(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour))}" alt="${esc(tour.title || 'Module image')}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
+                  </div>
+                  <div class="entity-copy">
+                    <strong>${esc(mode === 'gallery' ? (tour.title || 'Untitled tour') : getDestinationLabel(tour))}</strong>
+                    <span class="entity-meta">${esc(subtitle)}</span>
+                    <div class="entity-flags">
+                      ${mode === 'gallery' ? `<span class="flag ${homeGalleryCount ? 'active' : ''}">Home images: ${homeGalleryCount}</span>` : `<span class="flag ${flags.module ? 'active' : ''}">Module</span><span class="flag ${flags.home ? 'active' : ''}">Home</span>`}
+                    </div>
+                  </div>
+                </div>
+              </button>`;
+          }).join('')
+        : '<p class="empty" style="padding:18px">No source module found yet.</p>';
+      list.querySelectorAll('[data-tour-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+          selectTour(button.dataset.tourId).catch((error) => setStatus(error.message || 'Failed to open module', 'error'));
+        });
+      });
+    }
+
+    function renderDestinationEditor() {
+      const tour = state.currentTour;
+      const body = $('editor-body');
+      if (!tour) {
+        body.innerHTML = '<p class="empty">Choose a destination source from the left.</p>';
+        return;
+      }
+      const content = getTourContent(tour);
+      const flags = getDestinationFlags(tour);
+      $('editor-title').textContent = content.destination_name || tour.title || 'Destination Module';
+      $('editor-note').textContent = 'This destination module owns its own content. Toggle separately for the destinations page and the homepage.';
+      body.innerHTML = `
+        <div class="grid two">
+          <label class="field"><span>Destination Name</span><input id="destination-name" type="text" value="${esc(content.destination_name || '')}" /></label>
+          <label class="field"><span>Destination Image URL</span><input id="destination-image" type="text" value="${esc(content.destination_image || '')}" data-preview-target="destination-image-preview" data-preview-mode="single" data-preview-label="Destination image" data-preview-empty="Destination image preview appears here as soon as you paste or upload one." />${buildFieldPreview('destination-image-preview')}${buildAssetTools('destination-image', { uploadLabel: 'Upload destination image' })}</label>
+        </div>
+        <label class="field"><span>Destination Description</span><textarea id="destination-summary">${esc(content.destination_summary || '')}</textarea></label>
+        <div class="toggle-grid">
+          <label class="toggle"><input id="destination-toggle" type="checkbox" ${flags.module ? 'checked' : ''} /><strong>Show in Destinations Module</strong></label>
+          <label class="toggle"><input id="destination-home-toggle" type="checkbox" ${flags.home ? 'checked' : ''} /><strong>Show on Homepage</strong></label>
+        </div>
+        <div class="actions">
+          <button id="save-destination" class="button primary" type="button">Save Destination Module</button>
+        </div>`;
+      bindAssetToolActions();
+      bindPreviewInputs();
+      $('save-destination').addEventListener('click', saveDestinationModule);
+    }
+
+    function renderHotelEditor() {
+      const hotel = state.currentHotel;
+      const tour = state.currentTour;
+      const body = $('editor-body');
+      if (!hotel) {
+        body.innerHTML = '<p class="empty">Choose a hotel source from the left.</p>';
+        return;
+      }
+      const flags = getHotelFlags(hotel, tour);
+      $('editor-title').textContent = hotel.name || 'Hotel Module';
+      $('editor-note').textContent = 'This hotel module stays separate from skin quick edit and can later grow into a richer hotel system.';
+      body.innerHTML = `
+        <div class="grid two">
+          <label class="field"><span>Linked Tour</span><select id="hotel-tour-link">${state.tours.map((tourItem) => `<option value="${esc(tourItem.id)}" ${String(tourItem.id) === String(hotel.tour_id) ? 'selected' : ''}>${esc(tourItem.title || tourItem.id)}</option>`).join('')}</select></label>
+          <label class="field"><span>Address</span><input id="hotel-address" type="text" value="${esc(hotel.address || '')}" /></label>
+        </div>
+        <label class="field"><span>Hotel Name</span><input id="hotel-name" type="text" value="${esc(hotel.name || '')}" /></label>
+        <label class="field"><span>Description</span><textarea id="hotel-description">${esc(hotel.description || '')}</textarea></label>
+        <label class="field"><span>Image URLs</span><textarea id="hotel-gallery" placeholder="One image URL per line" data-preview-target="hotel-gallery-preview" data-preview-mode="multi" data-preview-label="Hotel image" data-preview-empty="Hotel image previews appear here line by line so the module never feels blind.">${esc(buildGalleryObjects(hotel.gallery || [], hotel.name || 'Hotel').map((entry) => entry.src).join('\n'))}</textarea>${buildFieldPreview('hotel-gallery-preview')}${buildAssetTools('hotel-gallery', { append: true, uploadLabel: 'Upload hotel image', note: 'Each upload is appended as a new line, so the first line can stay as the primary hotel image and the rest become additional gallery images.' })}</label>
+        <div class="toggle-grid">
+          <label class="toggle"><input id="hotel-toggle" type="checkbox" ${flags.module ? 'checked' : ''} /><strong>Show in Hotels Module</strong></label>
+          <label class="toggle"><input id="hotel-home-toggle" type="checkbox" ${flags.home ? 'checked' : ''} /><strong>Show on Homepage</strong></label>
+        </div>
+        <div class="actions">
+          <button id="save-hotel" class="button primary" type="button">Save Hotel Module</button>
+        </div>`;
+      bindAssetToolActions();
+      bindPreviewInputs();
+      $('save-hotel').addEventListener('click', saveHotelModule);
+    }
+
+    function createGalleryRow(item = {}, selected = false, index = 0) {
+      const inputId = `gallery-src-${index}`;
+      const previewId = `gallery-preview-${index}`;
+      return `
+        <div class="gallery-row" data-gallery-row="${index}">
+          <div class="gallery-row-head">
+            <strong>Image ${index + 1}</strong>
+            <button type="button" class="button ghost small" data-remove-gallery-row="${index}">Remove</button>
+          </div>
+          <div class="gallery-row-grid">
+            <label class="field"><span>Image URL</span><input id="${esc(inputId)}" type="text" data-gallery-src value="${esc(item.src || '')}" data-preview-target="${esc(previewId)}" data-preview-mode="single" data-preview-label="Gallery image ${index + 1}" data-preview-empty="This gallery row shows its image preview here as soon as you add one." />${buildFieldPreview(previewId)}${buildAssetTools(inputId, { uploadLabel: 'Upload gallery image', note: 'Upload directly to tenant media, then mark exactly which images should appear on the homepage.' })}</label>
+            <label class="toggle gallery-toggle"><input type="checkbox" data-gallery-home ${selected ? 'checked' : ''} /><strong>Show on Homepage</strong></label>
+          </div>
+        </div>`;
+    }
+
+    function getNextGalleryRowIndex() {
+      return [...document.querySelectorAll('[data-gallery-row]')].reduce((max, row) => {
+        const current = Number(row.dataset.galleryRow || 0);
+        return Math.max(max, current);
+      }, -1) + 1;
+    }
+
+    function bindGalleryRowActions() {
+      $('btn-add-gallery-row')?.addEventListener('click', () => {
+        const list = $('gallery-rows');
+        const nextIndex = getNextGalleryRowIndex();
+        list.insertAdjacentHTML('beforeend', createGalleryRow({}, false, nextIndex));
+        bindGalleryRowActions();
+      });
+      document.querySelectorAll('[data-remove-gallery-row]').forEach((button) => {
+        button.onclick = () => {
+          button.closest('[data-gallery-row]')?.remove();
+        };
+      });
+      bindAssetToolActions();
+      bindPreviewInputs();
+    }
+
+    function renderGalleryEditor() {
+      const tour = state.currentTour;
+      const body = $('editor-body');
+      if (!tour) {
+        body.innerHTML = '<p class="empty">Choose a gallery source from the left.</p>';
+        return;
+      }
+      const content = getTourContent(tour);
+      const modules = getTourModules(tour);
+      const homeSelections = getGalleryHomeSelections(tour);
+      const galleryItems = buildGalleryObjects(content.gallery_images || [], tour.title || 'Gallery');
+      $('editor-title').textContent = tour.title || 'Gallery Module';
+      $('editor-note').textContent = 'Every image can be turned on or off for the homepage gallery. Nothing needs to be random anymore.';
+      body.innerHTML = `
+        <label class="field"><span>Hero Image URL</span><input id="gallery-hero-image" type="text" value="${esc(content.hero_image || '')}" data-preview-target="gallery-hero-preview" data-preview-mode="single" data-preview-label="Hero image" data-preview-badge="Hero" data-preview-empty="Hero image preview appears here so the gallery module always has a visual anchor." />${buildFieldPreview('gallery-hero-preview')}${buildAssetTools('gallery-hero-image', { uploadLabel: 'Upload hero image' })}</label>
+        <div class="helper-card">
+          <div class="actions" style="justify-content:space-between;align-items:center">
+            <div>
+              <div class="subheading">Gallery Images</div>
+              <p class="hint">Add images one by one, upload directly into tenant media, and choose exactly which ones appear on the homepage gallery.</p>
+            </div>
+            <button id="btn-add-gallery-row" class="button primary small" type="button">Add Image</button>
+          </div>
+          <div id="gallery-rows" class="gallery-rows">${galleryItems.map((item, index) => createGalleryRow(item, homeSelections.has(item.src), index)).join('') || createGalleryRow({}, false, 0)}</div>
+        </div>
+        <div class="toggle-grid">
+          <label class="toggle"><input id="gallery-featured-toggle" type="checkbox" ${readBool(modules.featured_tours ?? content.show_in_featured_tours ?? content.featured_tour, false) ? 'checked' : ''} /><strong>Show in Featured Tours Module</strong></label>
+          <label class="toggle"><input id="gallery-hero-toggle" type="checkbox" ${readBool(modules.hero ?? content.show_in_hero ?? content.hero_featured, false) ? 'checked' : ''} /><strong>Allow Hero Pickup</strong></label>
+        </div>
+        <div class="actions">
+          <button id="save-gallery" class="button primary" type="button">Save Gallery Module</button>
+        </div>`;
+      bindGalleryRowActions();
+      bindAssetToolActions();
+      bindPreviewInputs();
+      $('save-gallery').addEventListener('click', saveGalleryModule);
+    }
+
+    function render() {
+      updateLinks();
+      renderList();
+      if (state.mode === 'hotels') {
+        renderHotelEditor();
+        return;
+      }
+      if (state.mode === 'gallery') {
+        renderGalleryEditor();
+        return;
+      }
+      renderDestinationEditor();
+    }
+
+    async function createDestinationModule() {
+      setStatus('Creating destination module...');
+      const created = await api('/api/tours', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: `New Destination ${state.tours.length + 1}`,
+          status: 'draft',
+          lang: 'en',
+        }),
+      });
+      await api(`/api/universal/tours/${encodeURIComponent(created.id)}/canonical`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content_data: {
+            destination_name: `New Destination ${state.tours.length + 1}`,
+            destination_summary: '',
+            destination_image: '',
+            show_in_destinations: true,
+            show_on_home_destinations: false,
+            universal_modules: {
+              destinations: true,
+              home_destinations: false,
+            },
+          },
+        }),
+      });
+      await refreshAfterTourSave(created.id);
+      setStatus('Destination module created.', 'ok');
+    }
+
+    async function createHotelModule() {
+      const linkedTourId = state.currentTour?.id || state.tours[0]?.id || '';
+      if (!linkedTourId) {
+        setStatus('Create at least one tour first so the hotel module has a linked product source.', 'error');
+        return;
+      }
+      setStatus('Creating hotel module...');
+      const payload = await api('/api/universal/site/hotels', {
+        method: 'POST',
+        body: JSON.stringify({
+          tour_id: linkedTourId,
+          name: `New Hotel ${state.hotels.length + 1}`,
+          address: '',
+          description: '',
+          gallery: [],
+          status: 'draft',
+        }),
+      });
+      const linkedTourPayload = await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`);
+      const linkedModules = linkedTourPayload?.tour?.content_data?.universal_modules || {};
+      await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content_data: {
+            show_in_accommodation: true,
+            show_on_home_accommodation: false,
+            universal_modules: {
+              ...linkedModules,
+              accommodation: true,
+              home_accommodation: false,
+            },
+          },
+        }),
+      });
+      await refreshAfterHotelSave(payload.hotel.id, linkedTourId);
+      setStatus('Hotel module created.', 'ok');
+    }
+
+    async function saveDestinationModule() {
+      if (!state.currentTour) return;
+      const modules = getTourModules(state.currentTour);
+      const destinationName = $('destination-name').value.trim();
+      const destinationSummary = $('destination-summary').value.trim();
+      const destinationImage = $('destination-image').value.trim();
+      const enabled = Boolean($('destination-toggle').checked);
+      const homeEnabled = Boolean($('destination-home-toggle').checked);
+      setStatus('Saving destination module...');
+      await api(`/api/universal/tours/${encodeURIComponent(state.currentTour.id)}/canonical`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content_data: {
+            destination_name: destinationName,
+            destination_summary: destinationSummary,
+            destination_image: destinationImage,
+            show_in_destinations: enabled,
+            show_on_home_destinations: homeEnabled,
+            universal_modules: {
+              ...modules,
+              destinations: enabled,
+              home_destinations: homeEnabled,
+            },
+          },
+        }),
+      });
+      await refreshAfterTourSave(state.currentTour.id);
+      setStatus('Destination module saved.', 'ok');
+    }
+
+    async function saveHotelModule() {
+      if (!state.currentHotel) return;
+      const hotelName = $('hotel-name').value.trim();
+      const address = $('hotel-address').value.trim();
+      const description = $('hotel-description').value.trim();
+      const linkedTourId = $('hotel-tour-link').value;
+      const gallery = $('hotel-gallery').value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).map((src, index) => ({
+        id: `${state.currentHotel.id}-gallery-${index + 1}`,
+        src,
+        alt: hotelName || `Hotel image ${index + 1}`,
+        caption: index === 0 ? (hotelName || '') : '',
+      }));
+      const enabled = Boolean($('hotel-toggle').checked);
+      const homeEnabled = Boolean($('hotel-home-toggle').checked);
+      setStatus('Saving hotel module...');
+      await api(`/api/universal/hotels/${encodeURIComponent(state.currentHotel.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: hotelName,
+          address,
+          description,
+          gallery,
+          status: enabled ? 'active' : 'draft',
+        }),
+      });
+      const linkedTourPayload = await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`);
+      const linkedModules = linkedTourPayload?.tour?.content_data?.universal_modules || {};
+      await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content_data: {
+            show_in_accommodation: enabled,
+            show_on_home_accommodation: homeEnabled,
+            universal_modules: {
+              ...linkedModules,
+              accommodation: enabled,
+              home_accommodation: homeEnabled,
+            },
+          },
+        }),
+      });
+      await refreshAfterHotelSave(state.currentHotel.id, linkedTourId);
+      setStatus('Hotel module saved.', 'ok');
+    }
+
+    async function saveGalleryModule() {
+      if (!state.currentTour) return;
+      const content = getTourContent(state.currentTour);
+      const modules = getTourModules(state.currentTour);
+      const heroImage = $('gallery-hero-image').value.trim();
+      const featuredEnabled = Boolean($('gallery-featured-toggle').checked);
+      const heroEnabled = Boolean($('gallery-hero-toggle').checked);
+      const rows = [...document.querySelectorAll('[data-gallery-row]')];
+      const galleryImages = rows.map((row, index) => {
+        const src = row.querySelector('[data-gallery-src]')?.value?.trim() || '';
+        if (!src) return null;
+        return {
+          src,
+          alt: state.currentTour.title || `Gallery image ${index + 1}`,
+          caption: index === 0 ? (content.destination_name || state.currentTour.title || '') : '',
+        };
+      }).filter(Boolean);
+      const homeGalleryImages = rows.map((row, index) => {
+        const src = row.querySelector('[data-gallery-src]')?.value?.trim() || '';
+        const enabled = Boolean(row.querySelector('[data-gallery-home]')?.checked);
+        if (!src || !enabled) return null;
+        return {
+          src,
+          alt: state.currentTour.title || `Gallery image ${index + 1}`,
+          caption: index === 0 ? (content.destination_name || state.currentTour.title || '') : '',
+        };
+      }).filter(Boolean);
+      setStatus('Saving gallery module...');
+      await api(`/api/universal/tours/${encodeURIComponent(state.currentTour.id)}/canonical`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content_data: {
+            hero_image: heroImage,
+            gallery_images: galleryImages,
+            home_gallery_images: homeGalleryImages,
+            show_in_featured_tours: featuredEnabled,
+            featured_tour: featuredEnabled,
+            show_in_hero: heroEnabled,
+            hero_featured: heroEnabled,
+            universal_modules: {
+              ...modules,
+              featured_tours: featuredEnabled,
+              hero: heroEnabled,
+              home_gallery_images: homeGalleryImages,
+            },
+          },
+        }),
+      });
+      await refreshAfterTourSave(state.currentTour.id);
+      setStatus('Gallery module saved.', 'ok');
+    }
+
+    async function refreshAfterTourSave(tourId) {
+      await loadSourceData();
+      await selectTour(tourId);
+    }
+
+    async function refreshAfterHotelSave(hotelId, tourId) {
+      await loadSourceData();
+      await selectHotel(hotelId);
+      if (tourId && (!state.currentTour || state.currentTour.id !== tourId)) {
+        const payload = await api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`);
+        state.currentTour = payload.tour || null;
+      }
+    }
+
+    async function init() {
+      state.tenantId = getTenantIdFromParams();
+      state.mode = getModeFromParams();
+      if (!state.tenantId) {
+        const sessionPayload = await fetch('/api/auth/session').then((response) => response.json()).catch(() => null);
+        if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
+          window.location.replace('/login.html');
+          return;
+        }
+        state.tenantId = sessionPayload.session.tenant_id;
+      }
+      localStorage.setItem('tam_tenant_id', state.tenantId);
+      updateLinks();
+      await loadSourceData();
+      if (state.mode === 'hotels' && state.selectedHotelId) {
+        await selectHotel(state.selectedHotelId);
+      } else if (state.selectedTourId) {
+        await selectTour(state.selectedTourId);
+      } else {
+        render();
+      }
+      setStatus('Modules ready. Destinations, hotels, and gallery now have their own add flows and homepage toggles.');
+    }
+
+    init().catch((error) => {
+      setStatus(error.message || 'Failed to load product modules.', 'error');
+    });
+  </script>
+</body>
+</html>

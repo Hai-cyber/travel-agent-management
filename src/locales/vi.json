@@ -172,6 +172,107 @@
       "locked_guest": "*** (chưa xác minh)"
     }
   },
+  "auth": {
+    "shared": {
+      "email_label": "Email",
+      "email_placeholder": "agency@example.com",
+      "password_label": "Mật khẩu",
+      "google_hint_disabled": "Nút đăng nhập Google sẽ xuất hiện khi GOOGLE_CLIENT_ID được cấu hình.",
+      "google_hint_signup_enabled": "Bạn có thể dùng email hoặc Google để tạo tài khoản.",
+      "google_hint_login_enabled": "Bạn có thể đăng nhập bằng email hoặc Google.",
+      "google_load_failed": "Không tải được Google Sign-In. Vui lòng dùng email và mật khẩu.",
+      "google_continue": "Tiếp tục với Google",
+      "or": "hoặc",
+      "network_error": "Lỗi kết nối. Vui lòng thử lại."
+    },
+    "signup": {
+      "meta_title": "Đăng ký - TravelAgent",
+      "watermark": "Ưu đãi ra mắt - 0 EUR trong 6 tháng, sau đó tính theo gói đã chọn. Hủy bất cứ lúc nào.",
+      "subtitle": "0 EUR trong 6 tháng, sau đó gói bạn chọn sẽ bắt đầu. Hủy bất cứ lúc nào.",
+      "name_label": "Tên thương hiệu / nhóm / đại lý",
+      "name_placeholder": "Sunset Journeys",
+      "password_label": "Tạo mật khẩu",
+      "password_placeholder": "Tạo mật khẩu với ít nhất 8 ký tự",
+      "proof": "Bắt buộc: chọn product tier, nhập email và tạo mật khẩu. Tên thương hiệu, nhóm, hoặc tên vận hành của bạn sẽ dùng để khởi tạo workspace.",
+      "offer": "0 EUR trong 6 tháng, sau đó tính theo gói đã chọn. Hủy bất cứ lúc nào.",
+      "tier_hint": "Hãy chọn một tier ngay bây giờ. Giá ra mắt là 0 EUR trong 6 tháng, sau đó chuyển sang giá hàng tháng của tier đã chọn. Hủy bất cứ lúc nào.",
+      "tier_required_error": "Vui lòng chọn một product tier.",
+      "submit": "Tạo tài khoản",
+      "busy": "Đang tạo tài khoản...",
+      "success": "Đang tạo workspace của bạn...",
+      "login_prompt": "Đã có tài khoản?",
+      "login_link": "Đăng nhập ->",
+      "missing_fields": "Vui lòng chọn product tier và điền đầy đủ các trường bắt buộc.",
+      "name_required_for_google": "Nhập tên thương hiệu, nhóm, hoặc tên vận hành trước khi tiếp tục với Google.",
+      "google_error": "Đăng ký bằng Google thất bại."
+    },
+    "login": {
+      "meta_title": "Đăng nhập - TravelAgent",
+      "subtitle": "Đăng nhập vào dashboard vận hành tour của bạn.",
+      "password_placeholder": "Nhập mật khẩu của bạn",
+      "submit": "Đăng nhập",
+      "busy": "Đang đăng nhập...",
+      "success": "Đăng nhập thành công. Đang chuyển hướng...",
+      "signup_prompt": "Chưa có tài khoản?",
+      "signup_link": "Tạo tài khoản ->",
+      "missing_fields": "Vui lòng nhập email và mật khẩu.",
+      "google_error": "Đăng nhập bằng Google thất bại.",
+      "default_error": "Đăng nhập thất bại."
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Chọn gói sản phẩm của bạn",
+    "catalog_hint": "Hãy bắt đầu với gói đang mở bán. Các gói tương lai được hiển thị để định hướng lộ trình.",
+    "per_user_month": "EUR {{price}} / người dùng / tháng",
+    "status_active": "Có thể đăng ký ngay",
+    "status_future": "Gói tương lai",
+    "tiers": {
+      "starter_landing": {
+        "name": "Landing Page Starter",
+        "tagline": "Hiện diện web đơn giản cho đại lý giai đoạn đầu",
+        "description": "Landing page, subdomain nền tảng, chỉ có contact form và không có thanh toán online.",
+        "features": [
+          "Trình dựng landing page",
+          "Bao gồm subdomain nền tảng",
+          "Chỉ có contact form",
+          "Không có thanh toán online"
+        ]
+      },
+      "tour_operator_pro": {
+        "name": "Tour Operator Pro",
+        "tagline": "Vận hành tour và bán tour trực tuyến",
+        "description": "Phần mềm vận hành tour với luồng bán tour công khai, hỗ trợ thanh toán online và yêu cầu tên miền riêng.",
+        "features": [
+          "Phần mềm vận hành tour",
+          "Luồng bán tour công khai",
+          "Hỗ trợ thanh toán online",
+          "Bắt buộc tên miền riêng"
+        ]
+      },
+      "hotel_operator_pro": {
+        "name": "Hotel Operator Pro",
+        "tagline": "Phần mềm quản lý khách sạn cho bán trực tiếp",
+        "description": "Phần mềm quản lý khách sạn có tên miền riêng và hỗ trợ thanh toán. Đây là gói dự kiến cho tương lai.",
+        "features": [
+          "Phần mềm vận hành khách sạn",
+          "Hỗ trợ thanh toán online",
+          "Bắt buộc tên miền riêng",
+          "Gói phát triển trong tương lai"
+        ]
+      },
+      "tour_hotel_suite": {
+        "name": "Tours + Hotel Suite",
+        "tagline": "Vận hành tổng hợp cho doanh nghiệp tour và lưu trú",
+        "description": "Nền tảng hợp nhất tour và khách sạn với tên miền riêng và thanh toán online. Đây là gói dự kiến cho tương lai.",
+        "features": [
+          "Vận hành tour và khách sạn",
+          "Hỗ trợ thanh toán online",
+          "Bắt buộc tên miền riêng",
+          "Gói phát triển trong tương lai"
+        ]
+      }
+    }
+  },
   "widget": {
     "title": "Kiểm tra giá & đặt tour",
     "button_label": "Đặt tour ngay",

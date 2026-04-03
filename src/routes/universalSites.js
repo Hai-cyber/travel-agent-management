@@ -173,6 +173,8 @@ const LUXURY_SAMPLE_ACCOMMODATION_IMAGES = [
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
 ];
+const HOME_FEATURED_TOUR_CARD_LIMIT = 12;
+const HOME_HOTEL_CARD_LIMIT = 12;
 
 function normalizeStringValue(...values) {
   for (const value of values) {
@@ -227,12 +229,20 @@ function deriveTourModuleFlags(content, index) {
   const hero = parseToggleValue(
     modules.hero ?? modules.hero_primary ?? content?.hero_featured ?? content?.show_in_hero
   );
+  const homeDestination = parseToggleValue(
+    modules.home_destinations ?? modules.show_on_home_destinations ?? content?.show_on_home_destinations ?? content?.home_destination_featured
+  );
+  const homeAccommodation = parseToggleValue(
+    modules.home_accommodation ?? modules.show_on_home_accommodation ?? content?.show_on_home_accommodation ?? content?.home_hotel_featured
+  );
 
   return {
     featured: featured ?? index === 0,
     destination: destination ?? true,
     accommodation: accommodation ?? index < 4,
     hero: hero ?? (featured ?? index === 0),
+    homeDestination: homeDestination ?? false,
+    homeAccommodation: homeAccommodation ?? false,
   };
 }
 
@@ -338,7 +348,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
 
   const sortedItems = [...items].sort((left, right) => right.created_at - left.created_at);
   const featuredBase = sortedItems.filter((item) => item.flags.featured);
-  const featuredItems = (featuredBase.length ? featuredBase : sortedItems).slice(0, 4);
+  const featuredItems = (featuredBase.length ? featuredBase : sortedItems).slice(0, HOME_FEATURED_TOUR_CARD_LIMIT);
   const heroItem = sortedItems.find((item) => item.flags.hero) || featuredItems[0] || sortedItems[0] || null;
   const destinationItems = uniqueBy(
     (sortedItems.filter((item) => item.flags.destination).length ? sortedItems.filter((item) => item.flags.destination) : sortedItems)
@@ -358,9 +368,13 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       })),
     (item) => item.title.toLowerCase()
   ).slice(0, 4);
+  const homeDestinationItems = destinationItems.filter((item) => {
+    const source = sortedItems.find((entry) => String(entry.tour_id) === String(item.entity_id));
+    return Boolean(source?.flags.homeDestination);
+  });
 
   const accommodationBase = sortedItems.filter((item) => item.flags.accommodation);
-  const accommodationItems = (accommodationBase.length ? accommodationBase : sortedItems.slice(0, 4)).slice(0, 4).map((item, index) => ({
+  const accommodationItems = (accommodationBase.length ? accommodationBase : sortedItems.slice(0, HOME_HOTEL_CARD_LIMIT)).slice(0, HOME_HOTEL_CARD_LIMIT).map((item, index) => ({
     eyebrow: 'Stay',
     title: normalizeStringValue(
       item.hotel?.name,
@@ -414,11 +428,39 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
     ),
     public_slug: item.public_slug,
   }));
+  const homeAccommodationItems = accommodationItems.filter((item) => {
+    const source = sortedItems.find((entry) => String((entry.hotel?.id || entry.tour_id)) === String(item.entity_id));
+    return Boolean(source?.flags.homeAccommodation);
+  });
+
+  const selectedHomeGalleryImages = uniqueBy(
+    featuredItems
+      .flatMap((item) => {
+        const modules = item.content?.universal_modules || item.content?.homepage_modules || item.content?.site_modules || {};
+        const selected = Array.isArray(modules.home_gallery_images)
+          ? modules.home_gallery_images
+          : (Array.isArray(item.content?.home_gallery_images) ? item.content.home_gallery_images : []);
+        return selected
+          .map((entry, index) => {
+            if (typeof entry === 'string') {
+              return {
+                src: entry,
+                alt: item.title,
+                caption: index === 0 ? item.destination_title : item.title,
+              };
+            }
+            if (entry?.src) return entry;
+            return null;
+          })
+          .filter((entry) => entry?.src);
+      }),
+    (item) => item.src
+  );
 
   const featuredCollectionImages = uniqueBy(
-    featuredItems
+    (selectedHomeGalleryImages.length ? selectedHomeGalleryImages : featuredItems
       .flatMap((item) => item.gallery_images.length ? item.gallery_images : [{ src: item.hero_image, alt: item.title, caption: item.destination_title }])
-      .filter((item) => item?.src),
+      .filter((item) => item?.src)),
     (item) => item.src
   ).slice(0, 6);
 
@@ -444,7 +486,9 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       public_slug: item.public_slug,
     })),
     destination_listing: destinationItems,
+    home_destination_listing: homeDestinationItems.length ? homeDestinationItems : destinationItems,
     accommodation_listing: accommodationItems,
+    home_accommodation_listing: homeAccommodationItems.length ? homeAccommodationItems : accommodationItems,
     featured_collection: {
       gallery_images: featuredCollectionImages,
     },
@@ -668,7 +712,8 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
   function resolveListingCards(source, targetPage = page) {
     if (String(source || '').includes('featured_tours')) {
-      return tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage);
+      const cards = tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage);
+      return page.page_key === 'home' ? cards.slice(0, HOME_FEATURED_TOUR_CARD_LIMIT) : cards;
     }
 
     if (String(source || '').includes('destination_listing')) {
@@ -681,6 +726,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
     if (targetPage.page_key === 'accommodation') {
       return tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
+    }
+
+    if (String(source || '').includes('accommodation_listing')) {
+      const cards = tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
+      return page.page_key === 'home' ? cards.slice(0, HOME_HOTEL_CARD_LIMIT) : cards;
     }
 
     return buildFallbackListingCards(source, targetPage);
@@ -1673,6 +1723,52 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       gap: 18px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .luxury-collection-carousel {
+      --luxury-carousel-visible: 3;
+      --luxury-carousel-gap: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .luxury-collection-carousel.is-portrait {
+      --luxury-carousel-visible: 4;
+    }
+    .luxury-collection-viewport {
+      overflow: hidden;
+    }
+    .luxury-collection-track {
+      display: flex;
+      gap: var(--luxury-carousel-gap);
+      transition: transform 240ms ease;
+      will-change: transform;
+    }
+    .luxury-carousel-item {
+      flex: 0 0 calc((100% - (var(--luxury-carousel-gap) * (var(--luxury-carousel-visible) - 1))) / var(--luxury-carousel-visible));
+      min-width: 0;
+    }
+    .luxury-collection-controls {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .luxury-collection-nav {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      border: 1px solid rgba(90,59,39,0.12);
+      background: rgba(255,251,245,0.82);
+      color: #2d2219;
+      font: 500 28px/1 'Cormorant Garamond', serif;
+      cursor: pointer;
+      transition: background 180ms ease, opacity 180ms ease, color 180ms ease;
+    }
+    .luxury-collection-nav:hover {
+      background: rgba(127,63,115,0.12);
+      color: var(--luxury-accent);
+    }
+    .luxury-collection-nav:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
     .luxury-collection-card {
       overflow: hidden;
       border-radius: 6px;
@@ -1952,6 +2048,12 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       .luxury-search-grid,
       .luxury-collection-grid {
         grid-template-columns: 1fr;
+      }
+      .luxury-collection-carousel {
+        --luxury-carousel-visible: 1;
+      }
+      .luxury-collection-carousel.is-portrait {
+        --luxury-carousel-visible: 2;
       }
       .luxury-gallery-thumbs,
       .luxury-collection-grid-portrait {
@@ -2733,6 +2835,68 @@ router.get('/site/hotels', async (c) => {
   if (ctx.error) return ctx.error;
   await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
   return c.json({ ok: true, hotels: await listHotels(ctx.tenantId, c.env.DB) });
+});
+
+router.post('/site/hotels', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const tourId = String(body.tour_id || '').trim();
+  const name = String(body.name || '').trim();
+  const address = String(body.address || '').trim();
+  const description = String(body.description || '').trim();
+  const gallery = Array.isArray(body.gallery) ? body.gallery : [];
+  const status = String(body.status || 'draft').trim() || 'draft';
+
+  if (!tourId) return jsonError(c, 400, 'tour_id is required');
+  if (!name) return jsonError(c, 400, 'name is required');
+
+  const linkedTour = await c.env.DB
+    .prepare('SELECT id FROM tours WHERE tenant_id = ? AND id = ?')
+    .bind(ctx.tenantId, tourId)
+    .first();
+  if (!linkedTour) return jsonError(c, 404, 'Linked tour not found');
+
+  const now = Math.floor(Date.now() / 1000);
+  const hotelId = nanoid();
+  const hotelKey = slugify(body.hotel_key || name) || `hotel-${hotelId}`;
+
+  await c.env.DB
+    .prepare(
+      `INSERT INTO tenant_universal_hotels
+        (id, tenant_id, hotel_key, tour_id, name, description, address, gallery_json, status, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      hotelId,
+      ctx.tenantId,
+      hotelKey,
+      tourId,
+      name,
+      description,
+      address,
+      JSON.stringify(gallery),
+      status,
+      now,
+      now,
+      now
+    )
+    .run();
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM tenant_universal_hotels WHERE tenant_id = ? AND id = ?')
+    .bind(ctx.tenantId, hotelId)
+    .first();
+
+  return c.json({ ok: true, hotel: normalizeHotel(row) }, 201);
 });
 
 router.get('/hotels/:hotelId', async (c) => {

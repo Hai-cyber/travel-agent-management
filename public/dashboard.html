@@ -12,8 +12,28 @@
   <link rel="stylesheet" href="assets/css/main.css" />
   <style>
     /* ── Dashboard overrides ── */
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 24%),
+        linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%) fixed !important;
+      background-color: #0f172a !important;
+    }
+    #page-wrapper { background: transparent; }
+    #header-wrapper {
+      background: transparent;
+      padding-top: 3.5em;
+    }
+    #main-wrapper {
+      background: rgba(255, 255, 255, 0.96);
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+    }
+    #footer-wrapper {
+      background: rgba(248, 250, 252, 0.96);
+    }
     #logo h1 a { font-size: 18px; }
-    #logo span  { font-size: 12px; color: #aaa; }
+    #logo span  { font-size: 12px; color: rgba(226, 232, 240, 0.9); }
 
     .stat-grid {
       display: grid;
@@ -28,7 +48,7 @@
       padding: 20px 24px;
       text-align: center;
     }
-    .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: #7c3aed; line-height: 1.2; }
+    .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: #2563eb; line-height: 1.2; }
     .stat-card .stat-label { font-size: 13px; color: #64748b; margin-top: 4px; }
 
     .badge {
@@ -71,8 +91,8 @@
       padding: 8px 12px; border-radius: 6px; text-decoration: none;
       font-size: 14px; color: #334155; transition: background .15s;
     }
-    .nav-list a:hover  { background: #f1f5f9; color: #7c3aed; }
-    .nav-list a.active { background: #ede9fe; color: #7c3aed; font-weight: 600; }
+    .nav-list a:hover  { background: #eff6ff; color: #2563eb; }
+    .nav-list a.active { background: #dbeafe; color: #2563eb; font-weight: 600; }
     .nav-list .icon { width: 18px; text-align: center; font-size: 15px; }
 
     .compliance-banner {
@@ -85,6 +105,156 @@
 
     .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
     .quick-actions a.button { margin: 0; }
+
+    .launch-guide {
+      background: linear-gradient(135deg, #eff6ff, #ffffff);
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 22px 22px 20px;
+      margin-bottom: 28px;
+      box-shadow: 0 14px 32px rgba(37, 99, 235, 0.1);
+    }
+    .launch-guide-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .launch-guide-title {
+      margin: 0;
+      font-size: 24px;
+      color: #111827;
+    }
+    .launch-guide-copy {
+      margin: 6px 0 0;
+      font-size: 14px;
+      color: #6b7280;
+      max-width: 70ch;
+    }
+    .launch-proof {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .subdomain-setup {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+    .subdomain-setup label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+    }
+    .subdomain-setup input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #93c5fd;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+    .subdomain-hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #1e40af;
+    }
+    .subdomain-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .subdomain-preview {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .subdomain-preview code {
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #0f172a;
+    }
+    .launch-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .launch-step {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      scroll-margin-top: 104px;
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .launch-guide.guided {
+      border-color: #60a5fa;
+      box-shadow: 0 20px 45px rgba(37, 99, 235, 0.14);
+    }
+    .launch-step.focused {
+      border-color: #2563eb;
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.16);
+      transform: translateY(-1px);
+    }
+    .launch-step-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .launch-step-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+      margin: 0;
+    }
+    .launch-step p {
+      margin: 0 0 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #6b7280;
+    }
+    .step-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .step-status.done { background: #dcfce7; color: #166534; }
+    .step-status.next { background: #dbeafe; color: #1d4ed8; }
+    .step-status.later { background: #f3f4f6; color: #475569; }
+    .launch-step a.button {
+      margin: 0;
+      display: inline-block;
+    }
 
     /* hide default banner/features on dashboard */
     #banner-wrapper, #features-wrapper { display: none; }
@@ -101,7 +271,7 @@
       letter-spacing: .03em; transition: all .15s; line-height: 1;
     }
     .lang-btn:hover { border-color: #aaa; color: #fff; }
-    .lang-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .lang-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
     .lang-sep { color: #555; font-size: 11px; }
   </style>
 </head>
@@ -231,6 +401,29 @@
               <a href="#" id="btn-system-settings" class="button alt icon solid fa-sliders-h">System Settings</a>
               <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="dashboard.action.payment_settings">Payment Settings</a>
             </div>
+
+            <section class="launch-guide" id="launch-guide">
+              <div class="launch-guide-head">
+                <div>
+                  <h3 class="launch-guide-title">Start Here: launch in small steps</h3>
+                  <p class="launch-guide-copy">You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build product modules for tours, destinations, hotels, and gallery content.</p>
+                </div>
+                <div class="launch-proof">No card required • 6 months free</div>
+              </div>
+              <div class="subdomain-setup">
+                <label>
+                  Pick and lock your platform subdomain first
+                  <input id="subdomain-input" type="text" placeholder="sunset-travel" autocomplete="off" />
+                  <div class="subdomain-hint" id="subdomain-hint">Use lowercase letters, numbers, and hyphens only. You can lock this platform subdomain once.</div>
+                </label>
+                <div class="subdomain-actions">
+                  <a href="#" id="btn-suggest-subdomain" class="button alt small">Suggest</a>
+                  <a href="#" id="btn-save-subdomain" class="button small">Lock subdomain</a>
+                </div>
+              </div>
+              <div class="subdomain-preview" id="subdomain-preview">Reserved preview: <code id="subdomain-preview-value">sunset-travel.tours-market.com</code></div>
+              <div class="launch-steps" id="launch-steps"></div>
+            </section>
 
             <!-- Stat Cards -->
             <div class="stat-grid">
@@ -494,9 +687,62 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
    Dashboard Init — Tenant context, dynamic links, trial status
 ════════════════════════════════════════════════════════════════ */
 (async () => {
-  const TRIAL_DAYS = 14;
+  const TRIAL_DAYS = 180;
+  const PLATFORM_SUBDOMAIN_SUFFIX = 'tours-market.com';
   const LOGIN_PAGE = '/login.html';
   const params = new URLSearchParams(location.search);
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char] || char));
+  }
+
+  function slugifySubdomain(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48);
+  }
+
+  function buildPlatformPreviewHost(subdomain) {
+    const clean = slugifySubdomain(subdomain);
+    return clean ? `${clean}.${PLATFORM_SUBDOMAIN_SUFFIX}` : `your-brand.${PLATFORM_SUBDOMAIN_SUFFIX}`;
+  }
+
+  function updateSubdomainPreview(value) {
+    const preview = document.getElementById('subdomain-preview-value');
+    if (!preview) return;
+    preview.textContent = buildPlatformPreviewHost(value);
+  }
+
+  function syncSubdomainLockUi() {
+    const settings = onboardingState.settings || {};
+    const lockedSubdomain = String(settings.subdomain || '').trim();
+    const isLocked = Boolean(lockedSubdomain);
+    if (subdomainInput) {
+      subdomainInput.disabled = isLocked;
+      subdomainInput.readOnly = isLocked;
+      if (isLocked) subdomainInput.value = lockedSubdomain;
+    }
+    if (suggestSubdomain) {
+      suggestSubdomain.style.display = isLocked ? 'none' : 'inline-block';
+    }
+    if (saveSubdomain) {
+      saveSubdomain.textContent = isLocked ? 'Subdomain locked' : 'Lock subdomain';
+      saveSubdomain.classList.toggle('alt', isLocked);
+      saveSubdomain.style.pointerEvents = isLocked ? 'none' : 'auto';
+      saveSubdomain.style.opacity = isLocked ? '0.7' : '1';
+    }
+    updateSubdomainPreview(lockedSubdomain || subdomainInput?.value || getSuggestedSubdomain());
+  }
 
   const sessionPayload = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
   if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
@@ -505,18 +751,23 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     return;
   }
 
+  const launchFlow = {
+    welcome: params.get('welcome') === '1',
+    step: String(params.get('step') || '').trim().toLowerCase(),
+    applied: false,
+  };
   const tenantId = sessionPayload.session.tenant_id;
+  const tenantName = sessionPayload.session.tenant_name || '';
+  const onboardingState = { settings: null, publicConfig: null, universalBundle: null, tours: [] };
+
   localStorage.setItem('tam_tenant_id', tenantId);
   if (params.toString()) {
     history.replaceState({}, '', '/dashboard.html');
   }
 
-  // ── 2. Wire dynamic links (trước khi reveal) ─────────────────────────
-  const tid = encodeURIComponent(tenantId);
-
-  document.getElementById('btn-tour-config').href      = `tour-config.html?tid=${tid}#pricing`;
-  document.getElementById('btn-universal-admin').href  = `universal-admin.html?tid=${tid}`;
-  document.getElementById('btn-system-settings').href  = `universal-admin.html?tid=${tid}#system`;
+  document.getElementById('btn-tour-config').href      = 'tour-config.html#pricing';
+  document.getElementById('btn-universal-admin').href  = 'universal-admin.html';
+  document.getElementById('btn-system-settings').href  = 'universal-admin.html?panel=system&onboarding=system';
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
@@ -529,16 +780,311 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   const navSystemSettings = document.getElementById('nav-system-settings');
   const navToursPricing = document.getElementById('nav-tours-pricing');
   const navPayments = document.getElementById('nav-payments');
-  if (sidebarTours)   sidebarTours.href   = `tour-config.html?tid=${tid}`;
-  if (sidebarUniversal) sidebarUniversal.href = `universal-admin.html?tid=${tid}`;
-  if (sidebarSystemSettings) sidebarSystemSettings.href = `universal-admin.html?tid=${tid}#system`;
-  if (sidebarToursPricing) sidebarToursPricing.href = `tour-config.html?tid=${tid}#pricing`;
+  if (sidebarTours) sidebarTours.href = 'tour-config.html';
+  if (sidebarUniversal) sidebarUniversal.href = 'universal-admin.html';
+  if (sidebarSystemSettings) sidebarSystemSettings.href = 'universal-admin.html?panel=system&onboarding=system';
+  if (sidebarToursPricing) sidebarToursPricing.href = 'tour-config.html#pricing';
   if (sidebarPayment) sidebarPayment.href = `#payments`;
-  if (navUniversal) navUniversal.href = `universal-admin.html?tid=${tid}`;
-  if (navSettings) navSettings.href = `universal-admin.html?tid=${tid}#system`;
-  if (navSystemSettings) navSystemSettings.href = `universal-admin.html?tid=${tid}#system`;
-  if (navToursPricing) navToursPricing.href = `tour-config.html?tid=${tid}#pricing`;
+  if (navUniversal) navUniversal.href = 'universal-admin.html';
+  if (navSettings) navSettings.href = 'universal-admin.html?panel=system&onboarding=system';
+  if (navSystemSettings) navSystemSettings.href = 'universal-admin.html?panel=system&onboarding=system';
+  if (navToursPricing) navToursPricing.href = 'tour-config.html#pricing';
   if (navPayments) navPayments.href = `#payments`;
+
+  function getSuggestedSubdomain() {
+    return slugifySubdomain(onboardingState.settings?.name || tenantName || 'travel-brand');
+  }
+
+  function updateSubdomainHint(message, isError) {
+    const hint = document.getElementById('subdomain-hint');
+    if (!hint) return;
+    hint.textContent = message;
+    hint.style.color = isError ? '#b91c1c' : '#92400e';
+  }
+
+  function buildStep(stepKey, title, description, href, label, status) {
+    return `
+      <article class="launch-step ${status.className === 'next' && launchFlow.step === stepKey ? 'focused' : ''}" data-step-key="${escapeHtml(stepKey)}">
+        <div class="launch-step-top">
+          <h4 class="launch-step-title">${escapeHtml(title)}</h4>
+          <span class="step-status ${status.className}">${escapeHtml(status.label)}</span>
+        </div>
+        <p>${escapeHtml(description)}</p>
+        <a class="button small ${status.className === 'done' ? 'alt' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>
+      </article>
+    `;
+  }
+
+  function buildStepStatus(isComplete, isNext) {
+    if (isComplete) return { label: 'Done', className: 'done' };
+    if (isNext) return { label: 'Next', className: 'next' };
+    return { label: 'Later', className: 'later' };
+  }
+
+  function countEnabledContacts(contacts) {
+    const channels = contacts?.channels || {};
+    return Object.values(channels).filter((entry) => entry?.enabled && entry?.value).length;
+  }
+
+  function findPage(pages, pageKey) {
+    return (pages || []).find((page) => page?.page_key === pageKey) || null;
+  }
+
+  function getPrimaryPageBody(page) {
+    const blocks = Array.isArray(page?.blocks) ? page.blocks : Object.values(page?.blocks || {});
+    const target = blocks.find((block) => ['rich_text', 'legal', 'contact'].includes(block?.type));
+    return String(target?.content?.body || '').trim();
+  }
+
+  function applyLaunchFocus() {
+    const requestedStep = launchFlow.step || (launchFlow.welcome ? 'subdomain' : '');
+    if (!requestedStep || launchFlow.applied) return;
+
+    const guide = document.getElementById('launch-guide');
+    if (!guide) return;
+
+    guide.classList.add('guided');
+    const targetCard = requestedStep === 'subdomain'
+      ? null
+      : guide.querySelector(`[data-step-key="${requestedStep}"]`);
+
+    if (targetCard) {
+      targetCard.classList.add('focused');
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const link = targetCard.querySelector('a');
+      if (link) link.focus({ preventScroll: true });
+    } else {
+      guide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const input = document.getElementById('subdomain-input');
+      if (input) input.focus({ preventScroll: true });
+    }
+
+    launchFlow.applied = true;
+  }
+
+  function renderLaunchGuide() {
+    const settings = onboardingState.settings || {};
+    const publicConfig = onboardingState.publicConfig?.config || {};
+    const universalBundle = onboardingState.universalBundle || {};
+    const runtime = universalBundle.tour_runtime || {};
+    const pages = Array.isArray(universalBundle.pages) ? universalBundle.pages : [];
+    const hasSubdomain = Boolean((settings.subdomain || settings.custom_domain || '').trim());
+    const selectedSkin = String(settings.current_theme || publicConfig.current_theme || universalBundle.site?.current_theme || '').trim();
+    const hasTheme = Boolean(selectedSkin);
+    const homePage = findPage(pages, 'home');
+    const menuItems = Array.isArray(universalBundle.menu) ? universalBundle.menu : (Array.isArray(universalBundle.menu?.items) ? universalBundle.menu.items : []);
+    const hasWebsiteBase = Boolean((publicConfig.template_id || '').trim())
+      || Boolean(universalBundle.site?.site_name)
+      || Boolean(publicConfig.brand?.name)
+      || Boolean(publicConfig.content?.hero_title)
+      || Boolean(Array.isArray(homePage?.blocks) && homePage.blocks.length)
+      || Boolean(menuItems.length);
+    const tours = Array.isArray(onboardingState.tours) ? onboardingState.tours : [];
+    const toursCount = tours.length || (Array.isArray(runtime.featured_tours) ? runtime.featured_tours.length : 0);
+    const destinationCount = toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0;
+    const hotelsCount = toursCount ? (Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0) : 0;
+    const featuredCollectionImages = Array.isArray(runtime.featured_collection?.gallery_images) ? runtime.featured_collection.gallery_images : [];
+    const homeGalleryBlock = Array.isArray(homePage?.blocks)
+      ? homePage.blocks.find((block) => block?.type === 'gallery')
+      : null;
+    const galleryCount = toursCount
+      ? (featuredCollectionImages.length || (Array.isArray(homeGalleryBlock?.content?.images) ? homeGalleryBlock.content.images.length : 0))
+      : 0;
+    const contactCount = countEnabledContacts(universalBundle.contacts);
+    const hasSystemSettings = Boolean(contactCount)
+      || Boolean(universalBundle.contacts?.contactForm?.enabled)
+      || Boolean(getPrimaryPageBody(findPage(pages, 'terms')))
+      || Boolean(getPrimaryPageBody(findPage(pages, 'privacy')))
+      || Boolean(getPrimaryPageBody(findPage(pages, 'contact-us')) || getPrimaryPageBody(findPage(pages, 'contact')));
+
+    const input = document.getElementById('subdomain-input');
+    if (input && !input.value) {
+      input.value = settings.subdomain || getSuggestedSubdomain();
+    }
+
+    updateSubdomainHint(
+      hasSubdomain
+        ? `Subdomain locked: ${settings.subdomain}. This platform subdomain can only be chosen once.`
+        : `Suggested: ${getSuggestedSubdomain()} - short, brand-first, and easy to remember. You can lock it once.`,
+      false
+    );
+    updateSubdomainPreview(settings.subdomain || input?.value || getSuggestedSubdomain());
+    syncSubdomainLockUi();
+
+    const sequence = [
+      {
+        key: 'subdomain',
+        complete: hasSubdomain,
+        title: 'Pick and lock your subdomain',
+        description: hasSubdomain
+          ? `Locked at ${settings.subdomain}.tours-market.com. This platform address is reserved and cannot be changed later.`
+          : 'Start here first. Platform subdomains are limited, so choose one clean brand address and lock it once.',
+        href: '#launch-guide',
+        label: hasSubdomain ? 'Subdomain locked' : 'Lock subdomain now',
+      },
+      {
+        key: 'skin',
+        complete: hasTheme,
+        title: 'Choose skin and brand style',
+        description: hasTheme
+          ? `Skin selected: ${selectedSkin}. You can still refine fonts, colors, and shell details.`
+          : 'Pick the visual direction before editing pages so the whole site stays consistent.',
+        href: 'universal-admin.html?panel=system&onboarding=skin',
+        label: hasTheme ? 'Refine skin' : 'Choose skin',
+      },
+      {
+        key: 'website',
+        complete: hasWebsiteBase,
+        title: 'Create the website shell',
+        description: hasWebsiteBase
+          ? 'The website base exists. Continue shaping homepage sections, copy, and layout from Website Design.'
+          : 'Set the first website structure now: homepage story, sections, and visual identity.',
+        href: 'universal-admin.html',
+        label: hasWebsiteBase ? 'Edit website' : 'Create website',
+      },
+      {
+        key: 'tours',
+        complete: toursCount > 0,
+        title: 'Configure tours',
+        description: toursCount > 0
+          ? `${toursCount} tour${toursCount === 1 ? '' : 's'} already loaded. Refine pricing, stops, and sales copy.`
+          : 'Add tours, pricing, stops, and sales-ready content. This is the main commercial setup step today.',
+        href: 'tour-config.html',
+        label: toursCount > 0 ? 'Refine tours' : 'Configure tours',
+      },
+      {
+        key: 'destinations',
+        complete: destinationCount > 0,
+        title: 'Add destinations',
+        description: destinationCount > 0
+          ? `${destinationCount} destination card${destinationCount === 1 ? '' : 's'} are already feeding the public site.`
+          : 'Turn raw tours into browsable destination stories customers can scan quickly.',
+        href: 'product-modules.html?mode=destinations',
+        label: destinationCount > 0 ? 'Refine destinations' : 'Add destinations',
+      },
+      {
+        key: 'hotels',
+        complete: hotelsCount > 0,
+        title: 'Add hotels and stays',
+        description: hotelsCount > 0
+          ? `${hotelsCount} stay option${hotelsCount === 1 ? '' : 's'} already linked into the site bundle.`
+          : 'Connect hotel or stay inventory after the tour narrative is clean.',
+        href: 'product-modules.html?mode=hotels',
+        label: hotelsCount > 0 ? 'Review stays' : 'Plan stays',
+      },
+      {
+        key: 'gallery',
+        complete: galleryCount > 0,
+        title: 'Build the gallery',
+        description: galleryCount > 0
+          ? `${galleryCount} gallery image${galleryCount === 1 ? '' : 's'} are already available for the storefront.`
+          : 'Add visual proof so the site sells with imagery, not just itinerary text.',
+        href: 'product-modules.html?mode=gallery',
+        label: galleryCount > 0 ? 'Refine gallery' : 'Build gallery',
+      },
+      {
+        key: 'system',
+        complete: hasSystemSettings,
+        title: 'Finish system settings',
+        description: hasSystemSettings
+          ? 'Contact or legal basics are already in place. Review them before going live.'
+          : 'Finish contact channels, legal pages, and core system defaults before launch.',
+        href: 'universal-admin.html?panel=system&onboarding=system',
+        label: hasSystemSettings ? 'Review system settings' : 'Finish system settings',
+      },
+    ];
+
+    const nextIndex = sequence.findIndex((step) => !step.complete);
+    const steps = sequence.map((step, index) => buildStep(
+      step.key,
+      step.title,
+      step.description,
+      step.href,
+      step.label,
+      buildStepStatus(step.complete, index === nextIndex)
+    ));
+
+    document.getElementById('launch-steps').innerHTML = steps.join('');
+    applyLaunchFocus();
+  }
+
+  async function loadLaunchData() {
+    const [publicConfigResult, universalBundleResult, toursResult] = await Promise.allSettled([
+      fetch('/api/tenant/config', { headers: { 'X-Tenant-ID': tenantId } }),
+      fetch('/api/universal/site/config', { headers: { 'X-Tenant-ID': tenantId } }),
+      fetch('/api/tours', { headers: { 'X-Tenant-ID': tenantId } }),
+    ]);
+
+    if (publicConfigResult.status === 'fulfilled') {
+      const payload = await publicConfigResult.value.json().catch(() => null);
+      if (publicConfigResult.value.ok && payload?.ok) onboardingState.publicConfig = payload;
+    }
+
+    if (universalBundleResult.status === 'fulfilled') {
+      const payload = await universalBundleResult.value.json().catch(() => null);
+      if (universalBundleResult.value.ok && payload?.ok) onboardingState.universalBundle = payload;
+    }
+
+    if (toursResult.status === 'fulfilled') {
+      const payload = await toursResult.value.json().catch(() => null);
+      if (toursResult.value.ok && payload?.ok && Array.isArray(payload.tours)) onboardingState.tours = payload.tours;
+    }
+  }
+
+  const subdomainInput = document.getElementById('subdomain-input');
+  const suggestSubdomain = document.getElementById('btn-suggest-subdomain');
+  const saveSubdomain = document.getElementById('btn-save-subdomain');
+  if (suggestSubdomain) {
+    suggestSubdomain.addEventListener('click', (event) => {
+      event.preventDefault();
+      subdomainInput.value = getSuggestedSubdomain();
+      updateSubdomainHint(`Suggested: ${subdomainInput.value}`, false);
+      updateSubdomainPreview(subdomainInput.value);
+    });
+  }
+  if (subdomainInput) {
+    subdomainInput.addEventListener('input', () => {
+      const normalized = slugifySubdomain(subdomainInput.value);
+      updateSubdomainPreview(normalized || subdomainInput.value);
+      if (!normalized) return updateSubdomainHint('Use lowercase letters, numbers, and hyphens only. You can lock this once.', false);
+      if (normalized !== subdomainInput.value) {
+        updateSubdomainHint(`Will lock as: ${normalized}`, false);
+      } else {
+        updateSubdomainHint(`Looks good: ${normalized}. This choice becomes permanent after lock.`, false);
+      }
+    });
+  }
+  if (saveSubdomain) {
+    saveSubdomain.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const normalized = slugifySubdomain(subdomainInput.value);
+      if (!normalized) return updateSubdomainHint('Please enter a valid subdomain first.', true);
+
+      saveSubdomain.textContent = 'Locking...';
+      try {
+        const res = await fetch('/api/tenants/settings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID': tenantId,
+          },
+          body: JSON.stringify({ subdomain: normalized, onboarding_step: 'SUBDOMAIN_SELECTED' }),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not lock subdomain.');
+        onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
+        subdomainInput.value = payload.settings?.subdomain || normalized;
+        updateSubdomainHint(`Locked. Reserved preview: ${buildPlatformPreviewHost(payload.settings?.subdomain || normalized)}. This choice cannot be changed later.`, false);
+        updateSubdomainPreview(payload.settings?.subdomain || normalized);
+        renderLaunchGuide();
+      } catch (error) {
+        updateSubdomainHint(error.message || 'Could not lock subdomain.', true);
+      } finally {
+        syncSubdomainLockUi();
+      }
+    });
+  }
+
   const logoutLink = document.getElementById('nav-logout');
   if (logoutLink) {
     logoutLink.addEventListener('click', async (event) => {
@@ -551,8 +1097,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     });
   }
 
-  // ── 3. Fetch tenant settings → trial banner ───────────────────────────
   try {
+    await loadLaunchData();
     const res = await fetch('/api/tenants/settings', {
       headers: { 'X-Tenant-ID': tenantId }
     });
@@ -563,16 +1109,33 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         location.replace(LOGIN_PAGE);
         return;
       }
-      // Lỗi khác (5xx) — vẫn hiện trang, chỉ không có trial banner
     } else {
       const { settings } = await res.json();
+      onboardingState.settings = settings || {};
 
       const nameEl = document.getElementById('tenant-name-display');
       if (nameEl && settings.name) nameEl.textContent = settings.name;
 
+      renderLaunchGuide();
+
+      let daysLeft = null;
+      try {
+        const billingRes = await fetch('/api/billing/status', {
+          headers: { 'X-Tenant-ID': tenantId }
+        });
+        if (billingRes.ok) {
+          const billing = await billingRes.json().catch(() => null);
+          if (billing?.ok && billing?.trial_info) {
+            daysLeft = Number(billing.trial_info.trial_days_left);
+          }
+        }
+      } catch (_) {}
+
       if (settings.subscription_status === 'TRIAL' && settings.created_at) {
-        const elapsed  = Math.floor(Date.now() / 1000 - settings.created_at);
-        const daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
+        if (!Number.isFinite(daysLeft)) {
+          const elapsed  = Math.floor(Date.now() / 1000 - settings.created_at);
+          daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
+        }
         const banner   = document.getElementById('trial-banner');
         const text     = document.getElementById('trial-banner-text');
 
@@ -592,10 +1155,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     }
   } catch (err) {
     console.warn('[dashboard:init] Could not load tenant settings:', err.message);
+    renderLaunchGuide();
   }
 
-  // ── 4. Reveal page (fade-in) ─────────────────────────────────────────
-  // Chỉ gọi sau khi links đã được gán và trial banner đã render xong.
   document.documentElement.style.transition  = 'opacity .18s ease';
   document.documentElement.style.opacity     = '0';
   document.documentElement.style.visibility  = 'visible';

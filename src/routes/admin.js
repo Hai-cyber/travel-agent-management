@@ -43,6 +43,11 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { unzipSync, strFromU8 } from 'fflate';
+import {
+  loadMarketingSiteConfig,
+  saveMarketingSiteConfig,
+  getMarketingSitePayload,
+} from '../lib/marketingSite.js';
 
 const admin = new Hono();
 
@@ -359,6 +364,25 @@ admin.delete('/templates/:id', async (c) => {
   }
 
   return c.json({ ok: true, template_id: tmplId, is_active: false });
+});
+
+admin.get('/marketing-site', async (c) => {
+  const config = await loadMarketingSiteConfig(c.env.DB);
+  const preview = await getMarketingSitePayload(c.env.DB, 'en');
+  return c.json({ ok: true, config, preview });
+});
+
+admin.put('/marketing-site', async (c) => {
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body is not valid JSON.' }, 400);
+  }
+
+  const config = await saveMarketingSiteConfig(c.env.DB, body);
+  const preview = await getMarketingSitePayload(c.env.DB, 'en');
+  return c.json({ ok: true, config, preview });
 });
 
 export default function registerAdminRoutes(app) {

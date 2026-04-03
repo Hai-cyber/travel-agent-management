@@ -217,7 +217,7 @@ export async function getPrimaryMembership(db, userId) {
 export async function resolveLegacyTenantByEmail(db, email) {
   return db
     .prepare(
-      `SELECT t.id, t.slug, t.name, t.email, t.created_at, t.subscription_status, t.template_id
+      `SELECT t.id, t.slug, t.name, t.email, t.created_at, t.subscription_status, t.template_id, t.product_tier_key
          FROM tenants t
         WHERE t.email = ?
           AND NOT EXISTS (

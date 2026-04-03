@@ -14,6 +14,13 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { initializeTenantSandbox } from '../lib/siteStudio.js';
+import { bootstrapTenantStarterContent } from '../lib/tenantBootstrap.js';
+import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
+import {
+  getDefaultSignupTierKey,
+  getProductTierCatalogPayload,
+  resolveSignupTierKey,
+} from '../lib/productTiers.js';
 import {
   EMAIL_RE,
   clearAuthSessionCookie,
@@ -31,6 +38,7 @@ import {
 } from '../lib/auth.js';
 
 const onboarding = new Hono();
+const SIGNUP_GUIDED_DASHBOARD_URL = '/dashboard.html?welcome=1&step=subdomain';
 
 function slugify(text) {
   return String(text)
@@ -114,7 +122,7 @@ async function fetchUserByGoogleOrEmail(db, googleSub, emailClean) {
     .first();
 }
 
-async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, now) {
+async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, now) {
   const tenantId = nanoid();
   const baseSlug = slugify(nameClean) || `tenant-${nanoid(8)}`;
   const slugConflict = await db.prepare('SELECT id FROM tenants WHERE slug = ?').bind(baseSlug).first();
@@ -123,10 +131,10 @@ async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, now
   await db
     .prepare(
       `INSERT INTO tenants
-         (id, slug, name, email, subscription_status, template_id, created_at)
-       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?)`
+         (id, slug, name, email, subscription_status, template_id, product_tier_key, created_at)
+       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?, ?)`
     )
-    .bind(tenantId, tenantSlug, nameClean, emailClean, tmplId, now)
+    .bind(tenantId, tenantSlug, nameClean, emailClean, tmplId, productTierKey, now)
     .run();
 
   return { tenantId, tenantSlug, tenantName: nameClean };
@@ -145,7 +153,16 @@ async function maybeInitializeSandbox(c, tenantId, tmplId) {
   }
 }
 
-async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId }) {
+async function maybeSeedStarterContent(c, tenantId, tenantName) {
+  try {
+    return await bootstrapTenantStarterContent(c.env, tenantId, tenantName);
+  } catch (seedErr) {
+    console.error('[onboarding] bootstrapTenantStarterContent failed:', seedErr.message);
+    return { ok: false, reason: seedErr.message };
+  }
+}
+
+async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey }) {
   const now = Math.floor(Date.now() / 1000);
   const existingUser = await fetchUserByEmail(db, emailClean);
   const legacyTenant = await resolveLegacyTenantByEmail(db, emailClean);
@@ -158,6 +175,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
   let tenantSlug;
   let tenantName;
   let sandbox;
+  let starter_content = { ok: true, skipped: true, reason: 'existing_tenant_attached' };
   let createdNewTenant = false;
 
   if (legacyTenant) {
@@ -167,7 +185,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
     sandbox = { ok: true, skipped: true, reason: 'legacy_tenant_attached' };
   } else {
     createdNewTenant = true;
-    const created = await insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, now);
+    const created = await insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, now);
     tenantId = created.tenantId;
     tenantSlug = created.tenantSlug;
     tenantName = created.tenantName;
@@ -200,6 +218,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, emailClean, now);
@@ -209,7 +228,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
     ok: true,
     tenant_id: tenantId,
     setup_token: setupToken,
-    redirect_url: '/dashboard.html',
+    redirect_url: SIGNUP_GUIDED_DASHBOARD_URL,
     tenant: {
       id: tenantId,
       slug: tenantSlug,
@@ -217,8 +236,10 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
       email: emailClean,
       subscription_status: 'TRIAL',
       template_id: tmplId,
+      product_tier_key: productTierKey,
     },
     sandbox,
+    starter_content,
   }, createdNewTenant ? 201 : 200);
 }
 
@@ -242,6 +263,11 @@ async function finishGoogleAuth(c, { mode }) {
     return c.json({ error: err.message || 'Invalid selected_template_id.' }, 400);
   }
 
+  const productTierKey = resolveSignupTierKey(body?.product_tier_key);
+  if (!productTierKey) {
+    return c.json({ error: 'Invalid or unavailable product_tier_key.' }, 400);
+  }
+
   const profile = await verifyGoogleIdToken(body?.id_token, c.env.GOOGLE_CLIENT_ID || '');
   const now = Math.floor(Date.now() / 1000);
   const legacyTenant = await resolveLegacyTenantByEmail(db, profile.email);
@@ -259,11 +285,12 @@ async function finishGoogleAuth(c, { mode }) {
   let tenantSlug = legacyTenant?.slug || null;
   let tenantName = legacyTenant?.name || null;
   let sandbox = { ok: true, skipped: true, reason: 'login_existing_tenant' };
+  let starter_content = { ok: true, skipped: true, reason: 'login_existing_tenant' };
   let createdNewTenant = false;
 
   if (!tenantId && mode === 'signup') {
     createdNewTenant = true;
-    const created = await insertTenantWithUniqueSlug(db, tenantNameRaw, profile.email, tmplId, now);
+    const created = await insertTenantWithUniqueSlug(db, tenantNameRaw, profile.email, tmplId, productTierKey, now);
     tenantId = created.tenantId;
     tenantSlug = created.tenantSlug;
     tenantName = created.tenantName;
@@ -311,6 +338,7 @@ async function finishGoogleAuth(c, { mode }) {
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, profile.email, now);
@@ -320,14 +348,16 @@ async function finishGoogleAuth(c, { mode }) {
     ok: true,
     tenant_id: tenantId,
     setup_token: setupToken,
-    redirect_url: '/dashboard.html',
+    redirect_url: SIGNUP_GUIDED_DASHBOARD_URL,
     tenant: {
       id: tenantId,
       slug: tenantSlug,
       name: tenantName,
       email: profile.email,
+      product_tier_key: productTierKey,
     },
     sandbox,
+    starter_content,
     user: {
       email: profile.email,
       google_sub: profile.sub,
@@ -380,7 +410,18 @@ onboarding.post('/signup-onboarding', async (c) => {
     return c.json({ error: err.message || 'Invalid selected_template_id.' }, 400);
   }
 
-  return finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId });
+  const productTierKey = resolveSignupTierKey(body?.product_tier_key);
+  if (!productTierKey) {
+    return c.json({ error: 'Invalid or unavailable product_tier_key.' }, 400);
+  }
+
+  return finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey });
+});
+
+onboarding.get('/product-tiers', async (c) => {
+  const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
+  const payload = getProductTierCatalogPayload(lang);
+  return c.json({ ok: true, ...payload, default_tier_key: getDefaultSignupTierKey() });
 });
 
 onboarding.post('/signup-google', async (c) => {

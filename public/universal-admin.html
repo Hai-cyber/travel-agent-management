@@ -8,11 +8,11 @@
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap');
 
     :root {
-      --shell-bg: #0b1016;
+      --shell-bg: #0f172a;
       --shell-line: rgba(255, 255, 255, 0.12);
-      --shell-text: #f8f3ed;
-      --shell-muted: rgba(248, 243, 237, 0.7);
-      --shell-purple: #7f3f73;
+      --shell-text: #eff6ff;
+      --shell-muted: rgba(219, 234, 254, 0.72);
+      --shell-purple: #2563eb;
       --shell-shadow: 0 30px 70px rgba(2, 6, 23, 0.35);
     }
 
@@ -23,7 +23,7 @@
       height: 100%;
       margin: 0;
       overflow: hidden;
-      background: radial-gradient(circle at top, rgba(127,63,115,0.12), transparent 28%), var(--shell-bg);
+      background: radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 28%), var(--shell-bg);
       color: var(--shell-text);
       font: 15px/1.5 'Source Sans 3', system-ui, sans-serif;
     }
@@ -36,7 +36,7 @@
       width: 100%;
       height: 100%;
       border: 0;
-      background: #081017;
+      background: #0b1220;
     }
 
     .topbar {
@@ -89,6 +89,10 @@
       flex-wrap: wrap;
     }
 
+    .tenant-id-hidden {
+      display: none;
+    }
+
     .input,
     .select,
     .button,
@@ -131,6 +135,15 @@
       background: var(--shell-purple);
       border-color: transparent;
       box-shadow: 0 16px 34px rgba(127,63,115,0.28);
+    }
+
+    .button:disabled,
+    .button.is-muted {
+      cursor: default;
+      color: rgba(219, 234, 254, 0.62);
+      background: rgba(148, 163, 184, 0.18);
+      border-color: rgba(148, 163, 184, 0.22);
+      box-shadow: none;
     }
 
     .button.ghost {
@@ -332,13 +345,14 @@
     <a class="brand" href="#">
       <span>
         <strong id="brand-title" class="brand-title">Universal</strong>
-        <span id="brand-subtitle" class="brand-subtitle">Multi-Skin Admin</span>
+        <span id="brand-subtitle" class="brand-subtitle">Preview-First Admin</span>
       </span>
     </a>
     <div class="controls">
-      <input id="tenant-id" class="input" type="text" placeholder="Tenant ID" />
+      <input id="tenant-id" class="input tenant-id-hidden" type="hidden" placeholder="Tenant ID" />
       <select id="page-select" class="select"></select>
       <button id="btn-load" class="button primary" type="button">Reload Preview</button>
+      <a id="tenant-admin-link" class="button ghost" href="/dashboard.html">Back to Tenant Admin</a>
       <a id="public-home-link" class="button ghost" href="#" target="_blank" rel="noreferrer">Open Live Page</a>
       <button id="btn-system-panel" class="button ghost" type="button">System Panel</button>
     </div>
@@ -374,12 +388,19 @@
     const state = {
       tenantId: '',
       bundle: null,
+      tenantSettings: null,
       activeSlug: 'home',
       selected: null,
       activeTheme: null,
+      onboardingMode: '',
       previewScrollY: 0,
       pendingPreviewScrollY: null,
       pendingPreviewFocus: null,
+    };
+
+    const CURRENT_SAMPLE_THEME = {
+      value: 'six-senses',
+      label: 'Six Senses Immersive Frame',
     };
 
     const $ = (id) => document.getElementById(id);
@@ -392,7 +413,7 @@
 
     function getTenantId() {
       const params = new URLSearchParams(window.location.search);
-      return params.get('tid') || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || 'ten-demo-001';
+      return params.get('tid') || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '';
     }
 
     function shouldOpenSystemPanel() {
@@ -402,17 +423,33 @@
       return panel === 'system' || hash === 'system' || hash === 'settings';
     }
 
+    function getOnboardingMode() {
+      const params = new URLSearchParams(window.location.search);
+      const value = String(params.get('onboarding') || '').trim().toLowerCase();
+      return ['skin', 'system', 'website', 'content'].includes(value) ? value : '';
+    }
+
+    function getRequestedPageSlug() {
+      const params = new URLSearchParams(window.location.search);
+      return String(params.get('page') || params.get('slug') || '').trim().toLowerCase();
+    }
+
+    function getRequestedFocus() {
+      const params = new URLSearchParams(window.location.search);
+      return String(params.get('focus') || '').trim().toLowerCase();
+    }
+
     function buildHeaders(tenantId) {
       return { 'X-Tenant-ID': tenantId };
     }
 
     function getActiveTheme() {
       return state.bundle?.active_theme || {
-        key: 'default-editorial',
-        label: 'Default Editorial Frame',
+        key: CURRENT_SAMPLE_THEME.value,
+        label: CURRENT_SAMPLE_THEME.label,
         admin: {
-          title: 'Universal',
-          subtitle: 'Multi-Skin Admin',
+          title: 'Six Senses',
+          subtitle: 'Preview-First Admin',
           vars: {},
         },
       };
@@ -427,7 +464,7 @@
       });
 
       $('brand-title').textContent = state.activeTheme?.admin?.title || state.activeTheme?.label || 'Universal';
-      $('brand-subtitle').textContent = state.activeTheme?.admin?.subtitle || 'Multi-Skin Admin';
+      $('brand-subtitle').textContent = state.activeTheme?.admin?.subtitle || 'Preview-First Admin';
     }
 
     function getPreviewFrameWindow() {
@@ -449,8 +486,8 @@
         }
         .ve-context-edit-button {
           position: absolute;
-          top: 12px;
-          left: 12px;
+          top: 50%;
+          left: 50%;
           z-index: 2147483646;
           display: inline-flex;
           align-items: center;
@@ -465,7 +502,7 @@
           letter-spacing: 0.16em;
           text-transform: uppercase;
           opacity: 0;
-          transform: translateY(-6px);
+          transform: translate(-50%, calc(-50% - 6px));
           transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
           pointer-events: none;
           cursor: pointer;
@@ -476,13 +513,13 @@
         [data-ve-section]:focus-within > .ve-context-edit-button,
         .ve-context-edit-button:focus-visible {
           opacity: 1;
-          transform: translateY(0);
+          transform: translate(-50%, -50%);
           pointer-events: auto;
         }
         [data-ve-section]:has([data-ve-entity]:hover) > .ve-context-edit-button,
         [data-ve-section]:has([data-ve-entity]:focus-within) > .ve-context-edit-button {
           opacity: 0;
-          transform: translateY(-6px);
+          transform: translate(-50%, calc(-50% - 6px));
           pointer-events: none;
         }
         .ve-context-edit-button:hover {
@@ -671,6 +708,16 @@
       $('public-home-link').href = page ? `/p/${encodeURIComponent(state.tenantId)}/${encodeURIComponent(page.slug || page.page_key)}` : '#';
     }
 
+    function updateTenantAdminLink() {
+      const params = new URLSearchParams();
+      if (state.onboardingMode) params.set('welcome', '1');
+      const href = params.toString() ? `/dashboard.html?${params.toString()}` : '/dashboard.html';
+      $('tenant-admin-link').href = href;
+      $('tenant-admin-link').textContent = state.onboardingMode === 'skin'
+        ? 'Back to Tenant Admin'
+        : 'Tenant Admin';
+    }
+
     function closePanel() {
       state.selected = null;
       $('editor-panel').classList.remove('open');
@@ -764,6 +811,37 @@
       return field;
     }
 
+    function buildActionField(labelText, id, buttonText, options = {}) {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      field.appendChild(label);
+      const button = document.createElement('button');
+      button.id = id;
+      button.type = 'button';
+      button.className = `button ${options.primary === false ? 'ghost' : 'primary'}${options.muted ? ' is-muted' : ''}`;
+      button.textContent = buttonText;
+      button.disabled = Boolean(options.disabled);
+      if (options.dataset) {
+        Object.entries(options.dataset).forEach(([key, value]) => {
+          button.dataset[key] = value;
+        });
+      }
+      if (typeof options.onClick === 'function') {
+        button.addEventListener('click', options.onClick);
+      }
+      field.appendChild(button);
+      if (options.note) {
+        const note = document.createElement('p');
+        note.className = 'empty-copy';
+        note.style.marginTop = '6px';
+        note.textContent = options.note;
+        field.appendChild(note);
+      }
+      return field;
+    }
+
     function buildSectionHeading(title, description = '') {
       const wrap = document.createElement('div');
       wrap.style.gridColumn = '1 / -1';
@@ -788,6 +866,46 @@
         wrap.appendChild(note);
       }
       return wrap;
+    }
+
+    function clearFieldHighlights() {
+      document.querySelectorAll('.field[data-onboarding-highlight="1"]').forEach((field) => {
+        field.dataset.onboardingHighlight = '0';
+        field.style.border = '';
+        field.style.borderRadius = '';
+        field.style.background = '';
+        field.style.boxShadow = '';
+        field.style.padding = '';
+      });
+    }
+
+    function highlightField(id) {
+      const input = $(id);
+      const field = input?.closest('.field');
+      if (!field) return;
+      clearFieldHighlights();
+      field.dataset.onboardingHighlight = '1';
+      field.style.border = '1px solid rgba(196, 181, 253, 0.9)';
+      field.style.borderRadius = '16px';
+      field.style.background = 'rgba(91, 33, 182, 0.12)';
+      field.style.boxShadow = '0 16px 30px rgba(76, 29, 149, 0.12)';
+      field.style.padding = '12px';
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input.focus({ preventScroll: true });
+    }
+
+    function applySystemPanelGuidance() {
+      if (!state.onboardingMode) return;
+      const note = $('panel-note');
+      if (state.onboardingMode === 'skin') {
+        note.textContent = 'Start here: confirm the current website sample first, then refine colors and typography below. This keeps the storefront consistent before you edit individual pages.';
+        highlightField('system-sample-confirm');
+        return;
+      }
+      if (state.onboardingMode === 'system') {
+        note.textContent = 'Finish system settings here: contact channels, legal pages, and launch-safe defaults before you publish.';
+        highlightField('system-contact-form-enabled');
+      }
     }
 
     function toDomSuffix(value) {
@@ -848,6 +966,87 @@
     function getPrimaryPageBodyBlock(page) {
       const blocks = Array.isArray(page?.blocks) ? page.blocks : Object.values(page?.blocks || {});
       return blocks.find((block) => ['legal', 'contact', 'rich_text'].includes(block?.type)) || null;
+    }
+
+    function getPageBlocks(page) {
+      return Array.isArray(page?.blocks) ? page.blocks : Object.values(page?.blocks || {});
+    }
+
+    function getFirstEntityCard(focus) {
+      const runtime = state.bundle?.tour_runtime || {};
+      if (focus === 'destination') {
+        return Array.isArray(runtime.destination_listing) ? runtime.destination_listing[0] || null : null;
+      }
+      if (focus === 'hotel') {
+        return Array.isArray(runtime.accommodation_listing) ? runtime.accommodation_listing[0] || null : null;
+      }
+      return null;
+    }
+
+    function findPrimaryListingBlock(page) {
+      const blocks = getPageBlocks(page);
+      return blocks.find((block) => ['listing', 'rich_text', 'features'].includes(block?.type)) || null;
+    }
+
+    function findEditableBlockForFocus(page, focus) {
+      const blocks = getPageBlocks(page);
+      if (!blocks.length) return null;
+      const focusMap = {
+        gallery: ['gallery'],
+        hero: ['hero'],
+        story: ['features', 'rich_text'],
+      };
+      const preferredTypes = focusMap[focus] || [];
+      const ordered = preferredTypes.length
+        ? [...blocks.filter((block) => preferredTypes.includes(block?.type)), ...blocks.filter((block) => !preferredTypes.includes(block?.type))]
+        : blocks;
+      return ordered.find((block) => getEditBindings(block)) || null;
+    }
+
+    function openRequestedFocusIfNeeded() {
+      const focus = getRequestedFocus();
+      if (!focus || shouldOpenSystemPanel()) return;
+      if (focus === 'destination' || focus === 'hotel') {
+        const pageKey = focus === 'destination' ? 'destinations' : 'accommodation';
+        const page = findPageBySlug(pageKey) || getPageByKey(pageKey);
+        const block = findPrimaryListingBlock(page);
+        const entity = getFirstEntityCard(focus);
+        if (!page || !entity?.entity_id) return;
+        const payload = {
+          entityId: entity.entity_id,
+          entityType: entity.entity_type || focus,
+          entityLabel: entity.entity_label || entity.title || '',
+          entityTitle: entity.entity_title || entity.title || '',
+          entityBody: entity.entity_body || entity.body || '',
+          entityImage: entity.entity_image || entity.image || '',
+          pageKey: page.page_key,
+          blockId: block?.id || '',
+          sectionId: block?.id || '',
+          blockLabel: block?.label || block?.type || '',
+        };
+        if (focus === 'destination') {
+          openTourEntityEditor(payload, 'tour', page, block).catch((error) => {
+            setStatus(error.message || 'Failed to open destination module', true);
+          });
+        } else {
+          openHotelEntityEditor(payload, 'hotel', page, block).catch((error) => {
+            setStatus(error.message || 'Failed to open hotel module', true);
+          });
+        }
+        setStatus(`Opened ${focus} module on ${page.title || page.page_key}.`);
+        return;
+      }
+      const page = findPageBySlug(state.activeSlug) || getPageByKey(state.activeSlug);
+      const block = findEditableBlockForFocus(page, focus);
+      const bindings = getEditBindings(block);
+      if (!page || !block || !bindings) return;
+      openBlockEditor({
+        pageKey: page.page_key,
+        blockId: block.id,
+        sectionId: block.id,
+        blockLabel: block.label || block.type,
+      }, page, block, bindings, resolveManagementScope({}, page, block));
+      setStatus(`Opened ${focus} module on ${page.title || page.page_key}.`);
     }
 
     function openPanel() {
@@ -997,14 +1196,14 @@
       const termsBlock = getPrimaryPageBodyBlock(termsPage);
       const privacyBlock = getPrimaryPageBodyBlock(privacyPage);
       const contactBlock = getPrimaryPageBodyBlock(contactPage);
-      const findMenuItem = (key) => menuItems.find((item) => item.item_key === key) || {};
+      const sampleChoiceLocked = Boolean(theme.ui?.sampleChoiceLocked);
 
       state.selected = {
         mode: 'system',
       };
 
       $('panel-title').textContent = 'System Panel';
-      $('panel-note').textContent = 'System-level settings live here: legal pages, contact-us, visibility toggles, and lightweight site controls. This stays separate from dopamine quick edit.';
+      $('panel-note').textContent = 'System-level settings live here: confirm the active website sample, then manage legal pages, contact-us, visibility toggles, and lightweight site controls.';
       $('panel-page-pill').textContent = 'Mode: System';
       $('panel-block-pill').textContent = 'Scope: Legal + Contact';
       $('panel-scope-pill').textContent = 'Manage: System';
@@ -1012,6 +1211,26 @@
       const form = $('panel-form');
       form.innerHTML = '';
       form.appendChild(buildSectionHeading('Brand', 'Core tenant identity, typography, and home routing.'));
+      form.appendChild(buildActionField('Website Sample', 'system-sample-confirm', sampleChoiceLocked ? 'Đổi mẫu web...' : 'Tôi chọn mẫu này', {
+        muted: sampleChoiceLocked,
+        disabled: sampleChoiceLocked,
+        dataset: {
+          selected: sampleChoiceLocked ? 'true' : 'false',
+          themeKey: CURRENT_SAMPLE_THEME.value,
+        },
+        onClick: () => {
+          const button = $('system-sample-confirm');
+          if (!button) return;
+          button.dataset.selected = 'true';
+          button.textContent = 'Đổi mẫu web...';
+          button.classList.add('is-muted');
+          button.disabled = true;
+          setStatus(`Selected ${CURRENT_SAMPLE_THEME.label} for this tenant. Click Save Changes to lock it in.`);
+        },
+        note: sampleChoiceLocked
+          ? `Mẫu quick edit hiện tại: ${CURRENT_SAMPLE_THEME.label}.`
+          : `Mẫu quick edit hiện tại: ${CURRENT_SAMPLE_THEME.label}. Có thể nối thêm skin khác sau này.`,
+      }));
       form.appendChild(buildField('Site Name', 'system-site-name', site.site_name || ''));
       form.appendChild(buildField('Default Language', 'system-default-lang', site.default_lang || 'en'));
       form.appendChild(buildSelectField('Home Page', 'system-home-page', pageOptions, site.home_page_key || state.activeSlug));
@@ -1112,6 +1331,7 @@
       form.appendChild(buildField('Privacy Body', 'system-privacy-body', privacyBlock?.content?.body || '', true));
 
       openPanel();
+      applySystemPanelGuidance();
     }
 
     function openContactEntityEditor(payload, managementScope, page, block) {
@@ -1183,26 +1403,37 @@
     async function loadBundle() {
       state.tenantId = $('tenant-id').value.trim() || state.tenantId;
       if (!state.tenantId) {
-        setStatus('Tenant ID is required.', true);
+        setStatus('Tenant context is required.', true);
         return false;
       }
 
       localStorage.setItem('tam_tenant_id', state.tenantId);
       setStatus('Loading storefront schema...');
 
-      const response = await fetch('/api/universal/site/config', {
-        headers: buildHeaders(state.tenantId),
-      });
-      const payload = await response.json();
+      const [bundleResponse, settingsResponse] = await Promise.all([
+        fetch('/api/universal/site/config', {
+          headers: buildHeaders(state.tenantId),
+        }),
+        fetch('/api/tenants/settings', {
+          headers: buildHeaders(state.tenantId),
+        }),
+      ]);
+      const payload = await bundleResponse.json();
 
-      if (!response.ok || !payload.ok) {
+      if (!bundleResponse.ok || !payload.ok) {
         throw new Error(payload.error || 'Failed to load universal site config');
+      }
+
+      if (settingsResponse.ok) {
+        const settingsPayload = await settingsResponse.json().catch(() => null);
+        if (settingsPayload?.settings) state.tenantSettings = settingsPayload.settings;
       }
 
       state.bundle = payload;
       applyAdminTheme();
       fillPageSelect();
       updatePublicLink();
+      updateTenantAdminLink();
       setStatus(`Loaded ${state.bundle.site?.site_name || state.tenantId} with ${getActiveTheme().label || 'default theme'}.`);
       return true;
     }
@@ -1357,6 +1588,7 @@
         const privacyPage = getPageByKey('privacy');
         const contactPage = getPageByKey('contact-us') || getPageByKey('contact');
         const homePage = getPageByKey('home');
+        const sampleChoiceLocked = $('system-sample-confirm')?.dataset.selected === 'true' || Boolean(state.bundle.theme?.ui?.sampleChoiceLocked);
         const menuItems = JSON.parse(JSON.stringify(Array.isArray(state.bundle?.menu) ? state.bundle.menu : (state.bundle?.menu?.items || [])));
         const editablePages = getPages().filter((page) => page.page_type !== 'system');
         const upsertPagePatch = (page, patch) => {
@@ -1471,6 +1703,8 @@
           colorText: $('system-theme-text')?.value?.trim() || (state.bundle.theme?.colorText || ''),
           ui: {
             ...(state.bundle.theme?.ui || {}),
+            sampleChoiceLocked,
+            sampleThemeKey: CURRENT_SAMPLE_THEME.value,
             bookNowLabel: $('system-book-now-label')?.value?.trim() || '',
             header: {
               ...(state.bundle.theme?.ui?.header || {}),
@@ -1546,6 +1780,7 @@
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save system settings');
         }
+
         state.bundle = payload;
       }
 
@@ -1606,16 +1841,31 @@
 
     (async function init() {
       state.tenantId = getTenantId();
+      if (!state.tenantId) {
+        const sessionPayload = await fetch('/api/auth/session').then((response) => response.json()).catch(() => null);
+        if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
+          window.location.replace('/login.html');
+          return;
+        }
+        state.tenantId = sessionPayload.session.tenant_id;
+        localStorage.setItem('tam_tenant_id', state.tenantId);
+      }
+      state.onboardingMode = getOnboardingMode();
       $('tenant-id').value = state.tenantId;
+      updateTenantAdminLink();
       try {
         await loadBundle();
-        const homePage = findPageBySlug(state.bundle?.site?.home_page_key || 'home') || getPages()[0];
-        state.activeSlug = homePage?.slug || homePage?.page_key || 'home';
+        const requestedPage = getRequestedPageSlug();
+        const defaultPage = findPageBySlug(state.bundle?.site?.home_page_key || 'home') || getPages()[0];
+        const initialPage = findPageBySlug(requestedPage) || defaultPage;
+        state.activeSlug = initialPage?.slug || initialPage?.page_key || 'home';
         fillPageSelect();
         updatePublicLink();
         await renderPreview();
         if (shouldOpenSystemPanel()) {
           openSystemPanel();
+        } else {
+          openRequestedFocusIfNeeded();
         }
       } catch (error) {
         setStatus(error.message || 'Failed to initialize preview-first admin', true);

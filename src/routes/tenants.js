@@ -27,6 +27,7 @@ const ALLOWED_SETTINGS_COLUMNS = [
 
 const VALID_PRICING_POLICIES    = new Set(['PRIORITY_HIGH_SEASON', 'PRIORITY_LOW_SEASON']);
 const VALID_SUBSCRIPTION_STATUS = new Set(['TRIAL', 'ACTIVE', 'SUSPENDED', 'CANCELLED']);
+const SUBDOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
 // Bare hostname regex — no protocol, no path, no port
 const HOSTNAME_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
@@ -122,6 +123,13 @@ function validateSettings(data) {
     }
   }
 
+  if ('subdomain' in data) {
+    const subdomain = data.subdomain;
+    if (typeof subdomain !== 'string' || !SUBDOMAIN_RE.test(subdomain)) {
+      errors.push('subdomain phải gồm chữ thường, số, dấu gạch ngang, không bắt đầu/kết thúc bằng gạch ngang, tối đa 48 ký tự.');
+    }
+  }
+
   if ('payment_config_json' in data) {
     const pcj = data.payment_config_json;
     if (pcj !== null) {
@@ -187,6 +195,10 @@ tenants.patch('/settings', async (c) => {
     safeData.exchange_rate = parseFloat(safeData.exchange_rate);
   }
 
+  if ('subdomain' in safeData) {
+    safeData.subdomain = String(safeData.subdomain || '').trim().toLowerCase();
+  }
+
   // Serialize payment_config_json object → TEXT for D1
   if ('payment_config_json' in safeData) {
     safeData.payment_config_json = safeData.payment_config_json !== null
@@ -210,6 +222,16 @@ tenants.patch('/settings', async (c) => {
 
     if (!current) {
       return c.json({ error: 'Tenant không tồn tại' }, 404);
+    }
+
+    if ('subdomain' in safeData) {
+      const existingSubdomain = String(current.subdomain || '').trim().toLowerCase();
+      const requestedSubdomain = String(safeData.subdomain || '').trim().toLowerCase();
+      if (existingSubdomain && requestedSubdomain !== existingSubdomain) {
+        return c.json({
+          error: 'Subdomain đã được khóa trước đó. Tenant chỉ được chọn platform subdomain một lần.'
+        }, 409);
+      }
     }
 
     // Dynamic SET clause — chỉ cập nhật các trường có mặt trong request
@@ -242,7 +264,7 @@ tenants.patch('/settings', async (c) => {
 
     // Trả về settings mới để UI có thể cập nhật hiển thị ngay
     const updated = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, total_revenue_tracked, commission_threshold FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, total_revenue_tracked, commission_threshold, product_tier_key FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -256,6 +278,9 @@ tenants.patch('/settings', async (c) => {
 
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
+    if (String(err?.message || '').includes('UNIQUE')) {
+      return c.json({ error: 'Subdomain này đã được tenant khác giữ. Hãy chọn tên khác.' }, 409);
+    }
     return c.json({ error: 'Internal server error. Please try again later.' }, 500);
   }
 });

@@ -100,16 +100,86 @@ export function createSixSensesTheme(helpers = {}) {
     return `<section class="luxury-story-block"><div class="luxury-story-media">${buildResponsiveImageMarkup(storyImage, ctx.block.content?.heading || 'Story image', 'luxury-story-image', 'cover', '(min-width: 1200px) 36vw, 100vw')}</div><div class="luxury-story-copy"><p class="luxury-section-kicker">${escapeHtml(ctx.block.label || 'Story')}</p><h2>${escapeHtml(ctx.block.content?.heading || 'Why travelers choose us')}</h2><p class="luxury-story-body">${escapeHtml(ctx.block.content?.body || 'Quiet service, slow pacing, and design-led travel planning replace the usual brochure rhythm.')}</p><div class="luxury-story-list">${items.slice(0, 3).map((item) => `<article><h3>${escapeHtml(item.title || '')}</h3><p>${escapeHtml(item.body || '')}</p></article>`).join('')}</div></div></section>`;
   }
 
+  function buildCollectionCard(ctx, card, options = {}) {
+    const {
+      block,
+      targetPage,
+      href,
+      kicker,
+      portrait = false,
+      imageSizes = '(min-width: 1024px) 30vw, 100vw',
+    } = options;
+    return ctx.wrapEditableEntityCard({
+      block,
+      card,
+      targetPage,
+      className: 'universal-entity-card luxury-entity-shell luxury-carousel-item',
+      contentHtml: `<a href="${escapeHtml(href)}" class="luxury-collection-card"><div class="luxury-collection-media ${portrait || card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', imageSizes)}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || kicker)}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>`,
+    });
+  }
+
+  function renderCollectionCarousel(ctx, options = {}) {
+    const {
+      cards = [],
+      kicker,
+      heading,
+      body,
+      accentColor,
+      visibleCards = 3,
+      portrait = false,
+      hrefBuilder,
+      imageSizes,
+      emptyBody = '',
+      carouselLabel,
+    } = options;
+    if (!cards.length) return '';
+
+    const showNav = cards.length > visibleCards;
+    const label = carouselLabel || heading || ctx.targetPage.title || ctx.block.label || 'Collection';
+    return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(kicker)}</p><h2>${escapeHtml(heading)}</h2></div><p>${escapeHtml(body || emptyBody)}</p></div><div class="luxury-collection-carousel ${portrait ? 'is-portrait' : ''}" data-luxury-carousel aria-label="${escapeHtml(label)}" style="--luxury-carousel-visible:${escapeHtml(String(visibleCards))}"><div class="luxury-collection-viewport"><div class="luxury-collection-track">${cards.map((card) => buildCollectionCard(ctx, card, {
+      block: ctx.block,
+      targetPage: ctx.targetPage,
+      href: hrefBuilder(card),
+      kicker: portrait ? (ctx.block.content?.card_label || 'Stay') : (ctx.block.content?.card_label || 'Collection'),
+      portrait,
+      imageSizes,
+    })).join('')}</div></div>${showNav ? `<div class="luxury-collection-controls"><button type="button" class="luxury-collection-nav luxury-collection-prev" data-carousel-nav="-1" aria-label="Previous ${escapeHtml(label)}">&lt;</button><button type="button" class="luxury-collection-nav luxury-collection-next" data-carousel-nav="1" aria-label="Next ${escapeHtml(label)}">&gt;</button></div>` : ''}</div></section>`;
+  }
+
   function renderRich(ctx) {
     if (ctx.targetPage.page_key !== 'accommodation') return '';
     const cards = ctx.resolveListingCards('tour_runtime.accommodation_listing', ctx.targetPage);
-    return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(ctx.block.label || 'Accommodation')}</p><h2>${escapeHtml(ctx.block.content?.heading || 'Accommodation')}</h2></div><p>${escapeHtml(ctx.block.content?.body || ctx.targetDescription)}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => ctx.wrapEditableEntityCard({ block: ctx.block, card, targetPage: ctx.targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(ctx.site.tenant_id, ctx.homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || ctx.block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>` })).join('')}</div></section>`;
+    return renderCollectionCarousel(ctx, {
+      cards,
+      kicker: ctx.block.label || 'Accommodation',
+      heading: ctx.block.content?.heading || 'Accommodation',
+      body: ctx.block.content?.body || ctx.targetDescription,
+      accentColor: normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73'),
+      visibleCards: 4,
+      portrait: true,
+      hrefBuilder: (card) => card.href || buildUniversalPublicPath(ctx.site.tenant_id, ctx.homeSlug),
+      imageSizes: '(min-width: 1024px) 24vw, 100vw',
+      emptyBody: ctx.targetDescription,
+      carouselLabel: 'Accommodation collection',
+    });
   }
 
   function renderListing(ctx) {
     const cards = ctx.resolveListingCards(ctx.block.data_bindings?.cards?.source, ctx.targetPage);
     const accentColor = normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73');
-    return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(ctx.targetPage.title || ctx.block.label || 'Collection')}</p><h2>${escapeHtml(ctx.block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(ctx.block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => ctx.wrapEditableEntityCard({ block: ctx.block, card, targetPage: ctx.targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(ctx.site.tenant_id, ctx.targetPage.slug || ctx.targetPage.page_key || ctx.homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || ctx.block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>` })).join('')}</div></section>`;
+    const isHotelCollection = String(ctx.block.data_bindings?.cards?.source || '').toLowerCase().includes('accommodation');
+    return renderCollectionCarousel(ctx, {
+      cards,
+      kicker: ctx.targetPage.title || ctx.block.label || 'Collection',
+      heading: ctx.block.content?.heading || 'Collection',
+      body: ctx.block.content?.body || '',
+      accentColor,
+      visibleCards: isHotelCollection ? 4 : 3,
+      portrait: isHotelCollection,
+      hrefBuilder: (card) => card.href || buildUniversalPublicPath(ctx.site.tenant_id, ctx.targetPage.slug || ctx.targetPage.page_key || ctx.homeSlug),
+      imageSizes: isHotelCollection ? '(min-width: 1024px) 24vw, 100vw' : '(min-width: 1024px) 30vw, 100vw',
+      carouselLabel: ctx.block.content?.heading || ctx.block.label || 'Collection',
+    });
   }
 
   function renderHeader(ctx) {
@@ -176,7 +246,7 @@ export function createSixSensesTheme(helpers = {}) {
     const floatingUi = getFloatingUi(ctx.theme);
     const solidOnScroll = headerUi.solidOnScroll !== false;
     const revealOnScroll = floatingUi.revealOnScroll !== false;
-    return `<script>(function(){const body=document.body;const open=document.querySelector('.luxury-menu-toggle');const closers=document.querySelectorAll('[data-luxury-close="true"]');const hero=document.querySelector('.luxury-hero');const setState=(next)=>{body.dataset.menuOpen=next?'true':'false';};const refreshHeader=()=>{const trigger=hero?Math.max(hero.offsetHeight-140,240):240;const pastHero=window.scrollY>trigger;body.dataset.headerSolid=${solidOnScroll ? "pastHero?'true':'false'" : "'true'"};body.dataset.bookNowVisible=${revealOnScroll ? "window.scrollY>Math.max(trigger*0.35,72)?'true':'false'" : "'true'"};};if(open){open.addEventListener('click',()=>setState(body.dataset.menuOpen!=='true'));}closers.forEach((node)=>node.addEventListener('click',()=>setState(false)));document.addEventListener('keydown',(event)=>{if(event.key==='Escape'){setState(false);}});window.addEventListener('scroll',refreshHeader,{passive:true});window.addEventListener('resize',refreshHeader);refreshHeader();document.querySelectorAll('[data-luxury-gallery]').forEach((gallery)=>{const items=[...gallery.querySelectorAll('[data-gallery-item]')];const thumbs=[...gallery.querySelectorAll('[data-gallery-thumb]')];const show=(index)=>{if(!items.length)return;const next=((index%items.length)+items.length)%items.length;gallery.dataset.galleryIndex=String(next);items.forEach((item,itemIndex)=>item.classList.toggle('is-active',itemIndex===next));thumbs.forEach((thumb,thumbIndex)=>thumb.classList.toggle('is-active',thumbIndex===next));};gallery.querySelectorAll('[data-gallery-nav]').forEach((button)=>button.addEventListener('click',()=>show(Number(gallery.dataset.galleryIndex||0)+Number(button.dataset.galleryNav||0))));thumbs.forEach((thumb,thumbIndex)=>thumb.addEventListener('click',()=>show(thumbIndex)));show(0);});})();</script>`;
+    return `<script>(function(){const body=document.body;const open=document.querySelector('.luxury-menu-toggle');const closers=document.querySelectorAll('[data-luxury-close="true"]');const hero=document.querySelector('.luxury-hero');const setState=(next)=>{body.dataset.menuOpen=next?'true':'false';};const refreshHeader=()=>{const trigger=hero?Math.max(hero.offsetHeight-140,240):240;const pastHero=window.scrollY>trigger;body.dataset.headerSolid=${solidOnScroll ? "pastHero?'true':'false'" : "'true'"};body.dataset.bookNowVisible=${revealOnScroll ? "window.scrollY>Math.max(trigger*0.35,72)?'true':'false'" : "'true'"};};const initCarousel=(carousel)=>{const viewport=carousel.querySelector('.luxury-collection-viewport');const track=carousel.querySelector('.luxury-collection-track');const items=[...carousel.querySelectorAll('.luxury-carousel-item')];if(!viewport||!track||!items.length)return;const controls=[...carousel.querySelectorAll('[data-carousel-nav]')];let index=0;const readVisible=()=>Math.max(1,Math.round(parseFloat(getComputedStyle(carousel).getPropertyValue('--luxury-carousel-visible'))||1));const sync=()=>{const visible=readVisible();const max=Math.max(0,items.length-visible);const gap=parseFloat(getComputedStyle(track).columnGap||getComputedStyle(track).gap||'0')||0;const itemWidth=items[0].getBoundingClientRect().width||0;const offset=(itemWidth+gap)*Math.min(index,max);track.style.transform='translateX(' + (-offset) + 'px)';carousel.dataset.atStart=index<=0?'true':'false';carousel.dataset.atEnd=index>=max?'true':'false';controls.forEach((button)=>{const delta=Number(button.dataset.carouselNav||0);button.disabled=delta<0?index<=0:index>=max;});};controls.forEach((button)=>button.addEventListener('click',()=>{const visible=readVisible();const max=Math.max(0,items.length-visible);index=Math.min(max,Math.max(0,index+Number(button.dataset.carouselNav||0)));sync();}));window.addEventListener('resize',sync);sync();};if(open){open.addEventListener('click',()=>setState(body.dataset.menuOpen!=='true'));}closers.forEach((node)=>node.addEventListener('click',()=>setState(false)));document.addEventListener('keydown',(event)=>{if(event.key==='Escape'){setState(false);}});window.addEventListener('scroll',refreshHeader,{passive:true});window.addEventListener('resize',refreshHeader);refreshHeader();document.querySelectorAll('[data-luxury-gallery]').forEach((gallery)=>{const items=[...gallery.querySelectorAll('[data-gallery-item]')];const thumbs=[...gallery.querySelectorAll('[data-gallery-thumb]')];const show=(index)=>{if(!items.length)return;const next=((index%items.length)+items.length)%items.length;gallery.dataset.galleryIndex=String(next);items.forEach((item,itemIndex)=>item.classList.toggle('is-active',itemIndex===next));thumbs.forEach((thumb,thumbIndex)=>thumb.classList.toggle('is-active',thumbIndex===next));};gallery.querySelectorAll('[data-gallery-nav]').forEach((button)=>button.addEventListener('click',()=>show(Number(gallery.dataset.galleryIndex||0)+Number(button.dataset.galleryNav||0))));thumbs.forEach((thumb,thumbIndex)=>thumb.addEventListener('click',()=>show(thumbIndex)));show(0);});document.querySelectorAll('[data-luxury-carousel]').forEach(initCarousel);})();</script>`;
   }
 
   return {
