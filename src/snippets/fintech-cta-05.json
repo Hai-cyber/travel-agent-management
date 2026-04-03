@@ -1,0 +1,30 @@
+{
+  "id": "fintech-cta-05",
+  "type": "fintech-cta-05",
+  "name": "Fintech - Get started in minutes and connect all your accounts in one place",
+  "label": "Fintech - Get started in minutes and connect all your accounts in one place",
+  "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+  "icon": "[cta]",
+  "category": "cta",
+  "categories": [
+    "gallery-grid",
+    "icon-boxes",
+    "grid-cards",
+    "logos",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "gallery-grid",
+    "icon-boxes",
+    "grid-cards",
+    "logos",
+    "cta",
+    "section",
+    "fintech",
+    "cruip"
+  ],
+  "templateId": "fintech-html",
+  "thumbnail": "/api/tenant/template-assets/fintech-html/images/logos-illustration.svg",
+  "html": "<section>\n                <div class=\"relative max-w-7xl mx-auto\">\n            \n                    \n                    <div class=\"absolute inset-0 rounded-tr-[100px] bg-linear-to-tr from-blue-600 to-blue-500 pointer-events-none -z-10\" aria-hidden=\"true\"></div>\n            \n                    <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n                        <div class=\"py-12 md:py-20\">\n            \n                            \n                            <div class=\"relative max-w-xl mx-auto md:max-w-none text-center md:text-left\">\n            \n                                \n                                <div class=\"md:max-w-3xl mb-12 md:mb-20\">\n                                    <h2 class=\"h2 text-white mb-4\" data-ve-text=\"1\">Get started in minutes and connect all your accounts in one place</h2>\n                                    <p class=\"text-lg text-blue-200 mb-8\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>\n                                </div>\n            \n                                \n                                <div class=\"flex justify-center mb-6\">\n                                    <div class=\"relative\">\n                                        <img class=\"absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none -z-10 max-w-none mix-blend-lighten\" src=\"/api/tenant/template-assets/fintech-html/images/logos-illustration.svg\" width=\"594\" height=\"639\" aria-hidden=\"true\" data-ve-img=\"1\" />\n                                        <img src=\"/api/tenant/template-assets/fintech-html/images/logos.png\" width=\"720\" height=\"283\" alt=\"Logos\" data-ve-img=\"1\" />\n                                    </div>\n                                </div>\n\n                                \n                                <div class=\"max-w-sm mx-auto grid gap-12 md:grid-cols-3 md:-mx-9 md:gap-0 items-start md:max-w-none text-left\" >\n                                \n                                    \n                                    <div class=\"relative md:px-9 after:hidden md:after:block after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-16 after:bg-blue-400 last:after:hidden\">\n                                        <div class=\"mb-3\">\n                                            <div class=\"flex items-center justify-center font-bold text-teal-600 bg-teal-200 h-11 w-11 rounded-full\">1</div>\n                                        </div>\n                                        <h4 class=\"text-white text-xl font-bold mb-1\" data-ve-text=\"1\">Download the app</h4>\n                                        <p class=\"text-blue-200\" data-ve-text=\"1\">Create cards that work exactly as you configured them. Make real-time decisions on charges and spendings.</p>\n                                    </div>\n                                \n                                    \n                                    <div class=\"relative md:px-9 after:hidden md:after:block after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-16 after:bg-blue-400 last:after:hidden\">\n                                        <div class=\"mb-3\">\n                                            <div class=\"flex items-center justify-center font-bold text-teal-600 bg-teal-200 h-11 w-11 rounded-full\">2</div>\n                                        </div>\n                                        <h4 class=\"text-white text-xl font-bold mb-1\" data-ve-text=\"1\">Request your card</h4>\n                                        <p class=\"text-blue-200\" data-ve-text=\"1\">Create cards that work exactly as you configured them. Make real-time decisions on charges and spendings.</p>\n                                    </div>\n                                \n                                    \n                                    <div class=\"relative md:px-9 after:hidden md:after:block after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-16 after:bg-blue-400 last:after:hidden\">\n                                        <div class=\"mb-3\">\n                                            <div class=\"flex items-center justify-center font-bold text-teal-600 bg-teal-200 h-11 w-11 rounded-full\">3</div>\n                                        </div>\n                                        <h4 class=\"text-white text-xl font-bold mb-1\" data-ve-text=\"1\">Connect all your account</h4>\n                                        <p class=\"text-blue-200\" data-ve-text=\"1\">Create cards that work exactly as you configured them. Make real-time decisions on charges and spendings.</p>\n                                    </div>\n                                \n                                </div>\n            \n                            </div>\n            \n                        </div>\n                    </div>\n            \n                </div>\n            </section>"
+}

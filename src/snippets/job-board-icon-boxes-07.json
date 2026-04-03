@@ -1,0 +1,30 @@
+{
+  "id": "job-board-icon-boxes-07",
+  "type": "job-board-icon-boxes-07",
+  "name": "Job Board - Join the best tech startups in the industry",
+  "label": "Job Board - Join the best tech startups in the industry",
+  "desc": "Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "hero",
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "blog",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "blog",
+    "section",
+    "job-board",
+    "cruip"
+  ],
+  "templateId": "job-board-html",
+  "thumbnail": "/api/tenant/template-assets/job-board-html/images/hero-illustration.svg",
+  "html": "<section class=\"relative overflow-hidden\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n\n                \n                <div class=\"absolute inset-0 bg-linear-to-b from-indigo-100 to-white pointer-events-none -z-10\" aria-hidden=\"true\"></div>\n\n                \n                <div class=\"hidden md:block absolute left-1/2 -translate-x-1/2 pointer-events-none -z-10\" aria-hidden=\"true\">\n                    <img src=\"/api/tenant/template-assets/job-board-html/images/hero-illustration.svg\" class=\"max-w-none\" width=\"1440\" height=\"749\" alt=\"Hero Illustration\" data-ve-img=\"1\">\n                </div>\n\n                <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"pt-28 pb-8 md:pt-36 md:pb-16\">\n\n                        \n                        <div class=\"max-w-3xl text-center md:text-left\">\n\n                            \n                            <h1 class=\"h1 font-inter mb-6\" data-ve-text=\"1\">Join the best tech startups in the <span class=\"font-nycd text-indigo-500 font-normal\" data-ve-text=\"1\">industry</span></h1>\n                            <p class=\"text-lg text-gray-500 mb-8\" data-ve-text=\"1\">Our landing page template works on all devices, so you only have to set it<br class=\"hidden md:block\" /> up once, and get beautiful results forever.</p>\n                            \n                            <div class=\"sm:flex sm:items-center sm:justify-center md:justify-start space-y-6 sm:space-y-0 sm:space-x-5\">\n                                <div>\n                                    <a class=\"btn text-white bg-indigo-500 hover:bg-indigo-600 shadow-xs\" href=\"post-a-job.html\" data-ve-text=\"1\" data-ve-btn=\"1\">Post a job - $299</a>\n                                </div>\n                                <div class=\"sm:flex sm:items-center sm:justify-center space-y-2 sm:space-y-0 sm:space-x-3\">\n                                    <div class=\"inline-flex -space-x-3 -ml-0.5\">\n                                        <img class=\"rounded-full border-2 border-indigo-50 box-content\" src=\"/api/tenant/template-assets/job-board-html/images/avatar-01.jpg\" width=\"32\" height=\"32\" alt=\"Avatar 01\" data-ve-img=\"1\" />\n                                        <img class=\"rounded-full border-2 border-indigo-50 box-content\" src=\"/api/tenant/template-assets/job-board-html/images/avatar-02.jpg\" width=\"32\" height=\"32\" alt=\"Avatar 02\" data-ve-img=\"1\" />\n                                        <img class=\"rounded-full border-2 border-indigo-50 box-content\" src=\"/api/tenant/template-assets/job-board-html/images/avatar-03.jpg\" width=\"32\" height=\"32\" alt=\"Avatar 03\" data-ve-img=\"1\" />\n                                        <img class=\"rounded-full border-2 border-indigo-50 box-content\" src=\"/api/tenant/template-assets/job-board-html/images/avatar-04.jpg\" width=\"32\" height=\"32\" alt=\"Avatar 04\" data-ve-img=\"1\" />\n                                    </div>\n                                    <div class=\"text-sm text-gray-500 font-medium\">Reach <span class=\"text-indigo-500\" data-ve-text=\"1\">100K+</span> Prefessionals</div>\n                                </div>\n                            </div>\n\n                        </div>\n\n                    </div>\n                </div>\n            </section>"
+}

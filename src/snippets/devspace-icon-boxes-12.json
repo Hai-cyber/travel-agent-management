@@ -1,0 +1,29 @@
+{
+  "id": "devspace-icon-boxes-12",
+  "type": "devspace-icon-boxes-12",
+  "name": "Devspace - An Interactive Guide to Flexbox",
+  "label": "Devspace - An Interactive Guide to Flexbox",
+  "desc": "— Dec 24, 2023 An Interactive Guide to Flexbox Flexbox is a remarkably flexible layout mode. When we understand how it works, we can build r",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "blog",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "blog",
+    "section",
+    "micro-block",
+    "devspace",
+    "cruip"
+  ],
+  "templateId": "devspace-html",
+  "thumbnail": "/api/tenant/template-assets/devspace-html/images/post-thumb-01.jpg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<article class=\"py-5 border-b border-slate-100 dark:border-slate-800\">\n                                                <div class=\"flex items-start\">\n                                                    <img class=\"rounded-sm w-16 h-16 sm:w-[88px] sm:h-[88px] object-cover mr-6\" src=\"/api/tenant/template-assets/devspace-html/images/post-thumb-01.jpg\" width=\"88\" height=\"88\" alt=\"Post 01\" data-ve-img=\"1\" />\n                                                    <div>\n                                                        <div class=\"text-xs text-slate-500 uppercase mb-1\"><span class=\"text-sky-500\" data-ve-text=\"1\">—</span> Dec 24, 2023</div>\n                                                        <h3 class=\"font-aspekta text-lg font-[650] mb-1\" data-ve-text=\"1\">\n                                                            <a class=\"inline-flex relative hover:text-sky-500 duration-150 ease-out before:scale-x-0 before:origin-center before:absolute before:inset-0 before:bg-sky-200 dark:before:bg-sky-500 before:opacity-30 before:-z-10 before:translate-y-1/4 before:-rotate-2 hover:before:scale-100 before:duration-150 before:ease-in-out\" href=\"post.html\" data-ve-text=\"1\" data-ve-btn=\"1\">An Interactive Guide to Flexbox</a>\n                                                        </h3>\n                                                        <div class=\"flex\">\n                                                            <div class=\"grow text-sm text-slate-500 dark:text-slate-400\">\n                                                                Flexbox is a remarkably flexible layout mode. When we understand how it works, we can build responsive designs that rearrange themselves as needed.\n                                                            </div>\n                                                            <a class=\"hidden lg:flex shrink-0 text-sky-500 items-center justify-center w-12 group\" href=\"post.html\" tabindex=\"-1\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                                                <svg class=\"fill-current group-hover:translate-x-2 duration-150 ease-in-out\" xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"12\">\n                                                                    <path d=\"M9.586 5 6.293 1.707 7.707.293 13.414 6l-5.707 5.707-1.414-1.414L9.586 7H0V5h9.586Z\" />\n                                                                </svg>\n                                                            </a>\n                                                        </div>\n                                                    </div>\n                                                </div>\n                                            </article>\n  </div>\n</section>"
+}

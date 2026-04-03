@@ -1,0 +1,29 @@
+{
+  "id": "open-pro-newsletter-10",
+  "type": "open-pro-newsletter-10",
+  "name": "Open Pro - newsletter 10",
+  "label": "Open Pro - newsletter 10",
+  "desc": "Newsletter Contact Us 404",
+  "icon": "[mail]",
+  "category": "newsletter",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "newsletter",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "newsletter",
+    "cta",
+    "section",
+    "micro-block",
+    "open-pro",
+    "cruip"
+  ],
+  "templateId": "open-pro-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<ul\n                                            class=\"relative mt-5 w-36 rounded-xl bg-gray-900/90 p-2 backdrop-blur-xs before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:border before:border-transparent before:[background:linear-gradient(to_bottom,var(--color-gray-800),var(--color-gray-700),var(--color-gray-800))_border-box] before:[mask-composite:exclude_!important] before:[mask:linear-gradient(white_0_0)_padding-box,_linear-gradient(white_0_0)]\"\n                                           \n                                           \n                                           \n                                           \n                                           \n                                           \n                                           \n                                           \n                                           \n                                        >\n                                            <li data-ve-text=\"1\">\n                                                <a\n                                                    class=\"flex rounded-lg px-2 py-1.5 text-sm text-white hover:text-indigo-500\"\n                                                    href=\"newsletter.html\"\n                                                     data-ve-text=\"1\" data-ve-btn=\"1\">Newsletter</a\n                                                >\n                                            </li>\n                                            <li data-ve-text=\"1\">\n                                                <a\n                                                    class=\"flex rounded-lg px-2 py-1.5 text-sm text-white hover:text-indigo-500\"\n                                                    href=\"contact.html\"\n                                                     data-ve-text=\"1\" data-ve-btn=\"1\">Contact Us</a\n                                                >\n                                            </li>\n                                            <li data-ve-text=\"1\">\n                                                <a\n                                                    class=\"flex rounded-lg px-2 py-1.5 text-sm text-white hover:text-indigo-500\"\n                                                    href=\"404.html\"\n                                                     data-ve-text=\"1\" data-ve-btn=\"1\">404</a\n                                                >\n                                            </li>\n                                        </ul>\n  </div>\n</section>"
+}

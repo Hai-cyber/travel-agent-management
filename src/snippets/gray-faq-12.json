@@ -1,0 +1,31 @@
+{
+  "id": "gray-faq-12",
+  "type": "gray-faq-12",
+  "name": "Gray - How can I ask other questions about pricing?",
+  "label": "Gray - How can I ask other questions about pricing?",
+  "desc": "Absolutely! Grey allows you to create as many commercial graphics/images as you like, for yourself or your clients.",
+  "icon": "[faq]",
+  "category": "faq",
+  "categories": [
+    "icon-boxes",
+    "grid-cards",
+    "pricing",
+    "faq",
+    "logos",
+    "section"
+  ],
+  "tags": [
+    "icon-boxes",
+    "grid-cards",
+    "pricing",
+    "faq",
+    "logos",
+    "section",
+    "micro-block",
+    "gray",
+    "cruip"
+  ],
+  "templateId": "gray-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"bg-zinc-100 rounded-sm\">\n                                    <h2 data-ve-text=\"1\">\n                                        <button\n                                            id=\"faqs-title-05\"\n                                            class=\"flex items-center justify-between w-full font-inter-tight text-left font-medium text-zinc-800 px-4 py-2.5\"\n                                           \n                                           \n                                           \n                                         data-ve-text=\"1\" data-ve-btn=\"1\">\n                                            <span data-ve-text=\"1\">How can I ask other questions about pricing?</span>\n                                            <svg class=\"fill-zinc-400 shrink-0 ml-8\" width=\"12\" height=\"12\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center transition duration-200 ease-out\" />\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center rotate-90 transition duration-200 ease-out\" />\n                                            </svg>\n                                        </button>\n                                    </h2>\n                                    <div\n                                        id=\"faqs-text-05\"\n                                       \n                                        aria-labelledby=\"faqs-title-05\"\n                                        class=\"grid text-sm text-zinc-500 overflow-hidden transition-all duration-300 ease-in-out\"\n                                       \n                                        >\n                                        <div class=\"overflow-hidden\">\n                                            <p class=\"px-4 pb-3\" data-ve-text=\"1\">\n                                                Absolutely! Grey allows you to create as many commercial graphics/images as you like, for yourself or your clients.\n                                            </p>\n                                        </div>\n                                    </div>\n                                </div> \n                                \n                                <div class=\"bg-zinc-100 rounded-sm\">\n                                    <h2 data-ve-text=\"1\">\n                                        <button\n                                            id=\"faqs-title-06\"\n                                            class=\"flex items-center justify-between w-full font-inter-tight text-left font-medium text-zinc-800 px-4 py-2.5\"\n                                           \n                                           \n                                           \n                                         data-ve-text=\"1\" data-ve-btn=\"1\">\n                                            <span data-ve-text=\"1\">Do you offer discount for students and no-profit companies?</span>\n                                            <svg class=\"fill-zinc-400 shrink-0 ml-8\" width=\"12\" height=\"12\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center transition duration-200 ease-out\" />\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center rotate-90 transition duration-200 ease-out\" />\n                                            </svg>\n                                        </button>\n                                    </h2>\n                                    <div\n                                        id=\"faqs-text-06\"\n                                       \n                                        aria-labelledby=\"faqs-title-06\"\n                                        class=\"grid text-sm text-zinc-500 overflow-hidden transition-all duration-300 ease-in-out\"\n                                       \n                                        >\n                                        <div class=\"overflow-hidden\">\n                                            <p class=\"px-4 pb-3\" data-ve-text=\"1\">\n                                                Absolutely! Grey allows you to create as many commercial graphics/images as you like, for yourself or your clients.\n                                            </p>\n                                        </div>\n                                    </div>\n                                </div>                                                                                              \n                            </div>                        \n                        </div>\n                        \n                    </div>\n  </div>\n</section>"
+}

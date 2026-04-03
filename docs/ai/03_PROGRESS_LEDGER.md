@@ -88,6 +88,11 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 - CHK-R38: `/p/:tenantId/:slug` now renders component blocks from JSON (`hero`, `gallery`, `features`, `itinerary`, `pricing_spotlight`, `contact`, `legal`) and changes presentation immediately when `variant_key` changes.
 - CHK-R38: `POST /api/universal/site/bootstrap` now performs a heuristic onboarding mock, choosing a variant from the 8-template registry and returning a prefilled editor bundle with sample text and placeholder images.
 - CHK-R38: Public image markup now uses Cloudflare Image Resizing URLs (`/cdn-cgi/image/fit=...,width=...,format=auto,...`) for responsive delivery aligned with Edge caching.
+- Signup template compatibility fix: added `GET /api/site-templates?active=1` as a public compatibility endpoint backed by the live `site_templates` D1 catalog actually accepted by onboarding, preventing stale frontend fallback options like `html5up-lens` from leaking into public signup.
+
+```bash
+curl "http://localhost:8787/api/site-templates?active=1"
+```
 | CHK-R12 | Public/site/growth rebuild | not_started | not rebuilt yet | 2026-03-24 | old docs exist, new runtime not yet restored |
 | CHK-R13 | Headless Publishing (R2) | done | Tour CRUD + generateTourPage + R2 publish/switch-template | 2026-03-26 | migration 0012, src/routes/tours.js, R2 binding TOUR_PAGES |
 | CHK-R14 | Subscription Control + Custom Domain | done | Subscription gate on publish; pay-button injection; custom domain routing in fetch handler | 2026-03-27 | migration 0013, src/lib/publishGuard.js, tenants.js expanded |

@@ -1,0 +1,30 @@
+{
+  "id": "neon-icon-boxes-05",
+  "type": "neon-icon-boxes-05",
+  "name": "Neon - Where the world builds software",
+  "label": "Neon - Where the world builds software",
+  "desc": "Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "hero",
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "cta",
+    "section",
+    "neon",
+    "cruip"
+  ],
+  "templateId": "neon-html",
+  "thumbnail": "/api/tenant/template-assets/neon-html/images/hero-illustration.svg",
+  "html": "<section class=\"relative overflow-hidden\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n\n                \n                <div class=\"absolute bottom-0 left-0 right-0 bg-linear-to-t from-gray-800 to-gray-900 opacity-60 h-[10rem] pointer-events-none -z-10\" aria-hidden=\"true\"></div>\n\n                \n                <div class=\"absolute left-1/2 -translate-x-1/2 pointer-events-none -z-10\" aria-hidden=\"true\">\n                    <img src=\"/api/tenant/template-assets/neon-html/images/hero-illustration.svg\" class=\"max-w-none\" width=\"2143\" height=\"737\" alt=\"Hero Illustration\" data-ve-img=\"1\">                    \n                </div>\n\n                <div class=\"relative max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"pt-32 pb-12 md:pt-40 md:pb-20\">\n\n                        \n                        <div class=\"max-w-xl mx-auto md:max-w-[640px] md:mx-0 text-center md:text-left\">\n\n                            <div>\n                                <div class=\"relative text-sm text-gray-300 bg-gray-800 rounded-full inline-block px-4 py-1 mb-6 before:content-[''] before:absolute before:-z-10 before:inset-0 before:-m-0.5 before:bg-linear-to-t before:from-gray-800 before:to-gray-800 before:via-gray-600 before:rounded-full\">\n                                    <div class=\"text-gray-400\">Launching Infinite Workspaces. <a class=\"font-medium text-blue-500 inline-flex items-center transition duration-150 ease-in-out group\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Learn More <span class=\"tracking-normal group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span></a></div>\n                                </div>\n                            </div>\n                            <h1 class=\"h1 font-uncut-sans mb-6\" data-ve-text=\"1\">Where the world builds <em class=\"font-italic\" data-ve-text=\"1\">software</em></h1>\n                            <p class=\"text-xl text-gray-400 mb-10\" data-ve-text=\"1\">Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.</p>\n                            <div class=\"max-w-xs mx-auto sm:max-w-none sm:flex sm:justify-center md:justify-start space-y-4 sm:space-y-0 sm:space-x-4\">\n                                <div>\n                                    <a class=\"btn text-white bg-linear-to-t from-blue-600 to-blue-400 hover:to-blue-500 w-full shadow-lg group\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        Get Started For Free <span class=\"tracking-normal text-blue-200 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                    </a>\n                                </div>\n                                <div>\n                                    <a class=\"btn text-gray-300 bg-linear-to-t from-gray-800 to-gray-700 hover:to-gray-800 w-full shadow-lg\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Explore Docs</a>\n                                </div>\n                            </div>\n\n                        </div>\n                        \n                    </div>\n                </div>\n            </section>"
+}

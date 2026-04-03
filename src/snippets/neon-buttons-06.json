@@ -1,0 +1,25 @@
+{
+  "id": "neon-buttons-06",
+  "type": "neon-buttons-06",
+  "name": "Neon - buttons 06",
+  "label": "Neon - buttons 06",
+  "desc": "Launching Infinite Workspaces. Learn More -&gt;",
+  "icon": "[btn]",
+  "category": "buttons",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "section",
+    "micro-block",
+    "neon",
+    "cruip"
+  ],
+  "templateId": "neon-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative text-sm text-gray-300 bg-gray-800 rounded-full inline-block px-4 py-1 mb-6 before:content-[''] before:absolute before:-z-10 before:inset-0 before:-m-0.5 before:bg-linear-to-t before:from-gray-800 before:to-gray-800 before:via-gray-600 before:rounded-full\">\n                                    <div class=\"text-gray-400\">Launching Infinite Workspaces. <a class=\"font-medium text-blue-500 inline-flex items-center transition duration-150 ease-in-out group\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Learn More <span class=\"tracking-normal group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span></a></div>\n                                </div>\n                            </div>\n  </div>\n</section>"
+}

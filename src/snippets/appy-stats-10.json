@@ -1,0 +1,29 @@
+{
+  "id": "appy-stats-10",
+  "type": "appy-stats-10",
+  "name": "Appy - Start building for free, then add a plan to go live",
+  "label": "Appy - Start building for free, then add a plan to go live",
+  "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit laborum — semper quis lectus nulla.",
+  "icon": "[stats]",
+  "category": "stats",
+  "categories": [
+    "icon-boxes",
+    "grid-cards",
+    "pricing",
+    "stats",
+    "section"
+  ],
+  "tags": [
+    "icon-boxes",
+    "grid-cards",
+    "pricing",
+    "stats",
+    "section",
+    "micro-block",
+    "appy",
+    "cruip"
+  ],
+  "templateId": "appy-html",
+  "thumbnail": "/api/tenant/template-assets/appy-html/images/mockup-image-03.jpg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative flex flex-col items-center\">\n                                \n                                <div aria-hidden=\"true\" class=\"absolute h-px opacity-50 bg-linear-to-r from-white via-teal-400 to-white dark:from-gray-900 dark:via-teal-400 dark:to-gray-900 hidden md:block\" style=\"width:calc(100% - 48px);left:calc(50% + 48px);top:24px;\">\n                                    <div class=\"absolute inset-0 border-t border-dashed border-white dark:border-gray-900\"></div>\n                                </div>\n                                \n                                <div class=\"w-12 h-12 rounded-full bg-teal-400 dark:bg-teal-600/25 flex justify-center items-center text-white dark:text-teal-400 font-medium mb-8 lg:mb-12\">2</div>\n                                \n                                <div class=\"inline-flex relative justify-center items-center\">\n                                    \n                                    <img class=\"absolute\" src=\"/api/tenant/template-assets/appy-html/images/mockup-image-03.jpg\" width=\"290\" height=\"624\" style=\"max-width: 84.33%;\" alt=\"App screen 03\" data-ve-img=\"1\" />\n                                    \n                                    <img class=\"relative max-w-full mx-auto h-auto pointer-events-none\" src=\"/api/tenant/template-assets/appy-html/images/iphone-mockup.png\" width=\"344\" height=\"674\" alt=\"iPhone mockup\" aria-hidden=\"true\" data-ve-img=\"1\" />\n                                </div>\n                            </div>\n\n                            \n                            <div class=\"relative flex flex-col items-center\">\n                                <div class=\"w-12 h-12 rounded-full bg-teal-400 dark:bg-teal-600/25 flex justify-center items-center text-white dark:text-teal-400 font-medium mb-8 lg:mb-12\">3</div>\n                                \n                                <div class=\"inline-flex relative justify-center items-center\">\n                                    \n                                    <img class=\"absolute\" src=\"/api/tenant/template-assets/appy-html/images/mockup-image-04.jpg\" width=\"290\" height=\"624\" style=\"max-width: 84.33%;\" alt=\"App screen 04\" data-ve-img=\"1\" />\n                                    \n                                    <img class=\"relative max-w-full mx-auto h-auto pointer-events-none\" src=\"/api/tenant/template-assets/appy-html/images/iphone-mockup.png\" width=\"344\" height=\"674\" alt=\"iPhone mockup\" aria-hidden=\"true\" data-ve-img=\"1\" />\n                                </div>\n                            </div>\n\n                        </div>\n\n                    </div>\n                </div>\n            </section>\n\n            \n            <section class=\"relative bg-gray-900 border-t border-transparent dark:border-gray-800\">\n                \n                <div class=\"absolute inset-0 opacity-25 bg-linear-to-b from-gray-800 to-gray-900 pointer-events-none hidden dark:block\" aria-hidden=\"true\"></div>\n                \n                <div class=\"relative max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"py-12 md:py-20\">\n\n                        \n                        <div class=\"max-w-3xl mx-auto text-center pb-12\">\n                            <h2 class=\"h2 font-red-hat-display mb-4 text-gray-100\" data-ve-text=\"1\">Start building for free, then add a plan to go live</h2>\n                            <p class=\"text-xl text-gray-400\" data-ve-text=\"1\">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit laborum — semper quis lectus nulla.</p>\n                        </div>\n  </div>\n</section>"
+}

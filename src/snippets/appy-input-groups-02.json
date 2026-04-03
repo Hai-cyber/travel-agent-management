@@ -1,0 +1,29 @@
+{
+  "id": "appy-input-groups-02",
+  "type": "appy-input-groups-02",
+  "name": "Appy - input groups 02",
+  "label": "Appy - input groups 02",
+  "desc": "Thanks for subscribing!",
+  "icon": "[input]",
+  "category": "input-groups",
+  "categories": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "stats",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "stats",
+    "section",
+    "input-group",
+    "appy",
+    "cruip"
+  ],
+  "templateId": "appy-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<form class=\"w-full lg:w-1/2\">\n                                <div class=\"flex flex-col sm:flex-row justify-center max-w-xs mx-auto sm:max-w-md lg:max-w-none\">\n                                    <input type=\"tel\" class=\"form-input text-gray-100 w-full mb-2 sm:mb-0 sm:mr-2\" placeholder=\"Phone number\" aria-label=\"Phone number\" data-ve-input=\"1\" />\n                                    <a class=\"btn text-white bg-teal-500 hover:bg-teal-400 shrink-0\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Request code</a>\n                                </div>\n                                \n                                \n                            </form>\n  </div>\n</section>"
+}

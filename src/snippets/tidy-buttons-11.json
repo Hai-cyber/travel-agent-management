@@ -1,0 +1,23 @@
+{
+  "id": "tidy-buttons-11",
+  "type": "tidy-buttons-11",
+  "name": "Tidy - Say goodbye to long queues, big updates, and confusion .",
+  "label": "Tidy - Say goodbye to long queues, big updates, and confusion .",
+  "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum — semper quis lectus nulla at ",
+  "icon": "[btn]",
+  "category": "buttons",
+  "categories": [
+    "buttons",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "section",
+    "micro-block",
+    "tidy",
+    "cruip"
+  ],
+  "templateId": "tidy-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative\">\n                                <h2 class=\"h2 font-playfair-display text-slate-800 mb-4\" data-ve-text=\"1\">Say goodbye to long queues, big updates, and <span class=\"text-emerald-500\" data-ve-text=\"1\">confusion</span>.</h2>\n                                <p class=\"text-xl text-slate-500 mb-8\" data-ve-text=\"1\">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum — semper quis lectus nulla at volutpat diam ut venenatis.</p>\n                                <div>\n                                    <a class=\"btn text-white bg-blue-600 hover:bg-blue-700 group\" href=\"request-demo.html\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        Request Demo <span class=\"tracking-normal text-blue-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                    </a>\n                                </div>\n                            </div>\n\n                        </div>\n  </div>\n</section>"
+}

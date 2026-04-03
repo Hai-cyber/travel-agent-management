@@ -1,0 +1,25 @@
+{
+  "id": "cube-buttons-09",
+  "type": "cube-buttons-09",
+  "name": "Cube - buttons 09",
+  "label": "Cube - buttons 09",
+  "desc": "Free Trial -&gt;",
+  "icon": "[btn]",
+  "category": "buttons",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "section",
+    "micro-block",
+    "cube",
+    "cruip"
+  ],
+  "templateId": "cube-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"flex flex-col justify-center p-4 bg-slate-700/25 md:border-l border-slate-700 order-1 md:order-none\">\n                                <a class=\"btn-sm text-white bg-indigo-500 hover:bg-indigo-600 w-full shadow-xs group whitespace-nowrap\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                    Free Trial <span class=\"hidden lg:block tracking-normal text-sky-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                </a>\n                            </div>\n  </div>\n</section>"
+}

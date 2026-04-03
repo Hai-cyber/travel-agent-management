@@ -1,0 +1,26 @@
+{
+  "id": "community-hero-12",
+  "type": "community-hero-12",
+  "name": "Community - A community of makers that learn and grow together",
+  "label": "Community - A community of makers that learn and grow together",
+  "desc": "Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.",
+  "icon": "[hero]",
+  "category": "hero",
+  "categories": [
+    "hero",
+    "icon-boxes",
+    "logos",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "icon-boxes",
+    "logos",
+    "section",
+    "community",
+    "cruip"
+  ],
+  "templateId": "community-html",
+  "thumbnail": "/api/tenant/template-assets/community-html/images/hero-illustration.svg",
+  "html": "<section class=\"relative overflow-hidden\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n\n                \n                <div class=\"absolute inset-0 bg-linear-to-t from-slate-800/60 pointer-events-none -z-10\" aria-hidden=\"true\"></div>\n\n                \n                <div class=\"absolute left-1/2 -translate-x-1/2 pointer-events-none -z-10\" aria-hidden=\"true\">\n                    <img src=\"/api/tenant/template-assets/community-html/images/hero-illustration.svg\" class=\"max-w-none\" width=\"1905\" height=\"622\" alt=\"Hero Illustration\" data-ve-img=\"1\">\n                </div>\n\n                <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"pt-28 pb-8 md:pt-36 md:pb-16\">\n\n                        \n                        <div class=\"relative max-w-xl mx-auto md:max-w-none text-center md:text-left flex flex-col md:flex-row\">\n\n                            \n                            <div class=\"md:w-[48rem]\">\n\n                                \n                                <div class=\"md:pr-32\">\n                                    <h1 class=\"h2 font-aspekta bg-clip-text text-transparent bg-linear-to-tr from-indigo-500 via-sky-300 to-slate-200 pb-6\" data-ve-text=\"1\">A community of makers that learn and grow together</h1>\n                                    <p class=\"text-lg text-slate-400 mb-8\" data-ve-text=\"1\">Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.</p>\n                                </div>\n                                \n                                <div class=\"md:flex flex-wrap items-center md:space-x-5 text-center\">\n                                    \n                                    <div class=\"mb-4 md:mb-0\">\n                                        <div class=\"text-sm italic text-slate-500 whitespace-nowrap\">Catch up with founders from</div>\n                                    </div>\n                                    <div class=\"inline-flex flex-wrap items-center\">\n                                        <div class=\"py-2 px-3\">\n                                            <img src=\"/api/tenant/template-assets/community-html/images/client-01.svg\" width=\"85\" height=\"40\" alt=\"Client 01\" data-ve-img=\"1\">\n                                        </div>\n                                        <div class=\"py-2 px-3\">\n                                            <img src=\"/api/tenant/template-assets/community-html/images/client-02.svg\" width=\"72\" height=\"16\" alt=\"Client 02\" data-ve-img=\"1\">\n                                        </div>\n                                        <div class=\"py-2 px-3\">\n                                            <img src=\"/api/tenant/template-assets/community-html/images/client-03.svg\" width=\"67\" height=\"32\" alt=\"Client 03\" data-ve-img=\"1\">\n                                        </div>\n                                    </div>\n                                </div>\n\n                                \n                                <div class=\"max-w-sm mx-auto md:max-w-none md:absolute md:left-[42rem] lg:left-[48rem] mt-12 md:mt-0 md:top-1/2 md:-translate-y-1/2\">\n                                    <img src=\"/api/tenant/template-assets/community-html/images/hero-image.png\" class=\"md:max-w-none mx-auto\" width=\"332\" height=\"298\" alt=\"Hero Illustration\" data-ve-img=\"1\" />\n                                </div>\n\n                            </div>\n\n                        </div>\n\n                    </div>\n                </div>\n            </section>"
+}

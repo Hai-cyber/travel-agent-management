@@ -1,0 +1,31 @@
+{
+  "id": "community-input-groups-06",
+  "type": "community-input-groups-06",
+  "name": "Community - input groups 06",
+  "label": "Community - input groups 06",
+  "desc": "Thanks for subscribing!",
+  "icon": "[input]",
+  "category": "input-groups",
+  "categories": [
+    "forms",
+    "input-groups",
+    "icon-boxes",
+    "grid-cards",
+    "newsletter",
+    "section"
+  ],
+  "tags": [
+    "forms",
+    "input-groups",
+    "icon-boxes",
+    "grid-cards",
+    "newsletter",
+    "section",
+    "micro-block",
+    "community",
+    "cruip"
+  ],
+  "templateId": "community-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative p-5 bg-linear-to-tr from-slate-800/20 via-slate-800/50 to-slate-800/20\">\n                                            <div class=\"absolute inset-0 -m-px pointer-events-none -z-10 before:absolute before:inset-0 before:bg-linear-to-t before:from-slate-700 before:to-slate-800 after:absolute after:inset-0 after:bg-slate-900 after:m-px\" aria-hidden=\"true\"></div>\n                                            <div class=\"font-semibold text-center bg-clip-text text-transparent bg-linear-to-tr from-indigo-500 via-sky-300 to-slate-200 mb-3\">Get the best of Community, directly in your inbox.</div>\n                                            \n                                            <div class=\"w-full\">\n                                                <label class=\"block text-sm sr-only\" for=\"newsletter\" data-ve-text=\"1\">Email</label>\n                                                <form class=\"relative flex items-center max-w-xs mx-auto\">\n                                                    <input id=\"newsletter\" type=\"email\" class=\"form-input py-1.5 w-full pr-10 rounded-full\" placeholder=\"Your email\" data-ve-input=\"1\">\n                                                    <button type=\"submit\" class=\"absolute inset-0 left-auto\" aria-label=\"Subscribe\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                                        <svg class=\"w-3 h-3 fill-current text-indigo-500 mx-3 shrink-0\" viewBox=\"0 0 12 12\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                            <path d=\"M11.707 5.293L7 .586 5.586 2l3 3H0v2h8.586l-3 3L7 11.414l4.707-4.707a1 1 0 000-1.414z\" fill-rule=\"nonzero\"></path>\n                                                        </svg>\n                                                    </button>\n                                                </form>\n                                                \n                                                \n                                            </div>\n                                        </div>\n                                    </div>\n\n                                </div>\n                        \n                            </div>\n  </div>\n</section>"
+}

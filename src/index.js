@@ -229,6 +229,8 @@ const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour
 
 // ĐỊNH NGHĨA MẢNG PATTERNS ĐÚNG CÚ PHÁP
 const patterns = [
+  ...(app.taskRoutes || []),
+
   // Route đặc biệt: duplicate season (phải đứng trước PRICING_GROUPS patterns)
   {
     method: 'POST',

@@ -1,0 +1,33 @@
+{
+  "id": "quoty-grid-cards-12",
+  "type": "quoty-grid-cards-12",
+  "name": "Quoty - The Markyk Corp.",
+  "label": "Quoty - The Markyk Corp.",
+  "desc": "Quote for The Markyk Corp. 20 April, 2024 Brief The client is looking to review and revamp the information architecture, user experience and",
+  "icon": "[grid]",
+  "category": "grid-cards",
+  "categories": [
+    "hero",
+    "gallery-grid",
+    "grid-cards",
+    "testimonials",
+    "logos",
+    "blog",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "gallery-grid",
+    "grid-cards",
+    "testimonials",
+    "logos",
+    "blog",
+    "section",
+    "micro-block",
+    "quoty",
+    "cruip"
+  ],
+  "templateId": "quoty-html",
+  "thumbnail": "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\"><img src=\"https://images.unsplash.com/photo-1488085061387-422e29b40080?w=1600&q=80&fit=crop\" alt=\"Travel visual\" class=\"w-full h-72 object-cover rounded-3xl mb-8\" data-ve-img=\"1\"></div>\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"min-h-full w-full max-w-xl mx-auto flex flex-col justify-start px-4 sm:px-6 pt-36 pb-20 lg:py-20\">\n                    <div class=\"grow flex flex-col justify-center\">\n            \n                        <div class=\"space-y-3\">\n                            <div class=\"font-caveat text-3xl text-blue-500\">Quote for</div>\n                            <h1 class=\"h1 font-orbiter font-bold text-white\" data-ve-text=\"1\">The Markyk Corp.</h1>\n                            <time class=\"block font-caveat text-xl text-slate-400 before:content-['—_']\">20 April, 2024</time>\n                        </div>\n            \n                    </div>\n                </div>\n            </div>\n\n            \n            <main class=\"max-lg:grow flex flex-col w-full lg:w-1/2 lg:ml-auto\">\n                \n                <div class=\"grow w-full max-w-xl mx-auto px-4 sm:px-6 py-12 lg:pt-24 lg:pb-20\">\n\n                    <article class=\"divide-y divide-slate-100 dark:divide-slate-800 -mt-8 mb-4\">\n                        <section class=\"py-8\">\n                            <h2 class=\"text-lg font-semibold mb-2\" data-ve-text=\"1\">Brief</h2>\n                            <div class=\"text-slate-500 dark:text-slate-400 space-y-4\">\n                                The client is looking to review and revamp the information architecture, user experience and user interface design of <strong class=\"text-slate-900 dark:text-slate-200 font-medium\" data-ve-text=\"1\">The Markyk Corp.</strong>, a web application that connects landlords and tenants across Europe and America.\n                            </div>\n                        </section>\n                        <section class=\"py-8\">\n                            <h2 class=\"text-lg font-semibold mb-5\" data-ve-text=\"1\">Details</h2>\n                            <ul class=\"grid gap-4 min-[480px]:grid-cols-3 text-sm\">\n                                <li class=\"px-5 py-4 rounded-lg bg-linear-to-tr from-slate-950 to-slate-800 dark:from-slate-800/80 dark:to-slate-900\" data-ve-text=\"1\">\n                                    <div class=\"text-slate-200 font-medium\">Project Length</div>\n  </div>\n</section>"
+}
