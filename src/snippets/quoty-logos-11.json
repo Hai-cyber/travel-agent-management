@@ -1,0 +1,37 @@
+{
+  "id": "quoty-logos-11",
+  "type": "quoty-logos-11",
+  "name": "Quoty - Ownership/copyright",
+  "label": "Quoty - Ownership/copyright",
+  "desc": "Defining the project scope is a collaborative effort with my client. Together, we establish key features, functionalities, and any constrain",
+  "icon": "[logo]",
+  "category": "logos",
+  "categories": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "features",
+    "faq",
+    "logos",
+    "blog",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "features",
+    "faq",
+    "logos",
+    "blog",
+    "cta",
+    "section",
+    "micro-block",
+    "quoty",
+    "cruip"
+  ],
+  "templateId": "quoty-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"text-sm odd:bg-linear-to-tr from-slate-100 to-slate-50 dark:from-slate-800/80 dark:to-slate-900 rounded-lg\">\n                                    <h3 data-ve-text=\"1\">\n                                        <button \n                                            id=\"terms-title-04\"\n                                            type=\"button\"\n                                            class=\"flex items-center justify-between w-full text-left font-medium px-5 py-3\"\n                                           \n                                           \n                                           \n                                         data-ve-text=\"1\" data-ve-btn=\"1\">\n                                            <span data-ve-text=\"1\">Ownership/copyright</span>\n                                            <svg class=\"fill-slate-400 dark:fill-slate-500 shrink-0 ml-8\" width=\"12\" height=\"12\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center transition duration-200 ease-out\" />\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center rotate-90 transition duration-200 ease-out\" />\n                                            </svg>\n                                        </button>\n                                    </h3>\n                                    <div\n                                        id=\"terms-text-04\"\n                                       \n                                        aria-labelledby=\"terms-title-04\"\n                                        class=\"grid text-slate-500 dark:text-slate-400 overflow-hidden transition-all duration-300 ease-in-out\"\n                                       \n                                    >\n                                        <div class=\"overflow-hidden\">\n                                            <p class=\"px-5 pb-3\" data-ve-text=\"1\">\n                                                Defining the project scope is a collaborative effort with my client. Together, we establish key features, functionalities, and any constraints that will shape the design process. This clarity ensures that we are aligned and working towards the same goals.\n                                            </p>\n                                        </div>\n                                    </div>\n                                </div>  \n                                \n                                <div class=\"text-sm odd:bg-linear-to-tr from-slate-100 to-slate-50 dark:from-slate-800/80 dark:to-slate-900 rounded-lg\">\n                                    <h3 data-ve-text=\"1\">\n                                        <button \n                                            id=\"terms-title-05\"\n                                            type=\"button\"\n                                            class=\"flex items-center justify-between w-full text-left font-medium px-5 py-3\"\n                                           \n                                           \n                                           \n                                         data-ve-text=\"1\" data-ve-btn=\"1\">\n                                            <span data-ve-text=\"1\">Equipment and expenses</span>\n                                            <svg class=\"fill-slate-400 dark:fill-slate-500 shrink-0 ml-8\" width=\"12\" height=\"12\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center transition duration-200 ease-out\" />\n                                                <rect y=\"5\" width=\"12\" height=\"2\" rx=\"1\" class=\"transform origin-center rotate-90 transition duration-200 ease-out\" />\n                                            </svg>\n                                        </button>\n                                    </h3>\n                                    <div\n                                        id=\"terms-text-05\"\n                                       \n                                        aria-labelledby=\"terms-title-05\"\n                                        class=\"grid text-slate-500 dark:text-slate-400 overflow-hidden transition-all duration-300 ease-in-out\"\n                                       \n                                    >\n                                        <div class=\"overflow-hidden\">\n                                            <p class=\"px-5 pb-3\" data-ve-text=\"1\">\n                                                Defining the project scope is a collaborative effort with my client. Together, we establish key features, functionalities, and any constraints that will shape the design process. This clarity ensures that we are aligned and working towards the same goals.\n                                            </p>\n                                        </div>\n                                    </div>\n                                \n                                </div>\n                                    \n                            </div>\n                        </section>\n                    </article>\n                    \n                </div>\n                \n                <div class=\"fixed bottom-0 z-30 w-full lg:w-1/2 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xs\">\n                    <div class=\"w-full max-w-xl mx-auto px-4 sm:px-6\">\n                        <div class=\"flex py-4 md:py-6 space-x-4\">\n                            <a class=\"btn w-full text-slate-900 dark:text-slate-200 bg-white dark:bg-slate-900 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 shadow-sm shadow-black/5\" href=\"contact.html\" data-ve-text=\"1\" data-ve-btn=\"1\">Contact Me</a>\n                            <a class=\"btn w-full text-white bg-blue-500 hover:bg-blue-600 shadow-sm shadow-black/5 animate-shine bg-[linear-gradient(100deg,var(--color-blue-500),45%,var(--color-blue-400),55%,var(--color-blue-500))] bg-[size:200%_100%] hover:bg-[image:none]\" href=\"pay.html\" data-ve-text=\"1\" data-ve-btn=\"1\">Pay - $24.560</a>\n                        </div>\n  </div>\n</section>"
+}

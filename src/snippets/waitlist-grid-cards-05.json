@@ -1,0 +1,23 @@
+{
+  "id": "waitlist-grid-cards-05",
+  "type": "waitlist-grid-cards-05",
+  "name": "Waitlist - grid cards 05",
+  "label": "Waitlist - grid cards 05",
+  "desc": "",
+  "icon": "[grid]",
+  "category": "grid-cards",
+  "categories": [
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "grid-cards",
+    "section",
+    "card",
+    "waitlist",
+    "cruip"
+  ],
+  "templateId": "waitlist-html",
+  "thumbnail": "/api/tenant/template-assets/waitlist-html/images/avatar-01.jpg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<li data-ve-text=\"1\">\n                                        <img class=\"rounded-full\" src=\"/api/tenant/template-assets/waitlist-html/images/avatar-01.jpg\" width=\"32\" height=\"32\" alt=\"Avatar 01\" data-ve-img=\"1\">\n                                    </li>\n  </div>\n</section>"
+}

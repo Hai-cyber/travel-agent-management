@@ -1,0 +1,25 @@
+{
+  "id": "gray-grid-cards-04",
+  "type": "gray-grid-cards-04",
+  "name": "Gray - grid cards 04",
+  "label": "Gray - grid cards 04",
+  "desc": "",
+  "icon": "[grid]",
+  "category": "grid-cards",
+  "categories": [
+    "grid-cards",
+    "logos",
+    "section"
+  ],
+  "tags": [
+    "grid-cards",
+    "logos",
+    "section",
+    "card",
+    "gray",
+    "cruip"
+  ],
+  "templateId": "gray-html",
+  "thumbnail": "/api/tenant/template-assets/gray-html/images/logo.png",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<a class=\"flex items-center justify-center bg-white w-8 h-8 rounded-sm shadow-xs shadow-zinc-950/20\" href=\"index.html\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                <img src=\"/api/tenant/template-assets/gray-html/images/logo.png\" width=\"24\" height=\"24\" alt=\"Logo\" data-ve-img=\"1\">\n                            </a>\n  </div>\n</section>"
+}

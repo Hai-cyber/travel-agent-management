@@ -1,0 +1,23 @@
+{
+  "id": "creative-grid-cards-01",
+  "type": "creative-grid-cards-01",
+  "name": "Creative - grid cards 01",
+  "label": "Creative - grid cards 01",
+  "desc": "Ada Ahdiyat @ada-designer-ok Like 4K",
+  "icon": "[grid]",
+  "category": "grid-cards",
+  "categories": [
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "grid-cards",
+    "section",
+    "card",
+    "creative",
+    "cruip"
+  ],
+  "templateId": "creative-html",
+  "thumbnail": "/api/tenant/template-assets/creative-html/images/inspiration-01.jpg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<a class=\"relative group hover:shadow-xl transition duration-150 ease-in-out\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        <img class=\"w-full aspect-square object-cover\" src=\"/api/tenant/template-assets/creative-html/images/inspiration-01.jpg\" width=\"352\" height=\"352\" alt=\"Inspiration 01\" data-ve-img=\"1\" />\n                                        \n                                        <div class=\"md:hidden md:group-hover:block absolute bottom-0 left-0 right-0 p-4\">\n                                            \n                                            <div class=\"absolute inset-0 -mt-4 bg-linear-to-t from-gray-800 to-transparent opacity-80 pointer-events-none\" aria-hidden=\"true\"></div>\n                                            \n                                            <div class=\"relative flex justify-between\">\n                                                \n                                                <div class=\"flex items-center\">\n                                                    <img class=\"shrink-0 w-9 h-9 rounded-full mr-4\" src=\"/api/tenant/template-assets/creative-html/images/author-01.jpg\" width=\"36\" height=\"36\" alt=\"Author 01\" data-ve-img=\"1\" />\n                                                    <div class=\"truncate\">\n                                                        <div class=\"font-bold text-white truncate\">Ada Ahdiyat</div>\n                                                        <div class=\"text-xs text-white opacity-60 truncate\">@ada-designer-ok</div>\n                                                    </div>\n                                                </div>\n                                                \n                                                <div class=\"flex flex-nowrap items-center ml-2\">\n                                                    <button class=\"text-rose-500 hover:text-rose-600\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                                        <span class=\"sr-only\" data-ve-text=\"1\">Like</span>\n                                                        <svg class=\"fill-current\" width=\"16\" height=\"14\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                            <path d=\"M14.682 1.318A4.485 4.485 0 0 0 11.5 0 4.377 4.377 0 0 0 8 1.707 4.383 4.383 0 0 0 4.5 0a4.5 4.5 0 0 0-3.182 7.682L8 14l6.682-6.318a4.5 4.5 0 0 0 0-6.364Zm-1.4 4.933L8 11.247l-5.285-5A2.5 2.5 0 0 1 4.5 2c1.437 0 2.312.681 3.5 2.625C9.187 2.681 10.062 2 11.5 2a2.5 2.5 0 0 1 1.785 4.251h-.003Z\" fill-rule=\"nonzero\" />\n                                                        </svg>\n                                                    </button>\n                                                    <div class=\"whitespace-nowrap text-sm text-white opacity-90 ml-2\">4K</div>\n                                                </div>\n                                            </div>\n                                        </div>\n                                    </a>\n  </div>\n</section>"
+}

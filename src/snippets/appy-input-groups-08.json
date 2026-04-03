@@ -1,0 +1,29 @@
+{
+  "id": "appy-input-groups-08",
+  "type": "appy-input-groups-08",
+  "name": "Appy - Free until you're ready to launch",
+  "label": "Appy - Free until you're ready to launch",
+  "desc": "Thanks for subscribing!",
+  "icon": "[input]",
+  "category": "input-groups",
+  "categories": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "stats",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "stats",
+    "section",
+    "micro-block",
+    "appy",
+    "cruip"
+  ],
+  "templateId": "appy-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative flex flex-col lg:flex-row justify-between items-center\">\n\n                            \n                            <div class=\"mb-6 lg:mr-16 lg:mb-0 text-center lg:text-left lg:w-1/2\">\n                                <h3 class=\"h3 font-red-hat-display text-gray-100\" data-ve-text=\"1\">Free until you're ready to launch</h3>\n                            </div>\n\n                            \n                            <form class=\"w-full lg:w-1/2\">\n                                <div class=\"flex flex-col sm:flex-row justify-center max-w-xs mx-auto sm:max-w-md lg:max-w-none\">\n                                    <input type=\"tel\" class=\"form-input text-gray-100 w-full mb-2 sm:mb-0 sm:mr-2\" placeholder=\"Phone number\" aria-label=\"Phone number\" data-ve-input=\"1\" />\n                                    <a class=\"btn text-white bg-teal-500 hover:bg-teal-400 shrink-0\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Request code</a>\n                                </div>\n                                \n                                \n                            </form>\n\n                        </div>\n\n                    </div>\n\n                </div>\n  </div>\n</section>"
+}

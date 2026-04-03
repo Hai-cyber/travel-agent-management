@@ -1,0 +1,27 @@
+{
+  "id": "cube-cta-12",
+  "type": "cube-cta-12",
+  "name": "Cube - cta 12",
+  "label": "Cube - cta 12",
+  "desc": "Get Started Free -&gt;",
+  "icon": "[cta]",
+  "category": "cta",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "cta",
+    "section",
+    "micro-block",
+    "cube",
+    "cruip"
+  ],
+  "templateId": "cube-html",
+  "thumbnail": "https://images.unsplash.com/photo-1493558103817-58b2924bce98?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\"><img src=\"https://images.unsplash.com/photo-1493558103817-58b2924bce98?w=1600&q=80&fit=crop\" alt=\"Travel visual\" class=\"w-full h-72 object-cover rounded-3xl mb-8\" data-ve-img=\"1\"></div>\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div>\n                                    <a class=\"btn text-white bg-indigo-500 hover:bg-indigo-600 w-full shadow-xs group\" href=\"signup.html\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        Get Started Free <span class=\"tracking-normal text-sky-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                    </a>\n                                </div>\n  </div>\n</section>"
+}

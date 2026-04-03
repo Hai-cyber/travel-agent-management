@@ -1,0 +1,24 @@
+{
+  "id": "talent-faq-07",
+  "type": "talent-faq-07",
+  "name": "Talent - Frequently asked questions",
+  "label": "Talent - Frequently asked questions",
+  "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim",
+  "icon": "[faq]",
+  "category": "faq",
+  "categories": [
+    "pricing",
+    "faq",
+    "section"
+  ],
+  "tags": [
+    "pricing",
+    "faq",
+    "section",
+    "talent",
+    "cruip"
+  ],
+  "templateId": "talent-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section>\n                <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"pb-12 md:pb-20\">\n            \n                        \n                        <div class=\"max-w-3xl mx-auto pb-10\">\n                            <h2 class=\"h2 font-cabinet-grotesk\" data-ve-text=\"1\">Frequently asked questions</h2>\n                        </div>\n\n                        <div class=\"max-w-3xl mx-auto space-y-6\">\n                            \n                            <div class=\"space-y-2\">\n                                <h4 class=\"text-xl font-cabinet-grotesk font-bold\" data-ve-text=\"1\">How much is this going to cost?</h4>\n                                <p class=\"text-gray-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                            </div>\n                            \n                            <div class=\"space-y-2\">\n                                <h4 class=\"text-xl font-cabinet-grotesk font-bold\" data-ve-text=\"1\">What is the difference between the basic and pro plans?</h4>\n                                <p class=\"text-gray-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                            </div>\n                            \n                            <div class=\"space-y-2\">\n                                <h4 class=\"text-xl font-cabinet-grotesk font-bold\" data-ve-text=\"1\">Do you have student or non-profit discounts?</h4>\n                                <p class=\"text-gray-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                            </div>\n                            \n                            <div class=\"space-y-2\">\n                                <h4 class=\"text-xl font-cabinet-grotesk font-bold\" data-ve-text=\"1\">How is the price determined?</h4>\n                                <p class=\"text-gray-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                            </div>\n                            \n                            <div class=\"space-y-2\">\n                                <h4 class=\"text-xl font-cabinet-grotesk font-bold\" data-ve-text=\"1\">Have more questions?</h4>\n                                <p class=\"text-gray-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                            </div>\n                        </div>\n            \n                    </div>\n                </div>\n            </section>"
+}

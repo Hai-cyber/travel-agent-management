@@ -1,0 +1,35 @@
+{
+  "id": "job-board-forms-10",
+  "type": "job-board-forms-10",
+  "name": "Job Board - Our customers love us",
+  "label": "Job Board - Our customers love us",
+  "desc": "Hiring a Senior Laravel engineer through JobBoard has been incredible. The best job board experience we've ever had.",
+  "icon": "[form]",
+  "category": "forms",
+  "categories": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "icon-boxes",
+    "grid-cards",
+    "testimonials",
+    "newsletter",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "icon-boxes",
+    "grid-cards",
+    "testimonials",
+    "newsletter",
+    "section",
+    "micro-block",
+    "job-board",
+    "cruip"
+  ],
+  "templateId": "job-board-html",
+  "thumbnail": "/api/tenant/template-assets/job-board-html/images/testimonial-01.jpg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"py-8 border-b border-gray-200 -order-1\">\n                                            <div class=\"relative text-center px-4 py-6 group\">\n                                                <div class=\"absolute inset-0 rounded-xl bg-gray-50 border border-gray-200 -rotate-1 group-hover:rotate-0 transition duration-150 ease-in-out -z-10\" aria-hidden=\"true\"></div>\n                                                <div class=\"font-nycd text-xl text-indigo-500 mb-1\">Land your dream job</div>\n                                                <div class=\"text-2xl font-bold mb-5\">Get a weekly email with the latest startup jobs.</div>\n                                                <form class=\"inline-flex max-w-sm\">\n                                                    <div class=\"flex flex-col sm:flex-row justify-center max-w-xs mx-auto sm:max-w-none\">\n                                                        <input type=\"email\" class=\"form-input py-1.5 w-full mb-2 sm:mb-0 sm:mr-2\" placeholder=\"Your email\" aria-label=\"Your email\" data-ve-input=\"1\" />\n                                                        <button class=\"btn-sm text-white bg-indigo-500 hover:bg-indigo-600 shadow-xs whitespace-nowrap\" type=\"submit\" data-ve-text=\"1\" data-ve-btn=\"1\">Join Newsletter</button>\n                                                    </div>\n                                                </form>\n                                            </div>\n                                        </div>\n    \n                                    </div>\n                                </div>\n\n                                \n                                <div>\n                                    <h2 class=\"text-3xl font-bold font-inter mb-10\" data-ve-text=\"1\">Our customers love us</h2>\n                                    \n                                    <div class=\"space-y-10\">\n                                        \n                                        <div class=\"p-5 rounded-xl bg-teal-50 border border-teal-200 odd:rotate-1 even:-rotate-1 hover:rotate-0 transition duration-150 ease-in-out\">\n                                            <div class=\"flex items-center space-x-5\">\n                                                <div class=\"relative shrink-0\">\n                                                    <img class=\"rounded-full\" src=\"/api/tenant/template-assets/job-board-html/images/testimonial-01.jpg\" width=\"102\" height=\"102\" alt=\"Testimonial 01\" data-ve-img=\"1\" />\n                                                    <svg class=\"absolute top-0 right-0 fill-indigo-400\" width=\"26\" height=\"17\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                        <path d=\"M0 16.026h8.092l6.888-16h-4.592L0 16.026Zm11.02 0h8.092L26 .026h-4.65l-10.33 16Z\" />\n                                                    </svg>\n                                                </div>\n                                                <figure>\n                                                    <blockquote class=\"text-lg font-bold m-0 pb-1\">\n                                                        <p data-ve-text=\"1\">Hiring a Senior Laravel engineer through JobBoard has been incredible. The best job board experience we've ever had.</p>\n                                                    </blockquote>\n                                                    <figcaption class=\"text-sm font-medium\">Patrick Metzger, CEO <a class=\"text-teal-500 hover:underline\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">App.com</a></figcaption>\n                                                </figure>\n                                            </div>\n                                        </div>\n                                        \n                                        <div class=\"p-5 rounded-xl bg-sky-50 border border-sky-200 odd:rotate-1 even:-rotate-1 hover:rotate-0 transition duration-150 ease-in-out\">\n                                            <div class=\"flex items-center space-x-5\">\n                                                <div class=\"relative shrink-0\">\n                                                    <img class=\"rounded-full\" src=\"/api/tenant/template-assets/job-board-html/images/testimonial-02.jpg\" width=\"102\" height=\"102\" alt=\"Testimonial 02\" data-ve-img=\"1\" />\n                                                    <svg class=\"absolute top-0 right-0 fill-indigo-400\" width=\"26\" height=\"17\" xmlns=\"http://www.w3.org/2000/svg\">\n                                                        <path d=\"M0 16.026h8.092l6.888-16h-4.592L0 16.026Zm11.02 0h8.092L26 .026h-4.65l-10.33 16Z\" />\n                                                    </svg>\n                                                </div>\n                                                <figure>\n                                                    <blockquote class=\"text-lg font-bold m-0 pb-1\">\n                                                        <p data-ve-text=\"1\">Hiring a Senior Laravel engineer through JobBoard has been incredible. The best job board experience we've ever had.</p>\n                                                    </blockquote>\n                                                    <figcaption class=\"text-sm font-medium\">Annie Patrick, CEO <a class=\"text-sky-500 hover:underline\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">TrueThing</a></figcaption>\n                                                </figure>\n                                            </div>\n                                        </div>\n                                    </div>\n                                </div>\n\n                            </div>\n\n                        </div>\n\n                    </div>\n  </div>\n</section>"
+}

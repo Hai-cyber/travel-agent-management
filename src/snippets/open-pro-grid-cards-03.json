@@ -1,0 +1,25 @@
+{
+  "id": "open-pro-grid-cards-03",
+  "type": "open-pro-grid-cards-03",
+  "name": "Open Pro - grid cards 03",
+  "label": "Open Pro - grid cards 03",
+  "desc": "Watch Demo - 3:47",
+  "icon": "[grid]",
+  "category": "grid-cards",
+  "categories": [
+    "hero",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "grid-cards",
+    "section",
+    "card",
+    "open-pro",
+    "cruip"
+  ],
+  "templateId": "open-pro-html",
+  "thumbnail": "/api/tenant/template-assets/open-pro-html/images/hero-image-01.jpg",
+  "html": "<section class=\"py-12 md:py-20\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<button\n                                    class=\"group relative flex items-center justify-center rounded-2xl focus:outline-hidden focus-visible:ring-3 focus-visible:ring-indigo-200\"\n                                   \n                                   \n                                    aria-label=\"Watch the video\"\n                                   \n                                   \n                                 data-ve-text=\"1\" data-ve-btn=\"1\">\n                                    <figure\n                                        class=\"relative overflow-hidden rounded-2xl before:absolute before:inset-0 before:-z-10 before:bg-linear-to-br before:from-gray-900 before:via-indigo-500/20 before:to-gray-900\"\n                                    >\n                                        <img\n                                            class=\"opacity-50 grayscale\"\n                                            src=\"/api/tenant/template-assets/open-pro-html/images/hero-image-01.jpg\"\n                                            width=\"1104\"\n                                            height=\"576\"\n                                            alt=\"Modal video thumbnail\" data-ve-img=\"1\"\n                                        />\n                                    </figure>\n                                    \n                                    <span\n                                        class=\"pointer-events-none absolute p-2.5 before:absolute before:inset-0 before:rounded-full before:bg-gray-950 before:duration-300 group-hover:before:scale-110\"\n                                     data-ve-text=\"1\">\n                                        <span class=\"relative flex items-center gap-3\" data-ve-text=\"1\">\n                                            <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" fill=\"none\">\n                                                <path\n                                                    fill=\"url(#pla)\"\n                                                    fill-rule=\"evenodd\"\n                                                    d=\"M10 20c5.523 0 10-4.477 10-10S15.523 0 10 0 0 4.477 0 10s4.477 10 10 10Zm3.5-10-5-3.5v7l5-3.5Z\"\n                                                    clip-rule=\"evenodd\"\n                                                />\n                                                <defs>\n                                                    <linearGradient\n                                                        id=\"pla\"\n                                                        x1=\"10\"\n                                                        x2=\"10\"\n                                                        y1=\"0\"\n                                                        y2=\"20\"\n                                                        gradientUnits=\"userSpaceOnUse\"\n                                                    >\n                                                        <stop stop-color=\"#6366F1\" />\n                                                        <stop offset=\"1\" stop-color=\"#6366F1\" stop-opacity=\".72\" />\n                                                    </linearGradient>\n                                                </defs>\n                                            </svg>\n                                            <span class=\"text-sm font-medium leading-tight text-gray-300\"\n                                                 data-ve-text=\"1\">Watch Demo\n                                                <span class=\"text-gray-600\" data-ve-text=\"1\"> - </span>\n                                                3:47</span\n                                            >\n                                        </span>\n                                    </span>\n                                </button>\n  </div>\n</section>"
+}

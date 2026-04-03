@@ -1,0 +1,27 @@
+{
+  "id": "community-icon-boxes-02",
+  "type": "community-icon-boxes-02",
+  "name": "Community - Visual Studio X",
+  "label": "Community - Visual Studio X",
+  "desc": "Visual Studio X Follow",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "icon-boxes",
+    "grid-cards",
+    "section",
+    "icon-box",
+    "community",
+    "cruip"
+  ],
+  "templateId": "community-html",
+  "thumbnail": "/api/tenant/template-assets/community-html/images/startup-01.svg",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<li data-ve-text=\"1\">\n                                                <div class=\"flex items-center justify-between\">\n                                                    <div class=\"grow min-w-0 flex items-center mr-2\">\n                                                        <img class=\"shrink-0 mr-3\" src=\"/api/tenant/template-assets/community-html/images/startup-01.svg\" width=\"32\" height=\"32\" alt=\"Startup 01\" data-ve-img=\"1\" />\n                                                        <h3 class=\"truncate text-sm\" data-ve-text=\"1\">\n                                                            <a class=\"text-slate-200 font-semibold hover:text-white transition duration-150 ease-in-out\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Visual Studio X</a>\n                                                        </h3>\n                                                    </div>\n                                                    <button class=\"text-xs text-indigo-500 inline-flex font-medium rounded-full text-center px-2 py-0.5 border border-slate-700 bg-linear-to-tr from-slate-800/20 via-slate-800/50 to-slate-800/20 hover:bg-slate-800 transition duration-150 ease-in-out\" data-ve-text=\"1\" data-ve-btn=\"1\">Follow</button>\n                                                </div>\n                                            </li>\n  </div>\n</section>"
+}

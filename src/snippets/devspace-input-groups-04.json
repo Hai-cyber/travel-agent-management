@@ -1,0 +1,29 @@
+{
+  "id": "devspace-input-groups-04",
+  "type": "devspace-input-groups-04",
+  "name": "Devspace - input groups 04",
+  "label": "Devspace - input groups 04",
+  "desc": "Your email… Subscribe",
+  "icon": "[input]",
+  "category": "input-groups",
+  "categories": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "newsletter",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "newsletter",
+    "section",
+    "input-group",
+    "devspace",
+    "cruip"
+  ],
+  "templateId": "devspace-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<form>\n                                        <div class=\"mb-2\">\n                                            <label class=\"sr-only\" for=\"newsletter\" data-ve-text=\"1\">Your email…</label>\n                                            <input id=\"newsletter\" type=\"email\" class=\"form-input py-1 w-full\" placeholder=\"Your email…\" data-ve-input=\"1\" />\n                                        </div>\n                                        <button class=\"btn-sm w-full  text-slate-100 bg-sky-500 hover:bg-sky-600\" type=\"submit\" data-ve-text=\"1\" data-ve-btn=\"1\">Subscribe</button>\n                                    </form>\n  </div>\n</section>"
+}

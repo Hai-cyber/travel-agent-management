@@ -1,0 +1,29 @@
+{
+  "id": "neon-cta-08",
+  "type": "neon-cta-08",
+  "name": "Neon - Where the world builds software",
+  "label": "Neon - Where the world builds software",
+  "desc": "Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.",
+  "icon": "[cta]",
+  "category": "cta",
+  "categories": [
+    "hero",
+    "buttons",
+    "grid-cards",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "hero",
+    "buttons",
+    "grid-cards",
+    "cta",
+    "section",
+    "micro-block",
+    "neon",
+    "cruip"
+  ],
+  "templateId": "neon-html",
+  "thumbnail": "https://images.unsplash.com/photo-1493558103817-58b2924bce98?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\" style=\"padding-top: 96px\" data-ve-hero-padded=\"1\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\"><img src=\"https://images.unsplash.com/photo-1493558103817-58b2924bce98?w=1600&q=80&fit=crop\" alt=\"Travel visual\" class=\"w-full h-72 object-cover rounded-3xl mb-8\" data-ve-img=\"1\"></div>\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div>\n                                <div class=\"relative text-sm text-gray-300 bg-gray-800 rounded-full inline-block px-4 py-1 mb-6 before:content-[''] before:absolute before:-z-10 before:inset-0 before:-m-0.5 before:bg-linear-to-t before:from-gray-800 before:to-gray-800 before:via-gray-600 before:rounded-full\">\n                                    <div class=\"text-gray-400\">Launching Infinite Workspaces. <a class=\"font-medium text-blue-500 inline-flex items-center transition duration-150 ease-in-out group\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Learn More <span class=\"tracking-normal group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span></a></div>\n                                </div>\n                            </div>\n                            <h1 class=\"h1 font-uncut-sans mb-6\" data-ve-text=\"1\">Where the world builds <em class=\"font-italic\" data-ve-text=\"1\">software</em></h1>\n                            <p class=\"text-xl text-gray-400 mb-10\" data-ve-text=\"1\">Our landing page template works on all devices, so you only have to set it up once, and get beautiful results forever.</p>\n                            <div class=\"max-w-xs mx-auto sm:max-w-none sm:flex sm:justify-center md:justify-start space-y-4 sm:space-y-0 sm:space-x-4\">\n                                <div>\n                                    <a class=\"btn text-white bg-linear-to-t from-blue-600 to-blue-400 hover:to-blue-500 w-full shadow-lg group\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        Get Started For Free <span class=\"tracking-normal text-blue-200 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                    </a>\n                                </div>\n                                <div>\n                                    <a class=\"btn text-gray-300 bg-linear-to-t from-gray-800 to-gray-700 hover:to-gray-800 w-full shadow-lg\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">Explore Docs</a>\n                                </div>\n                            </div>\n\n                        </div>\n                        \n                    </div>\n                </div>\n  </div>\n</section>"
+}

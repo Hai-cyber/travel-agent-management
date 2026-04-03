@@ -5,6 +5,12 @@
 		"directory": "./public"
 	},
 	"workers_dev": true,
+	"routes": [
+		{
+			"pattern": "tours-market.com",
+			"custom_domain": true
+		}
+	],
 	"preview_urls": true,
 	"compatibility_date": "2026-03-10",
 	"compatibility_flags": [
@@ -63,8 +69,54 @@
 	// wrangler secret put STRIPE_SECRET_KEY (production).
 	// NEVER commit real keys here — these are placeholder strings only.
 	"vars": {
-		"STRIPE_PRICE_ID":      "price_REPLACE_ME",
-		"PLATFORM_BASE_URL":    "http://localhost:8787",
-		"GOOGLE_CLIENT_ID":     ""
+		"STRIPE_PRICE_ID": "price_REPLACE_ME",
+		"PLATFORM_BASE_URL": "https://tours-market.com",
+		"GOOGLE_CLIENT_ID": ""
+	},
+	"env": {
+		"staging": {
+			"name": "square-wind-2594-staging",
+			"preview_urls": true,
+			"workers_dev": true,
+			"routes": [
+				{
+					"pattern": "staging.tours-market.com",
+					"custom_domain": true
+				}
+			],
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "travel_agent_db",
+					"database_id": "d4f609a9-0e4a-44bd-ac3b-74865bcfd6ba",
+					"migrations_dir": "db/migrations"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"id": "f73f49731e054d35985ee4d1326f6258",
+					"binding": "TOUR_PRESETS"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "TOUR_PAGES",
+					"bucket_name": "tour-pages"
+				},
+				{
+					"binding": "BOOKING_PROOFS",
+					"bucket_name": "booking-proofs"
+				},
+				{
+					"binding": "SITE_TEMPLATES",
+					"bucket_name": "site-templates"
+				}
+			],
+			"vars": {
+				"STRIPE_PRICE_ID": "price_REPLACE_ME",
+				"PLATFORM_BASE_URL": "https://staging.tours-market.com",
+				"GOOGLE_CLIENT_ID": ""
+			}
+		}
 	}
 }

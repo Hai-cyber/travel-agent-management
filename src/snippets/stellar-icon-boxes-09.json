@@ -1,0 +1,29 @@
+{
+  "id": "stellar-icon-boxes-09",
+  "type": "stellar-icon-boxes-09",
+  "name": "Stellar - Infinite options",
+  "label": "Stellar - Infinite options",
+  "desc": "Quickly apply filters to refine your issues lists and create custom views.",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "gallery-grid",
+    "icon-boxes",
+    "grid-cards",
+    "features",
+    "section"
+  ],
+  "tags": [
+    "gallery-grid",
+    "icon-boxes",
+    "grid-cards",
+    "features",
+    "section",
+    "micro-block",
+    "stellar",
+    "cruip"
+  ],
+  "templateId": "stellar-html",
+  "thumbnail": "/api/tenant/template-assets/stellar-html/images/feature-image-03.png",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative h-full bg-slate-900 rounded-[inherit] z-20 overflow-hidden\">\n                                            <div class=\"flex flex-col\">\n                                                \n                                                <div class=\"absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 pointer-events-none -z-10 w-1/2 aspect-square\" aria-hidden=\"true\">\n                                                    <div class=\"absolute inset-0 translate-z-0 bg-slate-800 rounded-full blur-[80px]\"></div>\n                                                </div>\n                                                \n                                                <div class=\"md:max-w-[480px] shrink-0 order-1 md:order-none p-6 pt-0 md:p-8\">\n                                                    <div>\n                                                        <h3 class=\"inline-flex text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-1\" data-ve-text=\"1\">Infinite options</h3>\n                                                        <p class=\"text-slate-400\" data-ve-text=\"1\">Quickly apply filters to refine your issues lists and create custom views.</p>\n                                                    </div>\n                                                </div>\n                                                \n                                                <div class=\"relative w-full h-64 md:h-auto overflow-hidden md:pb-8\">\n                                                    <img class=\"absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto max-w-none md:max-w-full md:relative md:left-0 md:translate-x-0\" src=\"/api/tenant/template-assets/stellar-html/images/feature-image-03.png\" width=\"230\" height=\"230\" alt=\"Feature 03\" data-ve-img=\"1\">\n                                                </div>\n                                            </div>\n                                        </div>\n                                    </div>\n                                </div>\n                            </div>\n                        </div>\n\n                        \n                        <div class=\"grid md:grid-cols-3 gap-8 md:gap-12\">\n                            \n                            <div>\n                                <div class=\"flex items-center space-x-2 mb-1\">\n                                    <svg class=\"shrink-0 fill-slate-300\" xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\">\n                                        <path d=\"M7.999 2.34a4.733 4.733 0 0 0-6.604 6.778l5.904 5.762a1 1 0 0 0 1.4 0l5.915-5.77a4.733 4.733 0 0 0-6.615-6.77Zm5.208 5.348-5.208 5.079-5.2-5.07a2.734 2.734 0 0 1 3.867-3.864c.182.19.335.404.455.638a1.04 1.04 0 0 0 1.756 0 2.724 2.724 0 0 1 5.122 1.294 2.7 2.7 0 0 1-.792 1.923Z\" />\n                                    </svg>\n                                    <h4 class=\"font-medium text-slate-50\" data-ve-text=\"1\">Filters</h4>\n                                </div>\n                                <p class=\"text-sm text-slate-400\" data-ve-text=\"1\">Login box must find the right balance for the user convenience, privacy and security.</p>\n                            </div>\n  </div>\n</section>"
+}

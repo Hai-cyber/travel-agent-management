@@ -1,0 +1,25 @@
+{
+  "id": "open-pro-buttons-12",
+  "type": "open-pro-buttons-12",
+  "name": "Open Pro - buttons 12",
+  "label": "Open Pro - buttons 12",
+  "desc": "Start Building -&gt;",
+  "icon": "[btn]",
+  "category": "buttons",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "section",
+    "micro-block",
+    "open-pro",
+    "cruip"
+  ],
+  "templateId": "open-pro-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div>\n                                            <a\n                                                class=\"btn group mb-4 w-full bg-linear-to-t from-indigo-600 to-indigo-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-[inset_0px_1px_0px_0px_--theme(--color-white/.16)] hover:bg-[length:100%_150%] sm:mb-0 sm:w-auto\"\n                                                href=\"#\"\n                                             data-ve-text=\"1\" data-ve-btn=\"1\">\n                                                <span class=\"relative inline-flex items-center\" data-ve-text=\"1\">\n                                                    Start Building\n                                                    <span\n                                                        class=\"ml-1 tracking-normal text-white/50 transition-transform group-hover:translate-x-0.5\"\n                                                         data-ve-text=\"1\">-&gt;</span\n                                                    >\n                                                </span>\n                                            </a>\n                                        </div>\n  </div>\n</section>"
+}

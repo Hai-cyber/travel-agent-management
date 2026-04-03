@@ -1,0 +1,29 @@
+{
+  "id": "simple-icon-boxes-03",
+  "type": "simple-icon-boxes-03",
+  "name": "Simple - Instant Analytics",
+  "label": "Simple - Instant Analytics",
+  "desc": "Instant Analytics Collect essential insights about how visitors are using your site with in-depth page view metrics like pages, referring si",
+  "icon": "[icon]",
+  "category": "icon-boxes",
+  "categories": [
+    "icon-boxes",
+    "grid-cards",
+    "stats",
+    "blog",
+    "section"
+  ],
+  "tags": [
+    "icon-boxes",
+    "grid-cards",
+    "stats",
+    "blog",
+    "section",
+    "icon-box",
+    "simple",
+    "cruip"
+  ],
+  "templateId": "simple-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<article>\n                                <h3 class=\"font-medium text-gray-200 flex items-center space-x-2 mb-2\" data-ve-text=\"1\">\n                                    <svg class=\"fill-blue-500\" xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\">\n                                        <path d=\"M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm2-4a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4Zm1 10a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H5Z\" />\n                                      </svg>\n                                      <span data-ve-text=\"1\">Instant Analytics</span>\n                                </h3>\n                                <p class=\"text-[15px] text-gray-400\" data-ve-text=\"1\">Collect essential insights about how visitors are using your site with in-depth page view metrics like pages, referring sites, and more.</p>\n                            </article>\n  </div>\n</section>"
+}

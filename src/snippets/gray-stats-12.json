@@ -1,0 +1,23 @@
+{
+  "id": "gray-stats-12",
+  "type": "gray-stats-12",
+  "name": "Gray - 0 K",
+  "label": "Gray - 0 K",
+  "desc": "Assets packed with power beyond your imagination.",
+  "icon": "[stats]",
+  "category": "stats",
+  "categories": [
+    "stats",
+    "section"
+  ],
+  "tags": [
+    "stats",
+    "section",
+    "micro-block",
+    "gray",
+    "cruip"
+  ],
+  "templateId": "gray-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"relative text-center md:px-5 after:hidden md:after:block after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-8 after:border-l after:border-zinc-300 after:border-dashed last:after:hidden\">\n                                <h4 class=\"font-inter-tight text-2xl md:text-3xl font-bold tabular-nums mb-2\" data-ve-text=\"1\"><span data-ve-text=\"1\">0</span>K</h4>\n                                <p class=\"text-sm text-zinc-500\" data-ve-text=\"1\">Assets packed with power beyond your imagination.</p>\n                            </div>\n  </div>\n</section>"
+}

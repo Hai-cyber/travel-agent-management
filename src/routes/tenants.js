@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 import { resolveTenantByHost, serveSitePage, SAFE_SELECTOR_RE, listAllObjects, initializeTenantSandbox, getTemplateStructure, extractTemplateSections } from '../lib/siteStudio.js';
 import { checkPublishPermission } from '../lib/publishGuard.js';
 import { generateTourPage } from '../routes/tours.js';
-import pagesRouter from '../routes/pages.js';
+import pagesRouter, { rebuildAllTenantPageRenders } from '../routes/pages.js';
 
 const tenants = new Hono();
 
@@ -401,6 +401,32 @@ publicConfig.get('/config', async (c) => {
             showContactForm: cfg.navigation_config.showContactForm === true,
           }
         : { showPhone: false, showCart: false, showContactForm: false },
+      chrome_config: cfg.chrome_config && typeof cfg.chrome_config === 'object'
+        ? {
+            useMinimalHeader: cfg.chrome_config.useMinimalHeader !== false,
+            useMinimalFooter: cfg.chrome_config.useMinimalFooter !== false,
+            showFooterMenu:   cfg.chrome_config.showFooterMenu === true,
+            showLogo:         cfg.chrome_config.showLogo !== false,
+            effectStyle:      typeof cfg.chrome_config.effectStyle === 'string'
+              ? cfg.chrome_config.effectStyle
+              : 'glass',
+            shapeStyle:       typeof cfg.chrome_config.shapeStyle === 'string'
+              ? cfg.chrome_config.shapeStyle
+              : 'bar',
+            menuFontStyle:    typeof cfg.chrome_config.menuFontStyle === 'string'
+              ? cfg.chrome_config.menuFontStyle
+              : 'clean',
+            logoFontStyle:    typeof cfg.chrome_config.logoFontStyle === 'string'
+              ? cfg.chrome_config.logoFontStyle
+              : 'brand',
+            logoSize:         typeof cfg.chrome_config.logoSize === 'string'
+              ? cfg.chrome_config.logoSize
+              : 'md',
+            ornamentStyle:    typeof cfg.chrome_config.ornamentStyle === 'string'
+              ? cfg.chrome_config.ornamentStyle
+              : 'none',
+          }
+        : { useMinimalHeader: true, useMinimalFooter: true, showFooterMenu: false, showLogo: true, effectStyle: 'glass', shapeStyle: 'bar', menuFontStyle: 'clean', logoFontStyle: 'brand', logoSize: 'md', ornamentStyle: 'none' },
       payment_methods:  paymentMethods,
     },
   });
@@ -681,6 +707,35 @@ publicConfig.patch('/config', async (c) => {
     };
   }
 
+  if ('chrome_config' in body && body.chrome_config !== null &&
+      typeof body.chrome_config === 'object') {
+    const cc = body.chrome_config;
+    cfg.chrome_config = {
+      useMinimalHeader: cc.useMinimalHeader !== false,
+      useMinimalFooter: cc.useMinimalFooter !== false,
+      showFooterMenu:   cc.showFooterMenu === true,
+      showLogo:         cc.showLogo !== false,
+      effectStyle:      typeof cc.effectStyle === 'string' && ['glass', 'frost', 'shadow', 'outline'].includes(cc.effectStyle)
+        ? cc.effectStyle
+        : 'glass',
+      shapeStyle:       typeof cc.shapeStyle === 'string' && ['bar', 'rounded', 'capsule', 'floating'].includes(cc.shapeStyle)
+        ? cc.shapeStyle
+        : 'bar',
+      menuFontStyle:    typeof cc.menuFontStyle === 'string' && ['clean', 'elegant', 'compact'].includes(cc.menuFontStyle)
+        ? cc.menuFontStyle
+        : 'clean',
+      logoFontStyle:    typeof cc.logoFontStyle === 'string' && ['brand', 'floral', 'luxe', 'script'].includes(cc.logoFontStyle)
+        ? cc.logoFontStyle
+        : 'brand',
+      logoSize:         typeof cc.logoSize === 'string' && ['sm', 'md', 'lg', 'xl'].includes(cc.logoSize)
+        ? cc.logoSize
+        : 'md',
+      ornamentStyle:    typeof cc.ornamentStyle === 'string' && ['none', 'glow', 'divider', 'dots'].includes(cc.ornamentStyle)
+        ? cc.ornamentStyle
+        : 'none',
+    };
+  }
+
   // [SEC] Re-validate all custom_selectors keys after merge.
   //       Remove any that fail the whitelist (could arrive from a crafted PUT body).
   if (cfg.custom_selectors) {
@@ -924,6 +979,55 @@ const TEMPLATE_CATALOG = [
   },
 ];
 
+async function buildAvailableCruipTemplates(env, currentTemplateId = null) {
+  const availableIds = new Set();
+  let r2Queried = false;
+
+  if (env.SITE_TEMPLATES) {
+    try {
+      const list1 = await env.SITE_TEMPLATES.list({ delimiter: '/' });
+      for (const p of (list1.delimitedPrefixes ?? [])) {
+        const id = p.replace(/\/$/, '');
+        if (CRUIP_TEMPLATE_RE.test(id)) availableIds.add(id);
+      }
+
+      const list2 = await env.SITE_TEMPLATES.list({ prefix: 'templates/', delimiter: '/' });
+      for (const p of (list2.delimitedPrefixes ?? [])) {
+        const id = p.replace(/^templates\//, '').replace(/\/$/, '');
+        if (id && CRUIP_TEMPLATE_RE.test(id)) availableIds.add(id);
+      }
+
+      r2Queried = true;
+    } catch {
+      // Non-fatal — unavailable R2 means we treat catalog entries as available.
+    }
+  }
+
+  const templates = TEMPLATE_CATALOG.map((t) => ({
+    id:          t.id,
+    label:       t.label,
+    description: t.description,
+    thumbnail:   t.thumbnail,
+    available:   !r2Queried || availableIds.has(t.id),
+    isCurrent:   t.id === currentTemplateId,
+  }));
+
+  for (const rid of availableIds) {
+    if (TEMPLATE_CATALOG.some((t) => t.id === rid)) continue;
+    if (!CRUIP_TEMPLATE_RE.test(rid)) continue;
+    templates.push({
+      id:          rid,
+      label:       rid,
+      description: '',
+      thumbnail:   '',
+      available:   true,
+      isCurrent:   rid === currentTemplateId,
+    });
+  }
+
+  return templates;
+}
+
 publicConfig.get('/templates', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header required.' }, 400);
@@ -940,61 +1044,7 @@ publicConfig.get('/templates', async (c) => {
   } catch (err) {
     return c.json({ error: 'DB error: ' + err.message }, 500);
   }
-
-  // Discover which template IDs are actually present in SITE_TEMPLATES.
-  // R2 list with delimiter='/' returns virtual top-level directories (prefixes).
-  // We check both key conventions: "{id}/" and "templates/{id}/" (see siteStudio.js).
-  const availableIds = new Set();
-  let r2Queried = false;
-  if (c.env.SITE_TEMPLATES) {
-    try {
-      // Convention 1: top-level  "{id}/index.html"
-      const list1 = await c.env.SITE_TEMPLATES.list({ delimiter: '/' });
-      for (const p of (list1.delimitedPrefixes ?? [])) {
-        const id = p.replace(/\/$/, '');
-        // [FILTER] Only Cruip templates ("-html" suffix). Blocks html5up-*, etc.
-        if (CRUIP_TEMPLATE_RE.test(id)) availableIds.add(id);
-      }
-      // Convention 2: "templates/{id}/index.html"
-      const list2 = await c.env.SITE_TEMPLATES.list({ prefix: 'templates/', delimiter: '/' });
-      for (const p of (list2.delimitedPrefixes ?? [])) {
-        const id = p.replace(/^templates\//, '').replace(/\/$/, '');
-        // [FILTER] Same Cruip-only guard.
-        if (id && CRUIP_TEMPLATE_RE.test(id)) availableIds.add(id);
-      }
-      r2Queried = true;
-    } catch {
-      // Non-fatal — unavailable R2 means we treat all catalog entries as available
-    }
-  }
-
-  // Enrich catalog entries with availability + current flags
-  const templates = TEMPLATE_CATALOG.map(t => ({
-    id:          t.id,
-    label:       t.label,
-    description: t.description,
-    thumbnail:   t.thumbnail,
-    // If R2 was unreachable, mark all as available so the UI is still usable.
-    available:   !r2Queried || availableIds.has(t.id),
-    isCurrent:   t.id === currentTemplateId,
-  }));
-
-  // Append any R2-discovered Cruip templates NOT in our static catalog.
-  // CRUIP_TEMPLATE_RE is already applied during R2 listing above, so
-  // `availableIds` contains only "-html" suffixed IDs at this point.
-  // The extra .test() below is a defence-in-depth guard for future callers.
-  for (const rid of availableIds) {
-    if (TEMPLATE_CATALOG.some(t => t.id === rid)) continue; // already in catalog
-    if (!CRUIP_TEMPLATE_RE.test(rid)) continue;              // [FILTER] double-check
-    templates.push({
-      id:          rid,
-      label:       rid,
-      description: '',
-      thumbnail:   '',
-      available:   true,
-      isCurrent:   rid === currentTemplateId,
-    });
-  }
+  const templates = await buildAvailableCruipTemplates(c.env, currentTemplateId);
 
   return c.json({
     ok:                  true,
@@ -1441,10 +1491,17 @@ publicConfig.post('/switch-template', async (c) => {
     }
   }
 
+  let pagesRebuilt = 0;
+  try {
+    pagesRebuilt = await rebuildAllTenantPageRenders(c.env, tenantId);
+  } catch (err) {
+    console.warn(`[SWITCH_TEMPLATE] Failed to rebuild child pages for ${tenantId}:`, err.message);
+  }
+
   console.info(
     `[SWITCH_TEMPLATE] tenant=${tenantId} old=${tenant.template_id} new=${newTemplateId} ` +
     `sandbox_copied=${sandboxResult.copied} sandbox_deleted=${sandboxResult.deleted} ` +
-    `tours_rendered=${toursRendered} tours_failed=${toursFailed}`
+    `tours_rendered=${toursRendered} tours_failed=${toursFailed} pages_rebuilt=${pagesRebuilt}`
   );
 
   return c.json({
@@ -1460,6 +1517,9 @@ publicConfig.post('/switch-template', async (c) => {
       rendered: toursRendered,
       failed:   toursFailed,
       warnings: tourWarnings.length ? tourWarnings : undefined,
+    },
+    pages: {
+      rebuilt: pagesRebuilt,
     },
     note: 'assets/ folder and live site are unchanged. Existing sections are preserved — drag new blocks from the Snippet panel to add content. Run POST /api/tenant/publish-site when ready to go live.',
   });
@@ -1784,6 +1844,31 @@ export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
   // Public config endpoint — registered separately to keep URL path clean.
   app.route('/api/tenant', publicConfig);
+  // Legacy compatibility for the public signup page. Unlike the editor-facing
+  // `/api/tenant/templates` route, this endpoint reflects the live D1 catalog
+  // actually accepted by onboarding.
+  app.get('/api/site-templates', async (c) => {
+    const activeOnly = c.req.query('active') === '1';
+    const sql = activeOnly
+      ? 'SELECT id, name, description, thumbnail_url, r2_prefix, is_active FROM site_templates WHERE is_active = 1 ORDER BY sort_order ASC, created_at DESC'
+      : 'SELECT id, name, description, thumbnail_url, r2_prefix, is_active FROM site_templates ORDER BY sort_order ASC, created_at DESC';
+
+    const rows = await c.env.DB.prepare(sql).all();
+    const templates = rows.results ?? [];
+
+    return c.json({
+      ok: true,
+      templates: templates.map((t) => ({
+        id:            t.id,
+        name:          t.name,
+        label:         t.name,
+        description:   t.description ?? '',
+        thumbnail_url: t.thumbnail_url ?? '',
+        r2_prefix:     t.r2_prefix,
+        is_active:     t.is_active,
+      })),
+    });
+  });
   // Custom pages management (Site Studio "Add Page" feature).
   app.route('/api/tenant/pages', pagesRouter);
 }

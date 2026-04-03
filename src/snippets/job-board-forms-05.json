@@ -1,0 +1,31 @@
+{
+  "id": "job-board-forms-05",
+  "type": "job-board-forms-05",
+  "name": "Job Board - forms 05",
+  "label": "Job Board - forms 05",
+  "desc": "Join Newsletter",
+  "icon": "[form]",
+  "category": "forms",
+  "categories": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "grid-cards",
+    "newsletter",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "forms",
+    "input-groups",
+    "grid-cards",
+    "newsletter",
+    "section",
+    "input-group",
+    "job-board",
+    "cruip"
+  ],
+  "templateId": "job-board-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<form class=\"inline-flex max-w-sm\">\n                                                    <div class=\"flex flex-col sm:flex-row justify-center max-w-xs mx-auto sm:max-w-none\">\n                                                        <input type=\"email\" class=\"form-input py-1.5 w-full mb-2 sm:mb-0 sm:mr-2\" placeholder=\"Your email\" aria-label=\"Your email\" data-ve-input=\"1\" />\n                                                        <button class=\"btn-sm text-white bg-indigo-500 hover:bg-indigo-600 shadow-xs whitespace-nowrap\" type=\"submit\" data-ve-text=\"1\" data-ve-btn=\"1\">Join Newsletter</button>\n                                                    </div>\n                                                </form>\n  </div>\n</section>"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "stellar-buttons-10",
+  "type": "stellar-buttons-10",
+  "name": "Stellar - buttons 10",
+  "label": "Stellar - buttons 10",
+  "desc": "API Studio is now in beta -&gt;",
+  "icon": "[btn]",
+  "category": "buttons",
+  "categories": [
+    "buttons",
+    "grid-cards",
+    "section"
+  ],
+  "tags": [
+    "buttons",
+    "grid-cards",
+    "section",
+    "micro-block",
+    "stellar",
+    "cruip"
+  ],
+  "templateId": "stellar-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section class=\"py-12 md:py-20\">\n  <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n<div class=\"inline-flex relative before:absolute before:inset-0 before:bg-purple-500 before:blur-md\">\n                                    <a class=\"btn-sm py-0.5 text-slate-300 hover:text-white transition duration-150 ease-in-out group [background:linear-gradient(var(--color-purple-500),var(--color-purple-500))_padding-box,linear-gradient(var(--color-purple-500),var(--color-purple-200)_75%,transparent_100%)_border-box] relative before:absolute before:inset-0 before:bg-slate-800/50 before:rounded-full before:pointer-events-none shadow-sm\" href=\"#\" data-ve-text=\"1\" data-ve-btn=\"1\">\n                                        <span class=\"relative inline-flex items-center\" data-ve-text=\"1\">\n                                            API Studio is now in beta <span class=\"tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1\" data-ve-text=\"1\">-&gt;</span>\n                                        </span>\n                                    </a>\n                                </div>\n  </div>\n</section>"
+}

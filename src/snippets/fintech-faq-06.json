@@ -1,0 +1,24 @@
+{
+  "id": "fintech-faq-06",
+  "type": "fintech-faq-06",
+  "name": "Fintech - FAQs",
+  "label": "Fintech - FAQs",
+  "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim",
+  "icon": "[faq]",
+  "category": "faq",
+  "categories": [
+    "faq",
+    "cta",
+    "section"
+  ],
+  "tags": [
+    "faq",
+    "cta",
+    "section",
+    "fintech",
+    "cruip"
+  ],
+  "templateId": "fintech-html",
+  "thumbnail": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1600&q=80&fit=crop",
+  "html": "<section>\n                <div class=\"max-w-6xl mx-auto px-4 sm:px-6\">\n                    <div class=\"pb-12 md:pb-20\" >\n            \n                        \n                        <div class=\"pb-12\">\n                            <h2 class=\"h2\" data-ve-text=\"1\">FAQs</h2>\n                        </div>\n            \n                        \n                        <div class=\"md:flex md:space-x-12 space-y-8 md:space-y-0\">\n            \n                            \n                            <div class=\"w-full md:w-1/2 space-y-8\">\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">How can I add money to my account?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">How is my document data stored/secured?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">I do not want to pay now, how can I proceed?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                            </div>\n            \n                            \n                            <div class=\"w-full md:w-1/2 space-y-8\">\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">How do I get started with card payments?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">Can I get a standard card for free?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                                \n                                <div class=\"space-y-2\">\n                                    <h4 class=\"text-xl font-bold\" data-ve-text=\"1\">I don't have the required documents, how can I proceed?</h4>\n                                    <p class=\"text-slate-500\" data-ve-text=\"1\">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua, ut enim ad minim veniam.</p>\n                                </div>\n            \n                            </div>\n            \n                        </div>\n            \n                    </div>\n                </div>\n            </section>"
+}
