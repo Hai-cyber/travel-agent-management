@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-03 (includes live deploy verification for starter tenant seed bootstrap, signup tiers, SaaS marketing page, richer tour draft preview, and local password recovery flow)
+Last updated: 2026-04-04 (includes taxonomy-first discovery foundation, richer media authoring in tour-config/product-modules, shared CTA intent defaults, and production fix for universal hero CTA runtime regression)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -152,6 +152,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Default storefront UI is the `tour-luxury` shell, treated as the `Six Senses Immersive Frame` visual baseline rather than a Cruip legacy storefront.
 - New D1 scaffold tables: `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`, `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`
 - New temporary D1 entity table for decorative accommodation/runtime editing: `tenant_universal_hotels`
+- Current hotel runtime truth is still transitional: `tenant_universal_hotels` is presentation/runtime support and should not be treated as the future canonical hospitality engine
 - New library: `src/lib/universalSite.js`
   - defines 3 groups: `tour_operator`, `stay_accommodation`, `transport_service`
   - defines 5 stabilized variants: `tour-adventure`, `tour-luxury`, `stay-boutique`, `stay-resort`, `transfer-private`
@@ -174,12 +175,17 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
   - `src/lib/themes/six-senses.js` preserves the first saved premium skin module
   - `GET /api/universal/site/config` returns `active_theme` so the admin and storefront can stay in sync
 - `GET /api/universal/site/config` now returns a structured editor schema for frontend-driven controls (`text`, `rich_text`, `color`, `image_upload`, `link`, `toggle`, `repeater`)
-- Travel universal tour pages are scaffolded as auto-bound records keyed by `tour_id`; booking CTA label defaults to `I like this tour`
+- Travel universal tour pages are scaffolded as auto-bound records keyed by `tour_id`; runtime CTA intent defaults are now `Explore` (discovery), `Check availability` (booking), and `Contact us` (contact)
 - Public storefront rendering now defaults to the Six Senses-style luxury editorial chrome: invisible fixed header on first paint, Cormorant Garamond wordmark/headings, and a floating `Book Now` CTA on scroll
+- Universal storefront hero rendering now forces tenant-aware CTA context: home/listing discovery CTAs resolve through public page paths like `/p/:tenantId/:slug`, while `tour_detail` hero CTAs resolve to booking intent and anchor to `#booking-engine`
 - Public storefront rendering supports preview-first contextual editing metadata, hotel/tour/destination/contact quick-edit handoff, and an expanded Website Design system panel for chrome toggles and site-level settings
+- Tour storefront `Check availability` now opens a dedicated public `Booking View` that mirrors the sentence-driven calculator logic from `public/tour-config.html`: desktop opens a themed sidebar, mobile navigates to the tenant booking page with the same view inline for the selected `tour`
+- Public `Booking View` uses canonical tour pricing APIs (`tenant-seasons`, `pricing-segments`, `pax-bands`, `tour-prices`, `pricing/calculate`) and keeps the visible grand total as the strict local sum of the displayed row subtotals
+- Payment-flow hook is now reserved in the public booking surface: `public/tour-booking-view.js` emits `travelagent:public-booking-quote-ready` and `travelagent:public-booking-payment-intent`, and the payment CTA carries `data-payment-*` attributes for tenant/tour/segment/date/pax/total handoff
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
 - `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
 - This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
+- Architectural direction is now explicitly locked for future expansion: tour-side accommodation remains `stop_accommodation`, while standalone hotel/business operations will move into a separate `property` domain family with staff handled as tenant add-on seats rather than separate tenants
 
 ### Managed responsive chrome (CHK-R34)
 - `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.
@@ -217,7 +223,8 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
   - **Content tab**: richer draft payload editing for `hero_desc`, `tour_desc`, `destination_*`, `accommodation_*`, hero image, and gallery images
   - **Unit-level taxonomy editing**: the Content tab now lets operators assign canonical interests, sub-interests, and a primary interest directly on the selected tour via `GET|PUT /api/universal/taxonomy/tours/:tourId`
-  - **Tenant media upload**: content tab image fields now upload through `/api/tenant/assets/upload` and render inline preview blocks for hero, destination, accommodation, and gallery media
+  - **Tenant media upload**: content tab image fields now upload through `/api/tenant/assets/upload`, route through a shared local-drive-or-tenant-gallery picker, render inline preview blocks for hero, destination, accommodation, and gallery media, and block oversized local uploads (>8 MB or >6000px longest side)
+  - **Media ownership rules**: gallery images stay gallery-level unless explicitly chosen for hero/destination/accommodation; module-level remove actions clear only that field, while gallery remove actions delete only the selected gallery entry from the draft
   - **Preview tab**: saves current draft content, syncs `/api/universal/tours/:tourId/page`, and prefers the universal draft detail render via `/api/universal/render/:tenantId`, with legacy `/api/tours/:id/preview` kept as fallback
   - **Price Config tab**:
     - **Left panel (65%)**: Season editor, Pax Bands, Segments, Tour Prices, Pricing Definitions editor (4 default rules, localStorage-persisted)
@@ -229,9 +236,16 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
       - **Surplus room logic (CHK-R26)**: sole-occupancy supplement auto-applied when `totalRooms ≥ adults`; amber note below table; ±2 shared stepper; full two-way sync table↔sentence
       - Grand total = strict local sum `(shared×price)+(private×price)+(child×price)` — never from backend
 
+### public Booking View detail
+  - `public/tour-booking-view.js` is now the dedicated storefront projection of the Booking View concept; it is separate from `public/booking-widget.js`
+  - Desktop behavior: `Check availability` opens a themed sidebar overlay on the current tour detail page
+  - Mobile behavior: `Check availability` navigates to the tenant booking page with `?tour=<tourId>`, where the same Booking View renders inline
+  - Future payment integration should attach to the emitted custom events and `data-payment-*` payload already kept on the payment hook button rather than re-deriving quote state from DOM text
+
 ### product-modules.html detail
   - **Destinations mode**: destination-source editing now includes unit-level taxonomy assignment on the canonical backing tour record, so operators can classify destinations where they actually manage destination copy and imagery
   - Destination modules still remain tour-backed today; true standalone destination entity tagging is available by API, but the main user workflow currently runs through destination modules in `product-modules.html?mode=destinations`
+  - **Hotels / Gallery / Destination media UX**: module image fields and gallery rows now use the tenant media picker, support direct remove actions in preview, use optimized preview rendering with local-dev fallback, and keep gallery-row previews intentionally compact so operators can inspect many images at once
 
 ### Test Scripts
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)

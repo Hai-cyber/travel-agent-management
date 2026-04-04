@@ -21,6 +21,130 @@ Suggested next prompt:
 
 ## Latest Handoff
 Date: 2026-04-04
+Checkpoint: Public Booking View follow-up
+Goal of session: Finish the storefront `Check availability` flow so it uses the real tour pricing behavior, matches the active storefront skin better, and leaves explicit payment hooks for the next integration step.
+
+### What was completed this session
+
+- Replaced the failed storefront CTA wiring experiments with a dedicated public Booking View script at `public/tour-booking-view.js`
+- Mirrored the core Booking View behavior from `public/tour-config.html`: conversational sentence inputs, room auto-suggestion, room validation, segment tier tabs, local row-based total calculation, and API-backed season/band labeling
+- Wired `Check availability` so desktop opens the Booking View in a sidebar and mobile navigates to the tenant booking page with the same view rendered inline for the selected tour
+- Restyled the public Booking View so it uses the active storefront theme tokens/chrome more naturally instead of looking like an unrelated utility panel
+- Added future payment-flow handoff hooks: the payment CTA now keeps `data-payment-*` attributes, and the booking view emits `travelagent:public-booking-quote-ready` plus `travelagent:public-booking-payment-intent`
+
+### Files changed
+```
+public/tour-booking-view.js
+src/routes/universalSites.js
+src/lib/themes/six-senses.js
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- The reserved payment CTA does not submit into a checkout/order flow yet; it only exposes a clean handoff surface
+- Public Booking View copy is still hardcoded in English today; it is not yet moved into the shared locale catalog
+- The visual polish is improved and theme-aware, but it is still a dedicated booking surface rather than a full skin-specific bespoke component per luxury variant
+
+### Known risks / TODOs
+- Future payment integration should consume the emitted booking events / `data-payment-*` payload and avoid re-parsing numbers from rendered text
+- If the booking calculation rules change in `public/tour-config.html`, the storefront projection in `public/tour-booking-view.js` must be kept aligned intentionally; there is no shared extracted module yet
+- Mobile currently relies on the tenant booking page inline render path; if booking page visibility/routing changes later, the mobile CTA path must be re-verified
+
+### Suggested next prompt
+```
+Connect the reserved payment hook in `public/tour-booking-view.js` to a real order/checkout handoff, using the emitted quote payload instead of scraping values from the DOM.
+```
+
+---
+
+Date: 2026-04-04
+Checkpoint: Architecture clarification follow-up
+Goal of session: Lock the terminology and tenancy direction for future standalone hospitality expansion so the repo no longer mixes tour accommodation with a future hotel/property engine.
+
+### What was completed this session
+
+- Added a dedicated architecture note at `docs/ai/26_PROPERTY_ENGINE_AND_STAFF_SEATS.md`
+- Locked the naming split between:
+  - tour side: `tour`, `tour_stop`, `stop_accommodation`
+  - future hospitality side: `property`, `property_reservation`, `property_inventory`, `property_staff`
+- Recorded the tenancy decision that staff login should be modeled as add-on seats/memberships inside a tenant, not as separate tenants
+- Clarified that current `tenant_universal_hotels` usage remains transitional runtime/storytelling support and is not the canonical future hospitality engine
+- Updated AI docs so `00_AI_INDEX.md`, `01_CURRENT_STATE.md`, and `14_TENANCY_AND_BILLING.md` all reflect the same concept boundary
+
+### Files changed
+```
+docs/ai/00_AI_INDEX.md
+docs/ai/01_CURRENT_STATE.md
+docs/ai/14_TENANCY_AND_BILLING.md
+docs/ai/26_PROPERTY_ENGINE_AND_STAFF_SEATS.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- No property engine schema has been implemented yet
+- No property availability / reservation / POS / staff-assignment tables exist yet
+- Current hotel UI/runtime still remains transitional and tour-adjacent only
+
+### Known risks / TODOs
+- Future contributors may still over-interpret `tenant_universal_hotels` as a canonical hotel engine unless the new property-domain note is read first
+- Staff-seat pricing and limits are still a design direction only; no runtime enforcement exists yet
+- Property-scoped RBAC has not been designed in schema form yet, only conceptually approved
+
+### Suggested next prompt
+```
+Write a migration-safe schema proposal for the first `property` domain slice, including `property`, `property_staff_assignment`, and the minimum reservation/availability tables, without touching the current tour pricing engine.
+```
+
+---
+
+Date: 2026-04-04
+Checkpoint: CHK-R39 / CHK-R43 follow-up
+Goal of session: Stabilize tenant-media authoring flows in the admin UIs, replace tour-only CTA wording with shared intent-based defaults, and repair the resulting storefront regression on production.
+
+### What was completed this session
+
+- Reworked media authoring in `public/tour-config.html` and `public/product-modules.html` around a tenant-gallery-first picker so operators can upload from local drive or reuse tenant-hosted images without pasting raw URLs by hand
+- Added explicit media ownership behavior: gallery images stay gallery-level unless deliberately assigned to hero/destination/accommodation, module-level remove buttons clear only that module field, and gallery remove buttons delete only the selected gallery entry
+- Added local upload guards for image size/dimensions and switched admin previews to optimized image URLs with local-dev fallback so previews remain fast without breaking local rendering
+- Shrunk compact gallery previews in `product-modules.html` so agents can scan many images in one screen, while keeping larger previews intact for module-level editing contexts
+- Introduced shared CTA intent defaults in the universal site layer: `Explore` for discovery, `Check availability` for booking, and `Contact us` for contact
+- Replaced legacy tour-only fallback copy (`I like this tour`) in universal blueprint defaults, sync snapshot fallback, runtime booking slot rendering, and editor schema with the new CTA-intent system
+- Forced universal hero behavior by context: home/listing hero CTAs now resolve to tenant-aware public listing paths, while `tour_detail` hero CTAs now resolve to booking intent and `#booking-engine`
+- Fixed a production `Internal Server Error` introduced during the CTA refactor: `renderPublicHtml()` referenced `buildPageHref` / `headerPrimaryPageKey` before initialization, so the live fix moved CTA path helpers before hero rendering and redeployed production successfully
+
+### Files changed
+```
+public/tour-config.html
+public/product-modules.html
+src/lib/universalSite.js
+src/lib/universalSiteSync.js
+src/routes/universalSites.js
+src/lib/themes/six-senses.js
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- Remote URL image validation is still weaker than local upload validation; true remote size/dimension enforcement still needs a backend metadata/proxy check
+- Contact-intent CTA is defined at schema/runtime level, but only a subset of storefront CTA surfaces currently consume the shared resolver
+- Media picker / preview logic is still duplicated across `tour-config.html` and `product-modules.html`; it is not yet extracted into a shared frontend module
+
+### Known risks / TODOs
+- Future CTA edits must respect render ordering inside `renderPublicHtml()`; helper values needed by hero render should be defined before any block render path runs, otherwise Worker-side `ReferenceError` regressions can surface as production `500`s
+- Wrangler still warns that multiple environments exist when deploy is run without an explicit `--env`; deployments are succeeding, but explicit target selection should be standardized before the next risky rollout
+- Admin media preview performance is improved, but storefront/public image optimization should still be reviewed separately so public delivery follows the same safety/performance rules without relying on admin-only assumptions
+
+### Suggested next prompt
+```
+Extract the duplicated tenant-media picker / preview / remove behavior from `public/tour-config.html` and `public/product-modules.html` into a shared frontend module, then add backend validation for remote image URLs so pasted external images are checked before they enter tenant-managed content.
+```
+
+---
+
+Date: 2026-04-04
 Checkpoint: CHK-R45 taxonomy discovery foundation
 Goal of session: Build the first production-grade foundation for taxonomy-first discovery so interests drive auto-generated collection pages instead of relying on free-form page building.
 

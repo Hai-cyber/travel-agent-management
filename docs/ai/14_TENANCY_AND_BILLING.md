@@ -22,14 +22,22 @@ Task:
 ## Tenant
 
 - Created on signup
-- Each agent = 1 tenant
+- Tenant is the business / subscription / contract boundary
+- A tenant is not limited to one person
 
 ## Membership
 
 - Users belong to tenant
+- Staff access should be modeled as tenant memberships / seats, not as separate tenants
 - Roles (future):
   - owner
   - staff
+
+## Staff seats
+
+- Staff login is planned as an add-on / seat model under the tenant
+- This rule should apply for both travel businesses and future property businesses
+- Future property staff should still authenticate as tenant users, then receive property-scoped assignments/permissions instead of becoming separate tenants
 
 ## Trial
 

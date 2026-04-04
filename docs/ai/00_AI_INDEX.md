@@ -61,6 +61,7 @@ AI behavior / guardrails:
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary
 - `25_MOBILE_OPS_RULES.md` -> mobile operational interaction rules
+- `26_PROPERTY_ENGINE_AND_STAFF_SEATS.md` -> approved split between tour accommodation and future property engine, plus staff-seats model
 
 ## Token-saving policy
 When using Copilot/Cline, paste only:

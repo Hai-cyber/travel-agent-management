@@ -37,6 +37,7 @@
   const TENANT_ID = (_script?.dataset.tenantId ?? '').trim();
   const API_BASE  = (_script?.dataset.apiBase  ?? '').replace(/\/+$/, '');
   const LANG      = (_script?.dataset.lang     ?? 'en').toLowerCase();
+  const HIDE_TRIGGER = (_script?.dataset.hideTrigger ?? '') === '1';
 
   if (!TOUR_ID || !TENANT_ID) {
     console.warn('[BookingWidget] <script> tag must have data-tour-id and data-tenant-id.');
@@ -321,6 +322,7 @@
     trigger.id = 'bw-trigger';
     trigger.innerHTML = `&#10084;&#xFE0F;&nbsp;${esc(t('trigger'))}`;
     trigger.setAttribute('aria-haspopup', 'dialog');
+    if (HIDE_TRIGGER) trigger.style.display = 'none';
 
     // Overlay
     const overlay = document.createElement('div');
@@ -784,6 +786,13 @@
   function init() {
     injectCSS();
     const { trigger, overlay, drawer } = buildDOM();
+
+    window.TravelAgentBookingWidget = {
+      open: () => openDrawer(overlay, drawer),
+      close: () => closeDrawer(overlay, drawer),
+      recalculate: () => debouncedRecalc(),
+      isReady: true,
+    };
 
     // Open / close
     trigger.addEventListener('click', () => openDrawer(overlay, drawer));
