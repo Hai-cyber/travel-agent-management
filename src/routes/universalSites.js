@@ -100,9 +100,9 @@ function normalizeSite(siteRow) {
   } : null;
 }
 
-function formatSitePrice(amount, site) {
+function formatSitePrice(amount, site, amountCurrency = '') {
   if (amount == null || amount === '' || Number.isNaN(Number(amount))) return '';
-  const currency = String(site?.target_currency || site?.base_currency || 'USD').toUpperCase();
+  const currency = String(amountCurrency || site?.base_currency || site?.target_currency || 'USD').toUpperCase();
   const locale = CURRENCY_LOCALE[currency] || 'en-US';
   return formatMoney(Number(amount), locale, currency, 1);
 }
@@ -356,7 +356,9 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
     const flags = deriveTourModuleFlags(content, index);
     const publicSlug = normalizeStringValue(synced?.row?.slug);
     const href = publicSlug ? buildUniversalPublicPath(tenantId, publicSlug) : buildUniversalPublicPath(tenantId, 'featured-tours');
-    const priceFrom = snapshot?.price_from ?? priceLookup.get(tour.id) ?? null;
+    const lookedUpPrice = priceLookup.get(tour.id) || null;
+    const priceFrom = snapshot?.price_from ?? lookedUpPrice?.amount ?? null;
+    const priceFromCurrency = snapshot?.price_from_currency || lookedUpPrice?.currency || currencyInfo.base_currency || 'USD';
     const highlights = Array.isArray(snapshot?.highlights) ? snapshot.highlights : [];
     const hotel = hotelByTourId.get(String(tour.id)) || null;
 
@@ -371,6 +373,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       route_label: normalizeStringValue(snapshot?.route_label, destinationTitle),
       booking_cta_label: normalizeStringValue(snapshot?.booking_cta_label, getDefaultCtaLabels('tour_operator').booking),
       price_from: priceFrom,
+      price_from_currency: priceFromCurrency,
       href,
       content,
       override: synced?.override || {},
@@ -513,7 +516,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       image: item.hero_image,
       href: item.href,
       destination_title: item.destination_title,
-      meta: item.price_from != null ? `From ${formatSitePrice(item.price_from, currencyInfo)}` : item.destination_title,
+      meta: item.price_from != null ? `From ${formatSitePrice(item.price_from, currencyInfo, item.price_from_currency)}` : item.destination_title,
       entity_id: item.tour_id,
       entity_type: 'tour',
       entity_label: item.title,
@@ -537,7 +540,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       image: item.hero_image,
       href: item.href,
       destination_title: item.destination_title,
-      meta: item.price_from != null ? `From ${formatSitePrice(item.price_from, currencyInfo)}` : item.destination_title,
+      meta: item.price_from != null ? `From ${formatSitePrice(item.price_from, currencyInfo, item.price_from_currency)}` : item.destination_title,
       entity_id: item.tour_id,
       entity_type: 'tour',
       entity_label: item.title,
@@ -749,7 +752,7 @@ function renderPreviewHtml(siteBundle, tourPreview) {
   const heroTitle = snapshot?.title || site.site_name || 'Universal Preview';
   const heroBody = snapshot?.summary || 'Preview route for the universal site render contract.';
   const aboutBody = snapshot?.about_section || 'No synced about section yet.';
-  const priceFrom = snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site) : 'Pending pricing';
+  const priceFrom = snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site, snapshot?.price_from_currency) : 'Pending pricing';
 
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(site.default_lang || 'en')}">
@@ -836,8 +839,8 @@ function renderPreviewHtml(siteBundle, tourPreview) {
             <div class="rounded-2xl border border-slate-200 p-4 text-sm">
               <div class="font-semibold">${escapeHtml(card.segment_name || card.segment_code || 'Segment')}</div>
               <div class="mt-1 text-slate-600">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</div>
-              <div class="mt-2 text-slate-900">Shared: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</div>
-              <div class="text-slate-900">Single: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</div>
+              <div class="mt-2 text-slate-900">Shared: ${escapeHtml(formatSitePrice(card.adult_shared_room_price, site, card.adult_shared_room_price_currency || card.base_currency) || 'n/a')}</div>
+              <div class="text-slate-900">Single: ${escapeHtml(formatSitePrice(card.adult_single_room_price, site, card.adult_single_room_price_currency || card.base_currency) || 'n/a')}</div>
             </div>
           `).join('') : '<p class="text-slate-500">No pricing rows synced yet.</p>'}
         </div>
@@ -930,8 +933,8 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const excludedHomeEmbeddedKeys = isLuxuryShell ? new Set(['about-us', 'contact-us']) : new Set();
   const adminMode = options.adminMode === true;
   const adminEditableTypes = new Set(['hero', 'gallery', 'features', 'rich_text']);
-  const displayPrice = (value) => {
-    const formatted = formatSitePrice(value, site);
+  const displayPrice = (value, valueCurrency = '') => {
+    const formatted = formatSitePrice(value, site, valueCurrency);
     return formatted || (value == null ? 'n/a' : String(value));
   };
 
@@ -1229,7 +1232,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
 
     if (profile.hero === 'editorial') {
-      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site) : 'Request quote')}</p></div></div></div></section>`;
+      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site, snapshot?.price_from_currency) : 'Request quote')}</p></div></div></div></section>`;
     }
 
     if (profile.hero === 'immersive') {
@@ -1237,7 +1240,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
 
     if (profile.hero === 'compact' || profile.hero === 'utility') {
-      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site) : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
+      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? formatSitePrice(snapshot.price_from, site, snapshot?.price_from_currency) : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
     }
 
     return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
@@ -1329,12 +1332,12 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const cards = Array.isArray(block.content?.price_cards) ? block.content.price_cards : priceCards;
     if (!cards.length) return '';
     if (profile.pricing === 'table') {
-      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(displayPrice(card.adult_shared_room_price))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(displayPrice(card.adult_single_room_price))}</td></tr>`).join('')}</tbody></table></div></section>`;
+      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(displayPrice(card.adult_shared_room_price, card.adult_shared_room_price_currency || card.base_currency))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(displayPrice(card.adult_single_room_price, card.adult_single_room_price_currency || card.base_currency))}</td></tr>`).join('')}</tbody></table></div></section>`;
     }
     if (profile.pricing === 'sidebar' || profile.pricing === 'spotlight') {
-      return `<section id="pricing" class="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]"><article class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(block.content?.price_from_label || 'From')}</p><p class="mt-4 text-5xl font-semibold">${escapeHtml(snapshot?.price_from != null ? displayPrice(snapshot.price_from) : 'Quote')}</p><p class="mt-4 text-sm text-white/78">Live price spotlight powered by canonical tour pricing.</p></article><article class="rounded-[26px] bg-white p-6 shadow-sm"><div class="grid gap-4 md:grid-cols-2">${cards.map((card) => `<div class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared room: ${escapeHtml(displayPrice(card.adult_shared_room_price))}</p><p class="text-sm text-slate-700">Single room: ${escapeHtml(displayPrice(card.adult_single_room_price))}</p></div>`).join('')}</div></article></section>`;
+      return `<section id="pricing" class="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]"><article class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(block.content?.price_from_label || 'From')}</p><p class="mt-4 text-5xl font-semibold">${escapeHtml(snapshot?.price_from != null ? displayPrice(snapshot.price_from, snapshot?.price_from_currency) : 'Quote')}</p><p class="mt-4 text-sm text-white/78">Live price spotlight powered by canonical tour pricing.</p></article><article class="rounded-[26px] bg-white p-6 shadow-sm"><div class="grid gap-4 md:grid-cols-2">${cards.map((card) => `<div class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared room: ${escapeHtml(displayPrice(card.adult_shared_room_price, card.adult_shared_room_price_currency || card.base_currency))}</p><p class="text-sm text-slate-700">Single room: ${escapeHtml(displayPrice(card.adult_single_room_price, card.adult_single_room_price_currency || card.base_currency))}</p></div>`).join('')}</div></article></section>`;
     }
-    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared: ${escapeHtml(displayPrice(card.adult_shared_room_price))}</p><p class="text-sm text-slate-700">Single: ${escapeHtml(displayPrice(card.adult_single_room_price))}</p></article>`).join('')}</div></section>`;
+    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared: ${escapeHtml(displayPrice(card.adult_shared_room_price, card.adult_shared_room_price_currency || card.base_currency))}</p><p class="text-sm text-slate-700">Single: ${escapeHtml(displayPrice(card.adult_single_room_price, card.adult_single_room_price_currency || card.base_currency))}</p></article>`).join('')}</div></section>`;
   };
 
   const renderContact = (block) => {
@@ -2678,7 +2681,9 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
          ORDER BY created_at DESC`
       ).bind(tenantId),
       db.prepare(
-        `SELECT tour_id, MIN(COALESCE(adult_shared_room_price, adult_single_room_price)) AS price_from
+        `SELECT tour_id,
+          MIN(COALESCE(adult_shared_room_price, adult_single_room_price)) AS price_from,
+          MIN(COALESCE(base_currency, 'USD')) AS price_currency
          FROM tour_prices
          WHERE tenant_id = ? AND is_active = 1
          GROUP BY tour_id`
@@ -2696,7 +2701,10 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
     }
 
     hotels = await ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows);
-    const priceLookup = new Map(priceRows.map((row) => [row.tour_id, row.price_from]));
+    const priceLookup = new Map(priceRows.map((row) => [row.tour_id, {
+      amount: row.price_from,
+      currency: row.price_currency || tenant.base_currency || 'USD',
+    }]));
     tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels, priceLookup, {
       target_currency: tenant.target_currency || tenant.base_currency || 'USD',
       base_currency: tenant.base_currency || 'USD',

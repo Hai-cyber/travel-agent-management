@@ -183,6 +183,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Public `Booking View` uses canonical tour pricing APIs (`tenant-seasons`, `pricing-segments`, `pax-bands`, `tour-prices`, `pricing/calculate`) and keeps the visible grand total as the strict local sum of the displayed row subtotals
 - Payment-flow hook is now reserved in the public booking surface: `public/tour-booking-view.js` emits `travelagent:public-booking-quote-ready` and `travelagent:public-booking-payment-intent`, and the payment CTA carries `data-payment-*` attributes for tenant/tour/segment/date/pax/total handoff
 - Public `Booking View` now also contains the first storefront payment sheet: after a quote is ready it can collect guest identity, read tenant payment settings, create a real booking order via `POST /api/bookings/order` for compliant tenants, and fall back to a clearly labeled `demo payment` mode when the tenant has not activated any electronic gateway yet
+- Pricing display policy is now explicitly locked: storefront/universal renders must treat `tour_prices` values as canonical amounts, carry currency alongside synced pricing values, use shared formatting only, and must not perform FX conversion until a real FX engine exists
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
 - `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
 - This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
@@ -245,6 +246,12 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
   - For payment-compliant tenants, the sheet creates a real booking order through `POST /api/bookings/order`
   - For non-compliant tenants, the sheet shows a dopamine-friendly `demo payment` completion instead of a dead-end block, while making it explicit that no real charge/order was created
   - Future payment integration should attach to the emitted custom events and `data-payment-*` payload already kept on the payment hook button rather than re-deriving quote state from DOM text
+
+### Pricing display policy
+  - New architecture note: `docs/ai/27_PRICING_DISPLAY_POLICY.md`
+  - Universal synced tour pricing payloads now carry currency metadata such as `price_from_currency`, `pricing_base_currency`, `pricing_display_currency`, and per-card `*_price_currency` fields
+  - Current runtime rule is `format-only, no FX`: storefront/public surfaces may format canonical amounts with their canonical currency, but may not relabel or convert them just because tenant `target_currency` differs
+  - `src/routes/universalSites.js` is now normalized around a single storefront money formatter so listing meta, preview pricing, spotlight cards, tables, and hero starting-price chips do not hardcode `$`
 
 ### product-modules.html detail
   - **Destinations mode**: destination-source editing now includes unit-level taxonomy assignment on the canonical backing tour record, so operators can classify destinations where they actually manage destination copy and imagery

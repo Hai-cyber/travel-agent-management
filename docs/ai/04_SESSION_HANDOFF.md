@@ -21,6 +21,46 @@ Suggested next prompt:
 
 ## Latest Handoff
 Date: 2026-04-04
+Checkpoint: Pricing display policy stabilization
+Goal of session: Stop storefront money display from guessing symbols/currencies, lock a safe no-FX policy, and carry explicit currency metadata through universal synced pricing payloads.
+
+### What was completed this session
+
+- Added `docs/ai/27_PRICING_DISPLAY_POLICY.md` to lock the current rule: canonical amount + canonical currency, format-only display, and no FX conversion until a real engine exists
+- Ran a targeted audit of money render paths and confirmed the primary storefront risk surface was `src/routes/universalSites.js`, with synced payload support work required in `src/lib/universalSiteSync.js`
+- Extended synced universal pricing snapshots with currency metadata including `price_from_currency`, `pricing_base_currency`, `pricing_display_currency`, `pricing_display_policy`, and per-card `*_price_currency` fields
+- Normalized universal storefront render paths so listing meta, preview pricing, spotlight cards, pricing tables, and hero starting-price chips all format through one shared money formatter instead of hardcoding `$`
+- Kept the system intentionally conservative: no FX conversion logic was introduced, and display now prefers the explicit amount currency before falling back to tenant base currency
+
+### Files changed
+```
+docs/ai/00_AI_INDEX.md
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+docs/ai/27_PRICING_DISPLAY_POLICY.md
+src/lib/universalSiteSync.js
+src/routes/universalSites.js
+```
+
+### What is still not done
+- A full repo-wide hardcoded-money audit outside the universal storefront surface is not yet complete
+- No real FX engine exists yet
+- Order/checkout settlement currency policy is not yet implemented beyond the current display guardrail
+
+### Known risks / TODOs
+- Older synced snapshots created before the new currency fields may still depend on fallback behavior until they are re-synced
+- Any future theme or route that renders pricing outside the shared formatter path can reintroduce symbol drift unless the new policy is followed
+- `tenant.target_currency` still exists in settings and can be misinterpreted by future contributors unless they read `27_PRICING_DISPLAY_POLICY.md` first
+
+### Suggested next prompt
+```
+Run a repo-wide hardcoded money render audit outside the universal storefront surface, and patch any remaining public/admin UI price displays so they follow `docs/ai/27_PRICING_DISPLAY_POLICY.md`.
+```
+
+---
+
+Date: 2026-04-04
 Checkpoint: Public payment sheet follow-up
 Goal of session: Ship the first storefront payment flow on top of the public Booking View, while giving non-compliant tenants a premium-feeling demo path instead of a hard stop.
 

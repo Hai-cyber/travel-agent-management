@@ -63,18 +63,21 @@ function normalizeHighlights(content, stops) {
   }));
 }
 
-function buildPricingCards(rows) {
+function buildPricingCards(rows, currencyConfig = {}) {
   const seen = new Set();
   const cards = [];
   let priceFrom = null;
+  let priceFromCurrency = currencyConfig.base_currency || 'USD';
 
   for (const row of rows) {
+    const rowCurrency = row.base_currency || currencyConfig.base_currency || 'USD';
     const candidateValues = [row.adult_shared_room_price, row.adult_single_room_price]
       .filter((value) => typeof value === 'number' && Number.isFinite(value) && value > 0);
 
     for (const candidate of candidateValues) {
       if (priceFrom == null || candidate < priceFrom) {
         priceFrom = candidate;
+        priceFromCurrency = rowCurrency;
       }
     }
 
@@ -91,16 +94,27 @@ function buildPricingCards(rows) {
       pax_band_id: row.pax_band_id,
       pax_band_name: row.pax_band_name,
       pax_range_label: row.pax_band_name || `${row.min_pax}-${row.max_pax} pax`,
+      base_currency: rowCurrency,
       adult_shared_room_price: row.adult_shared_room_price,
+      adult_shared_room_price_currency: rowCurrency,
       adult_single_room_price: row.adult_single_room_price,
+      adult_single_room_price_currency: rowCurrency,
       child_shared_with_parents_price: row.child_shared_with_parents_price,
+      child_shared_with_parents_price_currency: rowCurrency,
     });
   }
 
-  return { cards: cards.slice(0, 8), priceFrom };
+  return {
+    cards: cards.slice(0, 8),
+    priceFrom,
+    priceFromCurrency,
+    baseCurrency: currencyConfig.base_currency || 'USD',
+    displayCurrency: currencyConfig.display_currency || currencyConfig.base_currency || 'USD',
+    displayPolicy: 'base_only_no_fx',
+  };
 }
 
-function buildTourSyncSnapshot(tour, stops, pricingRows) {
+function buildTourSyncSnapshot(tour, stops, pricingRows, currencyConfig = {}) {
   const content = parseJsonSafe(tour.content_data, {});
   const ctaDefaults = getDefaultCtaLabels('tour_operator');
   const title = content.tour_name || tour.title;
@@ -113,7 +127,7 @@ function buildTourSyncSnapshot(tour, stops, pricingRows) {
     nights: Number(stop.nights || 0),
     meals: buildStopMeals(stop),
   }));
-  const pricing = buildPricingCards(pricingRows);
+  const pricing = buildPricingCards(pricingRows, currencyConfig);
 
   return {
     tour_id: tour.id,
@@ -129,6 +143,10 @@ function buildTourSyncSnapshot(tour, stops, pricingRows) {
     itinerary_stops: itineraryStops,
     pricing_cards: pricing.cards,
     price_from: pricing.priceFrom,
+    price_from_currency: pricing.priceFromCurrency,
+    pricing_base_currency: pricing.baseCurrency,
+    pricing_display_currency: pricing.displayCurrency,
+    pricing_display_policy: pricing.displayPolicy,
     booking_cta_label: ctaDefaults.booking,
     route_label: itineraryStops.length
       ? `${itineraryStops[0].title} to ${itineraryStops[itineraryStops.length - 1].title}`
@@ -161,6 +179,8 @@ function buildTourDetailBlocks(snapshot, variantRuntime) {
     } else if (block.id === 'pricing') {
       block.content.price_cards = snapshot.pricing_cards;
       block.content.price_from = snapshot.price_from;
+      block.content.price_from_currency = snapshot.price_from_currency;
+      block.content.pricing_display_policy = snapshot.pricing_display_policy;
     } else if (block.id === 'booking-engine') {
       block.content.heading = snapshot.booking_cta_label;
       block.content.cta_label = snapshot.booking_cta_label;
@@ -178,6 +198,7 @@ export function syncTourToUniversalPageSlots(snapshot) {
       about_section: snapshot.about_section,
       itinerary_timeline: snapshot.itinerary_stops,
       starting_price: snapshot.price_from,
+      starting_price_currency: snapshot.price_from_currency,
     },
   };
 }
@@ -309,7 +330,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
     return { ok: false, status: 404, error: 'Tour not found' };
   }
 
-  const [{ results: stops }, { results: pricingRows }] = await env.DB.batch([
+  const [{ results: stops }, { results: pricingRows }, tenantCurrencyRow] = await env.DB.batch([
     env.DB.prepare(
       `SELECT id, label, day_from, day_to, nights, meal_breakfast, meal_lunch, meal_dinner, description
        FROM tour_stops
@@ -318,6 +339,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
     ).bind(tourId, tenantId),
     env.DB.prepare(
       `SELECT tp.season_id, tp.segment_id, tp.pax_band_id,
+              tp.base_currency,
               tp.adult_shared_room_price, tp.adult_single_room_price, tp.child_shared_with_parents_price,
               ts.name AS season_name,
               ps.code AS segment_code,
@@ -334,11 +356,19 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
          ON pb.id = tp.pax_band_id AND pb.tenant_id = tp.tenant_id
        WHERE tp.tenant_id = ? AND tp.tour_id = ? AND tp.is_active = 1
        ORDER BY COALESCE(tp.adult_shared_room_price, tp.adult_single_room_price, 999999999) ASC`
-    ).bind(tenantId, tourId),
+     ).bind(tenantId, tourId),
+     env.DB.prepare(
+      `SELECT base_currency, target_currency
+       FROM tenants
+       WHERE id = ?`
+     ).bind(tenantId),
   ]);
 
   const variantRuntime = buildVariantRuntimeConfig(site.group_key, site.variant_key);
-  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows);
+  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows, {
+    base_currency: tenantCurrencyRow?.base_currency || 'USD',
+    display_currency: tenantCurrencyRow?.target_currency || tenantCurrencyRow?.base_currency || 'USD',
+  });
   const slotMapping = syncTourToUniversalPageSlots(snapshot);
   const blocks = buildTourDetailBlocks(snapshot, variantRuntime);
   const now = Math.floor(Date.now() / 1000);
