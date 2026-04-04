@@ -164,7 +164,7 @@ function createTourDetailSections(heroClasses) {
       eyebrow: 'Signature Tour',
       headline: '{{tour.title}}',
       body: '{{tour.summary}}',
-      primaryCtaLabel: 'I like this tour',
+      primaryCtaLabel: 'Check availability',
       primaryCtaHref: '#booking-engine',
       secondaryCtaLabel: 'View itinerary',
       secondaryCtaHref: '#itinerary',
@@ -234,9 +234,9 @@ function createTourDetailSections(heroClasses) {
       'Booking Engine Slot',
       'py-16 bg-slate-900 text-white',
       {
-        heading: 'I like this tour',
+        heading: 'Check availability',
         body: 'This block is reserved for the system booking engine.',
-        cta_label: 'I like this tour',
+        cta_label: 'Check availability',
       },
       {
         slot: {
@@ -1124,6 +1124,11 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
     logoUrl: '',
     ui: {
       bookNowLabel: '',
+      cta: {
+        discoveryLabel: '',
+        bookingLabel: '',
+        contactLabel: '',
+      },
       header: {
         showMenuButton: true,
         showLanguageChip: true,
@@ -1168,6 +1173,36 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
       },
     },
   };
+}
+
+export function getDefaultCtaLabels(groupKey) {
+  switch (String(groupKey || '').trim()) {
+    case 'stay_accommodation':
+    case 'transport_service':
+    case 'tour_operator':
+    default:
+      return {
+        discovery: 'Explore',
+        booking: 'Check availability',
+        contact: 'Contact us',
+      };
+  }
+}
+
+export function resolveThemeCtaLabel(theme, groupKey, intent, explicitLabel = '') {
+  const cleanExplicit = String(explicitLabel || '').trim();
+  if (cleanExplicit) return cleanExplicit;
+
+  const defaults = getDefaultCtaLabels(groupKey);
+  const cta = theme?.ui?.cta || {};
+  if (intent === 'booking') {
+    const bookingLabel = String(cta.bookingLabel || theme?.ui?.bookNowLabel || '').trim();
+    return bookingLabel || defaults.booking;
+  }
+  if (intent === 'contact') {
+    return String(cta.contactLabel || '').trim() || defaults.contact;
+  }
+  return String(cta.discoveryLabel || '').trim() || defaults.discovery;
 }
 
 export function buildDefaultContacts() {
@@ -1350,6 +1385,11 @@ export function buildEditorSchema(groupKey, variantKey) {
       ]),
       createEditorGroup('feature_switches', 'Feature Switches', [
         createField('booking_enabled', 'Enable Booking', 'switch', bookingPagePath),
+      ]),
+      createEditorGroup('cta_labels', 'CTA Labels', [
+        createField('discovery_cta_label', 'Discovery CTA Label', 'text', 'theme.ui.cta.discoveryLabel'),
+        createField('booking_cta_label', 'Booking CTA Label', 'text', 'theme.ui.cta.bookingLabel'),
+        createField('contact_cta_label', 'Contact CTA Label', 'text', 'theme.ui.cta.contactLabel'),
       ]),
       createEditorGroup('menu_structure', 'Menu Structure', [
         createField('menu_items', 'Menu Items', 'repeater', 'menu.items', {

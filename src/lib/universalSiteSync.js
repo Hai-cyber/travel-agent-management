@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import {
   buildUniversalCacheKeyUrl,
   buildDefaultSiteScaffold,
+  getDefaultCtaLabels,
   buildTourPageKey,
   buildVariantRuntimeConfig,
   slugify,
@@ -101,6 +102,7 @@ function buildPricingCards(rows) {
 
 function buildTourSyncSnapshot(tour, stops, pricingRows) {
   const content = parseJsonSafe(tour.content_data, {});
+  const ctaDefaults = getDefaultCtaLabels('tour_operator');
   const title = content.tour_name || tour.title;
   const images = normalizeImageItems(content, title);
   const itineraryStops = stops.map((stop) => ({
@@ -127,7 +129,7 @@ function buildTourSyncSnapshot(tour, stops, pricingRows) {
     itinerary_stops: itineraryStops,
     pricing_cards: pricing.cards,
     price_from: pricing.priceFrom,
-    booking_cta_label: 'I like this tour',
+    booking_cta_label: ctaDefaults.booking,
     route_label: itineraryStops.length
       ? `${itineraryStops[0].title} to ${itineraryStops[itineraryStops.length - 1].title}`
       : title,

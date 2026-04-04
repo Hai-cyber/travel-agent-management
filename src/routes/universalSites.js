@@ -8,10 +8,12 @@ import {
   buildUniversalCacheKeyUrl,
   buildUniversalPublicPath,
   buildDefaultContacts,
+  getDefaultCtaLabels,
   buildDefaultMenuItems,
   buildDefaultSiteScaffold,
   buildDefaultThemeTokens,
   buildVariantRuntimeConfig,
+  resolveThemeCtaLabel,
   getVariantByKey,
   slugify,
 } from '../lib/universalSite.js';
@@ -345,7 +347,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       destination_title: destinationTitle,
       duration_text: normalizeStringValue(snapshot?.duration_text, tour.duration_text, content?.duration),
       route_label: normalizeStringValue(snapshot?.route_label, destinationTitle),
-      booking_cta_label: normalizeStringValue(snapshot?.booking_cta_label, 'Explore this journey'),
+      booking_cta_label: normalizeStringValue(snapshot?.booking_cta_label, getDefaultCtaLabels('tour_operator').booking),
       price_from: priceFrom,
       href,
       content,
@@ -1120,7 +1122,15 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const renderHero = (block, targetPage = page) => {
     const targetTitle = getPageTitle(targetPage);
     const targetDescription = getPageDescription(targetPage);
-    const primaryHeroLabel = targetPage.page_key === homePageKey ? 'Explore' : (block.content?.primary_cta_label || 'Explore');
+    const isTourDetailTarget = targetPage.page_type === 'tour_detail' || /^tour-/.test(String(targetPage.page_key || ''));
+    const primaryHeroLabel = isTourDetailTarget
+      ? resolveThemeCtaLabel(theme, site.group_key, 'booking')
+      : resolveThemeCtaLabel(theme, site.group_key, 'discovery', block.content?.primary_cta_label);
+    const primaryHeroHref = isTourDetailTarget
+      ? '#booking-engine'
+      : (targetPage.page_key === homePageKey
+          ? buildPageHref(headerPrimaryPageKey)
+          : (block.content?.primary_cta_href || '#pricing'));
     const themedHero = activeTheme.renderHero?.({
       block,
       targetPage,
@@ -1132,6 +1142,9 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       site,
       tourRuntime,
       buildMenuHref,
+      buildPageHref,
+      headerPrimaryPageKey,
+      resolveThemeCtaLabel,
       resolveHeroModuleMenuItems,
       searchState,
     });
@@ -1162,22 +1175,22 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
         ? `<aside class="luxury-hero-side-panel"><div class="luxury-hero-side-links">${heroButtons}</div></aside>`
         : '';
 
-      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(primaryHeroLabel)}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
+      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(primaryHeroHref)}" class="luxury-primary-cta">${escapeHtml(primaryHeroLabel)}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
     }
 
     if (profile.hero === 'editorial') {
-      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
+      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
     }
 
     if (profile.hero === 'immersive') {
-      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
+      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
     }
 
     if (profile.hero === 'compact' || profile.hero === 'utility') {
-      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(content.primary_cta_label || 'Get quote')}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
+      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
     }
 
-    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
+    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
   };
 
   const renderGallery = (block, targetPage = page) => {
@@ -1303,7 +1316,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
   };
-  const renderBookingSlot = (block) => `<section id="booking-engine" class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(theme.ui?.bookNowLabel || block.content?.cta_label || 'I like this tour')}</a></section>`;
+  const renderBookingSlot = (block) => `<section id="booking-engine" class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(resolveThemeCtaLabel(theme, site.group_key, 'booking', block.content?.cta_label))}</a></section>`;
 
   const wrapAdminBlock = (block, targetPage, html) => {
     if (!adminMode || !html || !adminEditableTypes.has(block.type)) return html;
@@ -1388,7 +1401,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     ? configuredHeaderPrimaryPageKey
     : (groupConfig.listingPageKey || homeSlug);
   const headerPrimaryHref = buildPageHref(headerPrimaryPageKey);
-  const headerPrimaryLabel = 'Explore';
+  const headerPrimaryLabel = resolveThemeCtaLabel(theme, site.group_key, 'discovery');
 
   const navMarkup = menuItems.length
     ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav>`

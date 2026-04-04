@@ -7,6 +7,7 @@ export function createSixSensesTheme(helpers = {}) {
     escapeHtml = (value) => String(value ?? ''),
     buildUniversalPublicPath = () => '#',
     buildResponsiveImageMarkup = () => '',
+    resolveThemeCtaLabel = (_theme, _groupKey, _intent, explicitLabel = '') => explicitLabel || '',
     normalizeStringValue = (...values) => values.find((value) => typeof value === 'string' && value.trim()) || '',
     clampNumber = (_value, _min, _max, fallback) => fallback,
   } = helpers;
@@ -59,7 +60,15 @@ export function createSixSensesTheme(helpers = {}) {
     const heroUi = getHeroUi(ctx.theme);
     const content = ctx.block.content || {};
     const runtimeHero = ctx.targetPage.page_key === ctx.homePageKey ? ctx.tourRuntime.featured_tour : null;
-    const primaryCtaLabel = ctx.targetPage.page_key === ctx.homePageKey ? 'Explore' : (content.primary_cta_label || 'Explore');
+    const isTourDetailTarget = ctx.targetPage.page_type === 'tour_detail' || /^tour-/.test(String(ctx.targetPage.page_key || ''));
+    const primaryCtaLabel = isTourDetailTarget
+      ? resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'booking')
+      : resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'discovery', content.primary_cta_label);
+    const primaryCtaHref = isTourDetailTarget
+      ? '#booking-engine'
+      : (ctx.targetPage.page_key === ctx.homePageKey
+          ? ctx.buildPageHref?.(ctx.headerPrimaryPageKey) || '#'
+          : (content.primary_cta_href || '#section-featured-tours'));
     const image = content.hero_image || runtimeHero?.hero_image || ctx.snapshot?.hero_image || SAMPLE_HERO_URL;
     const imageBrightness = clampNumber(content.image_brightness, 0.4, 1.4, 1);
     const overlayStrength = clampNumber(content.overlay_strength, 0.12, 0.92, 0.56);
@@ -83,7 +92,7 @@ export function createSixSensesTheme(helpers = {}) {
     const secondaryCtaMarkup = heroUi.showSecondaryCta === false
       ? ''
       : `<a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a>`;
-    return `<section class="luxury-hero ${ctx.targetPage.page_key === ctx.homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy">${mapLinkMarkup}<p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || ctx.runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || ctx.targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || ctx.targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(primaryCtaLabel)}</a>${secondaryCtaMarkup}</div></div>${heroSidePanel}${searchMarkup}</section>`;
+    return `<section class="luxury-hero ${ctx.targetPage.page_key === ctx.homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy">${mapLinkMarkup}<p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || ctx.runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || ctx.targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || ctx.targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(primaryCtaHref)}" class="luxury-primary-cta">${escapeHtml(primaryCtaLabel)}</a>${secondaryCtaMarkup}</div></div>${heroSidePanel}${searchMarkup}</section>`;
   }
 
   function renderGallery(ctx) {
