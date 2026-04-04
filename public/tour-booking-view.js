@@ -115,10 +115,75 @@
       .tbv-hook-note {
         margin-top: 8px; font-size: 11px; line-height: 1.5; color: #7a7067; text-align: center;
       }
+      .tbv-pay-overlay {
+        position: fixed; inset: 0; z-index: 10020; background: rgba(15, 23, 42, 0.48); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center; padding: 20px;
+      }
+      .tbv-pay-panel {
+        width: min(560px, 100%); max-height: min(88vh, 920px); overflow: auto;
+        border-radius: 28px; background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+        border: 1px solid rgba(212, 175, 115, 0.22); box-shadow: 0 22px 50px rgba(15, 23, 42, 0.2);
+        padding: 22px;
+      }
+      .tbv-pay-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+      .tbv-pay-head h3 { margin: 0; font-size: 26px; line-height: 1; color: var(--color-primary, #5a3b27); }
+      .tbv-pay-head p { margin: 6px 0 0; font-size: 13px; color: #6b625a; }
+      .tbv-pay-close {
+        border: 1px solid rgba(90, 59, 39, 0.12); background: rgba(255,255,255,0.72); color: var(--color-primary, #5a3b27);
+        width: 36px; height: 36px; border-radius: 999px; cursor: pointer; font-size: 20px; line-height: 1;
+      }
+      .tbv-pay-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+      .tbv-pay-field { display: grid; gap: 6px; }
+      .tbv-pay-field.full { grid-column: 1 / -1; }
+      .tbv-pay-field label { font-size: 12px; font-weight: 700; color: #6b625a; text-transform: uppercase; letter-spacing: .05em; }
+      .tbv-pay-field input, .tbv-pay-field textarea, .tbv-pay-field select {
+        width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 16px;
+        border: 1px solid rgba(212, 175, 115, 0.28); background: rgba(255,255,255,0.82); color: var(--color-text, #34241b); font: inherit;
+      }
+      .tbv-pay-field textarea { min-height: 84px; resize: vertical; }
+      .tbv-pay-sum {
+        margin: 16px 0; padding: 14px 16px; border-radius: 20px; background: rgba(251, 246, 239, 0.88);
+        border: 1px solid rgba(212, 175, 115, 0.16);
+      }
+      .tbv-pay-sum strong { color: var(--color-primary, #5a3b27); }
+      .tbv-pay-methods { display: grid; gap: 10px; margin: 14px 0; }
+      .tbv-pay-method {
+        border: 1px solid rgba(212, 175, 115, 0.24); background: rgba(255,255,255,0.78); border-radius: 18px; padding: 14px;
+        cursor: pointer; transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+      }
+      .tbv-pay-method:hover { border-color: rgba(90, 59, 39, 0.36); transform: translateY(-1px); }
+      .tbv-pay-method.active { border-color: var(--color-primary, #5a3b27); box-shadow: 0 10px 20px rgba(90, 59, 39, 0.1); }
+      .tbv-pay-method-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; color: var(--color-text, #34241b); }
+      .tbv-pay-badge { border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+      .tbv-pay-badge.instant { background: rgba(90, 59, 39, 0.12); color: var(--color-primary, #5a3b27); }
+      .tbv-pay-badge.manual { background: rgba(212, 175, 115, 0.18); color: #7b5a29; }
+      .tbv-pay-method p { margin: 8px 0 0; font-size: 12px; line-height: 1.55; color: #6b625a; }
+      .tbv-pay-demo {
+        margin: 14px 0; padding: 14px 16px; border-radius: 20px; background: linear-gradient(135deg, rgba(90,59,39,0.1), rgba(212,175,115,0.12));
+        border: 1px dashed rgba(90, 59, 39, 0.22); color: var(--color-text, #34241b);
+      }
+      .tbv-pay-actions { display: flex; gap: 10px; margin-top: 18px; }
+      .tbv-pay-actions button { flex: 1; padding: 13px 14px; border-radius: 999px; cursor: pointer; font-weight: 700; }
+      .tbv-pay-submit {
+        border: none; color: #fff; background: linear-gradient(135deg, var(--color-primary, #5a3b27), var(--color-secondary, #d4af73));
+      }
+      .tbv-pay-secondary {
+        border: 1px solid rgba(212, 175, 115, 0.24); background: rgba(255,255,255,0.82); color: var(--color-primary, #5a3b27);
+      }
+      .tbv-pay-status {
+        margin-top: 14px; padding: 14px 16px; border-radius: 18px; font-size: 13px; line-height: 1.65;
+        border: 1px solid rgba(212, 175, 115, 0.24); background: rgba(255,255,255,0.82); color: var(--color-text, #34241b);
+      }
+      .tbv-pay-status.success { background: rgba(240, 253, 244, 0.95); border-color: #bbf7d0; color: #166534; }
+      .tbv-pay-status.demo { background: rgba(255, 251, 235, 0.96); border-color: #fcd34d; color: #92400e; }
+      .tbv-pay-status.error { background: rgba(254, 242, 242, 0.96); border-color: #fecaca; color: #b91c1c; }
+      .tbv-pay-portal { display: inline-flex; margin-top: 10px; color: var(--color-primary, #5a3b27); font-weight: 700; }
       @media (max-width: 767px) {
         .tbv-drawer { width: 100vw; }
         .tbv-body { padding: 16px; }
         .tbv-footer { padding: 14px 16px 18px; }
+        .tbv-pay-grid { grid-template-columns: 1fr; }
+        .tbv-pay-panel { padding: 18px; }
       }
     `;
     document.head.appendChild(style);
@@ -147,6 +212,25 @@
   function clampInt(value) {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  function createElement(tag, attrs, children) {
+    const node = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([key, value]) => {
+      if (value == null) return;
+      if (key === 'className') node.className = value;
+      else if (key === 'text') node.textContent = value;
+      else if (key === 'html') node.innerHTML = value;
+      else if (key.startsWith('data-')) node.setAttribute(key, value);
+      else if (key === 'type') node.type = value;
+      else if (key === 'value') node.value = value;
+      else if (key === 'placeholder') node.placeholder = value;
+      else node.setAttribute(key, value);
+    });
+    (Array.isArray(children) ? children : [children]).filter(Boolean).forEach((child) => {
+      node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    });
+    return node;
   }
 
   function buildViewMarkup(mode) {
@@ -278,6 +362,7 @@
       dataLoaded: false,
       revealed: false,
       pricingData: { seasons: [], segments: [], paxBands: [], prices: [] },
+      paymentSettings: null,
       calcState: {
         segmentId: null,
         pax: { adult_shared_room_count: 2, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
@@ -317,6 +402,195 @@
       paymentButton.dataset.paymentChildren = String(safePayload.pax?.child_count || 0);
       paymentButton.dataset.paymentInfants = String(safePayload.pax?.infant_count || 0);
       paymentButton.dataset.paymentTotal = safePayload.total == null ? '' : String(safePayload.total);
+      paymentButton.disabled = !safePayload.segmentId || !safePayload.travelDate || (safePayload.total == null);
+    }
+
+    async function loadPaymentSettings() {
+      if (state.paymentSettings) return state.paymentSettings;
+      try {
+        const response = await fetch('/api/payments/settings', {
+          headers: { 'X-Tenant-ID': tenantId },
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Could not load payment settings.');
+        state.paymentSettings = data;
+      } catch (error) {
+        state.paymentSettings = {
+          ok: false,
+          payment_methods: [],
+          compliance: {
+            has_electronic_gateway: false,
+            message: error?.message || 'Could not load payment settings.',
+          },
+        };
+      }
+      return state.paymentSettings;
+    }
+
+    function getVisibleMethods(settings) {
+      const methods = Array.isArray(settings?.payment_methods) ? settings.payment_methods.filter((method) => method.enabled) : [];
+      if (methods.length) return methods;
+      return [{ id: 'BANK_TRANSFER', label: 'Bank Transfer', enabled: true, category: 'manual' }];
+    }
+
+    function buildDemoResponse(methodId, guest) {
+      const orderId = `demo_${Math.random().toString(36).slice(2, 10)}`;
+      return {
+        ok: true,
+        demo: true,
+        order_id: orderId,
+        status: 'DEMO_SUCCESS',
+        payment_method: methodId,
+        guest_name: guest.name,
+        guest_email: guest.email,
+        note: 'Demo payment completed. This tenant has not configured a live electronic gateway yet, so no real order or charge was created.',
+        guest_portal_url: `${window.location.origin}${window.location.pathname}?demo_order=${orderId}`,
+      };
+    }
+
+    function renderPaymentResult(container, result, quote, isDemo) {
+      const totalLabel = quote?.total == null ? '—' : fmtMoney(quote.total, quote.currency || currency);
+      const summary = [];
+      if (result.order_id) summary.push(`<strong>Order</strong>: ${esc(result.order_id)}`);
+      if (result.payment_method) summary.push(`<strong>Method</strong>: ${esc(result.payment_method)}`);
+      if (quote?.travelDate) summary.push(`<strong>Travel date</strong>: ${esc(quote.travelDate)}`);
+      if (totalLabel) summary.push(`<strong>Total</strong>: ${esc(totalLabel)}`);
+      container.className = `tbv-pay-status ${isDemo ? 'demo' : 'success'}`;
+      container.innerHTML = `<div>${esc(result.note || (isDemo ? 'Demo payment completed.' : 'Booking order created successfully.'))}</div><div style="margin-top:8px">${summary.join('<br>')}</div>${result.guest_portal_url ? `<a class="tbv-pay-portal" href="${esc(result.guest_portal_url)}" target="_blank" rel="noreferrer">Open guest portal</a>` : ''}`;
+    }
+
+    function closePaymentSheet(sheet) {
+      if (!sheet) return;
+      sheet.remove();
+      document.body.style.overflow = mode === 'drawer' && root._tbvDrawer?.classList.contains('is-open') ? 'hidden' : '';
+    }
+
+    async function openPaymentSheet() {
+      const quote = state.lastQuote || buildPaymentPayload(null);
+      if (!quote.segmentId || !quote.travelDate || quote.total == null) return;
+      const settings = await loadPaymentSettings();
+      const demoMode = settings?.compliance?.has_electronic_gateway !== true;
+      const methods = getVisibleMethods(settings);
+
+      const overlay = createElement('div', { className: 'tbv-pay-overlay' });
+      const panel = createElement('div', { className: 'tbv-pay-panel' });
+      const statusBox = createElement('div', { className: 'tbv-pay-status tbv-hidden' });
+      const summaryBox = createElement('div', { className: 'tbv-pay-sum', html: `<div><strong>Total</strong>: ${esc(fmtMoney(quote.total, quote.currency || currency))}</div><div style="margin-top:6px"><strong>Travel date</strong>: ${esc(quote.travelDate)}</div><div style="margin-top:6px"><strong>Guests</strong>: ${esc(String((quote.pax?.adult_shared_room_count || 0) + (quote.pax?.adult_single_room_count || 0)))} adults, ${esc(String(quote.pax?.child_count || 0))} children</div>` });
+      const methodsWrap = createElement('div', { className: 'tbv-pay-methods' });
+      const selectedMethod = { value: methods[0]?.id || 'BANK_TRANSFER' };
+
+      methods.forEach((method, index) => {
+        const methodCard = createElement('button', { type: 'button', className: `tbv-pay-method${index === 0 ? ' active' : ''}` });
+        methodCard.appendChild(createElement('div', { className: 'tbv-pay-method-title', html: `<span>${esc(method.label || method.id)}</span><span class="tbv-pay-badge ${esc(method.category || 'manual')}">${esc(method.category || 'manual')}</span>` }));
+        const desc = demoMode
+          ? 'Demo payment experience only. No real gateway is active for this tenant yet.'
+          : (method.category === 'instant'
+              ? 'Creates the real booking order and prepares the checkout handoff for the selected gateway.'
+              : 'Creates the real booking order and returns the manual payment / proof-upload next step.');
+        methodCard.appendChild(createElement('p', { text: desc }));
+        methodCard.addEventListener('click', () => {
+          methodsWrap.querySelectorAll('.tbv-pay-method').forEach((entry) => entry.classList.remove('active'));
+          methodCard.classList.add('active');
+          selectedMethod.value = method.id;
+        });
+        methodsWrap.appendChild(methodCard);
+      });
+
+      const nameInput = createElement('input', { type: 'text', placeholder: 'Guest full name' });
+      const emailInput = createElement('input', { type: 'email', placeholder: 'guest@example.com' });
+      const phoneInput = createElement('input', { type: 'text', placeholder: '+84...' });
+      const notesInput = createElement('textarea', { placeholder: demoMode ? 'Optional note for the demo checkout story' : 'Optional request for the operator' });
+      const submitBtn = createElement('button', { type: 'button', className: 'tbv-pay-submit', text: demoMode ? 'Run demo payment' : 'Create booking order' });
+      const cancelBtn = createElement('button', { type: 'button', className: 'tbv-pay-secondary', text: 'Cancel' });
+      const intro = createElement('div', { className: 'tbv-pay-head' }, [
+        createElement('div', {}, [
+          createElement('h3', { text: demoMode ? 'Demo payment flow' : 'Payment flow' }),
+          createElement('p', { text: demoMode ? 'This tenant has no live electronic gateway yet. Show a premium demo checkout instead of a dead end.' : 'Capture the guest identity, create the booking order, and hand off to the configured payment path.' }),
+        ]),
+        createElement('button', { type: 'button', className: 'tbv-pay-close', text: '×' }),
+      ]);
+      const grid = createElement('div', { className: 'tbv-pay-grid' }, [
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Guest name' }), nameInput]),
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Email' }), emailInput]),
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Phone' }), phoneInput]),
+        createElement('div', { className: 'tbv-pay-field full' }, [createElement('label', { text: 'Notes' }), notesInput]),
+      ]);
+
+      panel.appendChild(intro);
+      if (demoMode) {
+        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>Demo mode active.</strong><br>${esc(settings?.compliance?.message || 'No live gateway configured yet.')}` }));
+      }
+      panel.appendChild(summaryBox);
+      panel.appendChild(grid);
+      panel.appendChild(methodsWrap);
+      panel.appendChild(createElement('div', { className: 'tbv-pay-actions' }, [cancelBtn, submitBtn]));
+      panel.appendChild(statusBox);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+      document.body.style.overflow = 'hidden';
+
+      const dismiss = () => closePaymentSheet(overlay);
+      overlay.addEventListener('click', (event) => { if (event.target === overlay) dismiss(); });
+      intro.querySelector('.tbv-pay-close')?.addEventListener('click', dismiss);
+      cancelBtn.addEventListener('click', dismiss);
+
+      submitBtn.addEventListener('click', async () => {
+        const guest = {
+          name: String(nameInput.value || '').trim(),
+          email: String(emailInput.value || '').trim(),
+          phone: String(phoneInput.value || '').trim(),
+        };
+        if (!guest.name || !guest.email) {
+          statusBox.className = 'tbv-pay-status error';
+          statusBox.textContent = 'Guest name and email are required.';
+          return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = demoMode ? 'Running demo…' : 'Creating order…';
+        try {
+          let result;
+          if (demoMode) {
+            result = buildDemoResponse(selectedMethod.value, guest);
+            emitEvent('travelagent:public-booking-demo-payment', {
+              ...quote,
+              payment_method: selectedMethod.value,
+              guest,
+            });
+          } else {
+            const response = await fetch('/api/bookings/order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+              body: JSON.stringify({
+                tour_id: quote.tourId,
+                travel_date: quote.travelDate,
+                segment_id: quote.segmentId,
+                payment_method: selectedMethod.value,
+                pax: quote.pax,
+                guest,
+                customer_note: String(notesInput.value || '').trim(),
+              }),
+            });
+            result = await response.json();
+            if (!response.ok || !result?.ok) {
+              throw new Error(result?.error || 'Could not create booking order.');
+            }
+            emitEvent('travelagent:public-booking-order-created', {
+              ...quote,
+              payment_method: selectedMethod.value,
+              guest,
+              order_id: result.order_id,
+              status: result.status,
+            });
+          }
+          renderPaymentResult(statusBox, result, quote, demoMode);
+        } catch (error) {
+          statusBox.className = 'tbv-pay-status error';
+          statusBox.textContent = error?.message || 'Could not continue to payment.';
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = demoMode ? 'Run demo payment' : 'Create booking order';
+        }
+      });
     }
 
     function buildCompactSummary() {
@@ -628,6 +902,7 @@
       const payload = state.lastQuote || buildPaymentPayload(null);
       syncPaymentHook(payload);
       emitEvent('travelagent:public-booking-payment-intent', payload);
+      openPaymentSheet();
     });
 
     if (dateInput && !dateInput.value) dateInput.value = state.calcState.date;

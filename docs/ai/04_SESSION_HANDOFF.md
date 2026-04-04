@@ -21,6 +21,43 @@ Suggested next prompt:
 
 ## Latest Handoff
 Date: 2026-04-04
+Checkpoint: Public payment sheet follow-up
+Goal of session: Ship the first storefront payment flow on top of the public Booking View, while giving non-compliant tenants a premium-feeling demo path instead of a hard stop.
+
+### What was completed this session
+
+- Deployed the previously completed public Booking View work to production Worker version `0d3c5a33-e193-4e18-9efb-57b7be1cc60c` so the live booking sidebar/page flow could be tested immediately
+- Extended `public/tour-booking-view.js` with a storefront payment sheet that opens after quote readiness and captures guest name, email, phone, notes, and selected payment method
+- Wired the payment sheet to `GET /api/payments/settings` for tenant-scoped method/compliance discovery and `POST /api/bookings/order` for real order creation when the tenant is payment-compliant
+- Added a non-blocking `demo payment` branch for tenants without an electronic gateway: the sheet now gives a dopamine-style success state and explicit demo labeling instead of a dead-end rejection
+- Kept the payment handoff event model intact while adding real storefront events for order creation / demo payment progression
+
+### Files changed
+```
+public/tour-booking-view.js
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+### What is still not done
+- Instant gateway providers still do not produce a real hosted checkout redirect URL from the storefront payment sheet; the current real flow is strongest for booking-order creation and manual / next-step handoff
+- Public payment sheet copy is still hardcoded in English and not moved into the shared locale catalog yet
+- No storefront proof-upload step is embedded yet; guests still rely on the returned guest portal / next-step links after order creation
+
+### Known risks / TODOs
+- If the business wants fully live Stripe/PayPal/MoMo/ZaloPay redirect handoff from the public sheet, provider-specific checkout-session creation must be added rather than relying only on `POST /api/bookings/order`
+- Demo mode is intentionally visible for non-compliant tenants; if this should be hidden from end-customers later, gate it behind preview/admin logic instead of removing it from the code path entirely
+- Payment sheet currently reuses the booking quote payload from `public/tour-booking-view.js`; future refactors should keep that payload canonical rather than deriving order inputs from UI labels
+
+### Suggested next prompt
+```
+Implement the first real instant-checkout provider handoff for the public Booking View payment sheet, starting with Stripe / CREDIT_CARD, and keep the existing demo-payment branch for non-compliant tenants.
+```
+
+---
+
+Date: 2026-04-04
 Checkpoint: Public Booking View follow-up
 Goal of session: Finish the storefront `Check availability` flow so it uses the real tour pricing behavior, matches the active storefront skin better, and leaves explicit payment hooks for the next integration step.
 

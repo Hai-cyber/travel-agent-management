@@ -182,6 +182,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Tour storefront `Check availability` now opens a dedicated public `Booking View` that mirrors the sentence-driven calculator logic from `public/tour-config.html`: desktop opens a themed sidebar, mobile navigates to the tenant booking page with the same view inline for the selected `tour`
 - Public `Booking View` uses canonical tour pricing APIs (`tenant-seasons`, `pricing-segments`, `pax-bands`, `tour-prices`, `pricing/calculate`) and keeps the visible grand total as the strict local sum of the displayed row subtotals
 - Payment-flow hook is now reserved in the public booking surface: `public/tour-booking-view.js` emits `travelagent:public-booking-quote-ready` and `travelagent:public-booking-payment-intent`, and the payment CTA carries `data-payment-*` attributes for tenant/tour/segment/date/pax/total handoff
+- Public `Booking View` now also contains the first storefront payment sheet: after a quote is ready it can collect guest identity, read tenant payment settings, create a real booking order via `POST /api/bookings/order` for compliant tenants, and fall back to a clearly labeled `demo payment` mode when the tenant has not activated any electronic gateway yet
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
 - `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
 - This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
@@ -240,6 +241,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
   - `public/tour-booking-view.js` is now the dedicated storefront projection of the Booking View concept; it is separate from `public/booking-widget.js`
   - Desktop behavior: `Check availability` opens a themed sidebar overlay on the current tour detail page
   - Mobile behavior: `Check availability` navigates to the tenant booking page with `?tour=<tourId>`, where the same Booking View renders inline
+  - Payment sheet behavior: the CTA inside the Booking View opens a storefront payment sheet with guest fields + payment-method selection
+  - For payment-compliant tenants, the sheet creates a real booking order through `POST /api/bookings/order`
+  - For non-compliant tenants, the sheet shows a dopamine-friendly `demo payment` completion instead of a dead-end block, while making it explicit that no real charge/order was created
   - Future payment integration should attach to the emitted custom events and `data-payment-*` payload already kept on the payment hook button rather than re-deriving quote state from DOM text
 
 ### product-modules.html detail
