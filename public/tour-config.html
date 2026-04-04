@@ -414,6 +414,9 @@
     .asset-upload:hover { background: #eef2ff; border-color: #a5b4fc; color: #4338ca; }
     .asset-upload input { display: none; }
     .asset-note { font-size: 11px; color: #94a3b8; }
+    .asset-picker-btn {
+      background: #f8fafc;
+    }
     .image-preview,
     .gallery-preview-grid {
       min-height: 74px;
@@ -438,28 +441,192 @@
       display: block;
       border-radius: 8px;
     }
+    .image-preview.has-image {
+      position: relative;
+      padding-top: 40px;
+    }
     .gallery-preview-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(64px, 78px));
+      gap: 8px;
+      justify-content: start;
     }
     .gallery-preview-card {
+      position: relative;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
+      padding-top: 26px;
     }
     .gallery-preview-card img {
       width: 100%;
       aspect-ratio: 1 / 1;
-      border-radius: 8px;
+      border-radius: 6px;
       object-fit: cover;
       background: #e2e8f0;
     }
     .gallery-preview-card span {
-      font-size: 11px;
+      font-size: 9px;
       color: #64748b;
-      line-height: 1.4;
+      line-height: 1.25;
       word-break: break-word;
+    }
+    .preview-remove-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 1;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255,255,255,0.92);
+      color: #475569;
+      border-radius: 999px;
+      min-width: 24px;
+      min-height: 24px;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .preview-remove-btn:hover {
+      color: #b91c1c;
+      border-color: rgba(185, 28, 28, 0.25);
+      background: #fef2f2;
+    }
+
+    .media-picker {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .media-picker.open {
+      display: flex;
+    }
+
+    .media-picker-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(10px);
+    }
+
+    .media-picker-dialog {
+      position: relative;
+      width: min(1040px, calc(100vw - 32px));
+      max-height: calc(100vh - 40px);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid #dbe4f0;
+      background: rgba(255,255,255,0.98);
+      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.24);
+    }
+
+    .media-picker-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .media-picker-head h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #1e293b;
+    }
+
+    .media-picker-copy {
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .media-picker-actions,
+    .media-picker-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .media-picker-library {
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .media-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .media-picker-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .media-picker-card:hover {
+      border-color: #a5b4fc;
+      background: #eef2ff;
+    }
+
+    .media-picker-thumb {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #e2e8f0;
+    }
+
+    .media-picker-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .media-picker-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .media-picker-card-meta,
+    .media-picker-count {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 720px) {
+      .media-picker-dialog {
+        width: 100%;
+        max-height: calc(100vh - 16px);
+        padding: 14px;
+      }
+
+      .media-picker-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
     }
 
     /* -- Publish result -- */
@@ -790,8 +957,8 @@
           <label>Hero Image URL</label>
           <input type="text" id="cd-hero-image" placeholder="https://..." spellcheck="false" />
           <div class="asset-tools">
-            <label class="asset-upload">Upload hero image<input type="file" id="cd-hero-image-upload" accept="image/*" data-target-field="cd-hero-image" /></label>
-            <span class="asset-note">Upload to tenant media and preview immediately here.</span>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-hero-image">Add hero image</button>
+            <span class="asset-note">Choose from local drive or tenant gallery. Hero stays explicit and is not inferred from gallery unless you set it.</span>
           </div>
           <div id="cd-hero-image-preview" class="image-preview is-empty">Hero image preview appears here.</div>
         </div>
@@ -799,8 +966,8 @@
           <label>Gallery Images <small style="font-weight:400;text-transform:none">One URL per line</small></label>
           <textarea id="cd-gallery-images" placeholder="https://...&#10;https://..." style="min-height:120px" spellcheck="false"></textarea>
           <div class="asset-tools">
-            <label class="asset-upload">Upload gallery image<input type="file" id="cd-gallery-images-upload" accept="image/*" data-target-field="cd-gallery-images" data-append="1" /></label>
-            <span class="asset-note">Each upload appends a new line so the gallery keeps growing.</span>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-gallery-images" data-append="1">Add gallery image</button>
+            <span class="asset-note">Every uploaded or picked image is appended only to this gallery list. It does not flow into hero, destination, or accommodation unless you explicitly choose it there.</span>
           </div>
           <div id="cd-gallery-images-preview" class="gallery-preview-grid is-empty">Gallery previews appear here as soon as you paste or upload images.</div>
         </div>
@@ -815,7 +982,7 @@
           <label>Destination Image URL</label>
           <input type="text" id="cd-destination-image" placeholder="https://..." spellcheck="false" />
           <div class="asset-tools">
-            <label class="asset-upload">Upload destination image<input type="file" id="cd-destination-image-upload" accept="image/*" data-target-field="cd-destination-image" /></label>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-destination-image">Add destination image</button>
           </div>
           <div id="cd-destination-image-preview" class="image-preview is-empty">Destination image preview appears here.</div>
         </div>
@@ -830,7 +997,7 @@
           <label>Accommodation Image URL</label>
           <input type="text" id="cd-accommodation-image" placeholder="https://..." spellcheck="false" />
           <div class="asset-tools">
-            <label class="asset-upload">Upload accommodation image<input type="file" id="cd-accommodation-image-upload" accept="image/*" data-target-field="cd-accommodation-image" /></label>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-accommodation-image">Add accommodation image</button>
           </div>
           <div id="cd-accommodation-image-preview" class="image-preview is-empty">Accommodation image preview appears here.</div>
         </div>
@@ -1217,6 +1384,32 @@
   </div>
 </section>
 
+<div id="media-picker" class="media-picker" aria-hidden="true">
+  <div id="media-picker-backdrop" class="media-picker-backdrop"></div>
+  <div class="media-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="media-picker-title">
+    <div class="media-picker-head">
+      <div>
+        <h3 id="media-picker-title">Add image</h3>
+        <p id="media-picker-copy" class="media-picker-copy">Upload from local drive or reuse an image that already exists in this tenant gallery.</p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="media-picker-close">Close</button>
+    </div>
+    <div class="media-picker-actions">
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary btn-sm" id="media-picker-upload-trigger">Upload from local drive</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="media-picker-refresh">Refresh gallery</button>
+      </div>
+      <input id="media-picker-file-input" type="file" accept="image/*" hidden />
+    </div>
+    <div class="media-picker-toolbar">
+      <strong style="font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#475569">Tenant Gallery</strong>
+      <span id="media-picker-count" class="media-picker-count">0 images</span>
+    </div>
+    <div id="media-picker-library" class="media-picker-library"></div>
+    <div id="media-picker-note" class="asset-note">Selected images are inserted directly into the current field. Gallery photos stay at gallery level unless you choose them for another module field.</div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -1233,13 +1426,24 @@ const S = {
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
+  assets:   [],
   taxonomyCatalog: [],
   tourTaxonomy: null,
   tourTaxonomySummaryByTourId: {},
   tourListSearch: '',
   activeTourListInterest: '',
+  mediaPicker: {
+    open: false,
+    targetFieldId: '',
+    appendMode: false,
+    title: 'Add image',
+  },
   uiLang: localStorage.getItem('tc_ui_lang') ?? ((navigator.language || 'en').toLowerCase().split('-')[0]),
 };
+
+const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
+const WARN_IMAGE_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 6000;
 
 let UI_MESSAGES = {};
 
@@ -1318,6 +1522,61 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function getOptimizedImageUrl(url, options = {}) {
+  const cleanUrl = String(url || '').trim();
+  if (!cleanUrl) return '';
+  try {
+    const absolute = new URL(cleanUrl, window.location.origin);
+    const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const isSameOrigin = absolute.origin === window.location.origin;
+    const isR2Asset = absolute.hostname.endsWith('.r2.dev');
+    if (isLocalDev) return absolute.href;
+    if (!isSameOrigin && !isR2Asset) return absolute.href;
+    const width = Math.max(64, Number(options.width || 640));
+    const height = Math.max(64, Number(options.height || 640));
+    const fit = options.fit || 'cover';
+    const quality = Math.max(50, Math.min(90, Number(options.quality || 75)));
+    const source = isSameOrigin ? `${absolute.pathname}${absolute.search}` : absolute.href;
+    return `/cdn-cgi/image/width=${width},height=${height},fit=${fit},quality=${quality},format=auto/${source}`;
+  } catch {
+    return cleanUrl;
+  }
+}
+
+function inspectImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const info = { width: image.naturalWidth || 0, height: image.naturalHeight || 0 };
+      URL.revokeObjectURL(objectUrl);
+      resolve(info);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Selected file is not a readable image.'));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function validateImageUpload(file) {
+  if (!String(file?.type || '').startsWith('image/')) {
+    throw new Error('Only image uploads are allowed here.');
+  }
+  if (Number(file.size || 0) > MAX_IMAGE_UPLOAD_BYTES) {
+    throw new Error('Image is too large. Limit is 8 MB per file.');
+  }
+  const info = await inspectImageFile(file);
+  if (Math.max(info.width, info.height) > MAX_IMAGE_DIMENSION) {
+    throw new Error('Image dimensions are too large. Limit is 6000px on the longest side.');
+  }
+  if (Number(file.size || 0) > WARN_IMAGE_UPLOAD_BYTES) {
+    toast('Large image detected. Upload allowed, but smaller optimized files will load faster.');
+  }
+  return info;
+}
+
 function readBool(value, fallback = false) {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -1371,6 +1630,12 @@ function collectGalleryImages() {
       alt: `${fallbackTitle} ${index + 1}`,
       caption: index === 0 ? fallbackTitle : `Gallery ${index + 1}`,
     }));
+}
+
+function getRecentImageAssets(limit = 120) {
+  return (Array.isArray(S.assets) ? S.assets : [])
+    .filter((item) => String(item?.mime || '').startsWith('image/'))
+    .slice(0, limit);
 }
 
 function emptyTourTaxonomy() {
@@ -1666,8 +1931,13 @@ function renderSingleImagePreview(previewId, imageUrl, emptyMessage) {
     node.textContent = emptyMessage;
     return;
   }
-  node.className = 'image-preview';
-  node.innerHTML = `<img src="${esc(src)}" alt="${esc(previewId)}" loading="lazy" />`;
+  node.className = 'image-preview has-image';
+  const fieldId = ({
+    'cd-hero-image-preview': 'cd-hero-image',
+    'cd-destination-image-preview': 'cd-destination-image',
+    'cd-accommodation-image-preview': 'cd-accommodation-image',
+  })[previewId] || '';
+  node.innerHTML = `${fieldId ? `<button type="button" class="preview-remove-btn" data-clear-field="${esc(fieldId)}" aria-label="Remove image">Remove</button>` : ''}<img src="${esc(getOptimizedImageUrl(src, { width: 960, height: 720, quality: 74 }))}" alt="${esc(previewId)}" loading="lazy" />`;
 }
 
 function renderGalleryPreview(previewId, images, emptyMessage) {
@@ -1681,10 +1951,75 @@ function renderGalleryPreview(previewId, images, emptyMessage) {
   node.className = 'gallery-preview-grid';
   node.innerHTML = images.map((item, index) => `
     <div class="gallery-preview-card">
-      <img src="${esc(item.src)}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" />
+      <button type="button" class="preview-remove-btn" data-remove-gallery-index="${index}" aria-label="Remove gallery image">Remove</button>
+      <img src="${esc(getOptimizedImageUrl(item.src, { width: 240, height: 240, quality: 72 }))}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" />
       <span>${esc(item.caption || item.alt || `Gallery ${index + 1}`)}</span>
     </div>
   `).join('');
+
+  node.querySelectorAll('[data-remove-gallery-index]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const textarea = document.getElementById('cd-gallery-images');
+      if (!textarea) return;
+      const index = Number(button.dataset.removeGalleryIndex || -1);
+      const lines = String(textarea.value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (index < 0 || index >= lines.length) return;
+      lines.splice(index, 1);
+      textarea.value = lines.join('\n');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      toast('Gallery image removed from this draft.');
+    });
+  });
+}
+
+function buildMediaPickerCards() {
+  const items = getRecentImageAssets();
+  if (!items.length) {
+    return '<div class="empty-state" style="padding:20px">No tenant images yet. Upload one from local drive and it will become reusable immediately.</div>';
+  }
+  return `<div class="media-picker-grid">${items.map((item, index) => `
+    <button type="button" class="media-picker-card" data-media-picker-asset data-asset-url="${esc(item.url || '')}">
+      <div class="media-picker-thumb"><img src="${esc(getOptimizedImageUrl(item.url || '', { width: 320, height: 320, quality: 72 }))}" alt="${esc(item.filename || `Image ${index + 1}`)}" loading="lazy" /></div>
+      <div class="media-picker-card-title">${esc(item.filename || `Image ${index + 1}`)}</div>
+      <div class="media-picker-card-meta">${esc(item.mime || 'image')}</div>
+    </button>
+  `).join('')}</div>`;
+}
+
+function renderMediaPicker() {
+  const modal = document.getElementById('media-picker');
+  if (!modal) return;
+  modal.classList.toggle('open', S.mediaPicker.open === true);
+  modal.setAttribute('aria-hidden', S.mediaPicker.open ? 'false' : 'true');
+  document.getElementById('media-picker-title').textContent = S.mediaPicker.title || 'Add image';
+  document.getElementById('media-picker-count').textContent = `${getRecentImageAssets().length} image${getRecentImageAssets().length === 1 ? '' : 's'}`;
+  document.getElementById('media-picker-library').innerHTML = buildMediaPickerCards();
+
+  document.querySelectorAll('[data-media-picker-asset]').forEach((button) => {
+    button.onclick = () => {
+      applyAssetToField(S.mediaPicker.targetFieldId, button.dataset.assetUrl || '', S.mediaPicker.appendMode);
+      closeMediaPicker();
+      toast('Image inserted from tenant gallery.');
+    };
+  });
+}
+
+function openMediaPicker(config = {}) {
+  S.mediaPicker = {
+    open: true,
+    targetFieldId: config.targetFieldId || '',
+    appendMode: config.appendMode === true,
+    title: config.title || 'Add image',
+  };
+  renderMediaPicker();
+}
+
+function closeMediaPicker() {
+  S.mediaPicker.open = false;
+  renderMediaPicker();
+  const input = document.getElementById('media-picker-file-input');
+  if (input) input.value = '';
 }
 
 function renderContentMediaPreviews() {
@@ -1692,6 +2027,17 @@ function renderContentMediaPreviews() {
   renderSingleImagePreview('cd-destination-image-preview', document.getElementById('cd-destination-image')?.value, 'Destination image preview appears here.');
   renderSingleImagePreview('cd-accommodation-image-preview', document.getElementById('cd-accommodation-image')?.value, 'Accommodation image preview appears here.');
   renderGalleryPreview('cd-gallery-images-preview', collectGalleryImages(), 'Gallery previews appear here as soon as you paste or upload images.');
+
+  document.querySelectorAll('[data-clear-field]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const field = document.getElementById(button.dataset.clearField || '');
+      if (!field) return;
+      field.value = '';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      toast('Image removed from this module field.');
+    });
+  });
 }
 
 function applyAssetToField(targetFieldId, assetUrl, appendMode = false) {
@@ -1725,6 +2071,15 @@ async function uploadTourAssetFile(file) {
   return payload;
 }
 
+async function refreshTenantAssets() {
+  const payload = await fetch(`${S.baseUrl}/api/tenant/assets`, {
+    headers: {
+      'X-Tenant-ID': S.tenantId,
+    },
+  }).then((response) => response.json().catch(() => ({})));
+  S.assets = Array.isArray(payload.items) ? payload.items : [];
+}
+
 function bindContentAssetInputs() {
   ['cd-hero-image', 'cd-destination-image', 'cd-accommodation-image', 'cd-gallery-images'].forEach((id) => {
     const field = document.getElementById(id);
@@ -1733,21 +2088,59 @@ function bindContentAssetInputs() {
     field.addEventListener('change', renderContentMediaPreviews);
   });
 
-  document.querySelectorAll('[data-target-field]').forEach((input) => {
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
+  document.querySelectorAll('[data-open-media-picker]').forEach((button) => {
+    button.addEventListener('click', async () => {
       try {
-        toast(`Uploading ${file.name}...`);
-        const uploaded = await uploadTourAssetFile(file);
-        applyAssetToField(input.dataset.targetField || '', uploaded.url || '', input.dataset.append === '1');
-        toast('Image uploaded and inserted into the draft.');
+        await refreshTenantAssets();
       } catch (error) {
-        toast(error.message || 'Image upload failed.', 'err');
-      } finally {
-        input.value = '';
+        console.warn('[tour-config assets] refresh before picker failed', error?.message || error);
       }
+      openMediaPicker({
+        targetFieldId: button.dataset.targetField || '',
+        appendMode: button.dataset.append === '1',
+        title: button.textContent.trim() || 'Add image',
+      });
     });
+  });
+
+  document.getElementById('media-picker-close')?.addEventListener('click', closeMediaPicker);
+  document.getElementById('media-picker-backdrop')?.addEventListener('click', closeMediaPicker);
+  document.getElementById('media-picker-upload-trigger')?.addEventListener('click', () => {
+    document.getElementById('media-picker-file-input')?.click();
+  });
+  document.getElementById('media-picker-refresh')?.addEventListener('click', async () => {
+    try {
+      await refreshTenantAssets();
+      renderMediaPicker();
+      toast('Tenant gallery refreshed.');
+    } catch (error) {
+      toast(error.message || 'Failed to refresh tenant gallery.', 'err');
+    }
+  });
+  document.getElementById('media-picker-file-input')?.addEventListener('change', async (event) => {
+    const input = event.currentTarget;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      toast(`Uploading ${file.name}...`);
+      await validateImageUpload(file);
+      const uploaded = await uploadTourAssetFile(file);
+      applyAssetToField(S.mediaPicker.targetFieldId, uploaded.url || '', S.mediaPicker.appendMode);
+      S.assets = [{
+        filename: uploaded.filename,
+        r2_key: uploaded.r2_key,
+        url: uploaded.url,
+        size: uploaded.size,
+        mime: uploaded.mime,
+        uploaded_at: new Date().toISOString(),
+      }, ...S.assets.filter((item) => item.url !== uploaded.url)];
+      closeMediaPicker();
+      toast('Image uploaded and inserted into the draft.');
+    } catch (error) {
+      toast(error.message || 'Image upload failed.', 'err');
+    } finally {
+      input.value = '';
+    }
   });
 }
 
@@ -1866,8 +2259,16 @@ async function connectWithCurrentTenant() {
   status.textContent = ti('tour_config.message.reconnecting');
   try {
     await ensureTaxonomyCatalog();
-    const data = await api('/api/tours');
+    const [data, assets] = await Promise.all([
+      api('/api/tours'),
+      fetch(`${S.baseUrl}/api/tenant/assets`, {
+        headers: {
+          'X-Tenant-ID': S.tenantId,
+        },
+      }).then((response) => response.json().catch(() => ({}))),
+    ]);
     S.tours = data.tours ?? [];
+    S.assets = Array.isArray(assets.items) ? assets.items : [];
     await loadTourTaxonomySummaries();
     renderTourFilterChips();
     renderTourList();
