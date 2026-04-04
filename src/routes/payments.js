@@ -23,6 +23,7 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { notifyAgent } from '../lib/notifications.js';
+import { normalizeLocale, translate } from '../utils/formatter.js';
 
 const payments = new Hono();
 
@@ -400,6 +401,7 @@ function hexToBytes(hex) {
 payments.get('/settings', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const lang = normalizeLocale(c.req.header('Accept-Language'));
 
   const tenant = await c.env.DB
     .prepare('SELECT payment_methods FROM tenants WHERE id = ?')
@@ -444,8 +446,8 @@ payments.get('/settings', async (c) => {
     compliance: {
       has_electronic_gateway: hasGateway,
       message: hasGateway
-        ? 'Tenant có ít nhất một cổng điện tử đang hoạt động.'
-        : 'Chưa có cổng điện tử nào được bật. Hãy cấu hình API Key để kích hoạt.',
+        ? translate('payments.compliance_gateway_active', lang, { default: 'Tenant has at least one active electronic gateway.' })
+        : translate('payments.compliance_gateway_missing', lang, { default: 'No electronic gateway is enabled yet. Configure API keys to activate one.' }),
     },
   });
 });

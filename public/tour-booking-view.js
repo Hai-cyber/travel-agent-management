@@ -532,7 +532,7 @@
       if (state.paymentSettings) return state.paymentSettings;
       try {
         const response = await fetch('/api/payments/settings', {
-          headers: { 'X-Tenant-ID': tenantId },
+          headers: { 'X-Tenant-ID': tenantId, 'Accept-Language': normalizeLang(document.documentElement.lang || navigator.language || 'en') },
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || 'Could not load payment settings.');
@@ -645,7 +645,7 @@
 
       panel.appendChild(intro);
       if (demoMode) {
-        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(settings?.compliance?.message || t('public_booking.payment_demo_message'))}` }));
+        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(t('public_booking.payment_demo_message'))}` }));
       }
       panel.appendChild(summaryBox);
       panel.appendChild(grid);

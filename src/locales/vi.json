@@ -379,6 +379,10 @@
     "def_teens": "Thiếu niên: từ 14 tuổi trở lên được tính như người lớn.",
     "def_note": "Lưu ý: nếu trẻ em ở phòng riêng, giá người lớn ở phòng ghép sẽ được áp dụng."
   },
+  "payments": {
+    "compliance_gateway_active": "Tenant đã có ít nhất một cổng điện tử đang hoạt động.",
+    "compliance_gateway_missing": "Chưa có cổng điện tử nào được bật. Hãy cấu hình API key để kích hoạt."
+  },
   "tour_config": {
     "meta": {
       "title": "Cấu hình Tour - Bảng điều khiển đại lý"

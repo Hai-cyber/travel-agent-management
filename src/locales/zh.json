@@ -384,6 +384,10 @@
     "def_teens": "青少年：14 岁及以上按成人计算。",
     "def_note": "注意：如果儿童单独住一间房，则适用成人拼房价格。"
   },
+  "payments": {
+    "compliance_gateway_active": "该租户至少已启用一个电子支付网关。",
+    "compliance_gateway_missing": "尚未启用任何电子支付网关。请先配置 API key 再激活。"
+  },
   "tour_config": {
     "meta": {
       "title": "行程配置 - 代理后台"

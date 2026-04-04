@@ -384,6 +384,10 @@
     "def_teens": "Teens: Ages 14 and up are treated as adults.",
     "def_note": "Note: If children stay in a separate room, adult shared rates will apply."
   },
+  "payments": {
+    "compliance_gateway_active": "Tenant has at least one active electronic gateway.",
+    "compliance_gateway_missing": "No electronic gateway is enabled yet. Configure API keys to activate one."
+  },
   "tour_config": {
     "meta": {
       "title": "Tour Config - Agent Dashboard"
