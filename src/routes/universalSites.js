@@ -851,10 +851,21 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     .sort((left, right) => Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0));
   const runtime = siteBundle.variant_runtime || {};
   const profile = runtime.layout_profile || {};
+  const groupConfig = UNIVERSAL_GROUPS[site.group_key] || UNIVERSAL_GROUPS.tour_operator;
+  function buildPageHref(pageKey) {
+    const linkedPage = pageMap.get(pageKey);
+    if (!linkedPage) return buildUniversalPublicPath(site.tenant_id, homeSlug);
+    return buildUniversalPublicPath(site.tenant_id, linkedPage.slug || linkedPage.page_key || homeSlug);
+  }
+  const configuredHeaderPrimaryPageKey = theme.ui?.header?.primaryPageKey || '';
+  const headerPrimaryPageKey = pageMap.has(configuredHeaderPrimaryPageKey)
+    ? configuredHeaderPrimaryPageKey
+    : (groupConfig.listingPageKey || homeSlug);
   const activeTheme = resolveUniversalTheme(site, runtime, {
     escapeHtml,
     buildUniversalPublicPath,
     buildResponsiveImageMarkup,
+    resolveThemeCtaLabel,
     normalizeStringValue,
     clampNumber,
   });
@@ -1390,16 +1401,6 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     return `<section id="section-${escapeHtml(embeddedPage.page_key)}" class="scroll-mt-28"><div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(menuItem.label || embeddedPage.title)}</p><h2 class="mt-2 text-3xl font-semibold text-slate-950">${escapeHtml(embeddedPage.title)}</h2></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, embeddedPage.slug || embeddedPage.page_key))}" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900">Open standalone page</a></div>${embeddedBody}</section>`;
   }).join('<div class="h-10"></div>');
 
-  const groupConfig = UNIVERSAL_GROUPS[site.group_key] || UNIVERSAL_GROUPS.tour_operator;
-  const buildPageHref = (pageKey) => {
-    const linkedPage = pageMap.get(pageKey);
-    if (!linkedPage) return buildUniversalPublicPath(site.tenant_id, homeSlug);
-    return buildUniversalPublicPath(site.tenant_id, linkedPage.slug || linkedPage.page_key || homeSlug);
-  };
-  const configuredHeaderPrimaryPageKey = theme.ui?.header?.primaryPageKey || '';
-  const headerPrimaryPageKey = pageMap.has(configuredHeaderPrimaryPageKey)
-    ? configuredHeaderPrimaryPageKey
-    : (groupConfig.listingPageKey || homeSlug);
   const headerPrimaryHref = buildPageHref(headerPrimaryPageKey);
   const headerPrimaryLabel = resolveThemeCtaLabel(theme, site.group_key, 'discovery');
 
