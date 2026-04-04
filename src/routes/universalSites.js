@@ -9,12 +9,24 @@ import {
   buildUniversalPublicPath,
   buildDefaultContacts,
   buildDefaultMenuItems,
+  buildDefaultSiteScaffold,
   buildDefaultThemeTokens,
   buildVariantRuntimeConfig,
   getVariantByKey,
   slugify,
 } from '../lib/universalSite.js';
 import { ensureUniversalSiteInitialized, syncUniversalTourPage } from '../lib/universalSiteSync.js';
+import {
+  buildInterestDescription,
+  getDestinationTaxonomy,
+  getInterestDefinition,
+  getTourTaxonomy,
+  listInterestTaxonomy,
+  replaceDestinationTaxonomy,
+  replaceTourTaxonomy,
+  syncInterestCollectionPages,
+  validateInterestPayload,
+} from '../lib/interestTaxonomy.js';
 import { resolveUniversalTheme } from '../lib/themes/index.js';
 
 const router = new Hono();
@@ -476,6 +488,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       body: item.summary,
       image: item.hero_image,
       href: item.href,
+      destination_title: item.destination_title,
       meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
       entity_id: item.tour_id,
       entity_type: 'tour',
@@ -499,6 +512,7 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       body: item.summary,
       image: item.hero_image,
       href: item.href,
+      destination_title: item.destination_title,
       meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
       entity_id: item.tour_id,
       entity_type: 'tour',
@@ -509,6 +523,175 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       public_slug: item.public_slug,
     })),
   };
+}
+
+function buildInterestRuntimeCollections(tourRuntime, tagRows = []) {
+  const tourCards = Array.isArray(tourRuntime?.tour_listing) ? tourRuntime.tour_listing : [];
+  const cardByTourId = new Map(
+    tourCards
+      .filter((card) => card?.entity_id)
+      .map((card) => [String(card.entity_id), card])
+  );
+
+  const buckets = new Map();
+  for (const row of tagRows) {
+    const interestKey = String(row.interest_key || '').trim().toLowerCase();
+    const tourId = String(row.tour_id || '').trim();
+    if (!interestKey || !tourId || row.tag_level !== 'top_level') continue;
+    const card = cardByTourId.get(tourId);
+    if (!card) continue;
+
+    if (!buckets.has(interestKey)) {
+      buckets.set(interestKey, []);
+    }
+    buckets.get(interestKey).push(card);
+  }
+
+  const collections = {};
+  for (const [interestKey, cards] of buckets.entries()) {
+    const definition = getInterestDefinition(interestKey);
+    const deduped = uniqueBy(cards, (card) => String(card.entity_id || card.title || ''));
+    collections[interestKey] = {
+      interest_key: interestKey,
+      label: definition?.label || interestKey,
+      description: buildInterestDescription(interestKey),
+      tour_listing: deduped,
+      total_tours: deduped.length,
+    };
+  }
+
+  return collections;
+}
+
+function buildTourTaxonomyLookup(tagRows = []) {
+  const byTourId = new Map();
+  for (const row of tagRows) {
+    const tourId = String(row.tour_id || '').trim();
+    if (!tourId) continue;
+    if (!byTourId.has(tourId)) {
+      byTourId.set(tourId, { interest_keys: [], sub_interest_keys: [] });
+    }
+    const bucket = byTourId.get(tourId);
+    if (row.tag_level === 'sub_interest') {
+      if (!bucket.sub_interest_keys.includes(row.interest_key)) bucket.sub_interest_keys.push(row.interest_key);
+      continue;
+    }
+    if (!bucket.interest_keys.includes(row.interest_key)) bucket.interest_keys.push(row.interest_key);
+  }
+  return byTourId;
+}
+
+function annotateCardWithTaxonomy(card, taxonomyLookup) {
+  const tourId = String(card?.entity_id || card?.tour_id || '').trim();
+  if (!tourId || !taxonomyLookup.has(tourId)) return card;
+  const taxonomy = taxonomyLookup.get(tourId);
+  const interestLabels = (taxonomy.interest_keys || [])
+    .map((key) => getInterestDefinition(key)?.label || key)
+    .filter(Boolean);
+  return {
+    ...card,
+    taxonomy_interest_keys: taxonomy.interest_keys || [],
+    taxonomy_sub_interest_keys: taxonomy.sub_interest_keys || [],
+    taxonomy_interest_labels: interestLabels,
+  };
+}
+
+function annotateTourRuntimeWithTaxonomy(tourRuntime = {}, tagRows = []) {
+  const taxonomyLookup = buildTourTaxonomyLookup(tagRows);
+  const annotateCards = (cards) => Array.isArray(cards) ? cards.map((card) => annotateCardWithTaxonomy(card, taxonomyLookup)) : cards;
+  return {
+    ...tourRuntime,
+    featured_tour: tourRuntime.featured_tour ? annotateCardWithTaxonomy(tourRuntime.featured_tour, taxonomyLookup) : tourRuntime.featured_tour,
+    featured_tours: annotateCards(tourRuntime.featured_tours),
+    tour_listing: annotateCards(tourRuntime.tour_listing),
+    destination_listing: annotateCards(tourRuntime.destination_listing),
+    home_destination_listing: annotateCards(tourRuntime.home_destination_listing),
+    accommodation_listing: annotateCards(tourRuntime.accommodation_listing),
+    home_accommodation_listing: annotateCards(tourRuntime.home_accommodation_listing),
+  };
+}
+
+function parseSearchState(requestUrl, tenantId) {
+  const fallbackAction = buildUniversalPublicPath(tenantId, 'tours');
+  if (!requestUrl) {
+    return { q: '', start: '', end: '', pax: '', code: '', action: fallbackAction, active: false };
+  }
+
+  let url;
+  try {
+    url = new URL(requestUrl);
+  } catch {
+    return { q: '', start: '', end: '', pax: '', code: '', action: fallbackAction, active: false };
+  }
+
+  const q = String(url.searchParams.get('q') || '').trim();
+  const start = String(url.searchParams.get('start') || '').trim();
+  const end = String(url.searchParams.get('end') || '').trim();
+  const pax = String(url.searchParams.get('pax') || '').trim();
+  const code = String(url.searchParams.get('code') || '').trim();
+  return {
+    q,
+    start,
+    end,
+    pax,
+    code,
+    action: fallbackAction,
+    active: Boolean(q || start || end || pax || code),
+  };
+}
+
+function buildSearchHaystack(card = {}) {
+  return [
+    card.title,
+    card.body,
+    card.meta,
+    card.eyebrow,
+    card.destination_title,
+    ...(Array.isArray(card.taxonomy_interest_keys) ? card.taxonomy_interest_keys : []),
+    ...(Array.isArray(card.taxonomy_sub_interest_keys) ? card.taxonomy_sub_interest_keys : []),
+    ...(Array.isArray(card.taxonomy_interest_labels) ? card.taxonomy_interest_labels : []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function applySearchFilter(cards, searchState) {
+  if (!Array.isArray(cards) || !cards.length || !searchState?.q) return cards;
+  const tokens = String(searchState.q)
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  if (!tokens.length) return cards;
+  return cards.filter((card) => {
+    const haystack = buildSearchHaystack(card);
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
+const GOOGLE_FONT_IMPORT_MAP = new Map([
+  ['Cormorant Garamond', "@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');"],
+  ['Source Sans 3', "@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap');"],
+  ['Bodoni Moda', "@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600;6..96,700&display=swap');"],
+  ['Manrope', "@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');"],
+  ['Playfair Display', "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap');"],
+  ['Fraunces', "@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');"],
+  ['Work Sans', "@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap');"],
+  ['Space Grotesk', "@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');"],
+  ['Inter', "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');"],
+]);
+
+function buildThemeFontImports(theme = {}) {
+  const cssImports = new Set();
+  const fontCandidates = [theme.fontHeading, theme.fontBody]
+    .map((value) => String(value || '').split(',')[0].trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+  for (const family of fontCandidates) {
+    const cssImport = GOOGLE_FONT_IMPORT_MAP.get(family);
+    if (cssImport) cssImports.add(cssImport);
+  }
+  return [...cssImports].join('\n    ');
 }
 
 async function purgeTenantPublicCache(db, tenantId) {
@@ -654,6 +837,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const theme = siteBundle.theme || {};
   const site = siteBundle.site || {};
   const tourRuntime = siteBundle.tour_runtime || {};
+  const interestRuntime = siteBundle.interest_runtime || {};
   const pages = Array.isArray(siteBundle.pages) ? siteBundle.pages : [];
   const pageMap = new Map(pages.map((entry) => [entry.page_key, entry]));
   const homePageKey = site.home_page_key || 'home';
@@ -687,6 +871,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const priceCards = Array.isArray(snapshot?.pricing_cards) ? snapshot.pricing_cards : [];
   const canonicalPath = buildUniversalPublicPath(site.tenant_id, page.slug);
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+  const searchState = parseSearchState(options.requestUrl, site.tenant_id);
   const getPageTitle = (targetPage = page) => targetPage?.seo?.title || snapshot?.title || targetPage?.title || site.site_name || 'Travel Page';
   const getPageDescription = (targetPage = page) => targetPage?.seo?.description || snapshot?.about_section || snapshot?.summary || 'Travel experience page';
   const isLuxuryShell = activeTheme.key === 'six-senses';
@@ -711,29 +896,37 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   }
 
   function resolveListingCards(source, targetPage = page) {
+    const interestMatch = String(source || '').match(/^taxonomy\.interest\.([a-z0-9-]+)\.tour_listing$/i);
+    if (interestMatch) {
+      const interestKey = String(interestMatch[1] || '').toLowerCase();
+      return applySearchFilter(interestRuntime?.[interestKey]?.tour_listing || [], searchState);
+    }
+
     if (String(source || '').includes('featured_tours')) {
       const cards = tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage);
-      return page.page_key === 'home' ? cards.slice(0, HOME_FEATURED_TOUR_CARD_LIMIT) : cards;
+      const filtered = applySearchFilter(cards, searchState);
+      return page.page_key === 'home' ? filtered.slice(0, HOME_FEATURED_TOUR_CARD_LIMIT) : filtered;
     }
 
     if (String(source || '').includes('destination_listing')) {
-      return tourRuntime.destination_listing?.length ? tourRuntime.destination_listing : buildFallbackListingCards(source, targetPage);
+      return applySearchFilter(tourRuntime.destination_listing?.length ? tourRuntime.destination_listing : buildFallbackListingCards(source, targetPage), searchState);
     }
 
     if (String(source || '').includes('tour_listing')) {
-      return tourRuntime.tour_listing?.length ? tourRuntime.tour_listing : buildFallbackListingCards(source, targetPage);
+      return applySearchFilter(tourRuntime.tour_listing?.length ? tourRuntime.tour_listing : buildFallbackListingCards(source, targetPage), searchState);
     }
 
     if (targetPage.page_key === 'accommodation') {
-      return tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
+      return applySearchFilter(tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage), searchState);
     }
 
     if (String(source || '').includes('accommodation_listing')) {
       const cards = tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
-      return page.page_key === 'home' ? cards.slice(0, HOME_HOTEL_CARD_LIMIT) : cards;
+      const filtered = applySearchFilter(cards, searchState);
+      return page.page_key === 'home' ? filtered.slice(0, HOME_HOTEL_CARD_LIMIT) : filtered;
     }
 
-    return buildFallbackListingCards(source, targetPage);
+    return applySearchFilter(buildFallbackListingCards(source, targetPage), searchState);
   }
 
   function resolveHeroModuleMenuItems() {
@@ -802,7 +995,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   }
 
   function buildLuxurySearchPanel() {
-    return `<section class="luxury-search-panel"><div class="luxury-search-grid"><label><span>Destination or hotel</span><input type="text" value="Saffron Coast Hideaways" aria-label="Destination or hotel" /></label><label><span>Travel starts</span><input type="text" value="12 Oct 2026" aria-label="Travel starts" /></label><label><span>Travel ends</span><input type="text" value="18 Oct 2026" aria-label="Travel ends" /></label><label><span>No. of people</span><input type="text" value="2 adults, 0 children" aria-label="Number of people" /></label><label><span>Special codes</span><input type="text" value="Private villa" aria-label="Special codes" /></label></div><button type="button" class="luxury-search-cta">Search</button></section>`;
+    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(searchState.action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>Destination or interest</span><input type="text" name="q" value="${escapeHtml(searchState.q)}" aria-label="Destination or interest" placeholder="Beach, adventure, Hoi An" /></label><label><span>Travel starts</span><input type="text" name="start" value="${escapeHtml(searchState.start)}" aria-label="Travel starts" placeholder="12 Oct 2026" /></label><label><span>Travel ends</span><input type="text" name="end" value="${escapeHtml(searchState.end)}" aria-label="Travel ends" placeholder="18 Oct 2026" /></label><label><span>Guests</span><input type="text" name="pax" value="${escapeHtml(searchState.pax)}" aria-label="Guests" placeholder="2 adults" /></label><label><span>Code</span><input type="text" name="code" value="${escapeHtml(searchState.code)}" aria-label="Code" placeholder="Private" /></label></div><button type="submit" class="luxury-search-cta">Search</button></form>`;
+  }
+
+  function buildSearchEmptyState(targetPage = page, block = {}) {
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">No matching journeys</h2><p class="mt-3 max-w-2xl text-slate-600">No tours matched <strong>${escapeHtml(searchState.q || 'your current filters')}</strong>. Try another destination or interest such as beach, culture, adventure, or a specific place name.</p></section>`;
   }
 
   function buildLuxuryStoryImage(targetPage = page) {
@@ -923,6 +1120,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const renderHero = (block, targetPage = page) => {
     const targetTitle = getPageTitle(targetPage);
     const targetDescription = getPageDescription(targetPage);
+    const primaryHeroLabel = targetPage.page_key === homePageKey ? 'Explore' : (block.content?.primary_cta_label || 'Explore');
     const themedHero = activeTheme.renderHero?.({
       block,
       targetPage,
@@ -935,6 +1133,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       tourRuntime,
       buildMenuHref,
       resolveHeroModuleMenuItems,
+      searchState,
     });
     if (themedHero) return themedHero;
     const content = block.content || {};
@@ -963,22 +1162,22 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
         ? `<aside class="luxury-hero-side-panel"><div class="luxury-hero-side-links">${heroButtons}</div></aside>`
         : '';
 
-      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(content.primary_cta_label || 'Explore')}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
+      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(primaryHeroLabel)}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
     }
 
     if (profile.hero === 'editorial') {
-      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Explore')}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
+      return `<section class="grid gap-6 rounded-[32px] bg-white p-6 shadow-sm lg:grid-cols-[0.8fr_1.2fr]"><div class="rounded-[26px] bg-slate-950 p-6 text-white"><p class="text-xs uppercase tracking-[0.24em] text-white/60">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 text-lg text-white/78">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a></div></div><div class="grid gap-4">${imageMarkup}<div class="grid gap-4 sm:grid-cols-2"><div class="rounded-[22px] bg-amber-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Layout</p><p class="mt-2 text-xl font-semibold text-slate-900">Editorial luxury composition</p></div><div class="rounded-[22px] bg-slate-50 p-5"><p class="text-xs uppercase tracking-[0.2em] text-slate-500">Starting price</p><p class="mt-2 text-xl font-semibold text-slate-900">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Request quote')}</p></div></div></div></section>`;
     }
 
     if (profile.hero === 'immersive') {
-      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Discover')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
+      return `<section class="relative overflow-hidden rounded-[36px] text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div class="grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10"><div class="relative z-10"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 max-w-3xl text-5xl font-semibold leading-tight lg:text-7xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/82">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(itinerary.length))} itinerary stops</span></div></div><div class="rounded-[28px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></div></section>`;
     }
 
     if (profile.hero === 'compact' || profile.hero === 'utility') {
       return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(content.primary_cta_label || 'Get quote')}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
     }
 
-    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(content.primary_cta_label || 'Browse')}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
+    return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(content.primary_cta_href || '#pricing')}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
   };
 
   const renderGallery = (block, targetPage = page) => {
@@ -1080,6 +1279,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   };
 
   const renderListing = (block, targetPage = page) => {
+    const cards = resolveListingCards(block.data_bindings?.cards?.source, targetPage);
+    if (searchState.q && !cards.length) {
+      return buildSearchEmptyState(targetPage, block);
+    }
+
     const themedListing = activeTheme.renderListing?.({
       block,
       targetPage,
@@ -1088,17 +1292,18 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       homeSlug,
       resolveListingCards,
       wrapEditableEntityCard,
+      searchState,
+      cards,
     });
     if (themedListing) return themedListing;
     if (isLuxuryShell) {
-      const cards = resolveListingCards(block.data_bindings?.cards?.source, targetPage);
       const accentColor = normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73');
       return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>` })).join('')}</div></section>`;
     }
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
   };
-  const renderBookingSlot = (block) => `<section class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(block.content?.cta_label || 'Continue')}</a></section>`;
+  const renderBookingSlot = (block) => `<section id="booking-engine" class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="#" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(theme.ui?.bookNowLabel || block.content?.cta_label || 'I like this tour')}</a></section>`;
 
   const wrapAdminBlock = (block, targetPage, html) => {
     if (!adminMode || !html || !adminEditableTypes.has(block.type)) return html;
@@ -1172,10 +1377,18 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     return `<section id="section-${escapeHtml(embeddedPage.page_key)}" class="scroll-mt-28"><div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(menuItem.label || embeddedPage.title)}</p><h2 class="mt-2 text-3xl font-semibold text-slate-950">${escapeHtml(embeddedPage.title)}</h2></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, embeddedPage.slug || embeddedPage.page_key))}" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900">Open standalone page</a></div>${embeddedBody}</section>`;
   }).join('<div class="h-10"></div>');
 
-  const featuredMenuItem = menuItems.find((item) => item.page_key === 'featured-tours') || null;
-  const bookNowTarget = menuItems.find((item) => item.page_key === 'booking') || featuredMenuItem || menuItems[0] || null;
-  const bookNowHref = bookNowTarget ? buildMenuHref(bookNowTarget) : '#pricing';
-  const bookNowLabel = theme.ui?.bookNowLabel || snapshot?.booking_cta_label || 'Book Now';
+  const groupConfig = UNIVERSAL_GROUPS[site.group_key] || UNIVERSAL_GROUPS.tour_operator;
+  const buildPageHref = (pageKey) => {
+    const linkedPage = pageMap.get(pageKey);
+    if (!linkedPage) return buildUniversalPublicPath(site.tenant_id, homeSlug);
+    return buildUniversalPublicPath(site.tenant_id, linkedPage.slug || linkedPage.page_key || homeSlug);
+  };
+  const configuredHeaderPrimaryPageKey = theme.ui?.header?.primaryPageKey || '';
+  const headerPrimaryPageKey = pageMap.has(configuredHeaderPrimaryPageKey)
+    ? configuredHeaderPrimaryPageKey
+    : (groupConfig.listingPageKey || homeSlug);
+  const headerPrimaryHref = buildPageHref(headerPrimaryPageKey);
+  const headerPrimaryLabel = 'Explore';
 
   const navMarkup = menuItems.length
     ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav>`
@@ -1187,10 +1400,10 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     ? activeTheme.renderFooter?.({ site, homeSlug, menuItems, channels, socialEntries, legalPages, logoMarkup, buildMenuHref, buildChannelHref, buildSocialMonogram, buildChannelLabel, theme })
     : '';
   const headerMarkup = isLuxuryShell
-    ? activeTheme.renderHeader?.({ site, homeSlug, menuItems, buildMenuHref, bookNowTarget, bookNowLabel, socialEntries, buildChannelHref, buildChannelLabel, buildSocialMonogram, logoMarkup, theme })
-    : `<header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p><p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p></div>${navMarkup}<a href="#pricing" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(snapshot?.booking_cta_label || 'Enquire')}</a></div></header>`;
+    ? activeTheme.renderHeader?.({ site, homeSlug, menuItems, buildMenuHref, headerCtaHref: headerPrimaryHref, headerCtaLabel: headerPrimaryLabel, socialEntries, buildChannelHref, buildChannelLabel, buildSocialMonogram, logoMarkup, theme })
+    : `<header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p><p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p></div>${navMarkup}<a href="${escapeHtml(headerPrimaryHref)}" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(headerPrimaryLabel)}</a></div></header>`;
   const floatingBookNowMarkup = isLuxuryShell
-    ? activeTheme.renderFloatingBookNow?.({ buildMenuHref, bookNowTarget, bookNowLabel, channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme })
+    ? activeTheme.renderFloatingBookNow?.({ channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme })
     : '';
   const adminPreviewScript = '';
   const shellScript = isLuxuryShell
@@ -1212,7 +1425,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   <link rel="canonical" href="${escapeHtml(canonicalPath)}">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+    ${buildThemeFontImports(theme)}
     :root {
       --color-primary: ${escapeHtml(primaryColor)};
       --color-secondary: ${escapeHtml(secondaryColor)};
@@ -1649,7 +1862,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     .luxury-search-grid {
       display: grid;
       gap: 0;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
     }
     .luxury-search-grid label {
       display: grid;
@@ -1661,6 +1874,10 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       text-transform: uppercase;
       padding: 16px 18px;
       border-right: 1px solid rgba(90,59,39,0.08);
+    }
+    .luxury-search-grid label.luxury-search-label-primary {
+      padding-left: 22px;
+      padding-right: 24px;
     }
     .luxury-search-grid input {
       width: 100%;
@@ -2268,6 +2485,80 @@ async function listMenuItems(tenantId, db) {
   return results.map(normalizeMenuItem);
 }
 
+async function resetSitePreset(db, tenantId, groupKey, variantKey, siteName) {
+  const scaffold = buildDefaultSiteScaffold(groupKey, variantKey);
+  const now = Math.floor(Date.now() / 1000);
+
+  await db.batch([
+    db.prepare(
+      `UPDATE tenant_universal_sites
+          SET group_key = ?,
+              variant_key = ?,
+              site_name = ?,
+              home_page_key = 'home',
+              updated_at = ?
+        WHERE tenant_id = ?`
+    ).bind(groupKey, variantKey, siteName, now, tenantId),
+    db.prepare('UPDATE tenant_universal_theme_tokens SET tokens_json = ?, updated_at = ? WHERE tenant_id = ?')
+      .bind(JSON.stringify(scaffold.themeTokens), now, tenantId),
+    db.prepare('UPDATE tenant_universal_contacts SET channels_json = ?, updated_at = ? WHERE tenant_id = ?')
+      .bind(JSON.stringify(scaffold.contacts), now, tenantId),
+    db.prepare('DELETE FROM tenant_universal_menu_items WHERE tenant_id = ?').bind(tenantId),
+    db.prepare("DELETE FROM tenant_universal_pages WHERE tenant_id = ? AND page_type IN ('standard', 'legal', 'system')").bind(tenantId),
+  ]);
+
+  const statements = [];
+  for (const [index, item] of scaffold.menuItems.entries()) {
+    statements.push(
+      db.prepare(
+        `INSERT INTO tenant_universal_menu_items
+         (id, tenant_id, item_key, label, href, page_key, target, is_external, visible, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        nanoid(),
+        tenantId,
+        item.itemKey,
+        item.label,
+        item.href,
+        item.pageKey || null,
+        item.target || '_self',
+        item.isExternal ? 1 : 0,
+        item.visible === 0 ? 0 : 1,
+        Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index,
+        now,
+        now,
+      )
+    );
+  }
+
+  for (const page of scaffold.pages) {
+    statements.push(
+      db.prepare(
+        `INSERT INTO tenant_universal_pages
+         (id, tenant_id, page_key, title, slug, page_type, status, visible, blocks_json, seo_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        nanoid(),
+        tenantId,
+        page.pageKey,
+        page.title,
+        page.slug,
+        page.pageType,
+        page.status,
+        page.visible,
+        JSON.stringify(page.blocks || []),
+        JSON.stringify(page.seo || {}),
+        now,
+        now,
+      )
+    );
+  }
+
+  if (statements.length) {
+    await db.batch(statements);
+  }
+}
+
 function validateVariant(groupKey, variantKey) {
   if (!UNIVERSAL_GROUPS[groupKey]) {
     return 'group_key is invalid';
@@ -2310,6 +2601,7 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
   const pages = await listPages(tenantId, db);
   const activeTheme = resolveUniversalTheme(site, runtime);
   let tourRuntime = {};
+  let interestRuntime = {};
   let hotels = [];
 
   if (site.group_key === 'tour_operator') {
@@ -2341,6 +2633,14 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
     hotels = await ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows);
     const priceLookup = new Map(priceRows.map((row) => [row.tour_id, row.price_from]));
     tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels, priceLookup);
+
+    const interestTagRows = (await db.prepare(
+      `SELECT tour_id, interest_key, tag_level
+         FROM tenant_tour_interest_tags
+        WHERE tenant_id = ?`
+    ).bind(tenantId).all()).results || [];
+    tourRuntime = annotateTourRuntimeWithTaxonomy(tourRuntime, interestTagRows);
+    interestRuntime = buildInterestRuntimeCollections(tourRuntime, interestTagRows);
   }
 
   return {
@@ -2356,6 +2656,7 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
     pages,
     hotels,
     tour_runtime: tourRuntime,
+    interest_runtime: interestRuntime,
     ...buildEditorStoreBundle({ site, theme, contacts, menu, pages, runtime }),
     groups: Object.values(UNIVERSAL_GROUPS),
     variants: UNIVERSAL_VARIANTS,
@@ -2571,6 +2872,14 @@ router.post('/site/bootstrap', async (c) => {
   }
 
   if (body.persist === true) {
+    const persistConfirmation = String(c.req.header('X-Allow-Bootstrap-Persist') || body.persist_confirmation || '').trim().toLowerCase();
+    if (persistConfirmation !== 'overwrite') {
+      return jsonError(
+        c,
+        409,
+        'Persisting bootstrap mock is locked by default. Re-send with X-Allow-Bootstrap-Persist: overwrite or persist_confirmation="overwrite" if you intentionally want to overwrite this tenant scaffold.'
+      );
+    }
     await persistBootstrapBundle(c.env.DB, ctx.tenantId, ctx.tenant.name, bootstrap);
     await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
     return c.json({ ok: true, persisted: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)), recommendation: bootstrap.recommendation });
@@ -2585,11 +2894,183 @@ router.get('/site/config', async (c) => {
   return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)) });
 });
 
+router.get('/taxonomy/catalog', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  return c.json({ ok: true, interests: listInterestTaxonomy() });
+});
+
+router.get('/taxonomy/interest-pages', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  await syncInterestCollectionPages(c.env.DB, ctx.tenantId);
+  const { results } = await c.env.DB.prepare(
+    `SELECT *
+       FROM tenant_universal_interest_pages
+      WHERE tenant_id = ?
+      ORDER BY interest_key ASC`
+  ).bind(ctx.tenantId).all();
+
+  return c.json({
+    ok: true,
+    pages: (results || []).map((row) => ({
+      ...row,
+      visible: Boolean(row.visible),
+      rules: parseJsonSafe(row.rules_json, {}),
+      seo: parseJsonSafe(row.seo_json, {}),
+    })),
+  });
+});
+
+router.get('/taxonomy/tours', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const [toursResult, profilesResult, tagsResult] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT id, title, slug
+         FROM tours
+        WHERE tenant_id = ?
+        ORDER BY created_at DESC`
+    ).bind(ctx.tenantId),
+    c.env.DB.prepare(
+      `SELECT tour_id, primary_interest_key
+         FROM tenant_tour_discovery_profiles
+        WHERE tenant_id = ?`
+    ).bind(ctx.tenantId),
+    c.env.DB.prepare(
+      `SELECT tour_id, interest_key, tag_level
+         FROM tenant_tour_interest_tags
+        WHERE tenant_id = ?
+        ORDER BY updated_at DESC`
+    ).bind(ctx.tenantId),
+  ]);
+
+  const profilesByTourId = new Map((profilesResult.results || []).map((row) => [String(row.tour_id), row]));
+  const tagsByTourId = new Map();
+  for (const row of (tagsResult.results || [])) {
+    const tourId = String(row.tour_id || '');
+    if (!tourId) continue;
+    if (!tagsByTourId.has(tourId)) {
+      tagsByTourId.set(tourId, { interest_keys: [], sub_interest_keys: [] });
+    }
+    const bucket = tagsByTourId.get(tourId);
+    if (row.tag_level === 'sub_interest') {
+      if (!bucket.sub_interest_keys.includes(row.interest_key)) bucket.sub_interest_keys.push(row.interest_key);
+      continue;
+    }
+    if (!bucket.interest_keys.includes(row.interest_key)) bucket.interest_keys.push(row.interest_key);
+  }
+
+  return c.json({
+    ok: true,
+    items: (toursResult.results || []).map((tour) => {
+      const tagBucket = tagsByTourId.get(String(tour.id)) || { interest_keys: [], sub_interest_keys: [] };
+      const profile = profilesByTourId.get(String(tour.id)) || null;
+      return {
+        tour_id: tour.id,
+        title: tour.title,
+        slug: tour.slug,
+        interest_keys: tagBucket.interest_keys,
+        sub_interest_keys: tagBucket.sub_interest_keys,
+        primary_interest_key: profile?.primary_interest_key || tagBucket.interest_keys[0] || null,
+      };
+    }),
+  });
+});
+
+router.get('/taxonomy/tours/:tourId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const tour = await c.env.DB
+    .prepare('SELECT id, title, slug FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .first();
+  if (!tour) {
+    return jsonError(c, 404, 'Tour not found');
+  }
+
+  return c.json({ ok: true, tour, taxonomy: await getTourTaxonomy(c.env.DB, ctx.tenantId, c.req.param('tourId')) });
+});
+
+router.put('/taxonomy/tours/:tourId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const tourId = c.req.param('tourId');
+  const tour = await c.env.DB
+    .prepare('SELECT id, title, slug FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(tourId, ctx.tenantId)
+    .first();
+  if (!tour) {
+    return jsonError(c, 404, 'Tour not found');
+  }
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const payload = validateInterestPayload(body);
+  await replaceTourTaxonomy(c.env.DB, ctx.tenantId, tourId, payload);
+  await syncInterestCollectionPages(c.env.DB, ctx.tenantId);
+  await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
+
+  return c.json({ ok: true, tour, taxonomy: await getTourTaxonomy(c.env.DB, ctx.tenantId, tourId) });
+});
+
+router.get('/taxonomy/destinations/:destinationId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const destination = await c.env.DB
+    .prepare('SELECT id, code, name FROM destinations WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('destinationId'), ctx.tenantId)
+    .first();
+  if (!destination) {
+    return jsonError(c, 404, 'Destination not found');
+  }
+
+  return c.json({ ok: true, destination, taxonomy: await getDestinationTaxonomy(c.env.DB, ctx.tenantId, c.req.param('destinationId')) });
+});
+
+router.put('/taxonomy/destinations/:destinationId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+
+  const destinationId = c.req.param('destinationId');
+  const destination = await c.env.DB
+    .prepare('SELECT id, code, name FROM destinations WHERE id = ? AND tenant_id = ?')
+    .bind(destinationId, ctx.tenantId)
+    .first();
+  if (!destination) {
+    return jsonError(c, 404, 'Destination not found');
+  }
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const payload = validateInterestPayload(body);
+  await replaceDestinationTaxonomy(c.env.DB, ctx.tenantId, destinationId, payload);
+
+  return c.json({ ok: true, destination, taxonomy: await getDestinationTaxonomy(c.env.DB, ctx.tenantId, destinationId) });
+});
+
 router.patch('/site/config', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
 
   const current = await ensureUniversalSiteInitialized(c.env.DB, ctx.tenantId, ctx.tenant.name);
+
+  try {
 
   let body;
   try {
@@ -2646,8 +3127,18 @@ router.patch('/site/config', async (c) => {
   setValue('default_lang', sitePatch.default_lang);
   setValue('home_page_key', sitePatch.home_page_key);
 
-  if (!updates.length && body.reset_theme !== true && !body.theme && !body.contacts && !body.menu?.items && !body.pages) {
+  if (!updates.length && body.reset_theme !== true && body.reset_preset !== true && !body.theme && !body.contacts && !body.menu?.items && !body.pages) {
     return jsonError(c, 400, 'No valid fields provided');
+  }
+
+  if (body.reset_preset === true) {
+    await resetSitePreset(
+      c.env.DB,
+      ctx.tenantId,
+      nextGroupKey,
+      nextVariantKey,
+      typeof sitePatch.site_name === 'string' && sitePatch.site_name.trim() ? sitePatch.site_name.trim() : (ctx.tenant.name || current.site_name || 'Universal Site'),
+    );
   }
 
   if (updates.length) {
@@ -2656,7 +3147,14 @@ router.patch('/site/config', async (c) => {
     await c.env.DB.prepare(`UPDATE tenant_universal_sites SET ${updates.join(', ')} WHERE tenant_id = ?`).bind(...binds).run();
   }
 
-  if (body.reset_theme === true || sitePatch.group_key || sitePatch.variant_key) {
+  if (body.reset_preset === true) {
+    if (body.theme) {
+      await c.env.DB
+        .prepare('UPDATE tenant_universal_theme_tokens SET tokens_json = ?, updated_at = ? WHERE tenant_id = ?')
+        .bind(JSON.stringify(body.theme), Math.floor(Date.now() / 1000), ctx.tenantId)
+        .run();
+    }
+  } else if (body.reset_theme === true || sitePatch.group_key || sitePatch.variant_key) {
     const tokens = buildDefaultThemeTokens(nextGroupKey, nextVariantKey);
     await c.env.DB
       .prepare('UPDATE tenant_universal_theme_tokens SET tokens_json = ?, updated_at = ? WHERE tenant_id = ?')
@@ -2676,7 +3174,7 @@ router.patch('/site/config', async (c) => {
       .run();
   }
 
-  if (body.menu?.items) {
+  if (!body.reset_preset && body.menu?.items) {
     const now = Math.floor(Date.now() / 1000);
     const menuStatements = [
       c.env.DB.prepare('DELETE FROM tenant_universal_menu_items WHERE tenant_id = ?').bind(ctx.tenantId),
@@ -2708,7 +3206,7 @@ router.patch('/site/config', async (c) => {
     await c.env.DB.batch(menuStatements);
   }
 
-  if (body.pages) {
+  if (!body.reset_preset && body.pages) {
     const now = Math.floor(Date.now() / 1000);
     for (const page of body.pages) {
       const pageRefValue = page.id || page.page_key;
@@ -2755,11 +3253,15 @@ router.patch('/site/config', async (c) => {
     }
   }
 
-  if (sitePatch.group_key || sitePatch.variant_key || body.theme || body.pages) {
+  if (body.reset_preset === true || sitePatch.group_key || sitePatch.variant_key || body.theme || body.pages) {
     await purgeTenantPublicCache(c.env.DB, ctx.tenantId);
   }
 
   return c.json({ ok: true, ...(await getSiteBundle(ctx.tenantId, ctx.tenant, c.env.DB, c.env)) });
+  } catch (error) {
+    console.error('[universal/site/config PATCH]', error);
+    return jsonError(c, 500, error?.message || 'Internal Server Error');
+  }
 });
 
 router.get('/site/theme', async (c) => {
@@ -3442,7 +3944,7 @@ router.get('/render/:tenantId', async (c) => {
         .bind(tenantId)
         .first();
 
-  const previewHtml = renderPublicHtml(siteBundle, page, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null, { adminMode });
+  const previewHtml = renderPublicHtml(siteBundle, page, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null, { adminMode, requestUrl: c.req.url });
   return new Response(previewHtml, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
@@ -3498,7 +4000,7 @@ export default function registerUniversalSiteRoutes(app) {
           .first()
       : null;
 
-    const html = renderPublicHtml(siteBundle, page, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null);
+    const html = renderPublicHtml(siteBundle, page, tourPageRow ? parseJsonSafe(tourPageRow.content_override_json, {}) : null, { requestUrl: c.req.url });
     const response = new Response(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

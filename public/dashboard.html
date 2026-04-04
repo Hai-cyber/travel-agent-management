@@ -760,14 +760,20 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   const tenantName = sessionPayload.session.tenant_name || '';
   const onboardingState = { settings: null, publicConfig: null, universalBundle: null, tours: [] };
 
+  function withTenant(path) {
+    const url = new URL(path, window.location.origin);
+    url.searchParams.set('tid', tenantId);
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
   localStorage.setItem('tam_tenant_id', tenantId);
   if (params.toString()) {
     history.replaceState({}, '', '/dashboard.html');
   }
 
-  document.getElementById('btn-tour-config').href      = 'tour-config.html#pricing';
-  document.getElementById('btn-universal-admin').href  = 'universal-admin.html';
-  document.getElementById('btn-system-settings').href  = 'universal-admin.html?panel=system&onboarding=system';
+  document.getElementById('btn-tour-config').href      = withTenant('tour-config.html#pricing');
+  document.getElementById('btn-universal-admin').href  = withTenant('universal-admin.html');
+  document.getElementById('btn-system-settings').href  = withTenant('universal-admin.html?panel=system&onboarding=system');
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
@@ -780,15 +786,15 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   const navSystemSettings = document.getElementById('nav-system-settings');
   const navToursPricing = document.getElementById('nav-tours-pricing');
   const navPayments = document.getElementById('nav-payments');
-  if (sidebarTours) sidebarTours.href = 'tour-config.html';
-  if (sidebarUniversal) sidebarUniversal.href = 'universal-admin.html';
-  if (sidebarSystemSettings) sidebarSystemSettings.href = 'universal-admin.html?panel=system&onboarding=system';
-  if (sidebarToursPricing) sidebarToursPricing.href = 'tour-config.html#pricing';
+  if (sidebarTours) sidebarTours.href = withTenant('tour-config.html');
+  if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
+  if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
+  if (sidebarToursPricing) sidebarToursPricing.href = withTenant('tour-config.html#pricing');
   if (sidebarPayment) sidebarPayment.href = `#payments`;
-  if (navUniversal) navUniversal.href = 'universal-admin.html';
-  if (navSettings) navSettings.href = 'universal-admin.html?panel=system&onboarding=system';
-  if (navSystemSettings) navSystemSettings.href = 'universal-admin.html?panel=system&onboarding=system';
-  if (navToursPricing) navToursPricing.href = 'tour-config.html#pricing';
+  if (navUniversal) navUniversal.href = withTenant('universal-admin.html');
+  if (navSettings) navSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
+  if (navSystemSettings) navSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
+  if (navToursPricing) navToursPricing.href = withTenant('tour-config.html#pricing');
   if (navPayments) navPayments.href = `#payments`;
 
   function getSuggestedSubdomain() {
@@ -929,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: hasTheme
           ? `Skin selected: ${selectedSkin}. You can still refine fonts, colors, and shell details.`
           : 'Pick the visual direction before editing pages so the whole site stays consistent.',
-        href: 'universal-admin.html?panel=system&onboarding=skin',
+        href: withTenant('universal-admin.html?panel=system&onboarding=skin'),
         label: hasTheme ? 'Refine skin' : 'Choose skin',
       },
       {
@@ -939,7 +945,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: hasWebsiteBase
           ? 'The website base exists. Continue shaping homepage sections, copy, and layout from Website Design.'
           : 'Set the first website structure now: homepage story, sections, and visual identity.',
-        href: 'universal-admin.html',
+        href: withTenant('universal-admin.html'),
         label: hasWebsiteBase ? 'Edit website' : 'Create website',
       },
       {
@@ -949,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: toursCount > 0
           ? `${toursCount} tour${toursCount === 1 ? '' : 's'} already loaded. Refine pricing, stops, and sales copy.`
           : 'Add tours, pricing, stops, and sales-ready content. This is the main commercial setup step today.',
-        href: 'tour-config.html',
+        href: withTenant('tour-config.html'),
         label: toursCount > 0 ? 'Refine tours' : 'Configure tours',
       },
       {
@@ -959,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: destinationCount > 0
           ? `${destinationCount} destination card${destinationCount === 1 ? '' : 's'} are already feeding the public site.`
           : 'Turn raw tours into browsable destination stories customers can scan quickly.',
-        href: 'product-modules.html?mode=destinations',
+        href: withTenant('product-modules.html?mode=destinations'),
         label: destinationCount > 0 ? 'Refine destinations' : 'Add destinations',
       },
       {
@@ -969,7 +975,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: hotelsCount > 0
           ? `${hotelsCount} stay option${hotelsCount === 1 ? '' : 's'} already linked into the site bundle.`
           : 'Connect hotel or stay inventory after the tour narrative is clean.',
-        href: 'product-modules.html?mode=hotels',
+        href: withTenant('product-modules.html?mode=hotels'),
         label: hotelsCount > 0 ? 'Review stays' : 'Plan stays',
       },
       {
@@ -979,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: galleryCount > 0
           ? `${galleryCount} gallery image${galleryCount === 1 ? '' : 's'} are already available for the storefront.`
           : 'Add visual proof so the site sells with imagery, not just itinerary text.',
-        href: 'product-modules.html?mode=gallery',
+        href: withTenant('product-modules.html?mode=gallery'),
         label: galleryCount > 0 ? 'Refine gallery' : 'Build gallery',
       },
       {
@@ -989,7 +995,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         description: hasSystemSettings
           ? 'Contact or legal basics are already in place. Review them before going live.'
           : 'Finish contact channels, legal pages, and core system defaults before launch.',
-        href: 'universal-admin.html?panel=system&onboarding=system',
+        href: withTenant('universal-admin.html?panel=system&onboarding=system'),
         label: hasSystemSettings ? 'Review system settings' : 'Finish system settings',
       },
     ];

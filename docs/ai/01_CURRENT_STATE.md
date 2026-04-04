@@ -88,6 +88,14 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 **Site Studio (CHK-R20 to R24/R29-R33)**
 - `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline
+
+**Universal Site / Taxonomy Discovery (CHK-R35 to R45)**
+- `GET /api/universal/site/config` — returns current universal site bundle, including runtime theme/menu/page data
+- `GET /api/universal/taxonomy/catalog` — returns the canonical top-level interest taxonomy (`adventure`, `culture`, `beach`, `sport`, `food`, `nature`) plus planned sub-interests
+- `GET /api/universal/taxonomy/interest-pages` — lists tenant-scoped auto-generated interest collection pages and their publication rules
+- `GET|PUT /api/universal/taxonomy/tours/:tourId` — reads or replaces tenant-scoped taxonomy tags and discovery profile metadata for a tour
+- `GET|PUT /api/universal/taxonomy/destinations/:destinationId` — reads or replaces tenant-scoped taxonomy tags and discovery profile metadata for a destination
+- Auto-generated interest collection pages are now scaffolded into `tenant_universal_pages` / `tenant_universal_interest_pages` as standard pages with rule-driven listing blocks bound to `taxonomy.interest.<interest>.tour_listing`
 - `GET /api/tenant/config` — public site config endpoint
 - `PATCH /api/tenant/config` — deep-merge, selector validation, tenant-scoped
 - `GET /api/tenant/snippets` — extracts all `<section>` blocks from R2 template
@@ -169,13 +177,23 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Travel universal tour pages are scaffolded as auto-bound records keyed by `tour_id`; booking CTA label defaults to `I like this tour`
 - Public storefront rendering now defaults to the Six Senses-style luxury editorial chrome: invisible fixed header on first paint, Cormorant Garamond wordmark/headings, and a floating `Book Now` CTA on scroll
 - Public storefront rendering supports preview-first contextual editing metadata, hotel/tour/destination/contact quick-edit handoff, and an expanded Website Design system panel for chrome toggles and site-level settings
-- Current runtime truth for skins: the architecture is multi-skin-ready, but only the first preserved skin module is implemented in runtime today: `six-senses`
-- This is stabilized multi-skin foundation scaffolding; more skins are planned but not yet implemented in runtime
+- Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
+- `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
+- This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
 
 ### Managed responsive chrome (CHK-R34)
 - `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.
 - On narrow screens, customer-facing header collapses to logo + `☰ Menu` or icon-only `☰` on very small widths.
 - Tapping the toggle expands the primary nav and chrome action buttons in-place; desktop keeps the full horizontal header.
+
+### Universal storefront search
+- The Six Senses hero search panel is now wired as a real GET search flow instead of a static mock.
+- The primary field is `Destination or interest`, given the widest input space in the search grid.
+- Search submits into the tours listing page and filters runtime cards by destination text plus taxonomy tags/interests already assigned at the unit level.
+
+### Luxury multi-skin operation
+- `public/universal-admin.html` now chooses among real luxury variants from the variant catalog instead of showing a single cosmetic Six Senses sample marker.
+- Saving a selected luxury skin switches the tenant `variant_key` and applies the corresponding preset scaffold, so the chosen skin becomes the actual runtime storefront.
 
 ### Scripts
 - `npm run db:migrate:local` — reconciles the `0012_stop_services_config.sql` ledger row if `tour_stops.services_config` already exists locally, then runs `wrangler d1 migrations apply travel_agent_db --local`
@@ -198,6 +216,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 ### tour-config.html detail (CHK-R25/R26/R43)
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
   - **Content tab**: richer draft payload editing for `hero_desc`, `tour_desc`, `destination_*`, `accommodation_*`, hero image, and gallery images
+  - **Unit-level taxonomy editing**: the Content tab now lets operators assign canonical interests, sub-interests, and a primary interest directly on the selected tour via `GET|PUT /api/universal/taxonomy/tours/:tourId`
   - **Tenant media upload**: content tab image fields now upload through `/api/tenant/assets/upload` and render inline preview blocks for hero, destination, accommodation, and gallery media
   - **Preview tab**: saves current draft content, syncs `/api/universal/tours/:tourId/page`, and prefers the universal draft detail render via `/api/universal/render/:tenantId`, with legacy `/api/tours/:id/preview` kept as fallback
   - **Price Config tab**:
@@ -209,6 +228,10 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
       - Sticky layout: scrollable content area, pinned footer with grand total always visible
       - **Surplus room logic (CHK-R26)**: sole-occupancy supplement auto-applied when `totalRooms ≥ adults`; amber note below table; ±2 shared stepper; full two-way sync table↔sentence
       - Grand total = strict local sum `(shared×price)+(private×price)+(child×price)` — never from backend
+
+### product-modules.html detail
+  - **Destinations mode**: destination-source editing now includes unit-level taxonomy assignment on the canonical backing tour record, so operators can classify destinations where they actually manage destination copy and imagery
+  - Destination modules still remain tour-backed today; true standalone destination entity tagging is available by API, but the main user workflow currently runs through destination modules in `product-modules.html?mode=destinations`
 
 ### Test Scripts
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)

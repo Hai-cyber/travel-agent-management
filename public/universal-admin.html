@@ -153,23 +153,23 @@
     .status-chip {
       position: fixed;
       right: 18px;
-      top: 18px;
-      z-index: 40;
+      bottom: 18px;
+      z-index: 38;
       display: inline-flex;
-      align-items: center;
-      min-height: 48px;
-      padding: 0 16px;
-      border-radius: 999px;
+      align-items: flex-start;
+      min-height: 0;
+      padding: 10px 12px;
+      border-radius: 16px;
       border: 1px solid var(--shell-line);
       background: rgba(9, 14, 22, 0.58);
       color: var(--shell-muted);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       box-shadow: var(--shell-shadow);
-      max-width: min(520px, calc(100vw - 36px));
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: min(360px, calc(100vw - 24px));
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
     }
 
     .status-chip.error {
@@ -198,9 +198,9 @@
       top: 0;
       right: 0;
       z-index: 50;
-      width: min(420px, calc(100vw - 24px));
+      width: min(80vw, 1280px);
       height: 100vh;
-      padding: 24px;
+      padding: 22px 24px;
       background: rgba(10, 14, 20, 0.94);
       border-left: 1px solid var(--shell-line);
       box-shadow: -18px 0 46px rgba(2, 6, 23, 0.22);
@@ -210,7 +210,7 @@
       transition: transform 220ms ease;
       display: grid;
       grid-template-rows: auto auto 1fr auto;
-      gap: 18px;
+      gap: 14px;
     }
 
     .panel.open { transform: translateX(0); }
@@ -261,10 +261,104 @@
 
     .panel-form {
       display: grid;
-      gap: 14px;
+      gap: 12px;
       align-content: start;
       overflow: auto;
       padding-right: 4px;
+    }
+
+    .system-panel-form {
+      gap: 10px;
+      grid-template-rows: auto 1fr;
+    }
+
+    .system-tabs {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 8px;
+      background: linear-gradient(180deg, rgba(10, 14, 20, 0.98), rgba(10, 14, 20, 0.92));
+    }
+
+    .system-tab-button {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: var(--shell-muted);
+      font: 700 11px/1 'Source Sans 3', system-ui, sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .system-tab-button.active {
+      background: rgba(127, 63, 115, 0.22);
+      border-color: rgba(127, 63, 115, 0.4);
+      color: #fff7fb;
+      box-shadow: 0 10px 24px rgba(79, 28, 72, 0.18);
+    }
+
+    .system-tab-panels {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .system-tab-panel {
+      display: none;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+      align-content: start;
+    }
+
+    .system-tab-panel.active {
+      display: grid;
+    }
+
+    .system-tab-panel .field,
+    .system-tab-panel .empty-copy {
+      min-width: 0;
+    }
+
+    .system-tab-panel .field textarea {
+      min-height: 220px;
+    }
+
+    .system-tab-panel .field.full,
+    .system-tab-panel .tab-span-all,
+    .system-tab-panel > .tab-span-all {
+      grid-column: 1 / -1;
+    }
+
+    .field.compact {
+      gap: 5px;
+    }
+
+    .field.toggle-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .field.toggle-field span {
+      letter-spacing: 0.1em;
+      line-height: 1.35;
+    }
+
+    .field.toggle-field input {
+      margin: 0;
+      width: 18px !important;
+      height: 18px !important;
     }
 
     .field {
@@ -335,6 +429,10 @@
       .panel {
         width: 100%;
       }
+
+      .system-tab-panel {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -393,15 +491,13 @@
       selected: null,
       activeTheme: null,
       onboardingMode: '',
+      systemTab: 'skin',
       previewScrollY: 0,
       pendingPreviewScrollY: null,
       pendingPreviewFocus: null,
     };
 
-    const CURRENT_SAMPLE_THEME = {
-      value: 'six-senses',
-      label: 'Six Senses Immersive Frame',
-    };
+    const DEFAULT_TOUR_VARIANT_KEY = 'tour-luxury';
 
     const $ = (id) => document.getElementById(id);
 
@@ -439,20 +535,102 @@
       return String(params.get('focus') || '').trim().toLowerCase();
     }
 
+    function syncTenantIdToUrl(tenantId) {
+      if (!tenantId) return;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tid') === tenantId) return;
+      url.searchParams.set('tid', tenantId);
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
     function buildHeaders(tenantId) {
       return { 'X-Tenant-ID': tenantId };
     }
 
+    async function readApiPayload(response, fallbackMessage) {
+      const raw = await response.text();
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        if (!response.ok) {
+          throw new Error(raw.trim() || fallbackMessage || 'Request failed');
+        }
+        throw new Error(fallbackMessage || 'Invalid JSON response');
+      }
+    }
+
     function getActiveTheme() {
-      return state.bundle?.active_theme || {
-        key: CURRENT_SAMPLE_THEME.value,
-        label: CURRENT_SAMPLE_THEME.label,
+      const activeTheme = state.bundle?.active_theme || {
+        key: 'six-senses',
+        label: 'Six Senses Immersive Frame',
         admin: {
           title: 'Six Senses',
           subtitle: 'Preview-First Admin',
           vars: {},
         },
       };
+
+      const activeVariant = getVariantDefinition(state.bundle?.site?.variant_key || '');
+      if (activeVariant) {
+        return {
+          ...activeTheme,
+          label: activeVariant.label,
+        };
+      }
+
+      return activeTheme;
+    }
+
+    function getVariantCatalog() {
+      return Array.isArray(state.bundle?.variants) ? state.bundle.variants : [];
+    }
+
+    function getVariantDefinition(variantKey) {
+      return getVariantCatalog().find((variant) => variant.key === variantKey) || null;
+    }
+
+    function isLuxuryVariantKey(variantKey) {
+      return getVariantDefinition(variantKey)?.layout_profile?.shell === 'luxury-editorial';
+    }
+
+    function getSkinOptions() {
+      const activeGroupKey = state.bundle?.site?.group_key || 'tour_operator';
+      const options = getVariantCatalog()
+        .filter((variant) => variant.group_key === activeGroupKey)
+        .map((variant) => ({
+          value: variant.key,
+          label: variant.label,
+          description: variant.description || '',
+        }));
+
+      if (options.length) return options;
+      return [{
+        value: DEFAULT_TOUR_VARIANT_KEY,
+        label: 'Six Senses Immersive Frame',
+        description: 'Default tour storefront shell.',
+      }];
+    }
+
+    function getGroupDefinition(groupKey) {
+      return (Array.isArray(state.bundle?.groups) ? state.bundle.groups : []).find((group) => group.key === groupKey) || null;
+    }
+
+    function getDefaultHeaderPrimaryPageKey() {
+      const groupKey = state.bundle?.site?.group_key || 'tour_operator';
+      const listingPageKey = getGroupDefinition(groupKey)?.listingPageKey || '';
+      if (listingPageKey && getPageByKey(listingPageKey)) return listingPageKey;
+      return state.bundle?.site?.home_page_key || state.activeSlug || 'home';
+    }
+
+    function getEffectiveHeaderPrimaryPageKey() {
+      return state.bundle?.theme?.ui?.header?.primaryPageKey || getDefaultHeaderPrimaryPageKey();
+    }
+
+    function getCurrentSampleLabel() {
+      const activeVariant = getVariantDefinition(state.bundle?.site?.variant_key || '');
+      if (activeVariant) return activeVariant.label;
+      return getActiveTheme().label || state.bundle?.site?.variant_key || 'Default theme';
     }
 
     function applyAdminTheme() {
@@ -623,11 +801,18 @@
 
     function buildPreviewFocusSelector(target) {
       if (!target) return '';
+      const escapeSelectorValue = (value) => {
+        const text = String(value || '');
+        if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+          return CSS.escape(text);
+        }
+        return text.replace(/(["\\\]\[=#.:() ])/g, '\\$1');
+      };
       if (target.entityId && target.entityType) {
-        return `[data-entity-type="${CSS.escape(target.entityType)}"][data-entity-id="${CSS.escape(target.entityId)}"]`;
+        return `[data-entity-type="${escapeSelectorValue(target.entityType)}"][data-entity-id="${escapeSelectorValue(target.entityId)}"]`;
       }
       if (target.sectionId && target.pageKey) {
-        return `[data-admin-page-key="${CSS.escape(target.pageKey)}"][data-section-id="${CSS.escape(target.sectionId)}"]`;
+        return `[data-admin-page-key="${escapeSelectorValue(target.pageKey)}"][data-section-id="${escapeSelectorValue(target.sectionId)}"]`;
       }
       return '';
     }
@@ -652,17 +837,34 @@
 
       window.setTimeout(() => {
         const selector = buildPreviewFocusSelector(focus);
-        const target = selector && frameDocument ? frameDocument.querySelector(selector) : null;
+        let target = null;
+        if (selector && frameDocument) {
+          try {
+            target = frameDocument.querySelector(selector);
+          } catch {
+            target = null;
+          }
+        }
 
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
           markPreviewNode(target);
           state.previewScrollY = Number(frameWindow.scrollY || frameDocument?.documentElement?.scrollTop || 0);
           return;
+
+                  function hasEditButton(section) {
+                    try {
+                      return Boolean(section.querySelector(':scope > .ve-context-edit-button'));
+                    } catch (error) {
+                      return Array.prototype.some.call(section.children || [], function (child) {
+                        return child.classList && child.classList.contains('ve-context-edit-button');
+                      });
+                    }
+                  }
         }
 
         if (nextY != null) {
-          frameWindow.scrollTo({ top: nextY, behavior: 'smooth' });
+                      if (hasEditButton(section)) return;
           state.previewScrollY = nextY;
         }
       }, 120);
@@ -727,6 +929,7 @@
       $('panel-page-pill').textContent = 'Page';
       $('panel-block-pill').textContent = 'Block';
       $('panel-scope-pill').textContent = 'Scope';
+      $('panel-form').className = 'panel-form';
       $('panel-form').innerHTML = '<p class="empty-copy">The storefront stays full-screen. Editing slides in from the right so the visual shell never disappears.</p>';
     }
 
@@ -774,7 +977,7 @@
 
     function buildToggleField(labelText, id, checked) {
       const field = document.createElement('label');
-      field.className = 'field';
+      field.className = 'field compact toggle-field';
       const label = document.createElement('span');
       label.textContent = labelText;
       field.appendChild(label);
@@ -866,6 +1069,42 @@
         wrap.appendChild(note);
       }
       return wrap;
+    }
+
+    function createSystemTabPanel(tabKey) {
+      const panel = document.createElement('div');
+      panel.className = `system-tab-panel${state.systemTab === tabKey ? ' active' : ''}`;
+      panel.dataset.systemTabPanel = tabKey;
+      return panel;
+    }
+
+    function buildSystemTabs(tabs, panels) {
+      const fragment = document.createDocumentFragment();
+      const tabBar = document.createElement('div');
+      tabBar.className = 'system-tabs';
+      tabs.forEach((tab) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `system-tab-button${state.systemTab === tab.key ? ' active' : ''}`;
+        button.dataset.systemTabButton = tab.key;
+        button.textContent = tab.label;
+        button.addEventListener('click', () => {
+          state.systemTab = tab.key;
+          document.querySelectorAll('[data-system-tab-button]').forEach((node) => {
+            node.classList.toggle('active', node.dataset.systemTabButton === tab.key);
+          });
+          document.querySelectorAll('[data-system-tab-panel]').forEach((node) => {
+            node.classList.toggle('active', node.dataset.systemTabPanel === tab.key);
+          });
+        });
+        tabBar.appendChild(button);
+      });
+      const panelsWrap = document.createElement('div');
+      panelsWrap.className = 'system-tab-panels';
+      panels.forEach((panel) => panelsWrap.appendChild(panel));
+      fragment.appendChild(tabBar);
+      fragment.appendChild(panelsWrap);
+      return fragment;
     }
 
     function clearFieldHighlights() {
@@ -1070,6 +1309,7 @@
       $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
 
       const form = $('panel-form');
+      form.className = 'panel-form';
       form.innerHTML = '';
       form.appendChild(buildField('Headline', 'field-title', getValueAtPath(block.content || {}, bindings.titlePath)));
       form.appendChild(buildField('Supporting Copy', 'field-body', getValueAtPath(block.content || {}, bindings.bodyPath), true));
@@ -1112,6 +1352,7 @@
       $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
 
       const form = $('panel-form');
+      form.className = 'panel-form';
       form.innerHTML = '';
 
       if (entityType === 'destination') {
@@ -1160,6 +1401,7 @@
       $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
 
       const form = $('panel-form');
+      form.className = 'panel-form';
       form.innerHTML = '';
       form.appendChild(buildField('Hotel Name', 'field-title', hotel.name || ''));
       form.appendChild(buildField('Hotel Description', 'field-body', hotel.description || '', true));
@@ -1187,16 +1429,17 @@
         .filter((page) => page.page_type !== 'system')
         .map((page) => ({ value: page.page_key, label: page.title || page.page_key }));
       const homePage = getPageByKey('home');
-      const toursPage = getPageByKey('tours');
-      const destinationsPage = getPageByKey('destinations');
-      const accommodationPage = getPageByKey('accommodation');
       const termsPage = getPageByKey('terms');
       const privacyPage = getPageByKey('privacy');
       const contactPage = getPageByKey('contact-us') || getPageByKey('contact');
       const termsBlock = getPrimaryPageBodyBlock(termsPage);
       const privacyBlock = getPrimaryPageBodyBlock(privacyPage);
       const contactBlock = getPrimaryPageBodyBlock(contactPage);
-      const sampleChoiceLocked = Boolean(theme.ui?.sampleChoiceLocked);
+      const skinOptions = getSkinOptions();
+      const selectedSkinVariantKey = getVariantDefinition(site.variant_key || '')?.key
+        || skinOptions[0]?.value
+        || DEFAULT_TOUR_VARIANT_KEY;
+      const activeSkinLabel = getCurrentSampleLabel();
 
       state.selected = {
         mode: 'system',
@@ -1209,126 +1452,193 @@
       $('panel-scope-pill').textContent = 'Manage: System';
 
       const form = $('panel-form');
+      form.className = 'panel-form system-panel-form';
       form.innerHTML = '';
-      form.appendChild(buildSectionHeading('Brand', 'Core tenant identity, typography, and home routing.'));
-      form.appendChild(buildActionField('Website Sample', 'system-sample-confirm', sampleChoiceLocked ? 'Đổi mẫu web...' : 'Tôi chọn mẫu này', {
-        muted: sampleChoiceLocked,
-        disabled: sampleChoiceLocked,
-        dataset: {
-          selected: sampleChoiceLocked ? 'true' : 'false',
-          themeKey: CURRENT_SAMPLE_THEME.value,
-        },
+
+      const makeFull = (node) => {
+        if (node) node.classList.add('full');
+        return node;
+      };
+      const makeSpan = (node) => {
+        if (node) node.classList.add('tab-span-all');
+        return node;
+      };
+
+      const skinPanel = createSystemTabPanel('skin');
+      skinPanel.appendChild(makeSpan(buildSectionHeading('Skin And Brand', 'Choose the active storefront skin, then tune brand identity, fonts, and color tokens.')));
+      skinPanel.appendChild(buildSelectField('Website Sample / Skin', 'system-sample-variant', skinOptions.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })), selectedSkinVariantKey));
+      skinPanel.appendChild(makeFull(buildActionField('Apply Selected Skin', 'system-sample-confirm', 'Apply Skin On Save', {
+        primary: false,
+        note: `Mẫu storefront hiện tại: ${activeSkinLabel}. Chọn một skin khác rồi Save Changes để chuyển variant thật.`,
         onClick: () => {
+          const nextVariantKey = $('system-sample-variant')?.value?.trim() || '';
+          const nextVariant = getVariantDefinition(nextVariantKey);
+          if (!nextVariant) {
+            setStatus('Selected skin is invalid.', true);
+            return;
+          }
           const button = $('system-sample-confirm');
-          if (!button) return;
-          button.dataset.selected = 'true';
-          button.textContent = 'Đổi mẫu web...';
-          button.classList.add('is-muted');
-          button.disabled = true;
-          setStatus(`Selected ${CURRENT_SAMPLE_THEME.label} for this tenant. Click Save Changes to lock it in.`);
+          if (button) button.textContent = `Ready: ${nextVariant.label}`;
+          setStatus(`Selected ${nextVariant.label}. Click Save Changes to apply the actual skin preset.`);
         },
-        note: sampleChoiceLocked
-          ? `Mẫu quick edit hiện tại: ${CURRENT_SAMPLE_THEME.label}.`
-          : `Mẫu quick edit hiện tại: ${CURRENT_SAMPLE_THEME.label}. Có thể nối thêm skin khác sau này.`,
-      }));
-      form.appendChild(buildField('Site Name', 'system-site-name', site.site_name || ''));
-      form.appendChild(buildField('Default Language', 'system-default-lang', site.default_lang || 'en'));
-      form.appendChild(buildSelectField('Home Page', 'system-home-page', pageOptions, site.home_page_key || state.activeSlug));
-      form.appendChild(buildField('Logo URL', 'system-logo-url', theme.logoUrl || ''));
-      form.appendChild(buildField('Heading Font', 'system-font-heading', theme.fontHeading || ''));
-      form.appendChild(buildField('Body Font', 'system-font-body', theme.fontBody || ''));
-      form.appendChild(buildField('Book Now Label Override', 'system-book-now-label', ui.bookNowLabel || ''));
+      })));
+      skinPanel.appendChild(makeFull(buildActionField('Restore Selected Skin Preset', 'system-restore-six-senses', 'Restore Selected Skin Preset', {
+        primary: false,
+        note: 'Khôi phục lại scaffold mặc định của skin đang chọn: theme tokens, menu, và các page chuẩn của variant hiện hành. Dùng khi tenant bị drift khỏi preset gốc.',
+        onClick: async () => {
+          const button = $('system-restore-six-senses');
+          if (!button) return;
+          const previousText = button.textContent;
+          button.disabled = true;
+          button.textContent = 'Restoring...';
+          try {
+            const nextVariantKey = $('system-sample-variant')?.value?.trim() || site.variant_key || DEFAULT_TOUR_VARIANT_KEY;
+            const nextVariant = getVariantDefinition(nextVariantKey);
+            if (!nextVariant) {
+              throw new Error('Please select a valid skin before restoring the preset.');
+            }
+            setStatus(`Restoring ${nextVariant.label} preset...`);
+            const response = await fetch('/api/universal/site/config', {
+              method: 'PATCH',
+              headers: {
+                ...buildHeaders(state.tenantId),
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                site: {
+                  group_key: nextVariant.group_key,
+                  variant_key: nextVariantKey,
+                  site_name: $('system-site-name')?.value?.trim() || site.site_name || '',
+                },
+                reset_preset: true,
+              }),
+            });
+            const payload = await readApiPayload(response, 'Failed to restore selected skin preset');
+            if (!response.ok || !payload.ok) {
+              throw new Error(payload.error || 'Failed to restore selected skin preset');
+            }
+            state.bundle = payload;
+            applyAdminTheme();
+            fillPageSelect();
+            updatePublicLink();
+            await renderPreview();
+            openSystemPanel();
+            setStatus(`${nextVariant.label} preset restored.`);
+          } catch (error) {
+            setStatus(error.message || 'Failed to restore selected skin preset', true);
+          } finally {
+            const nextButton = $('system-restore-six-senses');
+            if (nextButton) {
+              nextButton.disabled = false;
+              nextButton.textContent = previousText;
+            }
+          }
+        },
+      })));
+      skinPanel.appendChild(buildField('Site Name', 'system-site-name', site.site_name || ''));
+      skinPanel.appendChild(buildField('Default Language', 'system-default-lang', site.default_lang || 'en'));
+      skinPanel.appendChild(buildSelectField('Home Page', 'system-home-page', pageOptions, site.home_page_key || state.activeSlug));
+      skinPanel.appendChild(buildField('Logo URL', 'system-logo-url', theme.logoUrl || ''));
+      skinPanel.appendChild(buildField('Heading Font', 'system-font-heading', theme.fontHeading || ''));
+      skinPanel.appendChild(buildField('Body Font', 'system-font-body', theme.fontBody || ''));
+      skinPanel.appendChild(buildField('Primary Color', 'system-theme-primary', theme.colorPrimary || ''));
+      skinPanel.appendChild(buildField('Secondary Color', 'system-theme-secondary', theme.colorSecondary || ''));
+      skinPanel.appendChild(buildField('Accent Color', 'system-theme-accent', theme.colorAccent || ''));
+      skinPanel.appendChild(buildField('Surface Color', 'system-theme-surface', theme.colorSurface || ''));
+      skinPanel.appendChild(buildField('Text Color', 'system-theme-text', theme.colorText || ''));
+      skinPanel.appendChild(buildSelectField('Header Explore Target', 'system-header-primary-page', pageOptions, getEffectiveHeaderPrimaryPageKey()));
+      skinPanel.appendChild(buildField('Booking Engine CTA Label', 'system-book-now-label', ui.bookNowLabel || ''));
 
-      form.appendChild(buildSectionHeading('Theme Colors', 'Visual tokens applied across the storefront shell.'));
-      form.appendChild(buildField('Theme Primary Color', 'system-theme-primary', theme.colorPrimary || ''));
-      form.appendChild(buildField('Theme Secondary Color', 'system-theme-secondary', theme.colorSecondary || ''));
-      form.appendChild(buildField('Theme Accent Color', 'system-theme-accent', theme.colorAccent || ''));
-      form.appendChild(buildField('Theme Surface Color', 'system-theme-surface', theme.colorSurface || ''));
-      form.appendChild(buildField('Theme Text Color', 'system-theme-text', theme.colorText || ''));
+      const chromePanel = createSystemTabPanel('chrome');
+      chromePanel.appendChild(makeSpan(buildSectionHeading('Header And Hero', 'Keep toggles compact here so the panel can be used like a real ops console.')));
+      chromePanel.appendChild(buildToggleField('Show Menu Button', 'system-header-show-menu', headerUi.showMenuButton !== false));
+      chromePanel.appendChild(buildToggleField('Show Language Chip', 'system-header-show-language', headerUi.showLanguageChip !== false));
+      chromePanel.appendChild(buildField('Language Chip Label', 'system-header-language-label', headerUi.languageLabel || 'EN'));
+      chromePanel.appendChild(buildToggleField('Show Login Link', 'system-header-show-login', headerUi.showLoginLink !== false));
+      chromePanel.appendChild(buildField('Login Label', 'system-header-login-label', headerUi.loginLabel || 'Login'));
+      chromePanel.appendChild(buildField('Login Href', 'system-header-login-href', headerUi.loginHref || ''));
+      chromePanel.appendChild(buildToggleField('Show Header CTA', 'system-header-show-book-now', headerUi.showBookNowButton !== false));
+      chromePanel.appendChild(buildToggleField('Solid Header On Scroll', 'system-header-solid-scroll', headerUi.solidOnScroll !== false));
+      chromePanel.appendChild(buildToggleField('Show Hero Map Link', 'system-hero-show-map', heroUi.showMapLink !== false));
+      chromePanel.appendChild(buildField('Hero Map Label', 'system-hero-map-label', heroUi.mapLinkLabel || 'View map'));
+      chromePanel.appendChild(buildField('Hero Map Href', 'system-hero-map-href', heroUi.mapLinkHref || '#section-destinations'));
+      chromePanel.appendChild(buildToggleField('Show Hero Module Shortcuts', 'system-hero-show-shortcuts', heroUi.showModuleShortcuts !== false));
+      chromePanel.appendChild(buildToggleField('Show Hero Search Panel', 'system-hero-show-search', heroUi.showSearchPanel !== false));
+      chromePanel.appendChild(buildField('Hero Search Button Label', 'system-hero-search-label', heroUi.searchButtonLabel || 'Search'));
+      chromePanel.appendChild(buildToggleField('Show Hero Secondary CTA', 'system-hero-show-secondary-cta', heroUi.showSecondaryCta !== false));
+      chromePanel.appendChild(makeSpan(buildSectionHeading('Footer And Contact Dock', 'Primary floating CTA is removed; only the optional contact dock remains here.')));
+      chromePanel.appendChild(buildToggleField('Show Floating Contact Dock', 'system-floating-show-contact-dock', Boolean(floatingUi.showContactDock)));
+      chromePanel.appendChild(buildToggleField('Floating Phone Button', 'system-floating-show-phone', floatingUi.showPhone !== false));
+      chromePanel.appendChild(buildToggleField('Floating Email Button', 'system-floating-show-email', floatingUi.showEmail !== false));
+      chromePanel.appendChild(buildToggleField('Floating WhatsApp Button', 'system-floating-show-whatsapp', floatingUi.showWhatsapp !== false));
+      chromePanel.appendChild(buildToggleField('Floating Instagram Button', 'system-floating-show-instagram', floatingUi.showInstagram !== false));
+      chromePanel.appendChild(buildToggleField('Show Social Rail', 'system-social-rail-visible', socialRailUi.visible !== false));
+      chromePanel.appendChild(buildField('Menu Drawer Title', 'system-menu-drawer-title', menuDrawerUi.title || 'Curated Menu'));
+      chromePanel.appendChild(buildField('Footer Kicker Text', 'system-footer-kicker', footerUi.kickerText || 'Private journeys, quietly crafted'));
+      chromePanel.appendChild(buildToggleField('Show Footer Navigation', 'system-footer-show-navigation', footerUi.showNavigation !== false));
+      chromePanel.appendChild(buildToggleField('Show Footer Contacts', 'system-footer-show-contacts', footerUi.showContacts !== false));
+      chromePanel.appendChild(buildToggleField('Show Footer Socials', 'system-footer-show-socials', footerUi.showSocials !== false));
+      chromePanel.appendChild(buildToggleField('Show Footer Legal Links', 'system-footer-show-legal', footerUi.showLegalLinks !== false));
 
-      form.appendChild(buildSectionHeading('Header', 'Top navigation chrome, CTA behavior, and sticky state.'));
-      form.appendChild(buildToggleField('Show Menu Button', 'system-header-show-menu', headerUi.showMenuButton !== false));
-      form.appendChild(buildToggleField('Show Language Chip', 'system-header-show-language', headerUi.showLanguageChip !== false));
-      form.appendChild(buildField('Language Chip Label', 'system-header-language-label', headerUi.languageLabel || 'EN'));
-      form.appendChild(buildToggleField('Show Login Link', 'system-header-show-login', headerUi.showLoginLink !== false));
-      form.appendChild(buildField('Login Label', 'system-header-login-label', headerUi.loginLabel || 'Login'));
-      form.appendChild(buildField('Login Href', 'system-header-login-href', headerUi.loginHref || ''));
-      form.appendChild(buildToggleField('Show Header Book Now', 'system-header-show-book-now', headerUi.showBookNowButton !== false));
-      form.appendChild(buildToggleField('Solid Header On Scroll', 'system-header-solid-scroll', headerUi.solidOnScroll !== false));
-
-      form.appendChild(buildSectionHeading('Hero', 'Editorial shell toggles for map link, shortcuts, and search bar.'));
-      form.appendChild(buildToggleField('Show Hero Map Link', 'system-hero-show-map', heroUi.showMapLink !== false));
-      form.appendChild(buildField('Hero Map Label', 'system-hero-map-label', heroUi.mapLinkLabel || 'View map'));
-      form.appendChild(buildField('Hero Map Href', 'system-hero-map-href', heroUi.mapLinkHref || '#section-destinations'));
-      form.appendChild(buildToggleField('Show Hero Module Shortcuts', 'system-hero-show-shortcuts', heroUi.showModuleShortcuts !== false));
-      form.appendChild(buildToggleField('Show Hero Search Panel', 'system-hero-show-search', heroUi.showSearchPanel !== false));
-      form.appendChild(buildField('Hero Search Button Label', 'system-hero-search-label', heroUi.searchButtonLabel || 'Search'));
-      form.appendChild(buildToggleField('Show Hero Secondary CTA', 'system-hero-show-secondary-cta', heroUi.showSecondaryCta !== false));
-
-      form.appendChild(buildSectionHeading('Floating Controls', 'Book-now reveal and floating contact utilities.'));
-      form.appendChild(buildToggleField('Show Floating Book Now', 'system-floating-show-book-now', floatingUi.showBookNow !== false));
-      form.appendChild(buildToggleField('Reveal Floating Book Now On Scroll', 'system-floating-reveal-scroll', floatingUi.revealOnScroll !== false));
-      form.appendChild(buildToggleField('Show Floating Contact Dock', 'system-floating-show-contact-dock', Boolean(floatingUi.showContactDock)));
-      form.appendChild(buildToggleField('Floating Phone Button', 'system-floating-show-phone', floatingUi.showPhone !== false));
-      form.appendChild(buildToggleField('Floating Email Button', 'system-floating-show-email', floatingUi.showEmail !== false));
-      form.appendChild(buildToggleField('Floating WhatsApp Button', 'system-floating-show-whatsapp', floatingUi.showWhatsapp !== false));
-      form.appendChild(buildToggleField('Floating Instagram Button', 'system-floating-show-instagram', floatingUi.showInstagram !== false));
-
-      form.appendChild(buildSectionHeading('Footer And Social', 'Lower chrome, social rail, and footer sections.'));
-      form.appendChild(buildToggleField('Show Social Rail', 'system-social-rail-visible', socialRailUi.visible !== false));
-      form.appendChild(buildField('Menu Drawer Title', 'system-menu-drawer-title', menuDrawerUi.title || 'Curated Menu'));
-      form.appendChild(buildField('Footer Kicker Text', 'system-footer-kicker', footerUi.kickerText || 'Private journeys, quietly crafted'));
-      form.appendChild(buildToggleField('Show Footer Navigation', 'system-footer-show-navigation', footerUi.showNavigation !== false));
-      form.appendChild(buildToggleField('Show Footer Contacts', 'system-footer-show-contacts', footerUi.showContacts !== false));
-      form.appendChild(buildToggleField('Show Footer Socials', 'system-footer-show-socials', footerUi.showSocials !== false));
-      form.appendChild(buildToggleField('Show Footer Legal Links', 'system-footer-show-legal', footerUi.showLegalLinks !== false));
-
-      form.appendChild(buildSectionHeading('Navigation Tabs', 'Rename and toggle individual menu tabs without leaving the preview-first admin.'));
+      const navigationPanel = createSystemTabPanel('navigation');
+      navigationPanel.appendChild(makeSpan(buildSectionHeading('Menu And Visibility', 'Rename tabs and hide whole pages without losing content.')));
       menuItems.forEach((item) => {
         const suffix = toDomSuffix(item.item_key || item.page_key || item.id);
-        form.appendChild(buildField(`Menu Label: ${item.item_key || item.page_key || item.id}`, `system-menu-label-${suffix}`, item.label || ''));
-        form.appendChild(buildToggleField(`Menu Tab Visible: ${item.item_key || item.page_key || item.id}`, `system-menu-visible-${suffix}`, item.visible !== false));
+        navigationPanel.appendChild(buildField(`Menu Label: ${item.item_key || item.page_key || item.id}`, `system-menu-label-${suffix}`, item.label || ''));
+        navigationPanel.appendChild(buildToggleField(`Menu Tab Visible: ${item.item_key || item.page_key || item.id}`, `system-menu-visible-${suffix}`, item.visible !== false));
       });
-
-      form.appendChild(buildSectionHeading('SEO', 'Homepage metadata used by the storefront shell and crawlers.'));
-      form.appendChild(buildField('Home SEO Title', 'system-home-seo-title', homePage?.seo?.title || ''));
-      form.appendChild(buildField('Home SEO Description', 'system-home-seo-description', homePage?.seo?.description || '', true));
-      form.appendChild(buildField('Home SEO OG Image', 'system-home-seo-og-image', homePage?.seo?.og_image || ''));
-
-      form.appendChild(buildSectionHeading('Page Visibility', 'Toggle which pages remain active in the public storefront.'));
+      navigationPanel.appendChild(makeSpan(buildSectionHeading('Page Visibility', 'Control which public pages stay reachable.')));
       editablePages.forEach((page) => {
-        form.appendChild(buildToggleField(`Page Visible: ${page.title || page.page_key}`, `system-page-visible-${toDomSuffix(page.page_key)}`, page.visible !== false));
+        const node = buildToggleField(`Page Visible: ${page.title || page.page_key}`, `system-page-visible-${toDomSuffix(page.page_key)}`, page.visible !== false);
+        node.classList.add('full');
+        navigationPanel.appendChild(node);
       });
 
-      form.appendChild(buildSectionHeading('Contact System', 'Global contact form and channel wiring.'));
-      form.appendChild(buildToggleField('Contact Form Enabled', 'system-contact-form-enabled', contacts.contactForm?.enabled));
-      form.appendChild(buildField('Contact Form Label', 'system-contact-form-label', contacts.contactForm?.label || ''));
-      form.appendChild(buildField('Contact Form Endpoint', 'system-contact-form-endpoint', contacts.contactForm?.endpoint || ''));
-      form.appendChild(buildToggleField('Phone Enabled', 'system-phone-enabled', contacts.channels?.phone?.enabled));
-      form.appendChild(buildField('Phone Number', 'system-phone-value', contacts.channels?.phone?.value || ''));
-      form.appendChild(buildToggleField('Email Enabled', 'system-email-enabled', contacts.channels?.email?.enabled));
-      form.appendChild(buildField('Email Address', 'system-email-value', contacts.channels?.email?.value || ''));
-      form.appendChild(buildToggleField('WhatsApp Enabled', 'system-whatsapp-enabled', contacts.channels?.whatsapp?.enabled));
-      form.appendChild(buildField('WhatsApp Number / URL', 'system-whatsapp-value', contacts.channels?.whatsapp?.value || ''));
-      form.appendChild(buildToggleField('Zalo Enabled', 'system-zalo-enabled', contacts.channels?.zalo?.enabled));
-      form.appendChild(buildField('Zalo URL', 'system-zalo-value', contacts.channels?.zalo?.value || ''));
-      form.appendChild(buildToggleField('Address Enabled', 'system-address-enabled', contacts.channels?.address?.enabled));
-      form.appendChild(buildField('Footer Address', 'system-address-value', contacts.channels?.address?.value || ''));
-      form.appendChild(buildField('Address Map URL', 'system-address-map-url', contacts.channels?.address?.mapUrl || ''));
-      form.appendChild(buildToggleField('Instagram Enabled', 'system-instagram-enabled', contacts.channels?.instagram?.enabled));
-      form.appendChild(buildField('Instagram URL', 'system-instagram-value', contacts.channels?.instagram?.value || ''));
-      form.appendChild(buildToggleField('Facebook Enabled', 'system-facebook-enabled', contacts.channels?.facebook?.enabled));
-      form.appendChild(buildField('Facebook URL', 'system-facebook-value', contacts.channels?.facebook?.value || ''));
-      form.appendChild(buildToggleField('YouTube Enabled', 'system-youtube-enabled', contacts.channels?.youtube?.enabled));
-      form.appendChild(buildField('YouTube URL', 'system-youtube-value', contacts.channels?.youtube?.value || ''));
+      const contactsPanel = createSystemTabPanel('contacts');
+      contactsPanel.appendChild(makeSpan(buildSectionHeading('Contact System', 'High-touch channels belong here, not mixed with legal copy.')));
+      contactsPanel.appendChild(buildToggleField('Contact Form Enabled', 'system-contact-form-enabled', contacts.contactForm?.enabled));
+      contactsPanel.appendChild(buildField('Contact Form Label', 'system-contact-form-label', contacts.contactForm?.label || ''));
+      contactsPanel.appendChild(buildField('Contact Form Endpoint', 'system-contact-form-endpoint', contacts.contactForm?.endpoint || ''));
+      contactsPanel.appendChild(buildToggleField('Phone Enabled', 'system-phone-enabled', contacts.channels?.phone?.enabled));
+      contactsPanel.appendChild(buildField('Phone Number', 'system-phone-value', contacts.channels?.phone?.value || ''));
+      contactsPanel.appendChild(buildToggleField('Email Enabled', 'system-email-enabled', contacts.channels?.email?.enabled));
+      contactsPanel.appendChild(buildField('Email Address', 'system-email-value', contacts.channels?.email?.value || ''));
+      contactsPanel.appendChild(buildToggleField('WhatsApp Enabled', 'system-whatsapp-enabled', contacts.channels?.whatsapp?.enabled));
+      contactsPanel.appendChild(buildField('WhatsApp Number / URL', 'system-whatsapp-value', contacts.channels?.whatsapp?.value || ''));
+      contactsPanel.appendChild(buildToggleField('Zalo Enabled', 'system-zalo-enabled', contacts.channels?.zalo?.enabled));
+      contactsPanel.appendChild(buildField('Zalo URL', 'system-zalo-value', contacts.channels?.zalo?.value || ''));
+      contactsPanel.appendChild(buildToggleField('Address Enabled', 'system-address-enabled', contacts.channels?.address?.enabled));
+      contactsPanel.appendChild(buildField('Footer Address', 'system-address-value', contacts.channels?.address?.value || ''));
+      contactsPanel.appendChild(buildField('Address Map URL', 'system-address-map-url', contacts.channels?.address?.mapUrl || ''));
+      contactsPanel.appendChild(buildToggleField('Instagram Enabled', 'system-instagram-enabled', contacts.channels?.instagram?.enabled));
+      contactsPanel.appendChild(buildField('Instagram URL', 'system-instagram-value', contacts.channels?.instagram?.value || ''));
+      contactsPanel.appendChild(buildToggleField('Facebook Enabled', 'system-facebook-enabled', contacts.channels?.facebook?.enabled));
+      contactsPanel.appendChild(buildField('Facebook URL', 'system-facebook-value', contacts.channels?.facebook?.value || ''));
+      contactsPanel.appendChild(buildToggleField('YouTube Enabled', 'system-youtube-enabled', contacts.channels?.youtube?.enabled));
+      contactsPanel.appendChild(buildField('YouTube URL', 'system-youtube-value', contacts.channels?.youtube?.value || ''));
 
-      form.appendChild(buildSectionHeading('Legal And Contact Pages', 'Page-level content that should stay outside quick edit.'));
-      form.appendChild(buildToggleField('Contact Page Visible', 'system-contact-page-visible', contactPage?.visible));
-      form.appendChild(buildField('Contact Page Intro', 'system-contact-page-body', contactBlock?.content?.body || '', true));
-      form.appendChild(buildToggleField('Terms Visible', 'system-terms-visible', termsPage?.visible));
-      form.appendChild(buildField('Terms Body', 'system-terms-body', termsBlock?.content?.body || '', true));
-      form.appendChild(buildToggleField('Privacy Visible', 'system-privacy-visible', privacyPage?.visible));
-      form.appendChild(buildField('Privacy Body', 'system-privacy-body', privacyBlock?.content?.body || '', true));
+      const legalPanel = createSystemTabPanel('legal');
+      legalPanel.appendChild(makeSpan(buildSectionHeading('SEO And Long-form Copy', 'This tab keeps large editable text areas away from operational toggles.')));
+      legalPanel.appendChild(makeFull(buildField('Home SEO Title', 'system-home-seo-title', homePage?.seo?.title || '')));
+      legalPanel.appendChild(makeFull(buildField('Home SEO Description', 'system-home-seo-description', homePage?.seo?.description || '', true)));
+      legalPanel.appendChild(makeFull(buildField('Home SEO OG Image', 'system-home-seo-og-image', homePage?.seo?.og_image || '')));
+      legalPanel.appendChild(buildToggleField('Contact Page Visible', 'system-contact-page-visible', contactPage?.visible));
+      legalPanel.appendChild(buildToggleField('Terms Visible', 'system-terms-visible', termsPage?.visible));
+      legalPanel.appendChild(buildToggleField('Privacy Visible', 'system-privacy-visible', privacyPage?.visible));
+      legalPanel.appendChild(makeFull(buildField('Contact Page Intro', 'system-contact-page-body', contactBlock?.content?.body || '', true)));
+      legalPanel.appendChild(makeFull(buildField('Terms Body', 'system-terms-body', termsBlock?.content?.body || '', true)));
+      legalPanel.appendChild(makeFull(buildField('Privacy Body', 'system-privacy-body', privacyBlock?.content?.body || '', true)));
+
+      form.appendChild(buildSystemTabs([
+        { key: 'skin', label: 'Skin' },
+        { key: 'chrome', label: 'Chrome' },
+        { key: 'navigation', label: 'Navigation' },
+        { key: 'contacts', label: 'Contacts' },
+        { key: 'legal', label: 'Legal & SEO' },
+      ], [skinPanel, chromePanel, navigationPanel, contactsPanel, legalPanel]));
 
       openPanel();
       applySystemPanelGuidance();
@@ -1357,6 +1667,7 @@
       $('panel-scope-pill').textContent = formatScopeLabel(managementScope);
 
       const form = $('panel-form');
+      form.className = 'panel-form';
       form.innerHTML = '';
       form.appendChild(buildField('Channel Label', 'field-title', payload.entityLabel || channelKey));
       form.appendChild(buildField('Channel Value', 'field-value', channel.value || payload.entityValue || ''));
@@ -1418,14 +1729,14 @@
           headers: buildHeaders(state.tenantId),
         }),
       ]);
-      const payload = await bundleResponse.json();
+      const payload = await readApiPayload(bundleResponse, 'Failed to load universal site config');
 
       if (!bundleResponse.ok || !payload.ok) {
         throw new Error(payload.error || 'Failed to load universal site config');
       }
 
       if (settingsResponse.ok) {
-        const settingsPayload = await settingsResponse.json().catch(() => null);
+        const settingsPayload = await readApiPayload(settingsResponse).catch(() => null);
         if (settingsPayload?.settings) state.tenantSettings = settingsPayload.settings;
       }
 
@@ -1484,7 +1795,7 @@
           },
           body: JSON.stringify({ editor_model: state.bundle.editor_model }),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response, 'Failed to save storefront block');
 
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save storefront block');
@@ -1510,7 +1821,7 @@
           },
           body: JSON.stringify({ contacts: nextContacts }),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response, 'Failed to save contact channel');
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save contact channel');
         }
@@ -1538,7 +1849,7 @@
             gallery,
           }),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response, 'Failed to save hotel entity');
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save hotel entity');
         }
@@ -1577,18 +1888,22 @@
             content_data: nextContentData,
           }),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response, 'Failed to save canonical tour source');
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save canonical tour source');
         }
         state.bundle = await (await fetch('/api/universal/site/config', { headers: buildHeaders(state.tenantId) })).json();
       } else if (state.selected.mode === 'system') {
+        const site = state.bundle?.site || {};
         const nextPagesMap = new Map();
         const termsPage = getPageByKey('terms');
         const privacyPage = getPageByKey('privacy');
         const contactPage = getPageByKey('contact-us') || getPageByKey('contact');
         const homePage = getPageByKey('home');
-        const sampleChoiceLocked = $('system-sample-confirm')?.dataset.selected === 'true' || Boolean(state.bundle.theme?.ui?.sampleChoiceLocked);
+        const selectedSampleVariantKey = $('system-sample-variant')?.value?.trim() || site.variant_key || DEFAULT_TOUR_VARIANT_KEY;
+        const selectedSampleVariant = getVariantDefinition(selectedSampleVariantKey);
+        const shouldApplyVariantPreset = Boolean(selectedSampleVariant && selectedSampleVariantKey !== (site.variant_key || ''));
+        const sampleChoiceLocked = Boolean(state.bundle.theme?.ui?.sampleChoiceLocked) || Boolean(selectedSampleVariant);
         const menuItems = JSON.parse(JSON.stringify(Array.isArray(state.bundle?.menu) ? state.bundle.menu : (state.bundle?.menu?.items || [])));
         const editablePages = getPages().filter((page) => page.page_type !== 'system');
         const upsertPagePatch = (page, patch) => {
@@ -1704,7 +2019,8 @@
           ui: {
             ...(state.bundle.theme?.ui || {}),
             sampleChoiceLocked,
-            sampleThemeKey: CURRENT_SAMPLE_THEME.value,
+            sampleThemeKey: isLuxuryVariantKey(selectedSampleVariantKey) ? 'six-senses' : 'default-editorial',
+            sampleVariantKey: selectedSampleVariantKey,
             bookNowLabel: $('system-book-now-label')?.value?.trim() || '',
             header: {
               ...(state.bundle.theme?.ui?.header || {}),
@@ -1715,6 +2031,7 @@
               loginLabel: $('system-header-login-label')?.value?.trim() || 'Login',
               loginHref: $('system-header-login-href')?.value?.trim() || '',
               showBookNowButton: Boolean($('system-header-show-book-now')?.checked),
+              primaryPageKey: $('system-header-primary-page')?.value || getDefaultHeaderPrimaryPageKey(),
               solidOnScroll: Boolean($('system-header-solid-scroll')?.checked),
             },
             hero: {
@@ -1737,8 +2054,8 @@
             },
             floating: {
               ...(state.bundle.theme?.ui?.floating || {}),
-              showBookNow: Boolean($('system-floating-show-book-now')?.checked),
-              revealOnScroll: Boolean($('system-floating-reveal-scroll')?.checked),
+              showBookNow: false,
+              revealOnScroll: false,
               showContactDock: Boolean($('system-floating-show-contact-dock')?.checked),
               showPhone: Boolean($('system-floating-show-phone')?.checked),
               showEmail: Boolean($('system-floating-show-email')?.checked),
@@ -1756,6 +2073,22 @@
           },
         };
         const nextPages = Array.from(nextPagesMap.values());
+        const requestBody = {
+          site: {
+            site_name: $('system-site-name')?.value?.trim() || '',
+            default_lang: $('system-default-lang')?.value?.trim() || 'en',
+            home_page_key: $('system-home-page')?.value || state.activeSlug,
+            ...(shouldApplyVariantPreset && selectedSampleVariant ? { group_key: selectedSampleVariant.group_key, variant_key: selectedSampleVariantKey } : {}),
+          },
+          theme: nextTheme,
+          contacts: nextContacts,
+          ...(shouldApplyVariantPreset ? { reset_preset: true } : {}),
+        };
+
+        if (!shouldApplyVariantPreset) {
+          requestBody.menu = { items: menuItems };
+          requestBody.pages = nextPages;
+        }
 
         setStatus('Saving system settings...');
         const response = await fetch('/api/universal/site/config', {
@@ -1764,19 +2097,9 @@
             ...buildHeaders(state.tenantId),
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            site: {
-              site_name: $('system-site-name')?.value?.trim() || '',
-              default_lang: $('system-default-lang')?.value?.trim() || 'en',
-              home_page_key: $('system-home-page')?.value || state.activeSlug,
-            },
-            theme: nextTheme,
-            contacts: nextContacts,
-            menu: { items: menuItems },
-            pages: nextPages,
-          }),
+          body: JSON.stringify(requestBody),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response, 'Failed to save system settings');
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save system settings');
         }
@@ -1850,6 +2173,7 @@
         state.tenantId = sessionPayload.session.tenant_id;
         localStorage.setItem('tam_tenant_id', state.tenantId);
       }
+      syncTenantIdToUrl(state.tenantId);
       state.onboardingMode = getOnboardingMode();
       $('tenant-id').value = state.tenantId;
       updateTenantAdminLink();

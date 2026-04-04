@@ -43,6 +43,7 @@ System context, components, and deployment topology.
 - Site studio config/content (CHK-404): tenant-level theme/legal/contact/search settings + multilingual public copy tách riêng khỏi operational tour data.
 - Growth/SEO config (CHK-405): tenant-level distribution metadata (SEO/social/analytics/reviews), editable tour slugs, sitemap/robots generation, and lead/event capture hooks.
 - Hosted layout layer (strategy pivot): self-hosted website HTML/CSS/project payloads lưu riêng theo tenant để tích hợp external editor như GrapesJS; Worker render theo hostname đã verify và inject dữ liệu SaaS vào placeholders.
+- Discovery pivot: taxonomy-first collections should become the primary public discovery model. Canonical interest tags and rules-based collection pages should scale tour discovery better than relying on free-form Site Studio composition for every category page. See `docs/ai/22_INTEREST_TAXONOMY_AND_COLLECTIONS.md`.
 
 ## Bảo mật
 - JWT cookie (HttpOnly) (tương lai)

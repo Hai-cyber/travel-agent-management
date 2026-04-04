@@ -85,6 +85,61 @@
     .field-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
     .field small { font-size: 11px; color: #94a3b8; margin-top: 3px; display: block; }
 
+    .taxonomy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .taxonomy-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 14px;
+    }
+    .taxonomy-box-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    .taxonomy-choice-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .taxonomy-choice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      color: #334155;
+      font-weight: 600;
+    }
+    .taxonomy-choice small {
+      display: block;
+      margin-left: 24px;
+      margin-top: 2px;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .taxonomy-choice input { flex-shrink: 0; }
+    .taxonomy-inline-note {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 720px) {
+      .taxonomy-grid { grid-template-columns: 1fr; }
+    }
+
     /* -- Buttons -- */
     .btn {
       border: none; border-radius: 6px; padding: 8px 16px;
@@ -117,15 +172,77 @@
 
     /* -- Tour selector list -- */
     .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .tour-list-toolbar {
+          display: grid;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+    .tour-list-search {
+          width: 100%;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          padding: 9px 11px;
+          font-size: 13px;
+          color: #1e293b;
+          background: #fff;
+        }
+    .tour-list-search:focus {
+          outline: none;
+          border-color: #6366F1;
+          box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+        }
+    .tour-filter-chips {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+    .tour-filter-chip {
+          border: 1px solid #dbe3f0;
+          background: #fff;
+          color: #475569;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+    .tour-filter-chip.active {
+          background: #eef2ff;
+          border-color: #818cf8;
+          color: #4338ca;
+        }
 .tour-item {
-      display: flex; align-items: center; gap: 10px;
+  display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; align-items: start; gap: 10px;
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
       padding: 10px 12px 10px 14px; cursor: pointer; transition: all .15s;
     }
     .tour-item:hover { border-color: #A5B4FC; background: #EEF2FF; }
     .tour-item.selected { border-color: #6366F1; background: #EEF2FF; }
-    .tour-item-title { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tour-item-main { min-width: 0; display: grid; gap: 6px; }
+        .tour-item-title { font-size: 14px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tour-item-meta  { font-size: 11px; color: #94a3b8; font-family: monospace; flex-shrink: 0; }
+        .tour-tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tour-tag-chip {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 3px 8px;
+          background: #fff;
+          border: 1px solid #dbe3f0;
+          font-size: 11px;
+          font-weight: 700;
+          color: #475569;
+        }
+        .tour-tag-chip.primary {
+          background: #eef2ff;
+          border-color: #a5b4fc;
+          color: #4338ca;
+        }
+        .tour-tag-chip.muted {
+          color: #94a3b8;
+          background: transparent;
+          border-style: dashed;
+        }
     .tour-item-actions { display: flex; gap: 3px; flex-shrink: 0; opacity: 0; transition: opacity .15s; }
     .tour-item:hover .tour-item-actions,
     .tour-item.selected .tour-item-actions { opacity: 1; }
@@ -422,6 +539,7 @@
 <nav class="tabs" id="tab-nav">
   <button class="tab-btn active" data-tab="tours" data-i18n="tour_config.tabs.tours">Tours</button>
   <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled data-i18n="tour_config.tabs.content">Content</button>
+  <button class="tab-btn"        data-tab="tagging"  id="tab-tagging"  disabled>Tagging</button>
   <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled data-i18n="tour_config.tabs.stops">Stops</button>
   <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled data-i18n="tour_config.tabs.pricing">Price Config</button>
   <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled data-i18n="tour_config.tabs.preview">Preview</button>
@@ -440,6 +558,10 @@
           <button class="btn btn-primary btn-sm" id="btn-new-tour" data-i18n="tour_config.tours.new">+ New</button>
         </div>
         <div class="card-body" style="padding:12px">
+          <div class="tour-list-toolbar">
+            <input type="search" id="tour-list-search" class="tour-list-search" placeholder="Search by tour, destination, or tag" />
+            <div id="tour-filter-chips" class="tour-filter-chips"></div>
+          </div>
           <div class="empty-state" id="tour-list-placeholder" data-i18n="tour_config.tours.connect_to_load">Connect to load tours.</div>
           <ul class="tour-list" id="tour-list" style="display:none"></ul>
         </div>
@@ -507,6 +629,7 @@
           <hr />
           <div class="btn-row">
             <button class="btn btn-primary"   id="btn-goto-content" data-i18n="tour_config.tours.edit_content">Edit Content &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-tagging">Edit Tags &rarr;</button>
             <button class="btn btn-ghost"     id="btn-goto-stops" data-i18n="tour_config.tours.goto_stops">Stops &rarr;</button>
             <button class="btn btn-ghost"     id="btn-goto-preview" data-i18n="tour_config.tours.goto_preview">Preview &rarr;</button>
           </div>
@@ -524,11 +647,53 @@
   </div>
 </section>
 
-<!-- ----------------------------  TAB 2: CONTENT  ---------------------------- -->
+<!-- ----------------------------  TAB 2: TAGGING  ---------------------------- -->
+<section class="panel" id="panel-tagging">
+  <div id="tagging-selected-notice" class="selected-notice" style="display:none">
+    <span>Tagging:</span> <strong id="tagging-tour-name-label"></strong>
+    <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="tagging-tour-id-label"></span>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h2>Discovery Tags & Interests</h2></div>
+    <div class="card-body">
+      <p class="taxonomy-inline-note">Tag the tour where you build it. These tags drive interest pages, discovery sorting, and search by destination or interest.</p>
+      <div class="taxonomy-grid">
+        <div class="taxonomy-box">
+          <div class="taxonomy-box-title">Top-Level Interests</div>
+          <div id="tour-taxonomy-top" class="taxonomy-choice-grid"></div>
+        </div>
+        <div class="taxonomy-box">
+          <div class="taxonomy-box-title">Sub-Interests</div>
+          <div id="tour-taxonomy-sub" class="taxonomy-choice-grid"></div>
+        </div>
+      </div>
+      <div class="taxonomy-box" style="margin-top:14px">
+        <div class="taxonomy-box-title">Primary Interest</div>
+        <div id="tour-taxonomy-primary" class="taxonomy-choice-grid"></div>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button type="button" class="btn btn-success" id="btn-save-tagging">Save Tags</button>
+        <button type="button" class="btn btn-ghost" id="btn-tagging-goto-content">Back to Content</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----------------------------  TAB 3: CONTENT  ---------------------------- -->
 <section class="panel" id="panel-content">
   <div id="content-selected-notice" class="selected-notice" style="display:none">
     <span data-i18n="tour_config.content.editing">Editing:</span> <strong id="content-tour-name-label"></strong>
     <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="content-tour-id-label"></span>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="selected-notice" style="margin-bottom:0;background:#f8fafc;border-color:#cbd5e1;color:#334155">
+        <span><strong>Discovery tags moved to their own tab.</strong> Use the <strong>Tagging</strong> tab to classify this tour by interest.</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-content-goto-tagging" style="margin-left:auto">Open Tagging</button>
+      </div>
+    </div>
   </div>
 
   <!-- Basic fields (PATCH /api/tours/:id) -->
@@ -1068,6 +1233,11 @@ const S = {
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
+  taxonomyCatalog: [],
+  tourTaxonomy: null,
+  tourTaxonomySummaryByTourId: {},
+  tourListSearch: '',
+  activeTourListInterest: '',
   uiLang: localStorage.getItem('tc_ui_lang') ?? ((navigator.language || 'en').toLowerCase().split('-')[0]),
 };
 
@@ -1201,6 +1371,290 @@ function collectGalleryImages() {
       alt: `${fallbackTitle} ${index + 1}`,
       caption: index === 0 ? fallbackTitle : `Gallery ${index + 1}`,
     }));
+}
+
+function emptyTourTaxonomy() {
+  return {
+    interest_keys: [],
+    sub_interest_keys: [],
+    profile: {
+      primary_interest_key: null,
+      toggles_json: {},
+      scores_json: {},
+      ranking_json: {},
+    },
+  };
+}
+
+async function ensureTaxonomyCatalog() {
+  if (Array.isArray(S.taxonomyCatalog) && S.taxonomyCatalog.length) return S.taxonomyCatalog;
+  const payload = await api('/api/universal/taxonomy/catalog');
+  S.taxonomyCatalog = Array.isArray(payload.interests) ? payload.interests : [];
+  return S.taxonomyCatalog;
+}
+
+function getInterestLabel(key) {
+  const catalog = Array.isArray(S.taxonomyCatalog) ? S.taxonomyCatalog : [];
+  for (const interest of catalog) {
+    if (interest.key === key) return interest.label || key;
+    const subInterests = Array.isArray(interest.sub_interests) ? interest.sub_interests : [];
+    const sub = subInterests.find((item) => item.key === key);
+    if (sub) return sub.label || key;
+  }
+  return key;
+}
+
+function buildTourTaxonomySummary(tourId, taxonomy) {
+  const interestKeys = Array.isArray(taxonomy?.interest_keys) ? taxonomy.interest_keys : [];
+  const subInterestKeys = Array.isArray(taxonomy?.sub_interest_keys) ? taxonomy.sub_interest_keys : [];
+  const primaryInterestKey = taxonomy?.profile?.primary_interest_key || interestKeys[0] || null;
+  return {
+    tour_id: tourId,
+    interest_keys: interestKeys,
+    sub_interest_keys: subInterestKeys,
+    primary_interest_key: primaryInterestKey,
+    interest_labels: interestKeys.map(getInterestLabel),
+    sub_interest_labels: subInterestKeys.map(getInterestLabel),
+  };
+}
+
+async function loadTourTaxonomySummaries() {
+  if (!S.tenantId) return;
+  try {
+    await ensureTaxonomyCatalog();
+    const payload = await api('/api/universal/taxonomy/tours');
+    S.tourTaxonomySummaryByTourId = Object.fromEntries(
+      (payload.items || []).map((item) => [
+        item.tour_id,
+        {
+          tour_id: item.tour_id,
+          interest_keys: item.interest_keys || [],
+          sub_interest_keys: item.sub_interest_keys || [],
+          primary_interest_key: item.primary_interest_key || item.interest_keys?.[0] || null,
+          interest_labels: (item.interest_keys || []).map(getInterestLabel),
+          sub_interest_labels: (item.sub_interest_keys || []).map(getInterestLabel),
+        },
+      ])
+    );
+  } catch (error) {
+    console.warn('[tour-config taxonomy] summary load failed', error?.message || error);
+    S.tourTaxonomySummaryByTourId = {};
+  }
+}
+
+function getTourTaxonomySummary(tourId) {
+  return S.tourTaxonomySummaryByTourId[tourId] || {
+    tour_id: tourId,
+    interest_keys: [],
+    sub_interest_keys: [],
+    primary_interest_key: null,
+    interest_labels: [],
+    sub_interest_labels: [],
+  };
+}
+
+function renderTourFilterChips() {
+  const node = document.getElementById('tour-filter-chips');
+  if (!node) return;
+  const catalog = Array.isArray(S.taxonomyCatalog) ? S.taxonomyCatalog : [];
+  node.innerHTML = [
+    `<button type="button" class="tour-filter-chip ${S.activeTourListInterest ? '' : 'active'}" data-interest-filter="">All tours</button>`,
+    ...catalog.map((interest) => `<button type="button" class="tour-filter-chip ${S.activeTourListInterest === interest.key ? 'active' : ''}" data-interest-filter="${esc(interest.key)}">${esc(interest.label)}</button>`),
+  ].join('');
+  node.querySelectorAll('[data-interest-filter]').forEach((button) => {
+    button.addEventListener('click', () => {
+      S.activeTourListInterest = button.dataset.interestFilter || '';
+      renderTourFilterChips();
+      renderTourList();
+    });
+  });
+}
+
+function getFilteredTours() {
+  const search = String(S.tourListSearch || '').trim().toLowerCase();
+  return (S.tours || []).filter((tour) => {
+    const summary = getTourTaxonomySummary(tour.id);
+    if (S.activeTourListInterest && !(summary.interest_keys || []).includes(S.activeTourListInterest)) {
+      return false;
+    }
+    if (!search) return true;
+    const content = parseContentData(tour);
+    const haystack = [
+      tour.title,
+      tour.slug,
+      tour.duration_text,
+      content.tour_name,
+      content.destination_name,
+      content.destination_title,
+      ...(summary.interest_labels || []),
+      ...(summary.sub_interest_labels || []),
+      ...(summary.interest_keys || []),
+      ...(summary.sub_interest_keys || []),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(search);
+  });
+}
+
+function getSelectedTourInterestKeys() {
+  return [...document.querySelectorAll('[data-tour-interest-key]:checked')].map((node) => node.value);
+}
+
+function getSelectedTourSubInterestKeys() {
+  return [...document.querySelectorAll('[data-tour-sub-interest-key]:checked')].map((node) => node.value);
+}
+
+function renderTourTaxonomyEditor() {
+  const topNode = document.getElementById('tour-taxonomy-top');
+  const subNode = document.getElementById('tour-taxonomy-sub');
+  const primaryNode = document.getElementById('tour-taxonomy-primary');
+  const catalog = Array.isArray(S.taxonomyCatalog) ? S.taxonomyCatalog : [];
+  const current = S.tourTaxonomy || emptyTourTaxonomy();
+  const selectedTop = new Set(current.interest_keys || []);
+  const selectedSub = new Set(current.sub_interest_keys || []);
+  const selectedPrimary = current.profile?.primary_interest_key || current.interest_keys?.[0] || '';
+
+  topNode.innerHTML = catalog.length
+    ? catalog.map((interest) => `
+      <label class="taxonomy-choice">
+        <input type="checkbox" data-tour-interest-key value="${esc(interest.key)}" ${selectedTop.has(interest.key) ? 'checked' : ''} />
+        <span>${esc(interest.label)}</span>
+      </label>
+      <small>${esc(interest.description || '')}</small>
+    `).join('')
+    : '<div class="taxonomy-inline-note">Taxonomy catalog unavailable.</div>';
+
+  const subInterests = catalog.flatMap((interest) => Array.isArray(interest.sub_interests) ? interest.sub_interests.map((sub) => ({ ...sub, parent_label: interest.label })) : []);
+  subNode.innerHTML = subInterests.length
+    ? subInterests.map((sub) => `
+      <label class="taxonomy-choice">
+        <input type="checkbox" data-tour-sub-interest-key data-parent-interest="${esc(sub.parent_key)}" value="${esc(sub.key)}" ${selectedSub.has(sub.key) ? 'checked' : ''} />
+        <span>${esc(sub.label)} <small style="display:inline;color:#94a3b8;font-size:11px">${esc(sub.parent_label || sub.parent_key || '')}</small></span>
+      </label>
+    `).join('')
+    : '<div class="taxonomy-inline-note">No sub-interests configured yet.</div>';
+
+  const selectedTopNow = catalog.filter((interest) => selectedTop.has(interest.key));
+  primaryNode.innerHTML = selectedTopNow.length
+    ? selectedTopNow.map((interest) => `
+      <label class="taxonomy-choice">
+        <input type="radio" name="tour-primary-interest" value="${esc(interest.key)}" ${selectedPrimary === interest.key ? 'checked' : ''} />
+        <span>${esc(interest.label)}</span>
+      </label>
+    `).join('')
+    : '<div class="taxonomy-inline-note">Choose at least one top-level interest first.</div>';
+
+  document.querySelectorAll('[data-tour-interest-key]').forEach((node) => {
+    node.addEventListener('change', () => {
+      const interestKey = node.value;
+      if (!node.checked) {
+        document.querySelectorAll(`[data-tour-sub-interest-key][data-parent-interest="${interestKey}"]`).forEach((child) => {
+          child.checked = false;
+        });
+      }
+      S.tourTaxonomy = {
+        ...current,
+        interest_keys: getSelectedTourInterestKeys(),
+        sub_interest_keys: getSelectedTourSubInterestKeys(),
+        profile: {
+          ...(current.profile || {}),
+          primary_interest_key: document.querySelector('input[name="tour-primary-interest"]:checked')?.value || getSelectedTourInterestKeys()[0] || null,
+        },
+      };
+      renderTourTaxonomyEditor();
+    });
+  });
+
+  document.querySelectorAll('[data-tour-sub-interest-key]').forEach((node) => {
+    node.addEventListener('change', () => {
+      if (node.checked) {
+        const parent = node.dataset.parentInterest || '';
+        const parentNode = document.querySelector(`[data-tour-interest-key][value="${parent}"]`);
+        if (parentNode) parentNode.checked = true;
+      }
+      S.tourTaxonomy = {
+        ...current,
+        interest_keys: getSelectedTourInterestKeys(),
+        sub_interest_keys: getSelectedTourSubInterestKeys(),
+        profile: {
+          ...(current.profile || {}),
+          primary_interest_key: document.querySelector('input[name="tour-primary-interest"]:checked')?.value || getSelectedTourInterestKeys()[0] || null,
+        },
+      };
+      renderTourTaxonomyEditor();
+    });
+  });
+
+  document.querySelectorAll('input[name="tour-primary-interest"]').forEach((node) => {
+    node.addEventListener('change', () => {
+      S.tourTaxonomy = {
+        ...current,
+        interest_keys: getSelectedTourInterestKeys(),
+        sub_interest_keys: getSelectedTourSubInterestKeys(),
+        profile: {
+          ...(current.profile || {}),
+          primary_interest_key: node.value || null,
+        },
+      };
+    });
+  });
+}
+
+async function loadTourTaxonomy(tourId) {
+  if (!tourId) {
+    S.tourTaxonomy = emptyTourTaxonomy();
+    renderTourTaxonomyEditor();
+    return;
+  }
+  try {
+    await ensureTaxonomyCatalog();
+    const payload = await api(`/api/universal/taxonomy/tours/${tourId}`);
+    S.tourTaxonomy = payload.taxonomy || emptyTourTaxonomy();
+  } catch (error) {
+    console.warn('[tour-config taxonomy] load failed', error?.message || error);
+    S.tourTaxonomy = emptyTourTaxonomy();
+  }
+  S.tourTaxonomySummaryByTourId[tourId] = buildTourTaxonomySummary(tourId, S.tourTaxonomy);
+  renderTourFilterChips();
+  renderTourList();
+  renderTourTaxonomyEditor();
+}
+
+function syncTaggingHeader() {
+  const notice = document.getElementById('tagging-selected-notice');
+  const nameLabel = document.getElementById('tagging-tour-name-label');
+  const idLabel = document.getElementById('tagging-tour-id-label');
+  if (!notice || !nameLabel || !idLabel) return;
+  if (!S.tour) {
+    notice.style.display = 'none';
+    nameLabel.textContent = '';
+    idLabel.textContent = '';
+    return;
+  }
+  notice.style.display = '';
+  nameLabel.textContent = S.tour.title || 'Untitled tour';
+  idLabel.textContent = S.tour.id || '';
+}
+function collectTourTaxonomyPayload() {
+  const interestKeys = getSelectedTourInterestKeys();
+  return {
+    interest_keys: interestKeys,
+    sub_interest_keys: getSelectedTourSubInterestKeys(),
+    primary_interest_key: document.querySelector('input[name="tour-primary-interest"]:checked')?.value || interestKeys[0] || null,
+  };
+}
+
+async function saveTourTaxonomy() {
+  if (!S.tour) throw new Error(ti('tour_config.message.select_tour_first'));
+  const payload = collectTourTaxonomyPayload();
+  const saved = await api(`/api/universal/taxonomy/tours/${S.tour.id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  S.tourTaxonomy = saved.taxonomy || emptyTourTaxonomy();
+  S.tourTaxonomySummaryByTourId[S.tour.id] = buildTourTaxonomySummary(S.tour.id, S.tourTaxonomy);
+  renderTourFilterChips();
+  renderTourList();
+  return S.tourTaxonomy;
 }
 
 function renderSingleImagePreview(previewId, imageUrl, emptyMessage) {
@@ -1358,7 +1812,7 @@ async function api(path, opts = {}) {
 }
 
 function unlockTabs() {
-  ['tab-content','tab-stops','tab-pricing','tab-preview','tab-publish'].forEach(id => {
+  ['tab-content','tab-tagging','tab-stops','tab-pricing','tab-preview','tab-publish'].forEach(id => {
     document.getElementById(id).disabled = !S.tour;
   });
 }
@@ -1411,8 +1865,11 @@ async function connectWithCurrentTenant() {
   if (!tenantId) return;
   status.textContent = ti('tour_config.message.reconnecting');
   try {
+    await ensureTaxonomyCatalog();
     const data = await api('/api/tours');
     S.tours = data.tours ?? [];
+    await loadTourTaxonomySummaries();
+    renderTourFilterChips();
     renderTourList();
     status.textContent = ti('tour_config.message.list_count', { count: S.tours.length });
   } catch (err) {
@@ -1438,6 +1895,13 @@ loadUiLocale().catch(() => {});
 connectWithCurrentTenant().catch(() => {});
 bindContentAssetInputs();
 renderContentMediaPreviews();
+renderTourTaxonomyEditor();
+renderTourFilterChips();
+
+document.getElementById('tour-list-search').addEventListener('input', (event) => {
+  S.tourListSearch = event.target.value || '';
+  renderTourList();
+});
 
 document.getElementById('connect-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -1448,8 +1912,15 @@ document.getElementById('connect-form').addEventListener('submit', async e => {
 function renderTourList() {
   const placeholder = document.getElementById('tour-list-placeholder');
   const list        = document.getElementById('tour-list');
+  const tours = getFilteredTours();
   if (!S.tours.length) {
     placeholder.textContent = ti('tour_config.message.no_tours_yet');
+    placeholder.style.display = '';
+    list.style.display = 'none';
+    return;
+  }
+  if (!tours.length) {
+    placeholder.textContent = 'No tours match the current tag filter or search.';
     placeholder.style.display = '';
     list.style.display = 'none';
     return;
@@ -1457,11 +1928,19 @@ function renderTourList() {
   placeholder.style.display = 'none';
   list.style.display = '';
   list.innerHTML = '';
-  S.tours.forEach(t => {
+  tours.forEach(t => {
+    const summary = getTourTaxonomySummary(t.id);
+    const tagChips = summary.interest_labels.length
+      ? summary.interest_labels.slice(0, 3).map((label, index) => {
+          const key = summary.interest_keys[index] || '';
+          const isPrimary = key && key === summary.primary_interest_key;
+          return `<span class="tour-tag-chip ${isPrimary ? 'primary' : ''}">${esc(label)}</span>`;
+        }).join('')
+      : '<span class="tour-tag-chip muted">No tags yet</span>';
     const li = document.createElement('li');
     li.className = 'tour-item' + (S.tour?.id === t.id ? ' selected' : '');
     li.innerHTML = `
-      <div class="tour-item-title" title="${esc(t.title)}">${esc(t.title)}</div>
+      <div class="tour-item-main"><div class="tour-item-title" title="${esc(t.title)}">${esc(t.title)}</div><div class="tour-tag-row">${tagChips}</div></div>
       <span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span>
       <div class="tour-item-meta">${esc(t.id.slice(0,8))}&hellip;</div>
       <div class="tour-item-actions">
@@ -1515,6 +1994,9 @@ function selectTour(t) {
 
   // Pre-fill content tab
   prefillContent(t);
+  syncTaggingHeader();
+  loadTourTaxonomy(t.id).catch((error) => console.warn('[tour-config taxonomy] select failed', error?.message || error));
+  syncTaggingHeader();
   // Update publish tab label
   document.getElementById('publish-selected-notice').style.display = '';
   document.getElementById('publish-tour-label').textContent = t.title;
@@ -1558,8 +2040,19 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
 });
 
 document.getElementById('btn-goto-content').addEventListener('click', () => switchTab('content'));
+document.getElementById('btn-goto-tagging').addEventListener('click', () => switchTab('tagging'));
 document.getElementById('btn-goto-stops').addEventListener('click',   () => { switchTab('stops'); loadStops(); });
 document.getElementById('btn-goto-preview').addEventListener('click', () => { switchTab('preview'); loadPreview(); });
+document.getElementById('btn-content-goto-tagging').addEventListener('click', () => switchTab('tagging'));
+document.getElementById('btn-tagging-goto-content').addEventListener('click', () => switchTab('content'));
+document.getElementById('btn-save-tagging').addEventListener('click', async () => {
+  try {
+    await saveTourTaxonomy();
+    toast('Tags saved.');
+  } catch (err) {
+    toast(ti('tour_config.message.save_failed', { error: err.message }), 'err');
+  }
+});
 
 /* ----------------------------  COPY TOUR  ---------------------------------- */
 async function copyTour(t) {
@@ -1717,7 +2210,9 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
 // Save content_data
 document.getElementById('btn-save-content').addEventListener('click', async () => {
   try {
-    await saveContentDraft(true);
+    await saveContentDraft(false);
+    await saveTourTaxonomy();
+    toast('Content and interests saved.');
   } catch (err) {
     toast(ti('tour_config.message.save_failed', { error: err.message }), 'err');
   }

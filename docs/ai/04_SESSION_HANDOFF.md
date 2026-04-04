@@ -20,55 +20,54 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-04-03
-Checkpoint: CHK-R44 password recovery flow
-Goal of session: Add a safe forgot-password flow to login, including D1-backed reset tokens, a public reset page, and local smoke verification.
+Date: 2026-04-04
+Checkpoint: CHK-R45 taxonomy discovery foundation
+Goal of session: Build the first production-grade foundation for taxonomy-first discovery so interests drive auto-generated collection pages instead of relying on free-form page building.
 
 ### What was completed this session
 
-- Added `db/migrations/0034_password_reset_tokens.sql` so password recovery tokens are stored in D1 with expiry, single-use semantics, and optional tenant context
-- Extended `src/lib/auth.js` with shared helpers to issue, validate, and consume password reset tokens while revoking old `auth_sessions` after a successful reset
-- Added auth endpoints in `src/routes/onboarding.js`: `POST /api/auth/forgot-password`, `GET /api/auth/reset-password/:token`, and `POST /api/auth/reset-password`
-- Hardened the reset-email delivery handoff: the Worker now POSTs a localized email-ready payload to `PASSWORD_RESET_WEBHOOK_URL` and signs `<timestamp>.<raw_json_body>` with `PASSWORD_RESET_WEBHOOK_SECRET` when configured
-- Added production Turnstile protection for forgot-password, signup, and login: `GET /api/auth/turnstile-config` now exposes the public site key/action map, `public/reset-password.html`, `public/login.html`, and `public/signup.html` render the widget when enabled, and the backend verifies tokens against Cloudflare Siteverify before processing public auth actions
-- Added `db/migrations/0035_auth_action_attempts.sql` plus a soft forgot-password cooldown ledger so repeated reset requests from the same email/IP are quietly suppressed instead of creating unbounded token churn
-- Resolved the live Turnstile rollout issue: client error `110200` was caused by the widget hostname allowlist missing `tours-market.com`; the working fix was Cloudflare Hostname Management, not a code rollback
-- Added `public/reset-password.html` and linked `public/login.html` into it with a new forgot-password action
-- Added EN/VI/ZH auth copy for forgot-password and reset-password states
-- Added `scripts/mock-password-reset-webhook.mjs` plus local `.dev.vars` wiring so the signed webhook path can be verified end to end
-- Extended `scripts/smoke-local.mjs` so `npm test` now verifies the full password reset cycle: request link, signed webhook delivery, validate token, confirm reset, and sign in with the new password
+- Added `db/migrations/0036_interest_taxonomy_foundation.sql` with tenant-scoped discovery profiles and interest-tag mapping tables for tours and destinations, plus universal interest-page state
+- Added `src/lib/interestTaxonomy.js` as the canonical taxonomy layer with fixed top-level interests (`adventure`, `culture`, `beach`, `sport`, `food`, `nature`), planned sub-interests, payload validation, and auto-page scaffolding helpers
+- Extended `src/routes/universalSites.js` so universal site runtime now builds `interest_runtime` collections and resolves listing bindings of the form `taxonomy.interest.<interest>.tour_listing`
+- Added protected taxonomy endpoints for catalog lookup and tenant-scoped tagging: `GET /api/universal/taxonomy/catalog`, `GET /api/universal/taxonomy/interest-pages`, `GET|PUT /api/universal/taxonomy/tours/:tourId`, and `GET|PUT /api/universal/taxonomy/destinations/:destinationId`
+- Added auto-generated interest collection pages into the existing `tenant_universal_pages` pipeline instead of building a second page engine; these pages are scaffolded as standard pages and become visible once enough tours carry a matching top-level interest tag
+- Surfaced taxonomy editing directly inside unit-level authoring flows: `public/tour-config.html` now edits tour interests in the Content tab, and `public/product-modules.html?mode=destinations` now edits destination-source taxonomy on the canonical backing tour record
+- Replaced the Six Senses hero search mock with a real destination-or-interest search flow: the first field is wider, submits to the tours listing page, and filters listing cards by destination text plus taxonomy tags already assigned to tours
+- Locked overwrite-oriented universal bootstrap persist by default: `POST /api/universal/site/bootstrap` now requires explicit overwrite confirmation before it can rewrite a tenant scaffold, and the manual universal API test skips destructive persist mode unless opted in
+- Added a second Six Senses-derived luxury variant (`tour-luxury-riviera`) with different preset imagery, theme colors, and typography, and rewired `public/universal-admin.html` so operators choose among real luxury variants instead of a single hardcoded sample label
+- Verified that the existing local smoke suite still passes unchanged after the taxonomy foundation landed
 
 ### Files changed
 ```
-db/migrations/0034_password_reset_tokens.sql
-db/migrations/0035_auth_action_attempts.sql
-src/lib/auth.js
-src/routes/onboarding.js
-public/login.html
-public/signup.html
-public/reset-password.html
-src/locales/en.json
-src/locales/vi.json
-src/locales/zh.json
-scripts/smoke-local.mjs
-scripts/mock-password-reset-webhook.mjs
-docs/PASSWORD_RESET_WEBHOOK.md
+db/migrations/0036_interest_taxonomy_foundation.sql
+src/lib/interestTaxonomy.js
+src/routes/universalSites.js
+public/tour-config.html
+public/product-modules.html
+public/universal-admin.html
+src/lib/universalSite.js
+src/lib/themes/six-senses.js
+scripts/reset_local_six_senses_preset.mjs
 docs/ai/01_CURRENT_STATE.md
+docs/ai/22_INTEREST_TAXONOMY_AND_COLLECTIONS.md
 docs/ai/03_PROGRESS_LEDGER.md
 docs/ai/04_SESSION_HANDOFF.md
 ```
 
 ### What is still not done
-- No delivery audit trail exists yet for password reset email sends beyond webhook/app logs
-- No account-lockout or suspicious-login throttle exists yet for repeated login failures
+- Search/ranking still does not consume taxonomy; the current build covers schema, APIs, auto-generated collection pages, and the first unit-level authoring surfaces only
+- Search now consumes destination text and taxonomy tags for the storefront tours flow, but there is still no broader faceted search or ranking model yet
+- True standalone destination-entity editing UI is still missing; current destination workflow applies taxonomy through destination-source modules backed by tours
+- Destination-tag data is stored and retrievable, but current auto-generated interest pages are still driven by tour tags rather than destination-led page sections
 
 ### Known risks / TODOs
-- Anonymous forgot-password requests intentionally return a generic response and do not expose the reset link; local debug exposure is limited to local-origin or authenticated same-user flows to avoid leaking tokens in production
-- Google Apps Script is now the live mailer bridge; if it is replaced later, keep the same signed webhook contract or rotate both `PASSWORD_RESET_WEBHOOK_URL` and `PASSWORD_RESET_WEBHOOK_SECRET` together
+- Auto-generated interest pages are intentionally scaffolded into the existing universal page pipeline, so later manual editing rules need a clear policy for which fields remain system-owned versus curator-owned
+- The first runtime binding only targets `tour_listing` by top-level interest; sub-interest pages, score-driven ordering, and facet search still need separate implementation work
+- Production rollout gap was real: live universal schema loading failed until remote D1 migration `0036_interest_taxonomy_foundation.sql` was applied. The storefront schema now loads on production, but the full `choose skin` reset flow still needs a separate pass if further runtime errors appear.
 
 ### Suggested next prompt
 ```
-Add a lightweight delivery audit trail for password reset emails, then decide whether login also needs a soft failed-attempt throttle in addition to Turnstile.
+Now that production D1 migration 0036 is applied and universal site config loads again, continue tracing the remaining `choose skin` reset flow on the real production tenant and isolate the next backend failure before changing more UI code.
 ```
 
 ---

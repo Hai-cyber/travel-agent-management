@@ -355,6 +355,65 @@
       background: #fbfdff;
     }
 
+    .taxonomy-stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .taxonomy-panel {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #f8fbff;
+    }
+
+    .taxonomy-panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .taxonomy-panel-copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .taxonomy-choice-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .taxonomy-choice {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .taxonomy-choice input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .taxonomy-choice-meta {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
     .asset-tools {
       display: grid;
       gap: 10px;
@@ -499,6 +558,7 @@
       .layout,
       .grid.two,
       .toggle-grid,
+      .taxonomy-grid,
       .gallery-row-grid {
         grid-template-columns: 1fr;
       }
@@ -572,10 +632,12 @@
       tours: [],
       hotels: [],
       assets: [],
+      taxonomyCatalog: [],
       selectedTourId: '',
       selectedHotelId: '',
       currentTour: null,
       currentHotel: null,
+      currentTourTaxonomy: null,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -640,12 +702,12 @@
     }
 
     function updateLinks() {
-      $('link-dashboard').href = `/dashboard.html`;
-      $('link-quick-edit').href = '/universal-admin.html';
-      $('link-system').href = '/universal-admin.html?panel=system&onboarding=system';
+      $('link-dashboard').href = `/dashboard.html?tid=${encodeURIComponent(state.tenantId)}`;
+      $('link-quick-edit').href = `/universal-admin.html?tid=${encodeURIComponent(state.tenantId)}`;
+      $('link-system').href = `/universal-admin.html?tid=${encodeURIComponent(state.tenantId)}&panel=system&onboarding=system`;
       document.querySelectorAll('[data-mode-link]').forEach((link) => {
         const mode = link.dataset.modeLink;
-        link.href = `/product-modules.html?mode=${encodeURIComponent(mode)}`;
+        link.href = `/product-modules.html?tid=${encodeURIComponent(state.tenantId)}&mode=${encodeURIComponent(mode)}`;
         link.classList.toggle('active', mode === state.mode);
       });
     }
@@ -656,6 +718,146 @@
 
     function getTourModules(tour) {
       return getTourContent(tour).universal_modules || {};
+    }
+
+    function emptyTaxonomyState() {
+      return {
+        interest_keys: [],
+        sub_interest_keys: [],
+        profile: {
+          primary_interest_key: null,
+          toggles_json: {},
+          scores_json: {},
+          ranking_json: {},
+        },
+      };
+    }
+
+    async function ensureTaxonomyCatalog() {
+      if (Array.isArray(state.taxonomyCatalog) && state.taxonomyCatalog.length) return state.taxonomyCatalog;
+      const payload = await api('/api/universal/taxonomy/catalog');
+      state.taxonomyCatalog = Array.isArray(payload.interests) ? payload.interests : [];
+      return state.taxonomyCatalog;
+    }
+
+    function getSelectedDestinationInterestKeys() {
+      return [...document.querySelectorAll('[data-destination-interest-key]:checked')].map((node) => node.value);
+    }
+
+    function getSelectedDestinationSubInterestKeys() {
+      return [...document.querySelectorAll('[data-destination-sub-interest-key]:checked')].map((node) => node.value);
+    }
+
+    function renderDestinationTaxonomyEditor() {
+      const current = state.currentTourTaxonomy || emptyTaxonomyState();
+      const catalog = Array.isArray(state.taxonomyCatalog) ? state.taxonomyCatalog : [];
+      const topNode = $('destination-taxonomy-top');
+      const subNode = $('destination-taxonomy-sub');
+      const primaryNode = $('destination-taxonomy-primary');
+      if (!topNode || !subNode || !primaryNode) return;
+
+      const topSelected = new Set(current.interest_keys || []);
+      const subSelected = new Set(current.sub_interest_keys || []);
+      const primarySelected = current.profile?.primary_interest_key || current.interest_keys?.[0] || '';
+
+      topNode.innerHTML = catalog.map((interest) => `
+        <label class="taxonomy-choice">
+          <input type="checkbox" data-destination-interest-key value="${esc(interest.key)}" ${topSelected.has(interest.key) ? 'checked' : ''} />
+          <span>${esc(interest.label)}</span>
+        </label>
+      `).join('') || '<div class="hint">Taxonomy catalog unavailable.</div>';
+
+      const subInterests = catalog.flatMap((interest) => Array.isArray(interest.sub_interests)
+        ? interest.sub_interests.map((sub) => ({ ...sub, parent_label: interest.label }))
+        : []);
+      subNode.innerHTML = subInterests.map((sub) => `
+        <label class="taxonomy-choice">
+          <input type="checkbox" data-destination-sub-interest-key data-parent-interest="${esc(sub.parent_key)}" value="${esc(sub.key)}" ${subSelected.has(sub.key) ? 'checked' : ''} />
+          <span>${esc(sub.label)} <span class="taxonomy-choice-meta">${esc(sub.parent_label || sub.parent_key || '')}</span></span>
+        </label>
+      `).join('') || '<div class="hint">No sub-interests configured yet.</div>';
+
+      const primaryOptions = catalog.filter((interest) => topSelected.has(interest.key));
+      primaryNode.innerHTML = primaryOptions.length
+        ? primaryOptions.map((interest) => `
+          <label class="taxonomy-choice">
+            <input type="radio" name="destination-primary-interest" value="${esc(interest.key)}" ${primarySelected === interest.key ? 'checked' : ''} />
+            <span>${esc(interest.label)}</span>
+          </label>
+        `).join('')
+        : '<div class="hint">Pick at least one top-level interest first.</div>';
+
+      document.querySelectorAll('[data-destination-interest-key]').forEach((node) => {
+        node.onchange = () => {
+          if (!node.checked) {
+            document.querySelectorAll(`[data-destination-sub-interest-key][data-parent-interest="${node.value}"]`).forEach((child) => {
+              child.checked = false;
+            });
+          }
+          state.currentTourTaxonomy = {
+            ...current,
+            interest_keys: getSelectedDestinationInterestKeys(),
+            sub_interest_keys: getSelectedDestinationSubInterestKeys(),
+            profile: {
+              ...(current.profile || {}),
+              primary_interest_key: document.querySelector('input[name="destination-primary-interest"]:checked')?.value || getSelectedDestinationInterestKeys()[0] || null,
+            },
+          };
+          renderDestinationTaxonomyEditor();
+        };
+      });
+
+      document.querySelectorAll('[data-destination-sub-interest-key]').forEach((node) => {
+        node.onchange = () => {
+          if (node.checked) {
+            const parentNode = document.querySelector(`[data-destination-interest-key][value="${node.dataset.parentInterest || ''}"]`);
+            if (parentNode) parentNode.checked = true;
+          }
+          state.currentTourTaxonomy = {
+            ...current,
+            interest_keys: getSelectedDestinationInterestKeys(),
+            sub_interest_keys: getSelectedDestinationSubInterestKeys(),
+            profile: {
+              ...(current.profile || {}),
+              primary_interest_key: document.querySelector('input[name="destination-primary-interest"]:checked')?.value || getSelectedDestinationInterestKeys()[0] || null,
+            },
+          };
+          renderDestinationTaxonomyEditor();
+        };
+      });
+
+      document.querySelectorAll('input[name="destination-primary-interest"]').forEach((node) => {
+        node.onchange = () => {
+          state.currentTourTaxonomy = {
+            ...current,
+            interest_keys: getSelectedDestinationInterestKeys(),
+            sub_interest_keys: getSelectedDestinationSubInterestKeys(),
+            profile: {
+              ...(current.profile || {}),
+              primary_interest_key: node.value || null,
+            },
+          };
+        };
+      });
+    }
+
+    function collectDestinationTaxonomyPayload() {
+      const interestKeys = getSelectedDestinationInterestKeys();
+      return {
+        interest_keys: interestKeys,
+        sub_interest_keys: getSelectedDestinationSubInterestKeys(),
+        primary_interest_key: document.querySelector('input[name="destination-primary-interest"]:checked')?.value || interestKeys[0] || null,
+      };
+    }
+
+    async function saveCurrentTourTaxonomy() {
+      if (!state.currentTour?.id) return emptyTaxonomyState();
+      const payload = await api(`/api/universal/taxonomy/tours/${encodeURIComponent(state.currentTour.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(collectDestinationTaxonomyPayload()),
+      });
+      state.currentTourTaxonomy = payload.taxonomy || emptyTaxonomyState();
+      return state.currentTourTaxonomy;
     }
 
     function getRecentImageAssets(limit = 8) {
@@ -856,6 +1058,7 @@
     }
 
     async function loadSourceData() {
+      await ensureTaxonomyCatalog();
       const [toursResult, hotelsResult, assetsResult] = await Promise.allSettled([
         api('/api/tours'),
         api('/api/universal/site/hotels'),
@@ -952,8 +1155,12 @@
     async function selectTour(tourId) {
       state.selectedTourId = tourId;
       state.selectedHotelId = '';
-      const payload = await api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`);
-      state.currentTour = payload.tour || null;
+      const [tourPayload, taxonomyPayload] = await Promise.all([
+        api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`),
+        api(`/api/universal/taxonomy/tours/${encodeURIComponent(tourId)}`),
+      ]);
+      state.currentTour = tourPayload.tour || null;
+      state.currentTourTaxonomy = taxonomyPayload.taxonomy || emptyTaxonomyState();
       render();
     }
 
@@ -963,10 +1170,15 @@
       state.currentHotel = hotelPayload.hotel || null;
       if (state.currentHotel?.tour_id) {
         state.selectedTourId = state.currentHotel.tour_id;
-        const tourPayload = await api(`/api/universal/tours/${encodeURIComponent(state.currentHotel.tour_id)}/canonical`);
+        const [tourPayload, taxonomyPayload] = await Promise.all([
+          api(`/api/universal/tours/${encodeURIComponent(state.currentHotel.tour_id)}/canonical`),
+          api(`/api/universal/taxonomy/tours/${encodeURIComponent(state.currentHotel.tour_id)}`),
+        ]);
         state.currentTour = tourPayload.tour || null;
+        state.currentTourTaxonomy = taxonomyPayload.taxonomy || emptyTaxonomyState();
       } else {
         state.currentTour = null;
+        state.currentTourTaxonomy = emptyTaxonomyState();
       }
       render();
     }
@@ -1085,11 +1297,29 @@
           <label class="toggle"><input id="destination-toggle" type="checkbox" ${flags.module ? 'checked' : ''} /><strong>Show in Destinations Module</strong></label>
           <label class="toggle"><input id="destination-home-toggle" type="checkbox" ${flags.home ? 'checked' : ''} /><strong>Show on Homepage</strong></label>
         </div>
+        <div class="taxonomy-stack">
+          <div class="taxonomy-panel">
+            <div class="taxonomy-panel-head">
+              <div class="subheading">Interest Tags</div>
+            </div>
+            <p class="taxonomy-panel-copy">Classify the destination source right here. These tags feed interest pages, sorting, and later search filters.</p>
+            <div id="destination-taxonomy-top" class="taxonomy-choice-grid"></div>
+          </div>
+          <div class="taxonomy-panel">
+            <div class="subheading">Sub-Interests</div>
+            <div id="destination-taxonomy-sub" class="taxonomy-choice-grid"></div>
+          </div>
+          <div class="taxonomy-panel">
+            <div class="subheading">Primary Interest</div>
+            <div id="destination-taxonomy-primary" class="taxonomy-choice-grid"></div>
+          </div>
+        </div>
         <div class="actions">
           <button id="save-destination" class="button primary" type="button">Save Destination Module</button>
         </div>`;
       bindAssetToolActions();
       bindPreviewInputs();
+      renderDestinationTaxonomyEditor();
       $('save-destination').addEventListener('click', saveDestinationModule);
     }
 
@@ -1309,6 +1539,7 @@
           },
         }),
       });
+      await saveCurrentTourTaxonomy();
       await refreshAfterTourSave(state.currentTour.id);
       setStatus('Destination module saved.', 'ok');
     }
@@ -1419,8 +1650,12 @@
       await loadSourceData();
       await selectHotel(hotelId);
       if (tourId && (!state.currentTour || state.currentTour.id !== tourId)) {
-        const payload = await api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`);
+        const [payload, taxonomyPayload] = await Promise.all([
+          api(`/api/universal/tours/${encodeURIComponent(tourId)}/canonical`),
+          api(`/api/universal/taxonomy/tours/${encodeURIComponent(tourId)}`),
+        ]);
         state.currentTour = payload.tour || null;
+        state.currentTourTaxonomy = taxonomyPayload.taxonomy || emptyTaxonomyState();
       }
     }
 

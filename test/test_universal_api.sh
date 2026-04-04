@@ -5,6 +5,7 @@ BASE_URL="${BASE_URL:-http://127.0.0.1:8787}"
 TENANT_ID="${TENANT_ID:-demo-tenant}"
 TOUR_ID="${TOUR_ID:-}"
 BOOTSTRAP_DESCRIPTION="${BOOTSTRAP_DESCRIPTION:-Toi lam tour leo nui o Ha Giang}"
+BOOTSTRAP_PERSIST="${BOOTSTRAP_PERSIST:-0}"
 
 echo "== Apply migration 0029 locally =="
 echo "npx wrangler d1 migrations apply travel_agent_db --local"
@@ -36,17 +37,23 @@ JSON
 echo
 echo
 echo "== POST /api/universal/site/bootstrap (persist mode) =="
-curl -sS -X POST \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-ID: ${TENANT_ID}" \
-  "${BASE_URL}/api/universal/site/bootstrap" \
-  --data @- <<JSON
+if [[ "${BOOTSTRAP_PERSIST}" == "1" ]]; then
+  curl -sS -X POST \
+    -H "Content-Type: application/json" \
+    -H "X-Tenant-ID: ${TENANT_ID}" \
+    -H "X-Allow-Bootstrap-Persist: overwrite" \
+    "${BASE_URL}/api/universal/site/bootstrap" \
+    --data @- <<JSON
 {
   "description": "${BOOTSTRAP_DESCRIPTION}",
   "site_name": "Bootstrap Persisted Site",
-  "persist": true
+  "persist": true,
+  "persist_confirmation": "overwrite"
 }
 JSON
+else
+  echo "Skipped by default. Set BOOTSTRAP_PERSIST=1 to allow overwrite-oriented bootstrap persist tests."
+fi
 
 echo
 echo

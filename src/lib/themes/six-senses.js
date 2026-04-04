@@ -50,13 +50,16 @@ export function createSixSensesTheme(helpers = {}) {
 
   function buildSearchPanel(theme = {}) {
     const heroUi = getHeroUi(theme);
-    return `<section class="luxury-search-panel"><div class="luxury-search-grid"><label><span>Destination or hotel</span><input type="text" value="Saffron Coast Hideaways" aria-label="Destination or hotel" /></label><label><span>Travel starts</span><input type="text" value="12 Oct 2026" aria-label="Travel starts" /></label><label><span>Travel ends</span><input type="text" value="18 Oct 2026" aria-label="Travel ends" /></label><label><span>No. of people</span><input type="text" value="2 adults, 0 children" aria-label="Number of people" /></label><label><span>Special codes</span><input type="text" value="Private villa" aria-label="Special codes" /></label></div><button type="button" class="luxury-search-cta">${escapeHtml(heroUi.searchButtonLabel || 'Search')}</button></section>`;
+    const searchState = theme.searchState || {};
+    const action = searchState.action || '#';
+    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>Destination or interest</span><input type="text" name="q" value="${escapeHtml(searchState.q || '')}" aria-label="Destination or interest" placeholder="Beach, adventure, Hoi An" /></label><label><span>Travel starts</span><input type="text" name="start" value="${escapeHtml(searchState.start || '')}" aria-label="Travel starts" placeholder="12 Oct 2026" /></label><label><span>Travel ends</span><input type="text" name="end" value="${escapeHtml(searchState.end || '')}" aria-label="Travel ends" placeholder="18 Oct 2026" /></label><label><span>Guests</span><input type="text" name="pax" value="${escapeHtml(searchState.pax || '')}" aria-label="Guests" placeholder="2 adults" /></label><label><span>Code</span><input type="text" name="code" value="${escapeHtml(searchState.code || '')}" aria-label="Code" placeholder="Private" /></label></div><button type="submit" class="luxury-search-cta">${escapeHtml(heroUi.searchButtonLabel || 'Search')}</button></form>`;
   }
 
   function renderHero(ctx) {
     const heroUi = getHeroUi(ctx.theme);
     const content = ctx.block.content || {};
     const runtimeHero = ctx.targetPage.page_key === ctx.homePageKey ? ctx.tourRuntime.featured_tour : null;
+    const primaryCtaLabel = ctx.targetPage.page_key === ctx.homePageKey ? 'Explore' : (content.primary_cta_label || 'Explore');
     const image = content.hero_image || runtimeHero?.hero_image || ctx.snapshot?.hero_image || SAMPLE_HERO_URL;
     const imageBrightness = clampNumber(content.image_brightness, 0.4, 1.4, 1);
     const overlayStrength = clampNumber(content.overlay_strength, 0.12, 0.92, 0.56);
@@ -66,7 +69,7 @@ export function createSixSensesTheme(helpers = {}) {
         ? `<video class="luxury-hero-media-asset" style="filter:brightness(${escapeHtml(String(imageBrightness))})" autoplay muted loop playsinline src="${escapeHtml(image)}"></video>`
         : `<div style="filter:brightness(${escapeHtml(String(imageBrightness))})">${buildResponsiveImageMarkup(image, content.headline || ctx.targetTitle, 'luxury-hero-media-asset', 'cover', '100vw')}</div>`)
       : '<div class="luxury-hero-media-fallback">Replace with a cinematic hero image or video.</div>';
-    const searchMarkup = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showSearchPanel !== false ? `<div class="luxury-hero-search-wrap">${buildSearchPanel(ctx.theme)}</div>` : '';
+    const searchMarkup = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showSearchPanel !== false ? `<div class="luxury-hero-search-wrap">${buildSearchPanel({ ...ctx.theme, searchState: ctx.searchState || {} })}</div>` : '';
     const heroButtons = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showModuleShortcuts !== false
       ? ctx.resolveHeroModuleMenuItems()
           .map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || 'Page')}</a>`)
@@ -80,7 +83,7 @@ export function createSixSensesTheme(helpers = {}) {
     const secondaryCtaMarkup = heroUi.showSecondaryCta === false
       ? ''
       : `<a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a>`;
-    return `<section class="luxury-hero ${ctx.targetPage.page_key === ctx.homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy">${mapLinkMarkup}<p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || ctx.runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || ctx.targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || ctx.targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(content.primary_cta_label || 'Explore')}</a>${secondaryCtaMarkup}</div></div>${heroSidePanel}${searchMarkup}</section>`;
+    return `<section class="luxury-hero ${ctx.targetPage.page_key === ctx.homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy">${mapLinkMarkup}<p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || ctx.runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || ctx.targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || ctx.targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(content.primary_cta_href || '#section-featured-tours')}" class="luxury-primary-cta">${escapeHtml(primaryCtaLabel)}</a>${secondaryCtaMarkup}</div></div>${heroSidePanel}${searchMarkup}</section>`;
   }
 
   function renderGallery(ctx) {
@@ -165,7 +168,10 @@ export function createSixSensesTheme(helpers = {}) {
   }
 
   function renderListing(ctx) {
-    const cards = ctx.resolveListingCards(ctx.block.data_bindings?.cards?.source, ctx.targetPage);
+    const cards = Array.isArray(ctx.cards) ? ctx.cards : ctx.resolveListingCards(ctx.block.data_bindings?.cards?.source, ctx.targetPage);
+    if (!cards.length && ctx.searchState?.q) {
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">Search</p><h2>No matching journeys</h2></div><p>Try another destination or interest such as beach, culture, nature, or a specific place name.</p></div></section>`;
+    }
     const accentColor = normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73');
     const isHotelCollection = String(ctx.block.data_bindings?.cards?.source || '').toLowerCase().includes('accommodation');
     return renderCollectionCarousel(ctx, {
@@ -184,12 +190,15 @@ export function createSixSensesTheme(helpers = {}) {
 
   function renderHeader(ctx) {
     const headerUi = getHeaderUi(ctx.theme);
-    const bookNowHref = ctx.bookNowTarget ? ctx.buildMenuHref(ctx.bookNowTarget) : '#pricing';
+    const primaryCtaHref = ctx.headerCtaHref || '#';
+    const primaryCtaLabel = ctx.headerCtaLabel || '';
     const menuButtonMarkup = headerUi.showMenuButton === false ? '<div></div>' : `<button type="button" class="luxury-menu-toggle" aria-label="Open navigation"><span></span><span></span><span></span></button>`;
     const languageMarkup = headerUi.showLanguageChip === false ? '' : `<span class="luxury-lang-chip">${escapeHtml(headerUi.languageLabel || 'EN')}</span>`;
     const loginHref = headerUi.loginHref || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us');
     const loginMarkup = headerUi.showLoginLink === false ? '' : `<a href="${escapeHtml(loginHref)}" class="luxury-login-link">${escapeHtml(headerUi.loginLabel || 'Login')}</a>`;
-    const bookNowMarkup = headerUi.showBookNowButton === false ? '' : `<a href="${escapeHtml(bookNowHref)}" class="luxury-book-now">${escapeHtml(ctx.bookNowLabel)}</a>`;
+    const bookNowMarkup = headerUi.showBookNowButton === false || !primaryCtaLabel
+      ? ''
+      : `<a href="${escapeHtml(primaryCtaHref)}" class="luxury-book-now">${escapeHtml(primaryCtaLabel)}</a>`;
     return `<header class="luxury-header"><div class="luxury-header-inner"><div class="luxury-header-left">${menuButtonMarkup}</div><a href="${escapeHtml(buildUniversalPublicPath(ctx.site.tenant_id, ctx.homeSlug))}" class="luxury-logo">${ctx.logoMarkup}</a><div class="luxury-header-right">${languageMarkup}${loginMarkup}${bookNowMarkup}</div></div></header>${renderDrawer(ctx)}${renderSocialRail(ctx)}`;
   }
 
@@ -216,10 +225,6 @@ export function createSixSensesTheme(helpers = {}) {
 
   function renderFloatingBookNow(ctx) {
     const floatingUi = getFloatingUi(ctx.theme);
-    const bookNowHref = ctx.bookNowTarget ? ctx.buildMenuHref(ctx.bookNowTarget) : '#pricing';
-    const actionMarkup = floatingUi.showBookNow === false
-      ? ''
-      : `<a href="${escapeHtml(bookNowHref)}" class="luxury-floating-book-now" aria-label="${escapeHtml(ctx.bookNowLabel)}"><span class="luxury-floating-book-now-label">${escapeHtml(ctx.bookNowLabel)}</span><span class="luxury-floating-book-now-icon">&#8594;</span></a>`;
     const contactButtons = [];
     if (floatingUi.showContactDock) {
       if (floatingUi.showPhone !== false && ctx.channels.phone?.enabled && ctx.channels.phone?.value) {
@@ -238,7 +243,7 @@ export function createSixSensesTheme(helpers = {}) {
     const dockMarkup = contactButtons.length
       ? `<aside class="luxury-social-rail luxury-social-rail-floating">${contactButtons.map(([key, value]) => `<a href="${escapeHtml(ctx.buildChannelHref(key, value))}" target="${key === 'phone' || key === 'email' ? '_self' : '_blank'}"${key === 'phone' || key === 'email' ? '' : ' rel="noreferrer"'} aria-label="${escapeHtml(ctx.buildChannelLabel(key, value))}">${escapeHtml(ctx.buildSocialMonogram(key))}</a>`).join('')}</aside>`
       : '';
-    return `${actionMarkup}${dockMarkup}`;
+    return floatingUi.showContactDock ? dockMarkup : '';
   }
 
   function buildScript(ctx = {}) {
