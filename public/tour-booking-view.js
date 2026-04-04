@@ -3,6 +3,117 @@
 
   const VIEW_SELECTOR = '[data-public-booking-view]';
   const DRAWER_BREAKPOINT = '(max-width: 767px)';
+  const DEFAULT_MESSAGES = {
+    tour_config: {
+      pricing: {
+        booking_view: 'Booking View',
+        live_price_calculator: 'live price calculator',
+        live_price_notice: 'Prices are live and calculated based on your specific travel date and group size.',
+        edit: 'Edit',
+        pricing_tier: 'Pricing Tier',
+        select_pricing_tier: 'Select a pricing tier above.',
+        traveller_type: 'Traveller Type',
+        price_per_person: 'Price / person',
+        qty: 'Qty',
+        subtotal: 'Subtotal',
+        good_to_know: 'Good to Know',
+        calculate_final_price: 'Calculate Final Price for my Group',
+        phase1_travel_on: 'We plan to travel on',
+        phase1_we_are: 'We are',
+        phase1_adults_and: 'adults and',
+        phase1_children: 'children,',
+        phase1_staying_in: 'staying in',
+        phase1_double_rooms_and: 'double rooms and',
+        phase1_single_rooms: 'single rooms.',
+        calculating: 'Calculating...',
+        room_hint_single_supplement: 'Note: Single supplement applied for rooms with sole occupancy.',
+        child_with_parents: 'Child (with parents)',
+        add_travellers_above: 'Add travellers above to calculate',
+        select_pricing_tier_short: 'Select a pricing tier',
+        total_for_group: 'Total for your group',
+        band_summary: 'Band: {{name}} ({{min}}-{{max}} pax)',
+        band_current: 'Band: {{name}}',
+        current_rate: 'Current Rate: {{season}}',
+        no_segments_configured: 'No pricing tiers configured.',
+      },
+    },
+    public_booking: {
+      payment_title: 'Payment flow',
+      payment_title_demo: 'Demo payment flow',
+      payment_intro: 'Capture the guest identity, create the booking order, and hand off to the configured payment path.',
+      payment_intro_demo: 'This tenant has no live electronic gateway yet. Show a premium demo checkout instead of a dead end.',
+      guest_name: 'Guest name',
+      guest_email: 'Email',
+      guest_phone: 'Phone',
+      guest_note: 'Notes',
+      guest_note_placeholder: 'Optional request for the operator',
+      guest_note_placeholder_demo: 'Optional note for the demo checkout story',
+      payment_method: 'Payment method',
+      payment_category_instant: 'instant',
+      payment_category_manual: 'manual',
+      payment_submit: 'Create booking order',
+      payment_submit_demo: 'Run demo payment',
+      payment_submit_loading: 'Creating order...',
+      payment_submit_loading_demo: 'Running demo...',
+      payment_cancel: 'Cancel',
+      payment_portal: 'Open guest portal',
+      payment_guest_required: 'Guest name and email are required.',
+      payment_error_generic: 'Could not continue to payment.',
+      payment_total: 'Total',
+      payment_travel_date: 'Travel date',
+      payment_guests: 'Guests',
+      payment_summary_adults_children: '{{adults}} adults, {{children}} children',
+      payment_demo_banner: 'Demo mode active.',
+      payment_demo_message: 'No live gateway configured yet.',
+      payment_demo_success: 'Demo payment completed. This tenant has not configured a live electronic gateway yet, so no real order or charge was created.',
+      payment_success: 'Booking order created successfully.',
+      payment_method_desc_instant: 'Creates the real booking order and prepares the checkout handoff for the selected gateway.',
+      payment_method_desc_manual: 'Creates the real booking order and returns the manual payment / proof-upload next step.',
+      payment_method_desc_demo: 'Demo payment experience only. No real gateway is active for this tenant yet.',
+      payment_hook_cta: 'Continue to payment',
+      payment_hook_note: 'Payment hook reserved for the future checkout flow.',
+      method_bank_transfer: 'Bank transfer',
+      method_cash_at_office: 'Pay at office',
+      method_pay_on_arrival: 'Pay on arrival',
+      method_credit_card: 'Credit card',
+      method_stripe: 'Stripe',
+      method_paypal: 'PayPal',
+      method_momo: 'MoMo',
+      method_zalopay: 'ZaloPay',
+      method_vnpay: 'VNPay',
+      method_grabpay: 'GrabPay',
+      def_infant: 'Infant: Ages 0-2 - must be accompanied by a parent or legal guardian.',
+      def_children: 'Children: Ages 2-14, sharing a room with parents.',
+      def_teens: 'Teens: Ages 14 and up are treated as adults.',
+      def_note: 'Note: If children stay in a separate room, adult shared rates will apply.',
+    },
+  };
+
+  function getNestedValue(obj, path) {
+    return String(path || '').split('.').reduce((node, part) => node?.[part], obj);
+  }
+
+  function applyVars(template, vars) {
+    return String(template || '').replace(/\{\{(\w+)\}\}/g, (_, key) => vars?.[key] ?? `{{${key}}}`);
+  }
+
+  function normalizeLang(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'en';
+    if (raw.startsWith('vi')) return 'vi';
+    if (raw.startsWith('zh')) return 'zh';
+    return 'en';
+  }
+
+  async function loadLocaleMessages(lang) {
+    try {
+      const response = await fetch(`/api/i18n/${encodeURIComponent(lang)}`, { headers: { 'Accept-Language': lang } });
+      const data = await response.json();
+      return data?.messages || DEFAULT_MESSAGES;
+    } catch {
+      return DEFAULT_MESSAGES;
+    }
+  }
 
   function injectStyles() {
     if (document.getElementById('tbv-styles')) return;
@@ -233,58 +344,63 @@
     return node;
   }
 
-  function buildViewMarkup(mode) {
+  function buildViewMarkup(mode, t, pricingDefinitions) {
     const closeButton = mode === 'drawer' ? '<button type="button" class="tbv-close" data-tbv-close="1" aria-label="Close">&times;</button>' : '';
+    const defsMarkup = pricingDefinitions.map((item) => `<li style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--color-secondary,#d4af73);font-weight:700">•</span><span>${esc(item)}</span></li>`).join('');
     return `
       <div class="tbv-shell">
         <div class="tbv-header">
           <div>
-            <h2>Booking View</h2>
-            <div style="font-size:12px;color:#94a3b8">live price calculator</div>
+            <h2>${esc(t('tour_config.pricing.booking_view'))}</h2>
+            <div style="font-size:12px;color:#94a3b8">${esc(t('tour_config.pricing.live_price_calculator'))}</div>
           </div>
           ${closeButton}
         </div>
         <div class="tbv-body">
-          <div class="tbv-note">Prices are live and calculated based on your specific travel date and group size.</div>
+          <div class="tbv-note">${esc(t('tour_config.pricing.live_price_notice'))}</div>
           <div class="tbv-compact" data-tbv-compact="1">
             <span data-tbv-compact-text="1"></span>
-            <button type="button" data-tbv-edit="1">Edit</button>
+            <button type="button" data-tbv-edit="1">${esc(t('tour_config.pricing.edit'))}</button>
           </div>
           <div data-tbv-phase1="1">
             <p class="tbv-sentence">
-              We plan to travel on
+              ${esc(t('tour_config.pricing.phase1_travel_on'))}
               <input type="date" class="tbv-input" data-tbv-date="1" />.<br>
-              We are
+              ${esc(t('tour_config.pricing.phase1_we_are'))}
               <input type="number" min="0" value="" placeholder="0" class="tbv-input" data-tbv-adults="1" />
-              adults and
+              ${esc(t('tour_config.pricing.phase1_adults_and'))}
               <input type="number" min="0" value="0" class="tbv-input tiny" data-tbv-children="1" />
-              children,<br>
-              staying in
+              ${esc(t('tour_config.pricing.phase1_children'))}<br>
+              ${esc(t('tour_config.pricing.phase1_staying_in'))}
               <input type="number" min="0" value="" placeholder="0" class="tbv-input tiny" data-tbv-doubles="1" />
-              double rooms and
+              ${esc(t('tour_config.pricing.phase1_double_rooms_and'))}
               <input type="number" min="0" value="" placeholder="0" class="tbv-input tiny" data-tbv-singles="1" />
-              single rooms.
+              ${esc(t('tour_config.pricing.phase1_single_rooms'))}
             </p>
             <div class="tbv-hint" data-tbv-room-hint="1"></div>
-            <button type="button" class="tbv-primary" data-tbv-calc-button="1" disabled>Calculate Final Price for my Group</button>
+            <button type="button" class="tbv-primary" data-tbv-calc-button="1" disabled>${esc(t('tour_config.pricing.calculate_final_price'))}</button>
           </div>
           <div class="tbv-phase2" data-tbv-phase2="1">
-            <div class="tbv-tier-label">Pricing Tier</div>
-            <div class="tbv-seg-tabs" data-tbv-seg-tabs="1"><span style="color:#94a3b8;font-size:13px">Select a tour to see pricing tiers.</span></div>
+            <div class="tbv-tier-label">${esc(t('tour_config.pricing.pricing_tier'))}</div>
+            <div class="tbv-seg-tabs" data-tbv-seg-tabs="1"><span style="color:#94a3b8;font-size:13px">${esc(t('tour_config.pricing.select_tier_hint', {}, 'Select a tour to see pricing tiers.'))}</span></div>
             <div class="tbv-table-wrap">
               <table class="tbv-table">
                 <thead>
                   <tr>
-                    <th>Traveller Type</th>
-                    <th class="align-right">Price / person</th>
-                    <th class="align-center">Qty</th>
-                    <th class="align-right">Subtotal</th>
+                    <th>${esc(t('tour_config.pricing.traveller_type'))}</th>
+                    <th class="align-right">${esc(t('tour_config.pricing.price_per_person'))}</th>
+                    <th class="align-center">${esc(t('tour_config.pricing.qty'))}</th>
+                    <th class="align-right">${esc(t('tour_config.pricing.subtotal'))}</th>
                   </tr>
                 </thead>
-                <tbody data-tbv-pax-rows="1"><tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr></tbody>
+                <tbody data-tbv-pax-rows="1"><tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">${esc(t('tour_config.pricing.select_pricing_tier'))}</td></tr></tbody>
               </table>
             </div>
             <div class="tbv-surplus tbv-warn" data-tbv-surplus="1"></div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(212,175,115,0.3)">
+              <div class="tbv-tier-label">${esc(t('tour_config.pricing.good_to_know'))}</div>
+              <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;color:#6b625a;font-size:12px;line-height:1.65">${defsMarkup}</ul>
+            </div>
           </div>
         </div>
         <div class="tbv-footer">
@@ -292,17 +408,17 @@
             <div class="tbv-status tbv-good" data-tbv-room-status="1"></div>
             <div class="tbv-total-box">
               <div class="tbv-total" data-tbv-total="1">—</div>
-              <div class="tbv-meta"><span data-tbv-meta="1">Calculating...</span></div>
+              <div class="tbv-meta"><span data-tbv-meta="1">${esc(t('tour_config.pricing.calculating'))}</span></div>
               <div class="tbv-rate-status" data-tbv-rate-status="1"></div>
-              <button type="button" class="tbv-payment-hook" data-tbv-payment="1">Continue to payment</button>
-              <div class="tbv-hook-note">Payment hook reserved for the future checkout flow.</div>
+              <button type="button" class="tbv-payment-hook" data-tbv-payment="1">${esc(t('public_booking.payment_hook_cta'))}</button>
+              <div class="tbv-hook-note">${esc(t('public_booking.payment_hook_note'))}</div>
             </div>
           </div>
         </div>
       </div>`;
   }
 
-  function createDrawerElements(root) {
+  function createDrawerElements(root, t, pricingDefinitions) {
     const overlay = document.createElement('div');
     overlay.className = 'tbv-overlay tbv-hidden';
     overlay.setAttribute('data-tbv-overlay', '1');
@@ -314,7 +430,7 @@
     drawer.setAttribute('data-tour-id', root.getAttribute('data-tour-id') || '');
     drawer.setAttribute('data-tenant-id', root.getAttribute('data-tenant-id') || '');
     drawer.setAttribute('data-currency', root.getAttribute('data-currency') || 'EUR');
-    drawer.innerHTML = buildViewMarkup('drawer');
+    drawer.innerHTML = buildViewMarkup('drawer', t, pricingDefinitions);
 
     document.body.appendChild(overlay);
     document.body.appendChild(drawer);
@@ -324,10 +440,17 @@
     drawer._tbvDrawer = drawer;
   }
 
-  function initView(root, mode) {
+  function initView(root, mode, messages) {
     const currency = root.getAttribute('data-currency') || 'EUR';
     const tourId = root.getAttribute('data-tour-id') || '';
     const tenantId = root.getAttribute('data-tenant-id') || '';
+    const t = (key, vars, fallback) => applyVars(getNestedValue(messages, key) ?? fallback ?? getNestedValue(DEFAULT_MESSAGES, key) ?? key, vars);
+    const pricingDefinitions = [
+      t('public_booking.def_infant'),
+      t('public_booking.def_children'),
+      t('public_booking.def_teens'),
+      t('public_booking.def_note'),
+    ].filter(Boolean);
     const phase1 = root.querySelector('[data-tbv-phase1]');
     const phase2 = root.querySelector('[data-tbv-phase2]');
     const phase2Footer = root.querySelector('[data-tbv-phase2-footer]');
@@ -352,10 +475,10 @@
     const singlesInput = root.querySelector('[data-tbv-singles]');
 
     const PAX_TYPES = [
-      { key: 'adult_shared_room_count', label: 'Adult Shared Room', priceField: 'adult_shared_room_price', step: 2 },
-      { key: 'adult_single_room_count', label: 'Adult Private Room', priceField: 'adult_single_room_price', step: 1 },
-      { key: 'child_count', label: 'Child with parents', priceField: 'child_shared_with_parents_price', step: 1 },
-      { key: 'infant_count', label: 'Infant', priceField: 'infant_price', step: 1 },
+      { key: 'adult_shared_room_count', label: t('public_booking.traveller_adult_shared'), priceField: 'adult_shared_room_price', step: 2 },
+      { key: 'adult_single_room_count', label: t('public_booking.traveller_adult_private'), priceField: 'adult_single_room_price', step: 1 },
+      { key: 'child_count', label: t('tour_config.pricing.child_with_parents'), priceField: 'child_shared_with_parents_price', step: 1 },
+      { key: 'infant_count', label: t('public_booking.traveller_infant'), priceField: 'infant_price', step: 1 },
     ];
 
     const state = {
@@ -429,8 +552,12 @@
 
     function getVisibleMethods(settings) {
       const methods = Array.isArray(settings?.payment_methods) ? settings.payment_methods.filter((method) => method.enabled) : [];
-      if (methods.length) return methods;
-      return [{ id: 'BANK_TRANSFER', label: 'Bank Transfer', enabled: true, category: 'manual' }];
+      const localizeMethod = (method) => ({
+        ...method,
+        label: t(`public_booking.method_${String(method.id || '').toLowerCase()}`, {}, method.label || method.id),
+      });
+      if (methods.length) return methods.map(localizeMethod);
+      return [localizeMethod({ id: 'BANK_TRANSFER', label: 'Bank transfer', enabled: true, category: 'manual' })];
     }
 
     function buildDemoResponse(methodId, guest) {
@@ -443,7 +570,7 @@
         payment_method: methodId,
         guest_name: guest.name,
         guest_email: guest.email,
-        note: 'Demo payment completed. This tenant has not configured a live electronic gateway yet, so no real order or charge was created.',
+        note: t('public_booking.payment_demo_success'),
         guest_portal_url: `${window.location.origin}${window.location.pathname}?demo_order=${orderId}`,
       };
     }
@@ -453,10 +580,10 @@
       const summary = [];
       if (result.order_id) summary.push(`<strong>Order</strong>: ${esc(result.order_id)}`);
       if (result.payment_method) summary.push(`<strong>Method</strong>: ${esc(result.payment_method)}`);
-      if (quote?.travelDate) summary.push(`<strong>Travel date</strong>: ${esc(quote.travelDate)}`);
+      if (quote?.travelDate) summary.push(`<strong>${esc(t('public_booking.payment_travel_date'))}</strong>: ${esc(quote.travelDate)}`);
       if (totalLabel) summary.push(`<strong>Total</strong>: ${esc(totalLabel)}`);
       container.className = `tbv-pay-status ${isDemo ? 'demo' : 'success'}`;
-      container.innerHTML = `<div>${esc(result.note || (isDemo ? 'Demo payment completed.' : 'Booking order created successfully.'))}</div><div style="margin-top:8px">${summary.join('<br>')}</div>${result.guest_portal_url ? `<a class="tbv-pay-portal" href="${esc(result.guest_portal_url)}" target="_blank" rel="noreferrer">Open guest portal</a>` : ''}`;
+      container.innerHTML = `<div>${esc(result.note || (isDemo ? t('public_booking.payment_demo_success') : t('public_booking.payment_success')))}</div><div style="margin-top:8px">${summary.join('<br>')}</div>${result.guest_portal_url ? `<a class="tbv-pay-portal" href="${esc(result.guest_portal_url)}" target="_blank" rel="noreferrer">${esc(t('public_booking.payment_portal'))}</a>` : ''}`;
     }
 
     function closePaymentSheet(sheet) {
@@ -475,18 +602,18 @@
       const overlay = createElement('div', { className: 'tbv-pay-overlay' });
       const panel = createElement('div', { className: 'tbv-pay-panel' });
       const statusBox = createElement('div', { className: 'tbv-pay-status tbv-hidden' });
-      const summaryBox = createElement('div', { className: 'tbv-pay-sum', html: `<div><strong>Total</strong>: ${esc(fmtMoney(quote.total, quote.currency || currency))}</div><div style="margin-top:6px"><strong>Travel date</strong>: ${esc(quote.travelDate)}</div><div style="margin-top:6px"><strong>Guests</strong>: ${esc(String((quote.pax?.adult_shared_room_count || 0) + (quote.pax?.adult_single_room_count || 0)))} adults, ${esc(String(quote.pax?.child_count || 0))} children</div>` });
+      const summaryBox = createElement('div', { className: 'tbv-pay-sum', html: `<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote.total, quote.currency || currency))}</div><div style="margin-top:6px"><strong>${esc(t('public_booking.payment_travel_date'))}</strong>: ${esc(quote.travelDate)}</div><div style="margin-top:6px"><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote.pax?.adult_shared_room_count || 0) + (quote.pax?.adult_single_room_count || 0)), children: String(quote.pax?.child_count || 0) }))}</div>` });
       const methodsWrap = createElement('div', { className: 'tbv-pay-methods' });
       const selectedMethod = { value: methods[0]?.id || 'BANK_TRANSFER' };
 
       methods.forEach((method, index) => {
         const methodCard = createElement('button', { type: 'button', className: `tbv-pay-method${index === 0 ? ' active' : ''}` });
-        methodCard.appendChild(createElement('div', { className: 'tbv-pay-method-title', html: `<span>${esc(method.label || method.id)}</span><span class="tbv-pay-badge ${esc(method.category || 'manual')}">${esc(method.category || 'manual')}</span>` }));
+        methodCard.appendChild(createElement('div', { className: 'tbv-pay-method-title', html: `<span>${esc(method.label || method.id)}</span><span class="tbv-pay-badge ${esc(method.category || 'manual')}">${esc(method.category === 'instant' ? t('public_booking.payment_category_instant') : t('public_booking.payment_category_manual'))}</span>` }));
         const desc = demoMode
-          ? 'Demo payment experience only. No real gateway is active for this tenant yet.'
+          ? t('public_booking.payment_method_desc_demo')
           : (method.category === 'instant'
-              ? 'Creates the real booking order and prepares the checkout handoff for the selected gateway.'
-              : 'Creates the real booking order and returns the manual payment / proof-upload next step.');
+              ? t('public_booking.payment_method_desc_instant')
+              : t('public_booking.payment_method_desc_manual'));
         methodCard.appendChild(createElement('p', { text: desc }));
         methodCard.addEventListener('click', () => {
           methodsWrap.querySelectorAll('.tbv-pay-method').forEach((entry) => entry.classList.remove('active'));
@@ -496,29 +623,29 @@
         methodsWrap.appendChild(methodCard);
       });
 
-      const nameInput = createElement('input', { type: 'text', placeholder: 'Guest full name' });
+      const nameInput = createElement('input', { type: 'text', placeholder: t('public_booking.guest_name') });
       const emailInput = createElement('input', { type: 'email', placeholder: 'guest@example.com' });
       const phoneInput = createElement('input', { type: 'text', placeholder: '+84...' });
-      const notesInput = createElement('textarea', { placeholder: demoMode ? 'Optional note for the demo checkout story' : 'Optional request for the operator' });
-      const submitBtn = createElement('button', { type: 'button', className: 'tbv-pay-submit', text: demoMode ? 'Run demo payment' : 'Create booking order' });
-      const cancelBtn = createElement('button', { type: 'button', className: 'tbv-pay-secondary', text: 'Cancel' });
+      const notesInput = createElement('textarea', { placeholder: demoMode ? t('public_booking.guest_note_placeholder_demo') : t('public_booking.guest_note_placeholder') });
+      const submitBtn = createElement('button', { type: 'button', className: 'tbv-pay-submit', text: demoMode ? t('public_booking.payment_submit_demo') : t('public_booking.payment_submit') });
+      const cancelBtn = createElement('button', { type: 'button', className: 'tbv-pay-secondary', text: t('public_booking.payment_cancel') });
       const intro = createElement('div', { className: 'tbv-pay-head' }, [
         createElement('div', {}, [
-          createElement('h3', { text: demoMode ? 'Demo payment flow' : 'Payment flow' }),
-          createElement('p', { text: demoMode ? 'This tenant has no live electronic gateway yet. Show a premium demo checkout instead of a dead end.' : 'Capture the guest identity, create the booking order, and hand off to the configured payment path.' }),
+          createElement('h3', { text: demoMode ? t('public_booking.payment_title_demo') : t('public_booking.payment_title') }),
+          createElement('p', { text: demoMode ? t('public_booking.payment_intro_demo') : t('public_booking.payment_intro') }),
         ]),
         createElement('button', { type: 'button', className: 'tbv-pay-close', text: '×' }),
       ]);
       const grid = createElement('div', { className: 'tbv-pay-grid' }, [
-        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Guest name' }), nameInput]),
-        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Email' }), emailInput]),
-        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: 'Phone' }), phoneInput]),
-        createElement('div', { className: 'tbv-pay-field full' }, [createElement('label', { text: 'Notes' }), notesInput]),
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: t('public_booking.guest_name') }), nameInput]),
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: t('public_booking.guest_email') }), emailInput]),
+        createElement('div', { className: 'tbv-pay-field' }, [createElement('label', { text: t('public_booking.guest_phone') }), phoneInput]),
+        createElement('div', { className: 'tbv-pay-field full' }, [createElement('label', { text: t('public_booking.guest_note') }), notesInput]),
       ]);
 
       panel.appendChild(intro);
       if (demoMode) {
-        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>Demo mode active.</strong><br>${esc(settings?.compliance?.message || 'No live gateway configured yet.')}` }));
+        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(settings?.compliance?.message || t('public_booking.payment_demo_message'))}` }));
       }
       panel.appendChild(summaryBox);
       panel.appendChild(grid);
@@ -542,11 +669,11 @@
         };
         if (!guest.name || !guest.email) {
           statusBox.className = 'tbv-pay-status error';
-          statusBox.textContent = 'Guest name and email are required.';
+          statusBox.textContent = t('public_booking.payment_guest_required');
           return;
         }
         submitBtn.disabled = true;
-        submitBtn.textContent = demoMode ? 'Running demo…' : 'Creating order…';
+        submitBtn.textContent = demoMode ? t('public_booking.payment_submit_loading_demo') : t('public_booking.payment_submit_loading');
         try {
           let result;
           if (demoMode) {
@@ -572,7 +699,7 @@
             });
             result = await response.json();
             if (!response.ok || !result?.ok) {
-              throw new Error(result?.error || 'Could not create booking order.');
+              throw new Error(result?.error || t('public_booking.payment_error_generic'));
             }
             emitEvent('travelagent:public-booking-order-created', {
               ...quote,
@@ -585,10 +712,10 @@
           renderPaymentResult(statusBox, result, quote, demoMode);
         } catch (error) {
           statusBox.className = 'tbv-pay-status error';
-          statusBox.textContent = error?.message || 'Could not continue to payment.';
+          statusBox.textContent = error?.message || t('public_booking.payment_error_generic');
         } finally {
           submitBtn.disabled = false;
-          submitBtn.textContent = demoMode ? 'Run demo payment' : 'Create booking order';
+          submitBtn.textContent = demoMode ? t('public_booking.payment_submit_demo') : t('public_booking.payment_submit');
         }
       });
     }
@@ -720,7 +847,7 @@
       const minRooms = Math.ceil(adults / 2);
       if (privatePax > 0 && totalRooms > minRooms) {
         surplusHint.style.display = 'block';
-        surplusHint.textContent = 'Note: Single supplement applied for rooms with sole occupancy.';
+        surplusHint.textContent = t('tour_config.pricing.room_hint_single_supplement');
       } else {
         surplusHint.style.display = 'none';
       }
@@ -744,7 +871,7 @@
 
     function renderPaxRows(priceRow) {
       if (!state.calcState.segmentId) {
-        paxRows.innerHTML = '<tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">Select a pricing tier above.</td></tr>';
+        paxRows.innerHTML = `<tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px">${esc(t('tour_config.pricing.select_pricing_tier'))}</td></tr>`;
         return;
       }
       paxRows.innerHTML = PAX_TYPES.map((type) => {
@@ -769,13 +896,13 @@
       renderPaxRows(priceRow);
       if (!segmentId || totalPax === 0) {
         totalEl.textContent = '—';
-        metaEl.textContent = totalPax === 0 ? 'Add travellers above.' : 'Select a pricing tier.';
+        metaEl.textContent = totalPax === 0 ? t('tour_config.pricing.add_travellers_above') : t('tour_config.pricing.select_pricing_tier_short');
         rateStatusEl.style.display = 'none';
         return;
       }
       const localTotal = PAX_TYPES.reduce((sum, type) => sum + (paxSnap[type.key] || 0) * (priceRow ? (Number(priceRow[type.priceField]) || 0) : 0), 0);
       totalEl.textContent = fmtMoney(localTotal, currency);
-      metaEl.textContent = 'Total for group';
+      metaEl.textContent = t('tour_config.pricing.total_for_group');
       updateSurplusHint();
       state.lastQuote = buildPaymentPayload(localTotal);
       syncPaymentHook(state.lastQuote);
@@ -785,7 +912,7 @@
         .sort((left, right) => left.min_pax - right.min_pax)
         .find((band) => totalPax >= band.min_pax && totalPax <= band.max_pax);
       if (localBand) {
-        rateStatusEl.textContent = `${localBand.name} (${localBand.min_pax} - ${localBand.max_pax})`;
+        rateStatusEl.textContent = t('tour_config.pricing.band_summary', { name: localBand.name, min: String(localBand.min_pax), max: String(localBand.max_pax) });
         rateStatusEl.style.display = 'inline-block';
       } else {
         rateStatusEl.style.display = 'none';
@@ -800,8 +927,8 @@
         const result = await response.json();
         if (!response.ok || !result?.ok || segmentId !== state.calcState.segmentId) return;
         const labels = [];
-        if (result.applied_season_name) labels.push(`Current rate: ${result.applied_season_name}`);
-        if (result.pax_band_name) labels.push(`Band: ${result.pax_band_name}`);
+        if (result.applied_season_name) labels.push(t('tour_config.pricing.current_rate', { season: result.applied_season_name }));
+        if (result.pax_band_name) labels.push(t('tour_config.pricing.band_current', { name: result.pax_band_name }));
         if (labels.length) {
           rateStatusEl.textContent = labels.join(' | ');
           rateStatusEl.style.display = 'inline-block';
@@ -832,7 +959,7 @@
       calcButton.disabled = false;
       syncPaymentHook(buildPaymentPayload(null));
       if (!segments.length) {
-        segTabs.innerHTML = '<span style="color:#94a3b8;font-size:13px">No pricing tiers configured.</span>';
+        segTabs.innerHTML = `<span style="color:#94a3b8;font-size:13px">${esc(t('tour_config.pricing.no_segments_configured'))}</span>`;
         state.calcState.segmentId = null;
         return;
       }
@@ -915,12 +1042,21 @@
     }
   }
 
-  function init() {
+  async function init() {
     injectStyles();
+    const lang = normalizeLang(document.documentElement.lang || navigator.language || 'en');
+    const messages = await loadLocaleMessages(lang);
+    const t = (key, vars, fallback) => applyVars(getNestedValue(messages, key) ?? fallback ?? getNestedValue(DEFAULT_MESSAGES, key) ?? key, vars);
+    const pricingDefinitions = [
+      t('public_booking.def_infant'),
+      t('public_booking.def_children'),
+      t('public_booking.def_teens'),
+      t('public_booking.def_note'),
+    ].filter(Boolean);
     const drawerHosts = Array.from(document.querySelectorAll('[data-public-booking-host="drawer"]'));
     drawerHosts.forEach((root) => {
-      createDrawerElements(root);
-      initView(root._tbvDrawer, 'drawer');
+      createDrawerElements(root, t, pricingDefinitions);
+      initView(root._tbvDrawer, 'drawer', messages);
     });
 
     const roots = Array.from(document.querySelectorAll(VIEW_SELECTOR));
@@ -928,8 +1064,8 @@
       const mode = root.getAttribute('data-mode') || 'inline';
       if (mode !== 'drawer') {
         root.classList.add('tbv-inline');
-        root.innerHTML = buildViewMarkup('inline');
-        initView(root, 'inline');
+        root.innerHTML = buildViewMarkup('inline', t, pricingDefinitions);
+        initView(root, 'inline', messages);
       }
     });
 
