@@ -1,0 +1,111 @@
+{
+  "common": {
+    "yes": "Sí",
+    "no": "No",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "reload": "Recargar",
+    "edit": "Editar",
+    "create": "Crear",
+    "search": "Buscar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "required": "Obligatorio"
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "Inglés",
+    "vi": "Vietnamita",
+    "zh": "Chino",
+    "ja": "Japonés",
+    "ko": "Coreano",
+    "de": "Alemán",
+    "fr": "Francés",
+    "es": "Español"
+  },
+  "currency": {
+    "display_currency": "Moneda secundaria de visualización",
+    "secondary_display_currency": "Moneda secundaria de visualización"
+  },
+  "pricing": {
+    "title": "Precios",
+    "season": "Temporada",
+    "segment": "Segmento",
+    "pax_band": "Rango de viajeros",
+    "base_currency": "Moneda base de la tarifa",
+    "exchange_rate": "Tipo de cambio"
+  },
+  "invoice": {
+    "title": "Factura",
+    "detail": "Detalle de la factura",
+    "grand_total": "Total general",
+    "subtotal": "Subtotal",
+    "unit_price": "Precio unitario",
+    "qty": "Cant.",
+    "adult_shared_room": "Adulto (habitación compartida)",
+    "adult_private_room": "Adulto (habitación individual)",
+    "child": "Niño (2–11 años)",
+    "infant": "Bebé (0–2 años)"
+  },
+  "auth": {
+    "shared": {
+      "email_label": "Correo electrónico",
+      "password_label": "Contraseña",
+      "google_hint_disabled": "El acceso con Google aparecerá cuando GOOGLE_CLIENT_ID esté configurado.",
+      "google_hint_signup_enabled": "Puede crear su cuenta con correo electrónico o Google.",
+      "google_hint_login_enabled": "Puede iniciar sesión con correo electrónico o Google.",
+      "google_load_failed": "No se pudo cargar Google Sign-In. Use correo electrónico y contraseña.",
+      "google_continue": "Continuar con Google",
+      "or": "o",
+      "network_error": "Error de conexión. Inténtelo de nuevo."
+    },
+    "signup": {
+      "meta_title": "Registro - TravelAgent",
+      "name_label": "Nombre de marca / equipo / agencia",
+      "password_label": "Crear contraseña",
+      "proof": "Obligatorio: elija un plan de producto, introduzca su correo electrónico y cree una contraseña. El nombre de su marca o equipo se usará para crear el espacio de trabajo.",
+      "tier_hint": "Elija un plan ahora. Oferta de lanzamiento: 0 EUR durante 6 meses y después comenzará el plan mensual seleccionado.",
+      "market_skin_label": "Preajuste de mercado principal",
+      "market_skin_hint": "Elija el preajuste que mejor se adapte a su mercado principal de clientes. El idioma y la moneda podrán cambiarse después.",
+      "submit": "Crear cuenta",
+      "busy": "Creando cuenta...",
+      "success": "Se está creando su espacio de trabajo...",
+      "login_prompt": "¿Ya tiene una cuenta?",
+      "login_link": "Iniciar sesión ->"
+    },
+    "login": {
+      "meta_title": "Iniciar sesión - TravelAgent",
+      "subtitle": "Inicie sesión en su panel de operaciones turísticas.",
+      "submit": "Iniciar sesión",
+      "busy": "Iniciando sesión..."
+    },
+    "reset_password": {
+      "meta_title": "Restablecer contraseña - TravelAgent",
+      "subtitle": "Solicite un enlace de restablecimiento o establezca una nueva contraseña.",
+      "request_submit": "Enviar enlace de restablecimiento",
+      "confirm_submit": "Actualizar contraseña",
+      "back_to_login": "Volver al inicio de sesión"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Elija su plan de producto",
+    "catalog_hint": "Empiece ahora con un plan activo. Los planes futuros siguen visibles como referencia del roadmap.",
+    "per_user_month": "EUR {{price}} / usuario / mes",
+    "status_active": "Disponible ahora",
+    "status_future": "Plan futuro"
+  },
+  "widget": {
+    "title": "Consultar precio y reservar",
+    "button_label": "Reservar ahora",
+    "date_label": "Fecha de viaje",
+    "pax_label": "Número de viajeros",
+    "segment_label": "Paquete",
+    "check_btn": "Consultar precio",
+    "checking": "Consultando...",
+    "book_btn": "Continuar con la reserva",
+    "per_person": "/ persona",
+    "total": "Estimación total"
+  }
+}

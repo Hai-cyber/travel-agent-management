@@ -1,0 +1,24 @@
+{
+  "currency": {
+    "display_currency": "Secondary Display Currency",
+    "secondary_display_currency": "Secondary Display Currency"
+  },
+  "auth": {
+    "signup": {
+      "meta_title": "Sign Up - TravelAgent UK",
+      "market_skin_label": "Primary Market Preset",
+      "market_skin_hint": "Choose the preset that best matches your main customer market. Language and currency can still be overridden later.",
+      "offer": "£0 for 6 months, then your selected plan. Cancel any time."
+    },
+    "login": {
+      "meta_title": "Sign In - TravelAgent UK"
+    },
+    "reset_password": {
+      "meta_title": "Reset Password - TravelAgent UK"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Choose your product plan",
+    "catalog_hint": "Start with an active plan now. Future tiers remain visible for roadmap clarity."
+  }
+}

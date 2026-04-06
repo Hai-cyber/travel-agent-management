@@ -87,7 +87,17 @@ bookings.post('/draft', async (c) => {
       expires_at:          expiresAt,
       grand_total:         priceResult.totals.grand_total,
       applied_season_name: priceResult.applied_season_name,
+      pax_band_name:       priceResult.pax_band_name,
+      segment_code:        priceResult.segment_code,
       segment_name:        priceResult.segment_name,
+      unit_prices:         priceResult.prices,
+      invoice:             priceResult.totals ? {
+        grand_total: priceResult.totals.grand_total,
+        shared_room_subtotal: priceResult.totals.shared_room_subtotal ?? 0,
+        single_room_subtotal: priceResult.totals.single_room_subtotal ?? 0,
+        children_subtotal: priceResult.totals.children_subtotal ?? 0,
+        infants_subtotal: priceResult.totals.infants_subtotal ?? 0,
+      } : null,
     }, 201);
 
   } catch (err) {
@@ -373,7 +383,11 @@ bookings.post('/order', async (c) => {
         status:             'PENDING_ARRIVAL',
         payment_method:     rawMethod,
         grand_total_usd:    priceResult.totals.grand_total,
+        applied_season_name: priceResult.applied_season_name,
+        pax_band_name:       priceResult.pax_band_name,
+        segment_code:        priceResult.segment_code,
         segment_name:       priceResult.segment_name,
+        unit_prices:        priceResult.prices,
         guest_portal_token: secureToken,
         guest_portal_url:   `/api/bookings/public/${secureToken}`,
         note:               'Đặt chỗ thành công. Khách sẽ thanh toán khi gặp nhân viên. Danh tính bị khoá cho đến khi nhân viên mở khoá thủ công.',
@@ -391,7 +405,11 @@ bookings.post('/order', async (c) => {
         status:              initialStatus,
         payment_method:      rawMethod,
         grand_total_usd:     priceResult.totals.grand_total,
+        applied_season_name: priceResult.applied_season_name,
+        pax_band_name:       priceResult.pax_band_name,
+        segment_code:        priceResult.segment_code,
         segment_name:        priceResult.segment_name,
+        unit_prices:         priceResult.prices,
         // Guest portal — guest can check status after payment
         guest_portal_token:  secureToken,
         guest_portal_url:    `/api/bookings/public/${secureToken}`,
@@ -414,7 +432,11 @@ bookings.post('/order', async (c) => {
         ? 'Extended to 72 hours because the standard 48-hour window falls on a weekend.'
         : 'Payment required within 48 hours.',
       grand_total_usd: priceResult.totals.grand_total,
+      applied_season_name: priceResult.applied_season_name,
+      pax_band_name:       priceResult.pax_band_name,
+      segment_code:        priceResult.segment_code,
       segment_name:    priceResult.segment_name,
+      unit_prices:     priceResult.prices,
       guest_portal_token: secureToken,
       guest_portal_url:   `/api/bookings/public/${secureToken}`,
     }, 201);

@@ -711,6 +711,7 @@
     }
 
     .media-picker-card {
+      position: relative;
       display: grid;
       gap: 8px;
       padding: 10px;
@@ -895,7 +896,9 @@
         const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
         const isSameOrigin = absolute.origin === window.location.origin;
         const isR2Asset = absolute.hostname.endsWith('.r2.dev');
+        const isTenantAssetApi = absolute.pathname.startsWith('/api/tenant/assets/');
         if (isLocalDev) return absolute.href;
+        if (isTenantAssetApi) return absolute.href;
         if (!isSameOrigin && !isR2Asset) return absolute.href;
         const width = Math.max(64, Number(options.width || 640));
         const height = Math.max(64, Number(options.height || 640));
@@ -906,6 +909,11 @@
       } catch {
         return cleanUrl;
       }
+    }
+
+    function getBrokenPreviewOnError(message = 'Preview unavailable. Replace or remove this image.') {
+      const html = `<div class=&quot;preview-placeholder&quot;>${esc(message)}</div>`;
+      return esc(`this.onerror=null;var wrap=this.closest('.preview-media')||this.parentElement;if(wrap) wrap.innerHTML='${html}';`);
     }
 
     function inspectImageFile(file) {
@@ -1184,7 +1192,7 @@
           ${removeFieldId ? `<button type="button" class="preview-remove-btn" data-preview-clear-field="${esc(removeFieldId)}" aria-label="Remove image">Remove</button>` : ''}
           ${removeGalleryIndex !== null ? `<button type="button" class="preview-remove-btn" data-preview-remove-gallery-index="${removeGalleryIndex}" aria-label="Remove gallery image">Remove</button>` : ''}
           <div class="preview-media ${compact ? 'compact' : ''}">
-            <img src="${esc(getOptimizedImageUrl(cleanUrl, { width: compact ? 320 : 960, height: compact ? 240 : 720, quality: 74 }))}" alt="${esc(label)}" loading="lazy" />
+            <img src="${esc(getOptimizedImageUrl(cleanUrl, { width: compact ? 320 : 960, height: compact ? 240 : 720, quality: 74 }))}" alt="${esc(label)}" loading="lazy" onerror="${getBrokenPreviewOnError('Preview unavailable. Replace or remove this image.')}" />
           </div>
           <div class="preview-meta">
             <span>${esc(label)}</span>
@@ -1198,6 +1206,7 @@
       const labelPrefix = options.labelPrefix || 'Image';
       const emptyMessage = options.emptyMessage || 'No images yet. Add one URL per line or upload from tenant media.';
       const compact = options.compact !== false;
+      const allowRemove = options.allowRemove !== false;
       const items = (Array.isArray(urls) ? urls : []).map((entry, index) => {
         if (entry && typeof entry === 'object') {
           return { url: String(entry.url || '').trim(), index: Number.isInteger(entry.index) ? entry.index : index };
@@ -1212,7 +1221,7 @@
         label: `${labelPrefix} ${index + 1}`,
         badge: index === 0 ? (options.primaryBadge || 'Primary') : '',
         compact,
-        removeGalleryIndex: item.index,
+        removeGalleryIndex: allowRemove ? item.index : null,
       })).join('')}</div>`;
     }
 
@@ -1279,6 +1288,31 @@
       const urls = String(field.value || '').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
       preview.innerHTML = getImagePreviewListHtml(urls.map((url, index) => ({ url, index })), { ...options, targetInputId: textareaId });
       bindPreviewRemoveActions();
+    }
+
+    function collectGalleryRowUrls() {
+      return [...document.querySelectorAll('[data-gallery-row]')]
+        .map((row, index) => {
+          const input = row.querySelector('[data-gallery-src]');
+          const url = String(input?.value || '').trim();
+          if (!url) return null;
+          return { url, index };
+        })
+        .filter(Boolean);
+    }
+
+    function renderGalleryRowsPreview() {
+      const preview = $('gallery-rows-preview');
+      if (!preview) return;
+      const items = collectGalleryRowUrls();
+      preview.innerHTML = getImagePreviewListHtml(items, {
+        targetInputId: '',
+        labelPrefix: 'Gallery image',
+        emptyMessage: 'Gallery preview appears here as soon as you upload or paste images into the rows below.',
+        primaryBadge: 'Primary',
+        compact: false,
+        allowRemove: false,
+      });
     }
 
     function bindPreviewRemoveActions() {
@@ -1357,13 +1391,14 @@
         return '<div class="helper-card"><div class="subheading">No tenant images yet</div><p class="hint">Upload one file from local drive and it will immediately become reusable across destinations, hotels, and gallery rows.</p></div>';
       }
       return `<div class="media-picker-grid">${items.map((item, index) => `
-        <button type="button" class="media-picker-card" data-media-picker-asset data-asset-url="${esc(item.url || '')}">
+        <div class="media-picker-card" data-media-picker-asset data-asset-url="${esc(item.url || '')}" role="button" tabindex="0" aria-label="Use ${esc(item.filename || `Image ${index + 1}`)}">
+          <button type="button" class="preview-remove-btn" data-delete-asset="${esc(item.filename || '')}" aria-label="Delete tenant image">Remove</button>
           <div class="preview-media compact">
-            <img src="${esc(getOptimizedImageUrl(item.url || '', { width: 320, height: 320, quality: 72 }))}" alt="${esc(item.filename || `Image ${index + 1}`)}" loading="lazy" />
+            <img src="${esc(getOptimizedImageUrl(item.url || '', { width: 320, height: 320, quality: 72 }))}" alt="${esc(item.filename || `Image ${index + 1}`)}" loading="lazy" onerror="${getBrokenPreviewOnError('Stored asset preview failed. You can remove this image from tenant gallery.')}" />
           </div>
           <div class="media-picker-card-title">${esc(item.filename || `Image ${index + 1}`)}</div>
           <div class="media-picker-card-meta">${esc(item.mime || 'image')}<br>${esc(item.url || '')}</div>
-        </button>
+        </div>
       `).join('')}</div>`;
     }
 
@@ -1419,6 +1454,8 @@
           }
         };
       }
+
+      bindMediaAssetDeleteActions();
     }
 
     function renderMediaPicker() {
@@ -1432,6 +1469,13 @@
       $('media-picker-count').textContent = `${getRecentImageAssets(120).length} image${getRecentImageAssets(120).length === 1 ? '' : 's'}`;
       $('media-picker-library').innerHTML = buildMediaPickerCards();
       bindMediaPickerActions();
+    }
+
+    async function deleteAssetFile(filename) {
+      if (!filename) throw new Error('Missing filename.');
+      return api(`/api/tenant/assets/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+      });
     }
 
     function buildAssetPaletteButtons(targetInputId, appendMode = false) {
@@ -1557,6 +1601,35 @@
       field.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    function removeAssetReferencesFromOpenFields(assetUrl) {
+      const deadUrl = String(assetUrl || '').trim();
+      if (!deadUrl) return;
+
+      document.querySelectorAll('#editor-body input[type="text"], #editor-body textarea').forEach((field) => {
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return;
+        const current = String(field.value || '').trim();
+        if (!current) return;
+
+        if (field.tagName === 'TEXTAREA') {
+          const nextLines = current
+            .split(/\r?\n/)
+            .map((entry) => entry.trim())
+            .filter((entry) => entry && entry !== deadUrl);
+          const nextValue = nextLines.join('\n');
+          if (nextValue === current) return;
+          field.value = nextValue;
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+          return;
+        }
+
+        if (current !== deadUrl) return;
+        field.value = '';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
     function refreshAssetPalettes() {
       document.querySelectorAll('[data-asset-palette]').forEach((node) => {
         const targetInputId = node.dataset.targetInput || '';
@@ -1623,6 +1696,30 @@
             setStatus(error.message || 'Image upload failed.', 'error');
           } finally {
             input.value = '';
+          }
+        };
+      });
+    }
+
+    function bindMediaAssetDeleteActions() {
+      document.querySelectorAll('[data-delete-asset]').forEach((button) => {
+        button.onclick = async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const filename = String(button.dataset.deleteAsset || '').trim();
+          const assetCard = button.closest('[data-media-picker-asset]');
+          const assetUrl = String(assetCard?.dataset.assetUrl || '').trim();
+          if (!filename) return;
+          try {
+            setStatus(`Removing ${filename} from tenant gallery...`);
+            await deleteAssetFile(filename);
+            state.assets = state.assets.filter((item) => String(item?.filename || '') !== filename);
+            removeAssetReferencesFromOpenFields(assetUrl);
+            refreshAssetPalettes();
+            renderMediaPicker();
+            setStatus('Broken or unused tenant image removed.', 'ok');
+          } catch (error) {
+            setStatus(error.message || 'Failed to delete tenant image.', 'error');
           }
         };
       });
@@ -1889,14 +1986,22 @@
           title: 'Add gallery image',
           note: 'Choose one of two paths: upload from local drive or pick an image already in the tenant gallery. New uploads are inserted into this gallery row immediately.',
         });
+        renderGalleryRowsPreview();
       });
       document.querySelectorAll('[data-remove-gallery-row]').forEach((button) => {
         button.onclick = () => {
           button.closest('[data-gallery-row]')?.remove();
+          renderGalleryRowsPreview();
         };
       });
       bindAssetToolActions();
       bindPreviewInputs();
+      document.querySelectorAll('[data-gallery-src]').forEach((field) => {
+        const rerender = () => renderGalleryRowsPreview();
+        field.addEventListener('input', rerender);
+        field.addEventListener('change', rerender);
+      });
+      renderGalleryRowsPreview();
     }
 
     function renderGalleryEditor() {
@@ -1922,6 +2027,11 @@
               <p class="hint">Add images one by one, upload directly into tenant media, and choose exactly which ones appear on the homepage gallery. Current source status: ${galleryMetrics.galleryCount} image(s), ${galleryMetrics.homeCount} homepage pick(s), ${galleryMetrics.hasHero ? 'hero image ready' : 'no hero image yet'}.</p>
             </div>
             <button id="btn-add-gallery-row" class="button primary small" type="button">Add Image</button>
+          </div>
+          <div style="margin:14px 0 16px">
+            <div class="subheading">Live Gallery Preview</div>
+            <p class="hint">This updates immediately when you upload, paste, remove, or reorder gallery row values, so the Gallery tab is never blind.</p>
+            <div id="gallery-rows-preview" class="preview-grid"></div>
           </div>
           <div id="gallery-rows" class="gallery-rows">${galleryItems.map((item, index) => createGalleryRow(item, homeSelections.has(item.src), index)).join('') || createGalleryRow({}, false, 0)}</div>
         </div>

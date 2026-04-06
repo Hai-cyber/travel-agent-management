@@ -197,7 +197,8 @@
       margin-top: 16px;
       font-family: 'Segoe UI', sans-serif;
     }
-    input {
+    input,
+    select {
       width: 100%;
       padding: 12px 14px;
       border: 1.5px solid #e2e8f0;
@@ -209,9 +210,17 @@
       font-family: 'Segoe UI', sans-serif;
       background: #fff;
     }
-    input:focus {
+    input:focus,
+    select:focus {
       border-color: #2563eb;
       box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+    }
+    .field-hint {
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+      font-family: 'Segoe UI', sans-serif;
     }
     .signup-proof {
       margin-top: 14px;
@@ -372,6 +381,12 @@
           </label>
           <input id="f-password" type="password" placeholder="Create a password with at least 8 characters" required minlength="8" autocomplete="new-password" />
 
+          <label class="field-label" for="f-market-skin">
+            <span id="label-market-skin">Primary market preset</span>
+          </label>
+          <select id="f-market-skin"></select>
+          <div class="field-hint" id="hint-market-skin">Choose the preset that best matches your main customer market. You can still override language and currency later.</div>
+
           <div class="turnstile-shell" id="turnstile-shell">
             <div class="turnstile-note" id="turnstile-note">Complete verification before creating your account.</div>
             <div id="turnstile-container"></div>
@@ -456,6 +471,8 @@
   document.getElementById('label-email').textContent = shared('email_label', 'Email');
   document.getElementById('label-name').textContent = page('name_label', 'Brand / team / agency name');
   document.getElementById('label-password').textContent = page('password_label', 'Create password');
+  document.getElementById('label-market-skin').textContent = page('market_skin_label', 'Primary market preset');
+  document.getElementById('hint-market-skin').textContent = page('market_skin_hint', 'Choose the preset that best matches your main customer market. You can still override language and currency later.');
   document.getElementById('f-email').placeholder = shared('email_placeholder', 'agency@example.com');
   document.getElementById('f-name').placeholder = page('name_placeholder', 'Sunset Journeys');
   document.getElementById('f-password').placeholder = page('password_placeholder', 'Create a password with at least 8 characters');
@@ -475,6 +492,25 @@
   const tierCatalog = await fetch('/api/auth/product-tiers', {
     headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
   }).then((res) => res.json()).catch(() => null);
+  const marketSkinSelect = document.getElementById('f-market-skin');
+  let selectedMarketSkinKey = 'global-default';
+
+  const marketSkinCatalog = await fetch('/api/auth/market-skins', {
+    headers: { 'Accept-Language': document.documentElement.lang || navigator.language || 'en' },
+  }).then((res) => res.json()).catch(() => null);
+
+  if (marketSkinCatalog?.ok && Array.isArray(marketSkinCatalog.market_skins) && marketSkinSelect) {
+    selectedMarketSkinKey = marketSkinCatalog.default_market_skin_key || 'global-default';
+    marketSkinSelect.innerHTML = marketSkinCatalog.market_skins.map((skin) => {
+      const localeLabel = escapeHtml(skin.default_locale || 'en-US');
+      const currencyLabel = escapeHtml(skin.booking_currency || 'USD');
+      return `<option value="${escapeHtml(skin.key)}">${escapeHtml(skin.label)} · ${localeLabel} · ${currencyLabel}</option>`;
+    }).join('');
+    marketSkinSelect.value = selectedMarketSkinKey;
+    marketSkinSelect.addEventListener('change', () => {
+      selectedMarketSkinKey = marketSkinSelect.value || 'global-default';
+    });
+  }
 
   if (tierCatalog?.ok && Array.isArray(tierCatalog?.tiers)) {
     document.getElementById('tier-title').textContent = tierCatalog.title || 'Choose your product tier';
@@ -547,7 +583,7 @@
           'Content-Type': 'application/json',
           'Accept-Language': document.documentElement.lang || navigator.language || 'en',
         },
-        body: JSON.stringify({ email, tenant_name: name, password, product_tier_key: selectedProductTierKey, turnstile_token: turnstileToken }),
+        body: JSON.stringify({ email, tenant_name: name, password, product_tier_key: selectedProductTierKey, market_skin_key: selectedMarketSkinKey, turnstile_token: turnstileToken }),
       });
 
       const data = await res.json();
@@ -635,7 +671,7 @@
               'Content-Type': 'application/json',
               'Accept-Language': document.documentElement.lang || navigator.language || 'en',
             },
-            body: JSON.stringify({ id_token: response.credential, tenant_name: name, product_tier_key: selectedProductTierKey, turnstile_token: turnstileToken }),
+            body: JSON.stringify({ id_token: response.credential, tenant_name: name, product_tier_key: selectedProductTierKey, market_skin_key: selectedMarketSkinKey, turnstile_token: turnstileToken }),
           });
           const data = await res.json();
           if (!res.ok) {

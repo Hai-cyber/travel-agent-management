@@ -98,11 +98,8 @@
   }
 
   function normalizeLang(value) {
-    const raw = String(value || '').trim().toLowerCase();
-    if (!raw) return 'en';
-    if (raw.startsWith('vi')) return 'vi';
-    if (raw.startsWith('zh')) return 'zh';
-    return 'en';
+    const raw = String(value || '').trim().replace(/_/g, '-');
+    return raw || 'en';
   }
 
   async function loadLocaleMessages(lang) {
@@ -306,9 +303,20 @@
       EUR: { locale: 'de-DE', opts: { style: 'currency', currency: 'EUR' } },
       USD: { locale: 'en-US', opts: { style: 'currency', currency: 'USD' } },
       VND: { locale: 'vi-VN', opts: { style: 'currency', currency: 'VND', maximumFractionDigits: 0 } },
+      CNY: { locale: 'zh-CN', opts: { style: 'currency', currency: 'CNY' } },
+      JPY: { locale: 'ja-JP', opts: { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 } },
+      KRW: { locale: 'ko-KR', opts: { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 } },
+      GBP: { locale: 'en-GB', opts: { style: 'currency', currency: 'GBP' } },
+      AUD: { locale: 'en-AU', opts: { style: 'currency', currency: 'AUD' } },
+      SGD: { locale: 'en-SG', opts: { style: 'currency', currency: 'SGD' } },
+      THB: { locale: 'th-TH', opts: { style: 'currency', currency: 'THB' } },
     };
     const cfg = map[currency] || map.EUR;
-    return new Intl.NumberFormat(cfg.locale, cfg.opts).format(Number(value));
+    try {
+      return new Intl.NumberFormat(cfg.locale, cfg.opts).format(Number(value));
+    } catch {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(Number(value));
+    }
   }
 
   function esc(value) {
@@ -501,6 +509,7 @@
     }
 
     function buildPaymentPayload(total = null) {
+      const activeSegment = state.pricingData.segments.find((segment) => String(segment.id) === String(state.calcState.segmentId)) || null;
       return {
         tenantId,
         tourId,
@@ -509,6 +518,44 @@
         pax: { ...state.calcState.pax },
         currency,
         total,
+        segmentName: activeSegment?.name || '',
+        segmentCode: activeSegment?.code || '',
+        paxBandId: '',
+        paxBandName: '',
+        seasonId: '',
+        seasonName: '',
+        unitPrices: {
+          adult_shared_room: 0,
+          adult_single_room: 0,
+          child_shared_with_parents: 0,
+          infant: 0,
+        },
+        invoice: null,
+        notes: '',
+      };
+    }
+
+    function buildPaymentPayloadWithQuote(total, quoteResult = {}, priceData = {}) {
+      const basePayload = buildPaymentPayload(total);
+      const activeSegment = state.pricingData.segments.find((segment) => String(segment.id) === String(state.calcState.segmentId)) || null;
+      const unitPrices = {
+        adult_shared_room: Number(priceData.adult_shared_room ?? priceData.adult_shared_room_price ?? 0),
+        adult_single_room: Number(priceData.adult_single_room ?? priceData.adult_single_room_price ?? 0),
+        child_shared_with_parents: Number(priceData.child_shared_with_parents ?? priceData.child_shared_with_parents_price ?? 0),
+        infant: Number(priceData.infant ?? priceData.infant_price ?? 0),
+      };
+
+      return {
+        ...basePayload,
+        segmentName: quoteResult.segment_name || activeSegment?.name || basePayload.segmentName,
+        segmentCode: quoteResult.segment_code || activeSegment?.code || basePayload.segmentCode,
+        paxBandId: quoteResult.pax_band_id || '',
+        paxBandName: quoteResult.pax_band_name || '',
+        seasonId: quoteResult.season_id || '',
+        seasonName: quoteResult.applied_season_name || '',
+        unitPrices,
+        invoice: quoteResult.invoice || null,
+        notes: quoteResult.notes || '',
       };
     }
 
@@ -520,10 +567,20 @@
       paymentButton.dataset.paymentSegmentId = safePayload.segmentId || '';
       paymentButton.dataset.paymentTravelDate = safePayload.travelDate || '';
       paymentButton.dataset.paymentCurrency = safePayload.currency || '';
+      paymentButton.dataset.paymentSegmentName = safePayload.segmentName || '';
+      paymentButton.dataset.paymentSegmentCode = safePayload.segmentCode || '';
+      paymentButton.dataset.paymentPaxBandId = safePayload.paxBandId || '';
+      paymentButton.dataset.paymentPaxBandName = safePayload.paxBandName || '';
+      paymentButton.dataset.paymentSeasonId = safePayload.seasonId || '';
+      paymentButton.dataset.paymentSeasonName = safePayload.seasonName || '';
       paymentButton.dataset.paymentAdultsShared = String(safePayload.pax?.adult_shared_room_count || 0);
       paymentButton.dataset.paymentAdultsPrivate = String(safePayload.pax?.adult_single_room_count || 0);
       paymentButton.dataset.paymentChildren = String(safePayload.pax?.child_count || 0);
       paymentButton.dataset.paymentInfants = String(safePayload.pax?.infant_count || 0);
+      paymentButton.dataset.paymentSharedRoomPrice = String(safePayload.unitPrices?.adult_shared_room ?? '');
+      paymentButton.dataset.paymentPrivateRoomPrice = String(safePayload.unitPrices?.adult_single_room ?? '');
+      paymentButton.dataset.paymentChildPrice = String(safePayload.unitPrices?.child_shared_with_parents ?? '');
+      paymentButton.dataset.paymentInfantPrice = String(safePayload.unitPrices?.infant ?? '');
       paymentButton.dataset.paymentTotal = safePayload.total == null ? '' : String(safePayload.total);
       paymentButton.disabled = !safePayload.segmentId || !safePayload.travelDate || (safePayload.total == null);
     }
@@ -534,18 +591,41 @@
         const response = await fetch('/api/payments/settings', {
           headers: { 'X-Tenant-ID': tenantId, 'Accept-Language': normalizeLang(document.documentElement.lang || navigator.language || 'en') },
         });
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('AUTH_REQUIRED_FOR_PAYMENT_SETTINGS');
+        }
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || 'Could not load payment settings.');
         state.paymentSettings = data;
       } catch (error) {
-        state.paymentSettings = {
-          ok: false,
-          payment_methods: [],
-          compliance: {
-            has_electronic_gateway: false,
-            message: error?.message || 'Could not load payment settings.',
-          },
-        };
+        try {
+          const response = await fetch('/api/tenant/config', {
+            headers: { 'X-Tenant-ID': tenantId, 'Accept-Language': normalizeLang(document.documentElement.lang || navigator.language || 'en') },
+          });
+          const data = await response.json();
+          if (!response.ok || !data?.ok) throw new Error(data?.error || 'Could not load public payment settings.');
+          const paymentMethods = Array.isArray(data?.config?.payment_methods) ? data.config.payment_methods : [];
+          const hasElectronicGateway = paymentMethods.some((method) => method?.enabled && ['stripe', 'paypal', 'momo', 'zalopay', 'vnpay', 'grabpay', 'credit_card'].includes(String(method.id || '').toLowerCase()));
+          state.paymentSettings = {
+            ok: true,
+            payment_methods: paymentMethods,
+            compliance: {
+              has_electronic_gateway: hasElectronicGateway,
+              message: hasElectronicGateway
+                ? t('payments.compliance_gateway_active', {}, 'Tenant has at least one active electronic gateway.')
+                : t('payments.compliance_gateway_missing', {}, 'No electronic gateway is enabled yet. Configure API keys to activate one.'),
+            },
+          };
+        } catch (publicError) {
+          state.paymentSettings = {
+            ok: false,
+            payment_methods: [],
+            compliance: {
+              has_electronic_gateway: false,
+              message: publicError?.message || error?.message || 'Could not load payment settings.',
+            },
+          };
+        }
       }
       return state.paymentSettings;
     }
@@ -575,15 +655,35 @@
       };
     }
 
+    function buildQuoteSummaryHtml(quote) {
+      const lines = [];
+      if (quote?.travelDate) lines.push(`<div><strong>${esc(t('public_booking.payment_travel_date'))}</strong>: ${esc(quote.travelDate)}</div>`);
+      if (quote?.segmentName) lines.push(`<div><strong>${esc(t('tour_config.pricing.pricing_tier'))}</strong>: ${esc(quote.segmentName)}</div>`);
+      if (quote?.seasonName) lines.push(`<div>${esc(t('tour_config.pricing.current_rate', { season: quote.seasonName }))}</div>`);
+      if (quote?.paxBandName) lines.push(`<div>${esc(t('tour_config.pricing.band_current', { name: quote.paxBandName }))}</div>`);
+      lines.push(`<div><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote?.pax?.adult_shared_room_count || 0) + (quote?.pax?.adult_single_room_count || 0)), children: String(quote?.pax?.child_count || 0) }))}</div>`);
+      lines.push(`<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote?.total, quote?.currency || currency))}</div>`);
+
+      const priceLines = [
+        { label: PAX_TYPES[0].label, value: quote?.unitPrices?.adult_shared_room },
+        { label: PAX_TYPES[1].label, value: quote?.unitPrices?.adult_single_room },
+        { label: PAX_TYPES[2].label, value: quote?.unitPrices?.child_shared_with_parents },
+        { label: PAX_TYPES[3].label, value: quote?.unitPrices?.infant },
+      ].filter((entry) => entry.value != null);
+
+      if (priceLines.length) {
+        lines.push(`<div style="margin-top:10px;border-top:1px dashed rgba(212,175,115,0.24);padding-top:10px">${priceLines.map((entry) => `<div><strong>${esc(entry.label)}</strong>: ${esc(fmtMoney(entry.value, quote?.currency || currency))}</div>`).join('')}</div>`);
+      }
+
+      return lines.join('');
+    }
+
     function renderPaymentResult(container, result, quote, isDemo) {
-      const totalLabel = quote?.total == null ? '—' : fmtMoney(quote.total, quote.currency || currency);
       const summary = [];
       if (result.order_id) summary.push(`<strong>Order</strong>: ${esc(result.order_id)}`);
       if (result.payment_method) summary.push(`<strong>Method</strong>: ${esc(result.payment_method)}`);
-      if (quote?.travelDate) summary.push(`<strong>${esc(t('public_booking.payment_travel_date'))}</strong>: ${esc(quote.travelDate)}`);
-      if (totalLabel) summary.push(`<strong>Total</strong>: ${esc(totalLabel)}`);
       container.className = `tbv-pay-status ${isDemo ? 'demo' : 'success'}`;
-      container.innerHTML = `<div>${esc(result.note || (isDemo ? t('public_booking.payment_demo_success') : t('public_booking.payment_success')))}</div><div style="margin-top:8px">${summary.join('<br>')}</div>${result.guest_portal_url ? `<a class="tbv-pay-portal" href="${esc(result.guest_portal_url)}" target="_blank" rel="noreferrer">${esc(t('public_booking.payment_portal'))}</a>` : ''}`;
+      container.innerHTML = `<div>${esc(result.note || (isDemo ? t('public_booking.payment_demo_success') : t('public_booking.payment_success')))}</div><div style="margin-top:8px">${summary.join('<br>')}</div><div style="margin-top:10px">${buildQuoteSummaryHtml(quote)}</div>${result.guest_portal_url ? `<a class="tbv-pay-portal" href="${esc(result.guest_portal_url)}" target="_blank" rel="noreferrer">${esc(t('public_booking.payment_portal'))}</a>` : ''}`;
     }
 
     function closePaymentSheet(sheet) {
@@ -602,7 +702,7 @@
       const overlay = createElement('div', { className: 'tbv-pay-overlay' });
       const panel = createElement('div', { className: 'tbv-pay-panel' });
       const statusBox = createElement('div', { className: 'tbv-pay-status tbv-hidden' });
-      const summaryBox = createElement('div', { className: 'tbv-pay-sum', html: `<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote.total, quote.currency || currency))}</div><div style="margin-top:6px"><strong>${esc(t('public_booking.payment_travel_date'))}</strong>: ${esc(quote.travelDate)}</div><div style="margin-top:6px"><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote.pax?.adult_shared_room_count || 0) + (quote.pax?.adult_single_room_count || 0)), children: String(quote.pax?.child_count || 0) }))}</div>` });
+      const summaryBox = createElement('div', { className: 'tbv-pay-sum', html: buildQuoteSummaryHtml(quote) });
       const methodsWrap = createElement('div', { className: 'tbv-pay-methods' });
       const selectedMethod = { value: methods[0]?.id || 'BANK_TRANSFER' };
 
@@ -645,7 +745,7 @@
 
       panel.appendChild(intro);
       if (demoMode) {
-        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(t('public_booking.payment_demo_message'))}` }));
+        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(settings?.compliance?.message || t('public_booking.payment_demo_message'))}` }));
       }
       panel.appendChild(summaryBox);
       panel.appendChild(grid);
@@ -904,13 +1004,20 @@
       totalEl.textContent = fmtMoney(localTotal, currency);
       metaEl.textContent = t('tour_config.pricing.total_for_group');
       updateSurplusHint();
-      state.lastQuote = buildPaymentPayload(localTotal);
-      syncPaymentHook(state.lastQuote);
-      emitEvent('travelagent:public-booking-quote-ready', state.lastQuote);
-
       const localBand = [...state.pricingData.paxBands]
         .sort((left, right) => left.min_pax - right.min_pax)
         .find((band) => totalPax >= band.min_pax && totalPax <= band.max_pax);
+      state.lastQuote = buildPaymentPayloadWithQuote(localTotal, {
+        pax_band_id: localBand?.id || '',
+        pax_band_name: localBand?.name || '',
+      }, {
+        adult_shared_room_price: priceRow?.adult_shared_room_price,
+        adult_single_room_price: priceRow?.adult_single_room_price,
+        child_shared_with_parents_price: priceRow?.child_shared_with_parents_price,
+        infant_price: priceRow?.infant_price,
+      });
+      syncPaymentHook(state.lastQuote);
+      emitEvent('travelagent:public-booking-quote-ready', state.lastQuote);
       if (localBand) {
         rateStatusEl.textContent = t('tour_config.pricing.band_summary', { name: localBand.name, min: String(localBand.min_pax), max: String(localBand.max_pax) });
         rateStatusEl.style.display = 'inline-block';
@@ -926,6 +1033,23 @@
         });
         const result = await response.json();
         if (!response.ok || !result?.ok || segmentId !== state.calcState.segmentId) return;
+        const authoritativeTotal = result.invoice?.grand_total ?? localTotal;
+        const authoritativeUnitPrices = result.unit_prices || {
+          adult_shared_room: result.prices?.adult_shared_room?.price_usd,
+          adult_single_room: result.prices?.adult_single_room?.price_usd,
+          child_shared_with_parents: result.prices?.child_shared_with_parents?.price_usd,
+          infant: result.prices?.infant?.price_usd,
+        };
+        renderPaxRows({
+          adult_shared_room_price: authoritativeUnitPrices.adult_shared_room ?? 0,
+          adult_single_room_price: authoritativeUnitPrices.adult_single_room ?? 0,
+          child_shared_with_parents_price: authoritativeUnitPrices.child_shared_with_parents ?? 0,
+          infant_price: authoritativeUnitPrices.infant ?? 0,
+        });
+        totalEl.textContent = fmtMoney(authoritativeTotal, currency);
+        state.lastQuote = buildPaymentPayloadWithQuote(authoritativeTotal, result, authoritativeUnitPrices);
+        syncPaymentHook(state.lastQuote);
+        emitEvent('travelagent:public-booking-quote-ready', state.lastQuote);
         const labels = [];
         if (result.applied_season_name) labels.push(t('tour_config.pricing.current_rate', { season: result.applied_season_name }));
         if (result.pax_band_name) labels.push(t('tour_config.pricing.band_current', { name: result.pax_band_name }));

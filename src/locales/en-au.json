@@ -1,0 +1,24 @@
+{
+  "currency": {
+    "display_currency": "Secondary Display Currency",
+    "secondary_display_currency": "Secondary Display Currency"
+  },
+  "auth": {
+    "signup": {
+      "meta_title": "Sign Up - TravelAgent Australia",
+      "market_skin_label": "Primary Market Preset",
+      "market_skin_hint": "Choose the preset that best matches your core traveller market. You can still override language and currency later.",
+      "offer": "$0 for 6 months, then your selected plan. Cancel any time."
+    },
+    "login": {
+      "meta_title": "Sign In - TravelAgent Australia"
+    },
+    "reset_password": {
+      "meta_title": "Reset Password - TravelAgent Australia"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Choose your product plan",
+    "catalog_hint": "Pick an active plan now. Future tiers stay visible for roadmap context."
+  }
+}

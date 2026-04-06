@@ -1,8 +1,8 @@
 import { nanoid } from 'nanoid';
 import { ensureUniversalSiteInitialized, syncUniversalTourPage } from './universalSiteSync.js';
+import { getMarketSkin } from './marketSkins.js';
 
 const DEFAULT_TEMPLATE_ID = 'default';
-const DEFAULT_CURRENCY = 'USD';
 
 const SAMPLE_HERO_IMAGES = [
   'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2200&q=80',
@@ -438,11 +438,21 @@ function buildStopServiceStatements(seed, stop, stopId, tenantId, createdAt, sto
   return [...statements, ...buildMealRows(seed, stop, stopId, tenantId, createdAt)];
 }
 
-export async function bootstrapTenantStarterContent(env, tenantId, tenantName) {
+export async function bootstrapTenantStarterContent(env, tenantId, tenantName, options = {}) {
   const db = env?.DB;
   if (!db || !tenantId) {
     return { ok: false, skipped: true, reason: 'missing_context' };
   }
+
+  const marketSkin = getMarketSkin(options.marketSkinKey || 'global-default');
+  const tenantRow = await db
+    .prepare('SELECT booking_currency, default_locale FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  const bookingCurrency = String(tenantRow?.booking_currency || marketSkin.booking_currency || 'USD').toUpperCase();
+  const defaultLocale = String(tenantRow?.default_locale || marketSkin.default_locale || 'en-US').trim();
+  const defaultLang = String(marketSkin.ui_locale || defaultLocale || 'en').trim() || 'en';
 
   const existingTours = await db
     .prepare('SELECT COUNT(*) AS total FROM tours WHERE tenant_id = ?')
@@ -454,7 +464,10 @@ export async function bootstrapTenantStarterContent(env, tenantId, tenantName) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  await ensureUniversalSiteInitialized(db, tenantId, tenantName);
+  await ensureUniversalSiteInitialized(db, tenantId, tenantName, {
+    variantKey: marketSkin.theme_variant,
+    defaultLang,
+  });
   const pricingContext = await ensurePricingContext(db, tenantId, now);
 
   const destinationMap = new Map();
@@ -487,8 +500,8 @@ export async function bootstrapTenantStarterContent(env, tenantId, tenantName) {
       db.prepare(
         `INSERT INTO tours
          (id, tenant_id, title, lang, duration_text, start_date, status, slug, content_data, template_id, created_at)
-         VALUES (?, ?, ?, 'en', ?, NULL, 'draft', ?, ?, ?, ?)`
-      ).bind(tourId, tenantId, seed.title, seed.durationText, slug, contentData, DEFAULT_TEMPLATE_ID, createdAt)
+        VALUES (?, ?, ?, ?, ?, NULL, 'draft', ?, ?, ?, ?)`
+      ).bind(tourId, tenantId, seed.title, defaultLang, seed.durationText, slug, contentData, DEFAULT_TEMPLATE_ID, createdAt)
     );
 
     seed.stops.forEach((stop, stopIndex) => {
@@ -537,7 +550,7 @@ export async function bootstrapTenantStarterContent(env, tenantId, tenantName) {
           pricingContext.seasonId,
           pricingContext.segmentId,
           band.id,
-          DEFAULT_CURRENCY,
+          bookingCurrency,
           Math.max(seed.basePrice - bandDiscount, 250),
           Math.max(seed.singlePrice - bandDiscount, 350),
           Math.max(seed.childPrice - Math.round(bandDiscount / 2), 150),

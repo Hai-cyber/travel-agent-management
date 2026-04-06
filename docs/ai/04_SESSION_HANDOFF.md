@@ -20,17 +20,78 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-04-04
-Checkpoint: Pricing display policy stabilization
-Goal of session: Stop storefront money display from guessing symbols/currencies, lock a safe no-FX policy, and carry explicit currency metadata through universal synced pricing payloads.
+Date: 2026-04-06
+Checkpoint: Tenant media preview root-cause repair
+Goal of session: restore reliable tenant-uploaded image preview/render paths, support exact `1-1` pax bands live, and stop deleted tenant assets from leaving dead gallery references behind in product modules.
 
 ### What was completed this session
 
-- Added `docs/ai/27_PRICING_DISPLAY_POLICY.md` to lock the current rule: canonical amount + canonical currency, format-only display, and no FX conversion until a real engine exists
-- Ran a targeted audit of money render paths and confirmed the primary storefront risk surface was `src/routes/universalSites.js`, with synced payload support work required in `src/lib/universalSiteSync.js`
-- Extended synced universal pricing snapshots with currency metadata including `price_from_currency`, `pricing_base_currency`, `pricing_display_currency`, `pricing_display_policy`, and per-card `*_price_currency` fields
-- Normalized universal storefront render paths so listing meta, preview pricing, spotlight cards, pricing tables, and hero starting-price chips all format through one shared money formatter instead of hardcoding `$`
-- Kept the system intentionally conservative: no FX conversion logic was introduced, and display now prefers the explicit amount currency before falling back to tenant base currency
+- Applied and verified remote D1 migration `0039_allow_exact_pax_band_ranges.sql`, so production `pax_bands` now allow exact ranges such as `1-1`
+- Added room-based child-capacity validation to pricing (`1 child per shared double room`, `2 children per private room`) and re-ran the local pricing smoke until the pricing section passed again
+- Deployed the pricing fix to production and verified live `1-1` pax-band creation on a real production tenant instead of the non-existent demo tenant
+- Traced the tenant-media preview failure to the preview optimizer layer: same-origin `/api/tenant/assets/...` URLs were healthy, but wrapping them in `/cdn-cgi/image/...` produced `404`, so uploaded photos could exist without rendering in compact previews
+- Patched `public/product-modules.html`, `public/universal-admin.html`, and `src/routes/universalSites.js` so tenant asset API URLs bypass `cdn-cgi/image` and render through their raw asset URLs instead
+- Added stronger product-modules media tooling: inline broken-image placeholders, live gallery preview, tenant-gallery delete buttons, and open-form cleanup that clears dead asset references from visible fields immediately after delete
+- Hardened backend delete semantics in `src/routes/tenants.js`: deleting a tenant asset now also removes stale references from tour `content_data` (`gallery_images`, `home_gallery_images`, `hero_image`, `destination_image`) so product modules and storefront renders do not keep pointing at `404` URLs
+- Fixed the first backend cleanup implementation after production logs exposed a D1 `LIKE or GLOB pattern too complex` failure on filenames containing wildcard characters; cleanup now scans tenant tours by `tenant_id` and filters matches in JS instead of using SQL `LIKE`
+- Repaired the affected production tenant record during debugging so `Hanoi -Halong` no longer points at the dead `WT32mjC3s0o-.png` gallery URL
+
+### Files changed
+```
+db/integrity_check_pricing.sql
+db/migrations/0004_add_pricing_foundation.sql
+db/migrations/0039_allow_exact_pax_band_ranges.sql
+docs/ai/03_PROGRESS_LEDGER.md
+docs/ai/04_SESSION_HANDOFF.md
+public/product-modules.html
+public/universal-admin.html
+scripts/smoke-local.mjs
+src/routes/pricing.js
+src/routes/tenants.js
+src/routes/universalSites.js
+```
+
+### What is still not done
+- The full local smoke suite is not completely green yet because password-reset smoke remains flaky/unrelated outside the pricing/media scope
+- Product-modules gallery flow still relies on the operator to save the module after choosing new images; upload alone does not rewrite persisted `content_data` until save is clicked
+- There is still no automated production sweep for old dead tenant asset URLs that predate the new delete cleanup behavior
+
+### Known risks / TODOs
+- Existing tenants can still have old dead asset URLs in D1 from before the cleanup patch; those records must be resaved or cleaned manually once discovered
+- Any future frontend helper that re-wraps `/api/tenant/assets/...` in `cdn-cgi/image` will reintroduce the same preview failure, so tenant asset URLs should stay on the raw path unless the delivery architecture changes
+- `DELETE /api/tenant/assets/:filename` currently cleans tour content only; if future tenant-managed assets are persisted in other D1 JSON surfaces, the cleanup sweep must be expanded intentionally
+
+### Suggested next prompt
+```
+Audit the remaining tenant-media surfaces for stale asset references, then add a small admin diagnostic that lists broken `/api/tenant/assets/...` URLs still persisted in D1 so operators can repair them without raw SQL.
+```
+
+---
+
+Date: 2026-04-05
+Checkpoint: CHK-R46 tenant booking currency + market skin foundation
+Goal of session: Lock the new product direction for tenant-controlled storefront currency and market skins, then ship the first real runtime slices for booking currency settings, quote/order snapshots, and market-skin catalogs.
+
+### What was completed this session
+
+- Added a dedicated architecture note at `docs/ai/28_MULTI_CURRENCY_AND_MARKET_SKINS.md` to lock the product direction: code stays English, tenant storefront currency should be tenant-controlled, and market skins should bundle language/currency/copy defaults
+- Updated the AI docs so `00_AI_INDEX.md`, `01_CURRENT_STATE.md`, `03_PROGRESS_LEDGER.md`, and `14_TENANCY_AND_BILLING.md` now reflect the same multi-currency / market-skin direction
+- Added `src/lib/tenantMarketCatalog.js` with the curated tenant storefront currency basket: `USD`, `EUR`, `VND`, `CNY`, `JPY`, `KRW`, `GBP`, `AUD`, `SGD`, `THB`
+- Added `src/lib/marketSkins.js` with curated market presets such as `global-default`, `vietnam-domestic`, `china-outbound`, `japan-premium`, `korea-premium`, `uk-curated`, and `australia-outbound`
+- Opened tenant settings for `booking_currency`, `default_locale`, `market_skin_key`, and `primary_market`, while still exposing curated runtime catalogs for currencies, market skins, and UI locales
+- Added `db/migrations/0037_tenant_booking_currency_and_market_skin.sql` to introduce tenant booking-currency fields and booking draft/order snapshot columns
+- Changed pricing calculate responses so authoritative totals now use tenant `booking_currency`, while older compatibility fields remain present during the migration period
+- Changed booking drafts and booking orders so they now snapshot authoritative amount/currency/base-currency/rate fields alongside legacy USD compatibility fields
+- Added a public `GET /api/auth/market-skins` catalog and wired signup to submit `market_skin_key` for both email and Google onboarding
+- Updated onboarding + starter bootstrap so a selected market skin now sets tenant defaults (`booking_currency`, `default_locale`, `primary_market`), starter universal site variant, and starter seed language/currency context
+- Expanded `public/universal-admin.html` System Panel so operators can edit `market_skin_key`, `booking_currency`, and `default_locale` through `/api/tenants/settings` without leaving Website Design
+- Added real locale packs for `ja`, `ko`, `en-GB`, and `en-AU`, and upgraded `/api/i18n` locale resolution so Accept-Language can hit those exact variants instead of collapsing to base English
+- Expanded locale coverage further with real packs for `de`, `fr`, and `es`, and added EUR market presets for Germany, France, and Spain to the shared market-skin catalog
+- Hardened local runtime diagnostics: smoke now checks tenant route mounts immediately after Worker boot, and dashboard startup no longer produces a misleading early `404 /api/tenant/config` before tenant context exists
+- Fixed pricing overlap semantics so season priority comes from `tenant_seasons.sort_order` rather than raw price magnitude, seeded an explicit High/Low overlap window, added smoke coverage for the overlap rule, and updated booking/pricing UI so `Good to know` follows `Grand total` while `Check availability` shows a minimum-price teaser with canonical pricing copy
+- Replaced the earlier child-cap ratio with a room-based rule: each shared double room allows 1 child and each private room allows 2 children; admin/public booking UIs and backend pricing now enforce the same rooming-capacity warning, and smoke covers both reject and allow paths
+- Clarified money semantics in runtime and docs: `booking_currency` is storefront truth, while `target_currency` survives only as storage for optional `secondary_display_currency`
+- Extended locale catalogs and the `public/tour-config.html` pricing display currency selector so admin-facing pricing work can already use the expanded currency basket
 
 ### Files changed
 ```
@@ -38,100 +99,55 @@ docs/ai/00_AI_INDEX.md
 docs/ai/01_CURRENT_STATE.md
 docs/ai/03_PROGRESS_LEDGER.md
 docs/ai/04_SESSION_HANDOFF.md
-docs/ai/27_PRICING_DISPLAY_POLICY.md
+docs/ai/14_TENANCY_AND_BILLING.md
+docs/ai/28_MULTI_CURRENCY_AND_MARKET_SKINS.md
+db/migrations/0037_tenant_booking_currency_and_market_skin.sql
+db/migrations/0038_max_children_per_two_adults.sql
+src/lib/marketSkins.js
+src/lib/tenantMarketCatalog.js
+src/index.js
+src/locales/en-au.json
+src/locales/en-gb.json
+src/locales/de.json
+src/locales/es.json
+src/locales/fr.json
+src/locales/ja.json
+src/locales/ko.json
+src/lib/tenantBootstrap.js
 src/lib/universalSiteSync.js
-src/routes/universalSites.js
-```
-
-### What is still not done
-- A full repo-wide hardcoded-money audit outside the universal storefront surface is not yet complete
-- No real FX engine exists yet
-- Order/checkout settlement currency policy is not yet implemented beyond the current display guardrail
-
-### Known risks / TODOs
-- Older synced snapshots created before the new currency fields may still depend on fallback behavior until they are re-synced
-- Any future theme or route that renders pricing outside the shared formatter path can reintroduce symbol drift unless the new policy is followed
-- `tenant.target_currency` still exists in settings and can be misinterpreted by future contributors unless they read `27_PRICING_DISPLAY_POLICY.md` first
-
-### Suggested next prompt
-```
-Run a repo-wide hardcoded money render audit outside the universal storefront surface, and patch any remaining public/admin UI price displays so they follow `docs/ai/27_PRICING_DISPLAY_POLICY.md`.
-```
-
----
-
-Date: 2026-04-04
-Checkpoint: Public payment sheet follow-up
-Goal of session: Ship the first storefront payment flow on top of the public Booking View, while giving non-compliant tenants a premium-feeling demo path instead of a hard stop.
-
-### What was completed this session
-
-- Deployed the previously completed public Booking View work to production Worker version `0d3c5a33-e193-4e18-9efb-57b7be1cc60c` so the live booking sidebar/page flow could be tested immediately
-- Extended `public/tour-booking-view.js` with a storefront payment sheet that opens after quote readiness and captures guest name, email, phone, notes, and selected payment method
-- Wired the payment sheet to `GET /api/payments/settings` for tenant-scoped method/compliance discovery and `POST /api/bookings/order` for real order creation when the tenant is payment-compliant
-- Added a non-blocking `demo payment` branch for tenants without an electronic gateway: the sheet now gives a dopamine-style success state and explicit demo labeling instead of a dead-end rejection
-- Kept the payment handoff event model intact while adding real storefront events for order creation / demo payment progression
-
-### Files changed
-```
+src/routes/bookings.js
+src/routes/onboarding.js
+src/routes/pricing.js
+src/routes/tenants.js
+src/utils/formatter.js
+src/locales/en.json
+src/locales/vi.json
+src/locales/zh.json
+public/signup.html
+public/tour-config.html
+public/universal-admin.html
+public/dashboard.html
 public/tour-booking-view.js
-docs/ai/01_CURRENT_STATE.md
-docs/ai/03_PROGRESS_LEDGER.md
-docs/ai/04_SESSION_HANDOFF.md
-```
-
-### What is still not done
-- Instant gateway providers still do not produce a real hosted checkout redirect URL from the storefront payment sheet; the current real flow is strongest for booking-order creation and manual / next-step handoff
-- Public payment sheet copy is still hardcoded in English and not moved into the shared locale catalog yet
-- No storefront proof-upload step is embedded yet; guests still rely on the returned guest portal / next-step links after order creation
-
-### Known risks / TODOs
-- If the business wants fully live Stripe/PayPal/MoMo/ZaloPay redirect handoff from the public sheet, provider-specific checkout-session creation must be added rather than relying only on `POST /api/bookings/order`
-- Demo mode is intentionally visible for non-compliant tenants; if this should be hidden from end-customers later, gate it behind preview/admin logic instead of removing it from the code path entirely
-- Payment sheet currently reuses the booking quote payload from `public/tour-booking-view.js`; future refactors should keep that payload canonical rather than deriving order inputs from UI labels
-
-### Suggested next prompt
-```
-Implement the first real instant-checkout provider handoff for the public Booking View payment sheet, starting with Stripe / CREDIT_CARD, and keep the existing demo-payment branch for non-compliant tenants.
-```
-
----
-
-Date: 2026-04-04
-Checkpoint: Public Booking View follow-up
-Goal of session: Finish the storefront `Check availability` flow so it uses the real tour pricing behavior, matches the active storefront skin better, and leaves explicit payment hooks for the next integration step.
-
-### What was completed this session
-
-- Replaced the failed storefront CTA wiring experiments with a dedicated public Booking View script at `public/tour-booking-view.js`
-- Mirrored the core Booking View behavior from `public/tour-config.html`: conversational sentence inputs, room auto-suggestion, room validation, segment tier tabs, local row-based total calculation, and API-backed season/band labeling
-- Wired `Check availability` so desktop opens the Booking View in a sidebar and mobile navigates to the tenant booking page with the same view rendered inline for the selected tour
-- Restyled the public Booking View so it uses the active storefront theme tokens/chrome more naturally instead of looking like an unrelated utility panel
-- Added future payment-flow handoff hooks: the payment CTA now keeps `data-payment-*` attributes, and the booking view emits `travelagent:public-booking-quote-ready` plus `travelagent:public-booking-payment-intent`
-
-### Files changed
-```
-public/tour-booking-view.js
+public/booking-view-core.js
+scripts/smoke-local.mjs
 src/routes/universalSites.js
-src/lib/themes/six-senses.js
-docs/ai/01_CURRENT_STATE.md
-docs/ai/03_PROGRESS_LEDGER.md
-docs/ai/04_SESSION_HANDOFF.md
+src/lib/universalSite.js
+db/seed_test.sql
 ```
 
 ### What is still not done
-- The reserved payment CTA does not submit into a checkout/order flow yet; it only exposes a clean handoff surface
-- Public Booking View copy is still hardcoded in English today; it is not yet moved into the shared locale catalog
-- The visual polish is improved and theme-aware, but it is still a dedicated booking surface rather than a full skin-specific bespoke component per luxury variant
+- Full removal of USD-centric compatibility fields is not finished yet (`grand_total_usd`, older formatter helpers, older enriched price fields still exist for compatibility)
+- The new locale packs are real and exact-matchable now, but they still rely on English fallback for untouched long-tail admin/runtime strings rather than having 100% translated coverage
+- The product still needs a deliberate decision on whether secondary display currency should appear broadly on storefront pages or only in selected quote/invoice surfaces
 
 ### Known risks / TODOs
-- Future payment integration should consume the emitted booking events / `data-payment-*` payload and avoid re-parsing numbers from rendered text
-- If the booking calculation rules change in `public/tour-config.html`, the storefront projection in `public/tour-booking-view.js` must be kept aligned intentionally; there is no shared extracted module yet
-- Mobile currently relies on the tenant booking page inline render path; if booking page visibility/routing changes later, the mobile CTA path must be re-verified
+- `target_currency` is now semantically pinned as secondary display currency storage; future cleanup should decide whether the legacy column is renamed in schema or simply preserved behind the clearer API alias forever
+- `total_revenue_tracked` is still a single numeric tenant field without explicit revenue currency metadata; if the product later supports real finance reporting across multiple booking currencies, that field needs a clearer accounting model
+- The smoke suite currently validates success-state behavior, not the full new locale and quote/order currency payload contracts, so API-level assertions for exact locale resolution, `booking_currency`, `grand_total_amount`, and `secondary_display_currency` should be added next
 
 ### Suggested next prompt
 ```
-Connect the reserved payment hook in `public/tour-booking-view.js` to a real order/checkout handoff, using the emitted quote payload instead of scraping values from the DOM.
+Push the new locale and money semantics into customer-facing storefront surfaces: decide where secondary display currency should appear, extend translated coverage for the new locale packs, and add API smoke assertions for exact locale resolution plus booking/secondary display currency payloads.
 ```
 
 ---

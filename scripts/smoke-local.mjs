@@ -10,6 +10,7 @@ const TENANT_ID = 'ten-demo-001';
 const SPAWN_PORT = 8790;
 const DEFAULT_PRICING_SMOKE_DATE = '2026-10-10';
 const PRICING_SMOKE_EXPECTED_TOTAL = 1360;
+const PRICING_OVERLAP_SMOKE_DATE = '2026-05-20';
 
 let failures = 0;
 
@@ -237,6 +238,35 @@ async function requestJson(url, options = {}) {
   return { response, body, text };
 }
 
+async function runTenantRouteBootSmoke(baseUrl) {
+  info('Running tenant route boot smoke flow');
+
+  const publicConfig = await requestJson(`${baseUrl}/api/tenant/config`, {
+    headers: {
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+
+  if (!publicConfig.response.ok || !publicConfig.body?.ok) {
+    fail(`Tenant boot smoke public config failed: ${publicConfig.text}`);
+    return;
+  }
+  pass('Verified /api/tenant/config route is mounted after Worker boot');
+
+  const protectedSettings = await requestJson(`${baseUrl}/api/tenants/settings`, {
+    headers: {
+      'X-Tenant-ID': TENANT_ID,
+      Cookie: 'ta_session=invalid',
+    },
+  });
+
+  if (protectedSettings.response.status !== 401) {
+    fail(`Tenant boot smoke protected settings route mismatch: expected 401, received ${protectedSettings.response.status}`);
+    return;
+  }
+  pass('Verified /api/tenants/settings route is mounted and guarded after Worker boot');
+}
+
 async function runTaskSmoke(baseUrl, token) {
   info('Running task-system smoke flow');
   const hotelName = `Smoke Hotel ${Date.now()}`;
@@ -425,6 +455,72 @@ async function runPricingSmoke(baseUrl, token) {
   }
 
   pass(`Calculated seeded high-season standard pricing correctly for ${pricingSmokeDate}`);
+
+  const overlapPricing = await requestJson(
+    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(PRICING_OVERLAP_SMOKE_DATE)}&segment_id=segment-standard&adult_shared_room_count=2`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': TENANT_ID,
+      },
+    }
+  );
+
+  if (!overlapPricing.response.ok || !overlapPricing.body?.ok) {
+    fail(`Pricing overlap smoke calculate failed: ${overlapPricing.text}`);
+    return;
+  }
+
+  if (overlapPricing.body.applied_season_name !== 'High Season') {
+    fail(`Pricing overlap smoke season mismatch: expected High Season, received ${overlapPricing.body.applied_season_name ?? 'missing'}`);
+    return;
+  }
+
+  if (overlapPricing.body.invoice?.grand_total !== PRICING_SMOKE_EXPECTED_TOTAL) {
+    fail(`Pricing overlap smoke total mismatch: expected ${PRICING_SMOKE_EXPECTED_TOTAL}, received ${overlapPricing.body.invoice?.grand_total ?? 'missing'}`);
+    return;
+  }
+
+  pass(`Verified overlap pricing prefers High Season on ${PRICING_OVERLAP_SMOKE_DATE}`);
+
+  const familyRoomPolicy = await requestJson(
+    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(PRICING_OVERLAP_SMOKE_DATE)}&segment_id=segment-standard&adult_shared_room_count=2&child_count=2`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': TENANT_ID,
+      },
+    }
+  );
+
+  if (familyRoomPolicy.response.status !== 422) {
+    fail(`Pricing child-sharing policy smoke mismatch: expected 422, received ${familyRoomPolicy.response.status}`);
+    return;
+  }
+
+  if (!String(familyRoomPolicy.body?.error || '').includes('chosen rooming capacity')) {
+    fail(`Pricing child-sharing policy smoke expected rooming-capacity guidance, received: ${familyRoomPolicy.text}`);
+    return;
+  }
+
+  pass('Verified child-with-parents pricing is capped and requires family room/manual quote when exceeded');
+
+  const mixedRoomAllowance = await requestJson(
+    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(PRICING_OVERLAP_SMOKE_DATE)}&segment_id=segment-standard&adult_shared_room_count=8&adult_single_room_count=1&child_count=6`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': TENANT_ID,
+      },
+    }
+  );
+
+  if (!mixedRoomAllowance.response.ok || !mixedRoomAllowance.body?.ok) {
+    fail(`Pricing mixed-room child policy smoke failed: ${mixedRoomAllowance.text}`);
+    return;
+  }
+
+  pass('Verified mixed rooming allows 1 child per shared double room and 2 children per private room');
 }
 
 async function runPasswordResetSmoke(baseUrl, token) {
@@ -502,6 +598,8 @@ async function main() {
     ensureTenantFixtures();
     const { baseUrl, server: spawnedServer } = await resolveBaseUrl();
     server = spawnedServer;
+
+    await runTenantRouteBootSmoke(baseUrl);
 
     const token = mintBearerToken();
     await runTaskSmoke(baseUrl, token);

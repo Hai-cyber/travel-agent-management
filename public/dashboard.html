@@ -197,6 +197,56 @@
       font-size: 12px;
       color: #0f172a;
     }
+    .market-skin-setup {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 18px;
+      margin-top: 16px;
+    }
+    .market-skin-setup label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+    }
+    .market-skin-setup select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #93c5fd;
+      border-radius: 10px;
+      font-size: 15px;
+      background: #fff;
+    }
+    .market-skin-hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #1e40af;
+      line-height: 1.55;
+    }
+    .market-skin-preview {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .market-skin-preview code {
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #0f172a;
+    }
     .launch-steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -422,6 +472,17 @@
                 </div>
               </div>
               <div class="subdomain-preview" id="subdomain-preview">Reserved preview: <code id="subdomain-preview-value">sunset-travel.tours-market.com</code></div>
+              <div class="market-skin-setup">
+                <label>
+                  Choose market skin for this tenant
+                  <select id="market-skin-select"></select>
+                  <div class="market-skin-hint" id="market-skin-hint">Market skin controls system locale, non-editable UI copy, and authoritative booking currency.</div>
+                </label>
+                <div class="subdomain-actions">
+                  <a href="#" id="btn-save-market-skin" class="button small">Save market skin</a>
+                </div>
+              </div>
+              <div class="market-skin-preview" id="market-skin-preview">Preset preview: <code id="market-skin-preview-value">Global English · en-US · USD</code></div>
               <div class="launch-steps" id="launch-steps"></div>
             </section>
 
@@ -758,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   };
   const tenantId = sessionPayload.session.tenant_id;
   const tenantName = sessionPayload.session.tenant_name || '';
-  const onboardingState = { settings: null, publicConfig: null, universalBundle: null, tours: [] };
+  const onboardingState = { settings: null, catalogs: null, publicConfig: null, universalBundle: null, tours: [] };
 
   function withTenant(path) {
     const url = new URL(path, window.location.origin);
@@ -806,6 +867,44 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     if (!hint) return;
     hint.textContent = message;
     hint.style.color = isError ? '#b91c1c' : '#92400e';
+  }
+
+  function getMarketSkinCatalog() {
+    return Array.isArray(onboardingState.catalogs?.market_skins) ? onboardingState.catalogs.market_skins : [];
+  }
+
+  function getCurrentMarketSkin() {
+    const currentKey = String(onboardingState.settings?.market_skin_key || 'global-default').trim();
+    return getMarketSkinCatalog().find((skin) => skin.key === currentKey) || null;
+  }
+
+  function updateMarketSkinPreview(skin) {
+    const preview = document.getElementById('market-skin-preview-value');
+    const hint = document.getElementById('market-skin-hint');
+    if (!preview || !hint) return;
+    if (!skin) {
+      preview.textContent = 'Global English · en-US · USD';
+      hint.textContent = 'Market skin controls system locale, non-editable UI copy, and authoritative booking currency.';
+      return;
+    }
+    preview.textContent = `${skin.label} · ${skin.default_locale} · ${skin.booking_currency}`;
+    hint.textContent = `Primary market: ${skin.primary_market}. This preset drives system locale and authoritative booking currency.`;
+  }
+
+  function renderMarketSkinControl() {
+    const select = document.getElementById('market-skin-select');
+    if (!select) return;
+    const skins = getMarketSkinCatalog();
+    if (!skins.length) {
+      select.innerHTML = '<option value="">No market skins available</option>';
+      select.disabled = true;
+      updateMarketSkinPreview(null);
+      return;
+    }
+    const currentKey = String(onboardingState.settings?.market_skin_key || 'global-default').trim();
+    select.innerHTML = skins.map((skin) => `<option value="${escapeHtml(skin.key)}">${escapeHtml(skin.label)} · ${escapeHtml(skin.default_locale)} · ${escapeHtml(skin.booking_currency)}</option>`).join('');
+    select.value = skins.some((skin) => skin.key === currentKey) ? currentKey : skins[0].key;
+    updateMarketSkinPreview(skins.find((skin) => skin.key === select.value) || skins[0]);
   }
 
   function buildStep(stepKey, title, description, href, label, status) {
@@ -1040,6 +1139,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   const subdomainInput = document.getElementById('subdomain-input');
   const suggestSubdomain = document.getElementById('btn-suggest-subdomain');
   const saveSubdomain = document.getElementById('btn-save-subdomain');
+  const marketSkinSelect = document.getElementById('market-skin-select');
+  const saveMarketSkin = document.getElementById('btn-save-market-skin');
   if (suggestSubdomain) {
     suggestSubdomain.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1090,6 +1191,45 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       }
     });
   }
+  if (marketSkinSelect) {
+    marketSkinSelect.addEventListener('change', () => {
+      const skin = getMarketSkinCatalog().find((entry) => entry.key === marketSkinSelect.value) || null;
+      updateMarketSkinPreview(skin);
+    });
+  }
+  if (saveMarketSkin) {
+    saveMarketSkin.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const selectedKey = String(marketSkinSelect?.value || '').trim();
+      if (!selectedKey) return;
+
+      saveMarketSkin.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/tenants/settings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID': tenantId,
+          },
+          body: JSON.stringify({ market_skin_key: selectedKey }),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not update market skin.');
+        onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
+        if (payload.catalogs) onboardingState.catalogs = payload.catalogs;
+        renderMarketSkinControl();
+        renderLaunchGuide();
+        saveMarketSkin.textContent = 'Saved';
+      } catch (error) {
+        updateMarketSkinPreview(getCurrentMarketSkin());
+        saveMarketSkin.textContent = error?.message || 'Save failed';
+      } finally {
+        setTimeout(() => {
+          if (saveMarketSkin) saveMarketSkin.textContent = 'Save market skin';
+        }, 1400);
+      }
+    });
+  }
 
   const logoutLink = document.getElementById('nav-logout');
   if (logoutLink) {
@@ -1116,12 +1256,14 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         return;
       }
     } else {
-      const { settings } = await res.json();
+      const { settings, catalogs } = await res.json();
       onboardingState.settings = settings || {};
+      onboardingState.catalogs = catalogs || null;
 
       const nameEl = document.getElementById('tenant-name-display');
       if (nameEl && settings.name) nameEl.textContent = settings.name;
 
+      renderMarketSkinControl();
       renderLaunchGuide();
 
       let daysLeft = null;

@@ -62,7 +62,7 @@ AI behavior / guardrails:
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary
 - `25_MOBILE_OPS_RULES.md` -> mobile operational interaction rules
 - `26_PROPERTY_ENGINE_AND_STAFF_SEATS.md` -> approved split between tour accommodation and future property engine, plus staff-seats model
-- `27_PRICING_DISPLAY_POLICY.md` -> canonical pricing currency/display rules, format-only policy, and no-FX guardrail
+- `28_MULTI_CURRENCY_AND_MARKET_SKINS.md` -> tenant-controlled storefront currency direction, curated currency basket, and market-skin architecture
 
 ## Token-saving policy
 When using Copilot/Cline, paste only:

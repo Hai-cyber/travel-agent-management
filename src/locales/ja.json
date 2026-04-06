@@ -1,0 +1,128 @@
+{
+  "common": {
+    "yes": "はい",
+    "no": "いいえ",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "reload": "再読み込み",
+    "edit": "編集",
+    "create": "作成",
+    "search": "検索",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "required": "必須"
+  },
+  "language": {
+    "label": "言語",
+    "en": "英語",
+    "vi": "ベトナム語",
+    "zh": "中国語",
+    "ja": "日本語",
+    "ko": "韓国語",
+    "de": "ドイツ語",
+    "fr": "フランス語",
+    "es": "スペイン語"
+  },
+  "currency": {
+    "display_currency": "二次表示通貨",
+    "secondary_display_currency": "二次表示通貨"
+  },
+  "pricing": {
+    "title": "料金",
+    "season": "シーズン",
+    "segment": "プラン区分",
+    "pax_band": "人数帯",
+    "base_currency": "価格表の基準通貨",
+    "exchange_rate": "換算レート"
+  },
+  "invoice": {
+    "title": "請求概要",
+    "detail": "料金明細",
+    "grand_total": "合計金額",
+    "subtotal": "小計",
+    "unit_price": "単価",
+    "qty": "数量",
+    "adult_shared_room": "大人（相部屋）",
+    "adult_private_room": "大人（シングル利用）",
+    "child": "子ども（2〜11歳）",
+    "infant": "幼児（0〜2歳）"
+  },
+  "auth": {
+    "shared": {
+      "email_label": "メールアドレス",
+      "password_label": "パスワード",
+      "google_hint_disabled": "GOOGLE_CLIENT_ID が設定されると Google サインインが表示されます。",
+      "google_hint_signup_enabled": "メールアドレスまたは Google でアカウントを作成できます。",
+      "google_hint_login_enabled": "メールアドレスまたは Google でサインインできます。",
+      "google_load_failed": "Google Sign-In を読み込めませんでした。メールアドレスとパスワードを使用してください。",
+      "google_continue": "Google で続行",
+      "or": "または",
+      "network_error": "接続エラーが発生しました。もう一度お試しください。"
+    },
+    "signup": {
+      "meta_title": "新規登録 - TravelAgent",
+      "name_label": "ブランド名 / チーム名 / 代理店名",
+      "password_label": "パスワードを作成",
+      "proof": "必須: プロダクトプランを選択し、メールアドレスとパスワードを入力してください。ブランド名または運用名がワークスペース名になります。",
+      "tier_hint": "最初にプランを選択してください。ローンチ特典として最初の 6 か月は 0 EUR、その後は選択した月額プランが開始されます。",
+      "market_skin_label": "主要マーケットのプリセット",
+      "market_skin_hint": "主な顧客市場に最も近いプリセットを選択してください。言語と通貨は後から上書きできます。",
+      "submit": "アカウントを作成",
+      "busy": "アカウントを作成中...",
+      "success": "ワークスペースを作成しています...",
+      "login_prompt": "すでにアカウントをお持ちですか？",
+      "login_link": "サインイン ->",
+      "missing_fields": "プロダクトプランを選択し、必須項目をすべて入力してください。",
+      "turnstile_note": "アカウント作成前に認証を完了してください。",
+      "turnstile_required": "認証チャレンジを完了してください。",
+      "turnstile_error": "認証コンポーネントを読み込めませんでした。ページを更新して再試行してください。",
+      "name_required_for_google": "Google で続行する前にブランド名またはチーム名を入力してください。",
+      "google_error": "Google サインアップに失敗しました。"
+    },
+    "login": {
+      "meta_title": "サインイン - TravelAgent",
+      "subtitle": "ツアー運営ダッシュボードにサインインします。",
+      "submit": "サインイン",
+      "busy": "サインイン中...",
+      "success": "サインインに成功しました。リダイレクトしています...",
+      "signup_prompt": "アカウントをお持ちでないですか？",
+      "signup_link": "アカウント作成 ->"
+    },
+    "reset_password": {
+      "meta_title": "パスワード再設定 - TravelAgent",
+      "subtitle": "再設定リンクをリクエストするか、新しいパスワードを設定してください。",
+      "request_submit": "再設定リンクを送信",
+      "request_busy": "再設定リンクを準備中...",
+      "request_success": "アカウントが存在する場合、再設定リンクを準備しました。",
+      "confirm_submit": "パスワードを更新",
+      "confirm_busy": "パスワードを更新中...",
+      "confirm_success": "パスワードを更新しました。サインイン画面へ移動します...",
+      "back_to_login": "サインインへ戻る"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "プロダクトプランを選択",
+    "catalog_hint": "現在申し込めるプランから選択してください。将来のプランはロードマップとして表示されます。",
+    "per_user_month": "月額 {{price}} EUR / ユーザー",
+    "status_active": "現在利用可能",
+    "status_future": "今後提供予定"
+  },
+  "widget": {
+    "title": "料金確認と予約",
+    "button_label": "今すぐ予約",
+    "date_label": "旅行日",
+    "pax_label": "人数",
+    "segment_label": "プラン",
+    "all_segments": "すべてのプランを比較",
+    "check_btn": "料金を確認",
+    "checking": "確認中...",
+    "book_btn": "予約へ進む",
+    "error_api": "料金を読み込めませんでした。もう一度お試しください。",
+    "error_fields": "必須項目を入力してください。",
+    "per_person": "/ 人",
+    "total": "概算合計",
+    "includes_note": "最終金額は予約時に確定します。"
+  }
+}

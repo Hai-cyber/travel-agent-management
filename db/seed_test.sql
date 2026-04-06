@@ -13,11 +13,33 @@ VALUES ('tour-001', 'ten-demo-001', 'Hà Nội - Ninh Bình 3N2Đ', 'vi', 'draft
 -- =========================
 -- tenant_seasons (FK → tenants.id)
 -- =========================
+-- High Season intentionally overlaps Low Season from 05/15 → 05/31.
+-- Pricing policy must choose High Season during the overlap window.
 INSERT OR IGNORE INTO tenant_seasons (id, tenant_id, name, start_month, start_day, end_month, end_day, sort_order, is_active, created_at)
-VALUES ('season-high', 'ten-demo-001', 'High Season', 6, 1, 8, 31, 1, 1, 1700000010);
+VALUES ('season-high', 'ten-demo-001', 'High Season', 5, 15, 8, 31, 1, 1, 1700000010);
 
 INSERT OR IGNORE INTO tenant_seasons (id, tenant_id, name, start_month, start_day, end_month, end_day, sort_order, is_active, created_at)
 VALUES ('season-low', 'ten-demo-001', 'Low Season', 1, 1, 5, 31, 2, 1, 1700000011);
+
+UPDATE tenant_seasons
+SET start_month = 5,
+    start_day = 15,
+    end_month = 8,
+    end_day = 31,
+    sort_order = 1,
+    is_active = 1
+WHERE id = 'season-high'
+  AND tenant_id = 'ten-demo-001';
+
+UPDATE tenant_seasons
+SET start_month = 1,
+    start_day = 1,
+    end_month = 5,
+    end_day = 31,
+    sort_order = 2,
+    is_active = 1
+WHERE id = 'season-low'
+  AND tenant_id = 'ten-demo-001';
 
 -- =========================
 -- pricing_segments (FK → tenants.id)

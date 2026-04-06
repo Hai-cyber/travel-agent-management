@@ -1,0 +1,111 @@
+{
+  "common": {
+    "yes": "Ja",
+    "no": "Nein",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "reload": "Neu laden",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "search": "Suchen",
+    "loading": "Wird geladen...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "required": "Pflichtfeld"
+  },
+  "language": {
+    "label": "Sprache",
+    "en": "Englisch",
+    "vi": "Vietnamesisch",
+    "zh": "Chinesisch",
+    "ja": "Japanisch",
+    "ko": "Koreanisch",
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "es": "Spanisch"
+  },
+  "currency": {
+    "display_currency": "Sekundäre Anzeigewährung",
+    "secondary_display_currency": "Sekundäre Anzeigewährung"
+  },
+  "pricing": {
+    "title": "Preise",
+    "season": "Saison",
+    "segment": "Segment",
+    "pax_band": "Personenbereich",
+    "base_currency": "Preislisten-Basiswährung",
+    "exchange_rate": "Wechselkurs"
+  },
+  "invoice": {
+    "title": "Rechnung",
+    "detail": "Rechnungsdetails",
+    "grand_total": "Gesamtsumme",
+    "subtotal": "Zwischensumme",
+    "unit_price": "Einzelpreis",
+    "qty": "Menge",
+    "adult_shared_room": "Erwachsener (Geteiltes Zimmer)",
+    "adult_private_room": "Erwachsener (Einzelzimmer)",
+    "child": "Kind (2–11 Jahre)",
+    "infant": "Kleinkind (0–2 Jahre)"
+  },
+  "auth": {
+    "shared": {
+      "email_label": "E-Mail",
+      "password_label": "Passwort",
+      "google_hint_disabled": "Google-Anmeldung wird angezeigt, sobald GOOGLE_CLIENT_ID konfiguriert ist.",
+      "google_hint_signup_enabled": "Sie können Ihr Konto mit E-Mail oder Google erstellen.",
+      "google_hint_login_enabled": "Sie können sich mit E-Mail oder Google anmelden.",
+      "google_load_failed": "Google Sign-In konnte nicht geladen werden. Bitte verwenden Sie E-Mail und Passwort.",
+      "google_continue": "Mit Google fortfahren",
+      "or": "oder",
+      "network_error": "Verbindungsfehler. Bitte versuchen Sie es erneut."
+    },
+    "signup": {
+      "meta_title": "Registrieren - TravelAgent",
+      "name_label": "Markenname / Team / Agenturname",
+      "password_label": "Passwort erstellen",
+      "proof": "Pflicht: Wählen Sie einen Produktplan, geben Sie Ihre E-Mail-Adresse ein und erstellen Sie ein Passwort. Ihr Marken- oder Teamname wird für den Workspace verwendet.",
+      "tier_hint": "Wählen Sie jetzt einen Tarif. Zum Start zahlen Sie 6 Monate lang 0 EUR, danach beginnt Ihr gewählter Monatstarif.",
+      "market_skin_label": "Primäres Markt-Preset",
+      "market_skin_hint": "Wählen Sie das Preset, das am besten zu Ihrem wichtigsten Kundenmarkt passt. Sprache und Währung können später überschrieben werden.",
+      "submit": "Konto erstellen",
+      "busy": "Konto wird erstellt...",
+      "success": "Ihr Workspace wird erstellt...",
+      "login_prompt": "Sie haben bereits ein Konto?",
+      "login_link": "Anmelden ->"
+    },
+    "login": {
+      "meta_title": "Anmelden - TravelAgent",
+      "subtitle": "Melden Sie sich in Ihrem Touren-Dashboard an.",
+      "submit": "Anmelden",
+      "busy": "Anmeldung läuft..."
+    },
+    "reset_password": {
+      "meta_title": "Passwort zurücksetzen - TravelAgent",
+      "subtitle": "Fordern Sie einen Reset-Link an oder setzen Sie ein neues Passwort.",
+      "request_submit": "Reset-Link senden",
+      "confirm_submit": "Passwort aktualisieren",
+      "back_to_login": "Zurück zur Anmeldung"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Wählen Sie Ihren Produktplan",
+    "catalog_hint": "Starten Sie jetzt mit einem aktiven Plan. Zukünftige Pläne bleiben zur Orientierung sichtbar.",
+    "per_user_month": "EUR {{price}} / Benutzer / Monat",
+    "status_active": "Jetzt verfügbar",
+    "status_future": "Zukünftiger Plan"
+  },
+  "widget": {
+    "title": "Preis prüfen und buchen",
+    "button_label": "Jetzt buchen",
+    "date_label": "Reisedatum",
+    "pax_label": "Anzahl Reisender",
+    "segment_label": "Paket",
+    "check_btn": "Preis prüfen",
+    "checking": "Wird geprüft...",
+    "book_btn": "Zur Buchung",
+    "per_person": "/ Person",
+    "total": "Gesamtschätzung"
+  }
+}

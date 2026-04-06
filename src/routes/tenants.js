@@ -6,15 +6,16 @@ import { resolveTenantByHost, serveSitePage, SAFE_SELECTOR_RE, listAllObjects, i
 import { checkPublishPermission } from '../lib/publishGuard.js';
 import { generateTourPage } from '../routes/tours.js';
 import pagesRouter, { rebuildAllTenantPageRenders } from '../routes/pages.js';
+import { getSupportedLocales } from '../utils/formatter.js';
+import { getTenantCurrencyCatalog, isSupportedTenantCurrency } from '../lib/tenantMarketCatalog.js';
+import { getMarketSkinCatalog, getMarketSkin, isSupportedMarketSkin } from '../lib/marketSkins.js';
 
 const tenants = new Hono();
 
 // [SEC] Whitelist các cột Agent được phép tự cập nhật.
 // Không được cập nhật: id, slug, name, created_at (bất biến)
-// default_locale và base_currency cố ý không nằm ở đây — thay đổi ảnh hưởng
-// đến toàn bộ DB và cần migration riêng.
 const ALLOWED_SETTINGS_COLUMNS = [
-  'exchange_rate', 'target_currency', 'pricing_policy', 'infant_policy_text',
+  'exchange_rate', 'target_currency', 'booking_currency', 'default_locale', 'market_skin_key', 'primary_market', 'pricing_policy', 'infant_policy_text',
   'custom_domain', 'subscription_status', 'payment_config_json', 'notification_config',
   // publish-gate fields (migration 0025)
   'subdomain', 'stripe_customer_id',
@@ -98,9 +99,29 @@ function validateSettings(data) {
 
   if ('target_currency' in data) {
     const cur = data.target_currency;
-    // ISO 4217: 3 chữ cái in hoa
-    if (typeof cur !== 'string' || !/^[A-Z]{3}$/.test(cur)) {
-      errors.push('target_currency phải là mã ISO 4217, ví dụ: VND, USD, EUR');
+    if (typeof cur !== 'string' || !isSupportedTenantCurrency(cur)) {
+      errors.push('target_currency phải thuộc curated currency basket: USD, EUR, VND, CNY, JPY, KRW, GBP, AUD, SGD, THB');
+    }
+  }
+
+  if ('booking_currency' in data) {
+    const cur = data.booking_currency;
+    if (typeof cur !== 'string' || !isSupportedTenantCurrency(cur)) {
+      errors.push('booking_currency phải thuộc curated currency basket: USD, EUR, VND, CNY, JPY, KRW, GBP, AUD, SGD, THB');
+    }
+  }
+
+  if ('default_locale' in data) {
+    const locale = String(data.default_locale || '').trim();
+    const supported = new Set(getSupportedLocales());
+    if (!supported.has(locale)) {
+      errors.push(`default_locale phải thuộc locale catalog hiện có: ${[...supported].join(', ')}`);
+    }
+  }
+
+  if ('market_skin_key' in data) {
+    if (!isSupportedMarketSkin(data.market_skin_key)) {
+      errors.push('market_skin_key không thuộc curated market skin catalog.');
     }
   }
 
@@ -199,6 +220,30 @@ tenants.patch('/settings', async (c) => {
     safeData.subdomain = String(safeData.subdomain || '').trim().toLowerCase();
   }
 
+  if ('target_currency' in safeData) {
+    safeData.target_currency = String(safeData.target_currency || '').trim().toUpperCase();
+  }
+
+  if ('booking_currency' in safeData) {
+    safeData.booking_currency = String(safeData.booking_currency || '').trim().toUpperCase();
+  }
+
+  if ('default_locale' in safeData) {
+    safeData.default_locale = String(safeData.default_locale || '').trim();
+  }
+
+  if ('market_skin_key' in safeData) {
+    safeData.market_skin_key = String(safeData.market_skin_key || '').trim();
+    const preset = getMarketSkin(safeData.market_skin_key);
+    if (!('booking_currency' in safeData)) safeData.booking_currency = preset.booking_currency;
+    if (!('default_locale' in safeData)) safeData.default_locale = preset.default_locale;
+    if (!('primary_market' in safeData)) safeData.primary_market = preset.primary_market;
+  }
+
+  if ('primary_market' in safeData) {
+    safeData.primary_market = String(safeData.primary_market || '').trim().toUpperCase();
+  }
+
   // Serialize payment_config_json object → TEXT for D1
   if ('payment_config_json' in safeData) {
     safeData.payment_config_json = safeData.payment_config_json !== null
@@ -216,7 +261,7 @@ tenants.patch('/settings', async (c) => {
   try {
     // [AUDIT] Đọc giá trị hiện tại trước khi cập nhật để log thay đổi
     const current = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, booking_currency, default_locale, market_skin_key, primary_market, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -264,7 +309,7 @@ tenants.patch('/settings', async (c) => {
 
     // Trả về settings mới để UI có thể cập nhật hiển thị ngay
     const updated = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, total_revenue_tracked, commission_threshold, product_tier_key FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -274,7 +319,7 @@ tenants.patch('/settings', async (c) => {
       catch { /* leave as string if malformed */ }
     }
 
-    return c.json({ ok: true, settings: updated });
+    return c.json({ ok: true, settings: updated, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog() } });
 
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
@@ -294,7 +339,7 @@ tenants.get('/settings', async (c) => {
 
   try {
     const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, total_revenue_tracked, commission_threshold FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -308,7 +353,7 @@ tenants.get('/settings', async (c) => {
       catch { /* leave as string if malformed */ }
     }
 
-    return c.json({ ok: true, settings });
+    return c.json({ ok: true, settings, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog() } });
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
     return c.json({ error: 'Internal server error. Please try again later.' }, 500);
@@ -370,7 +415,7 @@ publicConfig.get('/config', async (c) => {
     const adminId = c.req.header('X-Tenant-ID')?.trim();
     if (adminId) {
       tenant = await c.env.DB
-        .prepare('SELECT id, template_id, site_config, payment_methods FROM tenants WHERE id = ?')
+        .prepare('SELECT id, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market FROM tenants WHERE id = ?')
         .bind(adminId)
         .first();
     } else {
@@ -426,32 +471,34 @@ publicConfig.get('/config', async (c) => {
             showContactForm: cfg.navigation_config.showContactForm === true,
           }
         : { showPhone: false, showCart: false, showContactForm: false },
-      chrome_config: cfg.chrome_config && typeof cfg.chrome_config === 'object'
-        ? {
-            useMinimalHeader: cfg.chrome_config.useMinimalHeader !== false,
-            useMinimalFooter: cfg.chrome_config.useMinimalFooter !== false,
-            showFooterMenu:   cfg.chrome_config.showFooterMenu === true,
-            showLogo:         cfg.chrome_config.showLogo !== false,
-            effectStyle:      typeof cfg.chrome_config.effectStyle === 'string'
-              ? cfg.chrome_config.effectStyle
-              : 'glass',
-            shapeStyle:       typeof cfg.chrome_config.shapeStyle === 'string'
-              ? cfg.chrome_config.shapeStyle
-              : 'bar',
-            menuFontStyle:    typeof cfg.chrome_config.menuFontStyle === 'string'
-              ? cfg.chrome_config.menuFontStyle
-              : 'clean',
-            logoFontStyle:    typeof cfg.chrome_config.logoFontStyle === 'string'
-              ? cfg.chrome_config.logoFontStyle
-              : 'brand',
-            logoSize:         typeof cfg.chrome_config.logoSize === 'string'
-              ? cfg.chrome_config.logoSize
-              : 'md',
-            ornamentStyle:    typeof cfg.chrome_config.ornamentStyle === 'string'
-              ? cfg.chrome_config.ornamentStyle
-              : 'none',
-          }
-        : { useMinimalHeader: true, useMinimalFooter: true, showFooterMenu: false, showLogo: true, effectStyle: 'glass', shapeStyle: 'bar', menuFontStyle: 'clean', logoFontStyle: 'brand', logoSize: 'md', ornamentStyle: 'none' },
+        chrome_config: {
+          useMinimalHeader: cfg.chrome_config?.useMinimalHeader !== false,
+          useMinimalFooter: cfg.chrome_config?.useMinimalFooter !== false,
+          showFooterMenu:   cfg.chrome_config?.showFooterMenu === true,
+          showLogo:         cfg.chrome_config?.showLogo !== false,
+          effectStyle:      typeof cfg.chrome_config?.effectStyle === 'string'
+            ? cfg.chrome_config.effectStyle
+            : 'glass',
+          shapeStyle:       typeof cfg.chrome_config?.shapeStyle === 'string'
+            ? cfg.chrome_config.shapeStyle
+            : 'bar',
+          menuFontStyle:    typeof cfg.chrome_config?.menuFontStyle === 'string'
+            ? cfg.chrome_config.menuFontStyle
+            : 'clean',
+          logoFontStyle:    typeof cfg.chrome_config?.logoFontStyle === 'string'
+            ? cfg.chrome_config.logoFontStyle
+            : 'brand',
+          logoSize:         typeof cfg.chrome_config?.logoSize === 'string'
+            ? cfg.chrome_config.logoSize
+            : 'md',
+          ornamentStyle:    typeof cfg.chrome_config?.ornamentStyle === 'string'
+            ? cfg.chrome_config.ornamentStyle
+            : 'none',
+        },
+      default_locale: typeof tenant.default_locale === 'string' ? tenant.default_locale : 'en-US',
+      booking_currency: typeof tenant.booking_currency === 'string' ? tenant.booking_currency : 'USD',
+      market_skin_key: typeof tenant.market_skin_key === 'string' ? tenant.market_skin_key : 'global-default',
+      primary_market: typeof tenant.primary_market === 'string' ? tenant.primary_market : 'GLOBAL',
       payment_methods:  paymentMethods,
     },
   });
@@ -1185,6 +1232,84 @@ async function requireAssetTenant(c, tenantId) {
   return { tenant };
 }
 
+function stripDeletedAssetFromGalleryList(items, assetUrl) {
+  return (Array.isArray(items) ? items : []).filter((entry) => {
+    if (typeof entry === 'string') return entry !== assetUrl;
+    if (entry && typeof entry === 'object') return String(entry.src || '').trim() !== assetUrl;
+    return false;
+  });
+}
+
+function cleanupDeletedAssetFromTourContent(rawContent, assetUrl) {
+  let content;
+  try {
+    content = rawContent ? JSON.parse(rawContent) : {};
+  } catch {
+    return { changed: false, content: rawContent };
+  }
+
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    return { changed: false, content: rawContent };
+  }
+
+  let changed = false;
+  if (String(content.destination_image || '').trim() === assetUrl) {
+    content.destination_image = '';
+    changed = true;
+  }
+  if (String(content.hero_image || '').trim() === assetUrl) {
+    content.hero_image = '';
+    changed = true;
+  }
+
+  const nextGalleryImages = stripDeletedAssetFromGalleryList(content.gallery_images, assetUrl);
+  if (JSON.stringify(nextGalleryImages) !== JSON.stringify(Array.isArray(content.gallery_images) ? content.gallery_images : [])) {
+    content.gallery_images = nextGalleryImages;
+    changed = true;
+  }
+
+  const nextHomeGalleryImages = stripDeletedAssetFromGalleryList(content.home_gallery_images, assetUrl);
+  if (JSON.stringify(nextHomeGalleryImages) !== JSON.stringify(Array.isArray(content.home_gallery_images) ? content.home_gallery_images : [])) {
+    content.home_gallery_images = nextHomeGalleryImages;
+    changed = true;
+  }
+
+  const modules = content.universal_modules && typeof content.universal_modules === 'object' ? content.universal_modules : null;
+  if (modules) {
+    const nextModuleHomeGallery = stripDeletedAssetFromGalleryList(modules.home_gallery_images, assetUrl);
+    if (JSON.stringify(nextModuleHomeGallery) !== JSON.stringify(Array.isArray(modules.home_gallery_images) ? modules.home_gallery_images : [])) {
+      modules.home_gallery_images = nextModuleHomeGallery;
+      changed = true;
+    }
+  }
+
+  return {
+    changed,
+    content: changed ? JSON.stringify(content) : rawContent,
+  };
+}
+
+async function cleanupDeletedAssetReferences(db, tenantId, assetUrl) {
+  const { results: tours } = await db
+    .prepare('SELECT id, content_data FROM tours WHERE tenant_id = ?')
+    .bind(tenantId)
+    .all();
+
+  let updatedTours = 0;
+  for (const tour of tours || []) {
+    if (!String(tour.content_data || '').includes(assetUrl)) continue;
+    const cleaned = cleanupDeletedAssetFromTourContent(tour.content_data, assetUrl);
+    if (!cleaned.changed) continue;
+    await db
+      .prepare('UPDATE tours SET content_data = ? WHERE id = ? AND tenant_id = ?')
+      .bind(cleaned.content, tour.id, tenantId)
+      .run();
+    updatedTours += 1;
+  }
+
+  return { updatedTours };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/tenant/assets  (admin — X-Tenant-ID required)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1234,8 +1359,10 @@ publicConfig.delete('/assets/:filename', async (c) => {
   }
 
   const r2Key = `assets/${tenantId}/${filename}`;
+  const publicUrl = `/api/tenant/assets/${tenantId}/${filename}`;
   await c.env.TOUR_PAGES.delete(r2Key);
-  return c.json({ ok: true, filename, r2_key: r2Key });
+  const cleanup = await cleanupDeletedAssetReferences(c.env.DB, tenantId, publicUrl);
+  return c.json({ ok: true, filename, r2_key: r2Key, cleaned_asset_url: publicUrl, cleaned_tours: cleanup.updatedTours });
 });
 
 publicConfig.post('/assets/upload', async (c) => {

@@ -116,7 +116,7 @@ app.use('*', async (c, next) => {
     const tenant = await c.env.DB
       .prepare(
         `SELECT t.default_locale, t.base_currency,
-                t.target_currency AS display_currency, t.exchange_rate,
+                t.target_currency AS secondary_display_currency, t.booking_currency, t.market_skin_key, t.primary_market, t.exchange_rate,
                 t.pricing_policy, t.infant_policy_text,
                 COALESCE(tcc.timezone, 'Asia/Ho_Chi_Minh') AS timezone
          FROM tenants t
@@ -135,11 +135,15 @@ app.use('*', async (c, next) => {
         tenant_id:          tenantId,
         locale:             tenant.default_locale    ?? 'en-US',
         base_currency:      tenant.base_currency     ?? 'USD',
-        display_currency:   tenant.display_currency  ?? 'USD',
+        booking_currency:   tenant.booking_currency  ?? tenant.base_currency ?? 'USD',
+        secondary_display_currency: tenant.secondary_display_currency ?? null,
+        display_currency:   tenant.booking_currency  ?? tenant.base_currency ?? 'USD',
         exchange_rate:      tenant.exchange_rate      ?? 1,
         timezone:           tenant.timezone           ?? 'Asia/Ho_Chi_Minh',
         pricing_policy:     tenant.pricing_policy     ?? 'PRIORITY_HIGH_SEASON',
         infant_policy_text: tenant.infant_policy_text ?? null,
+        market_skin_key:    tenant.market_skin_key    ?? 'global-default',
+        primary_market:     tenant.primary_market     ?? 'GLOBAL',
         lang:               uiLang,
       };
 

@@ -30,10 +30,11 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)`
 - Local dev: `npx wrangler dev` on `http://127.0.0.1:8787`
 - i18n: Accept-Language → `translate()`, dual-price formatter, `resolveLocaleFromAcceptLanguage()`
+- Currency/runtime note: storefront money logic is still transitional and USD-primary in several formatter / invoice / booking snapshot surfaces, even though the approved direction is tenant-controlled booking currency
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0034; local runtime verified against current dev DB)
+### D1 Tables (repo migrations 0001–0037; local runtime verified against current dev DB)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -44,8 +45,8 @@ If old documentation says a feature exists but the current rescue repo does not 
 `tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
-`total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency`,
-`notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`
+`total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency` (secondary display currency storage),
+`booking_currency`, `market_skin_key`, `primary_market`, `notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`
 
 ### API Endpoints
 
@@ -58,10 +59,11 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/auth/turnstile-config` — public auth-page config endpoint that tells the frontend whether login/signup/forgot-password Turnstile protection is enabled and exposes the public site key/action when configured
 - `GET /api/auth/reset-password/:token` — validates a password reset token and returns masked email context for the reset form
 - `POST /api/auth/reset-password` — updates the password, revokes existing auth sessions for that user, and consumes the reset token
-- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key`, a valid Turnstile token in production, and redirects new tenants into the guided dashboard flow
+- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key`, accepts optional `market_skin_key`, requires a valid Turnstile token in production, and redirects new tenants into the guided dashboard flow
 - `POST /api/auth/google` — Google sign-in via GIS ID token; production requires a valid Turnstile token
-- `POST /api/auth/signup-google` — Google signup with `product_tier_key`; production requires a valid Turnstile token
+- `POST /api/auth/signup-google` — Google signup with `product_tier_key` and optional `market_skin_key`; production requires a valid Turnstile token
 - `GET /api/auth/product-tiers` — public localized tier catalog used by signup and pricing CTAs
+- `GET /api/auth/market-skins` — public curated market-skin catalog used by signup and future onboarding surfaces, now including EUR presets for Germany, France, and Spain
 - `GET /api/marketing-site` — public pricing/marketing content payload sourced from D1 `app_settings`
 - `GET|PUT /api/admin/marketing-site` — protected SaaS marketing page editor API
 
@@ -81,8 +83,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/pricing/metadata`
 
 **Tenants (CHK-R14/R15/R17)**
-- `PATCH /api/tenants/settings` — updateable: `exchange_rate`, `target_currency`, `pricing_policy`, `infant_policy_text`, `custom_domain`, `subscription_status`, `payment_config_json`, `subdomain`, `onboarding_step`
+- `PATCH /api/tenants/settings` — updateable: `exchange_rate`, `target_currency` (or clearer alias `secondary_display_currency`), `booking_currency`, `default_locale`, `market_skin_key`, `primary_market`, `pricing_policy`, `infant_policy_text`, `custom_domain`, `subscription_status`, `payment_config_json`, `subdomain`, `onboarding_step`
 - `GET /api/tenants/settings` — includes read-only: `total_revenue_tracked`, `commission_threshold`, `product_tier_key`
+- Tenant settings responses now also expose the curated storefront currency basket, curated market-skin presets, currently-supported runtime UI locales, and a computed `secondary_display_currency` alias for the stored `target_currency` field
 - `GET /api/tenants/audit-log` — last 100 entries for `custom_domain` / `payment_config_json` changes
 - Platform subdomains are now validated and effectively one-time lockable: once a tenant saves `subdomain`, later changes are rejected
 
@@ -109,11 +112,11 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/tours/:id/preview` — live re-render in preview mode (no R2 cache)
 
 **Booking Drafts (quote cart)**
-- `POST /api/bookings/draft` — server-side reprice, 24h TTL
+- `POST /api/bookings/draft` — server-side reprice, 24h TTL, authoritative quote snapshot now includes quoted amount/currency/base-currency/rate fields
 - `GET /api/bookings/draft/:draftId`
 
 **Booking Orders — Bank Transfer (CHK-R18)**
-- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; returns `guest_portal_token`
+- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; now snapshots authoritative `grand_total_amount` + `booking_currency` alongside legacy USD compatibility fields; returns `guest_portal_token`
 - `GET /api/bookings/order/:id` — agent view; guest object is present but masked as `***` until identity unlock
 - `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm step
 - `POST /api/bookings/order/:id/confirm-receipt` — unlocks identity, increments `total_revenue_tracked`, and now writes a compatible `tenant_audit_log` row with `changed_at`/`changed_by`; verified locally on 2026-04-02
@@ -124,7 +127,8 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 ### Frontend Assets
 - `public/index.html` — live SaaS pricing / trust landing page for 4 tiers
-- `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup; login now includes a forgot-password path
+- `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup; signup now also lets new tenants choose a curated market-skin preset before onboarding writes tenant defaults and starter content; login now includes a forgot-password path
+- Real locale packs are now present for `ja`, `ko`, `en-GB`, `en-AU`, `de`, `fr`, and `es`; `/api/i18n` resolves them exactly via Accept-Language instead of collapsing everything to base `en`
 - `public/reset-password.html` — localized request/reset page for password recovery tokens
 - `public/dashboard.html` — tenant admin landing page with subdomain locking and guided launch sequence
 - `public/templates/default.html` — tour page template with all placeholders
@@ -179,11 +183,15 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Public storefront rendering now defaults to the Six Senses-style luxury editorial chrome: invisible fixed header on first paint, Cormorant Garamond wordmark/headings, and a floating `Book Now` CTA on scroll
 - Universal storefront hero rendering now forces tenant-aware CTA context: home/listing discovery CTAs resolve through public page paths like `/p/:tenantId/:slug`, while `tour_detail` hero CTAs resolve to booking intent and anchor to `#booking-engine`
 - Public storefront rendering supports preview-first contextual editing metadata, hotel/tour/destination/contact quick-edit handoff, and an expanded Website Design system panel for chrome toggles and site-level settings
-- Tour storefront `Check availability` now opens a dedicated public `Booking View` that mirrors the sentence-driven calculator logic from `public/tour-config.html`: desktop opens a themed sidebar, mobile navigates to the tenant booking page with the same view inline for the selected `tour`
-- Public `Booking View` uses canonical tour pricing APIs (`tenant-seasons`, `pricing-segments`, `pax-bands`, `tour-prices`, `pricing/calculate`) and keeps the visible grand total as the strict local sum of the displayed row subtotals
-- Payment-flow hook is now reserved in the public booking surface: `public/tour-booking-view.js` emits `travelagent:public-booking-quote-ready` and `travelagent:public-booking-payment-intent`, and the payment CTA carries `data-payment-*` attributes for tenant/tour/segment/date/pax/total handoff
-- Public `Booking View` now also contains the first storefront payment sheet: after a quote is ready it can collect guest identity, read tenant payment settings, create a real booking order via `POST /api/bookings/order` for compliant tenants, and fall back to a clearly labeled `demo payment` mode when the tenant has not activated any electronic gateway yet
-- Pricing display policy is now explicitly locked: storefront/universal renders must treat `tour_prices` values as canonical amounts, carry currency alongside synced pricing values, use shared formatting only, and must not perform FX conversion until a real FX engine exists
+- Website Design System Panel now also persists tenant market settings (`market_skin_key`, `booking_currency`, `default_locale`) through `/api/tenants/settings` alongside the universal site config save flow
+- Child rooming policy is now room-based rather than adult-ratio based: each shared double room allows 1 child and each private room allows 2 children, with both booking UIs and backend pricing returning a rooming-capacity warning when the chosen room mix is exceeded
+- Universal storefront system chrome now follows `market_skin_key/default_locale` as the source of truth: locale presets supply CTA labels, header/login labels, map/search labels, drawer title, and footer kicker by default; tenant-saved literals only apply as explicit overrides, and tenant settings updates now purge universal public cache so locale/currency changes appear immediately
+- Broader non-editable storefront fallbacks now also follow the selected skin locale: luxury search empty states, gallery/story fallbacks, itinerary/service-flow headings, hero fallback labels, and footer/navigation fallback notes render from locale presets rather than staying hardcoded English when the tenant cannot edit them
+- Navigation labels, footer legal page links, and system page titles now treat prior default labels from any supported storefront locale as non-custom defaults; when tenants switch skin locale, these high-traffic labels re-localize to the new skin language unless the tenant entered a real custom override
+- Public customer booking flow now follows the storefront skin locale as well: the check-availability drawer inherits the effective `html lang` from the universal site renderer, uses localized booking UI copy and rooming messages, and public secure-token booking/proof endpoints now resolve guest-facing status and upload messages from the tenant's `default_locale` before any browser-language fallback
+- The public booking drawer now includes a customer-facing checkout step: guests can enter contact details, pick an available payment method sourced from public tenant config, create a booking order directly from the drawer, and receive a guest-portal follow-up link; when a tenant has no electronic gateway configured, the drawer automatically falls back to a `DEMO` checkout mode instead of hard-blocking the customer flow
+- Pricing overlap resolution is now driven by `tenant_seasons.sort_order`, so when High Season and Low Season overlap, the higher-priority season wins regardless of which row happens to have the largest raw price
+- Booking UI now places `Good to know` after `Grand total`, and the public `Check availability` slot shows a minimum-price teaser with canonical pricing copy instead of a system-placeholder sentence
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
 - `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
 - This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
@@ -238,21 +246,6 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
       - **Surplus room logic (CHK-R26)**: sole-occupancy supplement auto-applied when `totalRooms ≥ adults`; amber note below table; ±2 shared stepper; full two-way sync table↔sentence
       - Grand total = strict local sum `(shared×price)+(private×price)+(child×price)` — never from backend
 
-### public Booking View detail
-  - `public/tour-booking-view.js` is now the dedicated storefront projection of the Booking View concept; it is separate from `public/booking-widget.js`
-  - Desktop behavior: `Check availability` opens a themed sidebar overlay on the current tour detail page
-  - Mobile behavior: `Check availability` navigates to the tenant booking page with `?tour=<tourId>`, where the same Booking View renders inline
-  - Payment sheet behavior: the CTA inside the Booking View opens a storefront payment sheet with guest fields + payment-method selection
-  - For payment-compliant tenants, the sheet creates a real booking order through `POST /api/bookings/order`
-  - For non-compliant tenants, the sheet shows a dopamine-friendly `demo payment` completion instead of a dead-end block, while making it explicit that no real charge/order was created
-  - Future payment integration should attach to the emitted custom events and `data-payment-*` payload already kept on the payment hook button rather than re-deriving quote state from DOM text
-
-### Pricing display policy
-  - New architecture note: `docs/ai/27_PRICING_DISPLAY_POLICY.md`
-  - Universal synced tour pricing payloads now carry currency metadata such as `price_from_currency`, `pricing_base_currency`, `pricing_display_currency`, and per-card `*_price_currency` fields
-  - Current runtime rule is `format-only, no FX`: storefront/public surfaces may format canonical amounts with their canonical currency, but may not relabel or convert them just because tenant `target_currency` differs
-  - `src/routes/universalSites.js` is now normalized around a single storefront money formatter so listing meta, preview pricing, spotlight cards, tables, and hero starting-price chips do not hardcode `$`
-
 ### product-modules.html detail
   - **Destinations mode**: destination-source editing now includes unit-level taxonomy assignment on the canonical backing tour record, so operators can classify destinations where they actually manage destination copy and imagery
   - Destination modules still remain tour-backed today; true standalone destination entity tagging is available by API, but the main user workflow currently runs through destination modules in `product-modules.html?mode=destinations`
@@ -302,6 +295,8 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
 - Wrangler emitted one operational warning during deploy: because multiple environments exist in `wrangler.jsonc`, future production deploys should explicitly pass `--env=""` (or an explicit target env) to avoid ambiguity
 
 ## Planned / Target (not yet implemented)
+- Full removal of USD-centric compatibility fields: runtime still keeps older fields like `grand_total_usd` and older formatter/enrichment helpers while migration continues
+- Full market-skin storefront wiring: curated market-skin presets exist in runtime/catalogs, but their locale packs and storefront-specific copy/skin behavior are not yet fully applied end to end
 - Multi-skin expansion beyond Six Senses: more storefront skins will be added under `src/lib/themes/`, with each tenant selecting its active skin through tenant site configuration
 - Tenant creation seed packs: tours, hotels, galleries, destinations, and related decorative/runtime content should be normalized so a new tenant can be created with preloaded seed data and a chosen skin in one step
 - Skin-aware tenant bootstrap/load flow: tenant chooses a skin, then matching seed content is loaded automatically rather than manually assembled after creation

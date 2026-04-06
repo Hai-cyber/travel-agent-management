@@ -22,6 +22,19 @@ const GROUP_DEFINITIONS = {
   },
 };
 
+const STRONG_LANGUAGE_OPTIONS = [
+  { label: 'English', value: 'en' },
+  { label: 'English (United Kingdom)', value: 'en-GB' },
+  { label: 'English (Australia)', value: 'en-AU' },
+  { label: 'Vietnamese', value: 'vi' },
+  { label: 'Chinese', value: 'zh' },
+  { label: 'Japanese', value: 'ja' },
+  { label: 'Korean', value: 'ko' },
+  { label: 'German', value: 'de' },
+  { label: 'French', value: 'fr' },
+  { label: 'Spanish', value: 'es' },
+];
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -1363,10 +1376,7 @@ export function buildEditorSchema(groupKey, variantKey) {
           options: getVariantsForGroup(groupKey).map((variant) => ({ label: variant.label, value: variant.key })),
         }),
         createField('default_lang', 'Default Language', 'select', 'site.default_lang', {
-          options: [
-            { label: 'English', value: 'en' },
-            { label: 'Vietnamese', value: 'vi' },
-          ],
+          options: STRONG_LANGUAGE_OPTIONS,
         }),
       ]),
       createEditorGroup('brand_media', 'Brand Media', [

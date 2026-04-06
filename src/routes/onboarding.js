@@ -21,6 +21,7 @@ import {
   getProductTierCatalogPayload,
   resolveSignupTierKey,
 } from '../lib/productTiers.js';
+import { getMarketSkin, getMarketSkinCatalog, isSupportedMarketSkin } from '../lib/marketSkins.js';
 import {
   EMAIL_RE,
   PASSWORD_RESET_TTL_SECONDS,
@@ -523,19 +524,20 @@ async function fetchUserByGoogleOrEmail(db, googleSub, emailClean) {
     .first();
 }
 
-async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, now) {
+async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, marketSkinKey, now) {
   const tenantId = nanoid();
   const baseSlug = slugify(nameClean) || `tenant-${nanoid(8)}`;
   const slugConflict = await db.prepare('SELECT id FROM tenants WHERE slug = ?').bind(baseSlug).first();
   const tenantSlug = slugConflict ? `${baseSlug}-${nanoid(6)}` : baseSlug;
+  const preset = getMarketSkin(marketSkinKey);
 
   await db
     .prepare(
       `INSERT INTO tenants
-         (id, slug, name, email, subscription_status, template_id, product_tier_key, created_at)
-       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?, ?)`
+         (id, slug, name, email, subscription_status, template_id, product_tier_key, booking_currency, default_locale, market_skin_key, primary_market, created_at)
+       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?, ?, ?, ?, ?, ?)`
     )
-    .bind(tenantId, tenantSlug, nameClean, emailClean, tmplId, productTierKey, now)
+    .bind(tenantId, tenantSlug, nameClean, emailClean, tmplId, productTierKey, preset.booking_currency, preset.default_locale, preset.key, preset.primary_market, now)
     .run();
 
   return { tenantId, tenantSlug, tenantName: nameClean };
@@ -554,16 +556,16 @@ async function maybeInitializeSandbox(c, tenantId, tmplId) {
   }
 }
 
-async function maybeSeedStarterContent(c, tenantId, tenantName) {
+async function maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey) {
   try {
-    return await bootstrapTenantStarterContent(c.env, tenantId, tenantName);
+    return await bootstrapTenantStarterContent(c.env, tenantId, tenantName, { marketSkinKey });
   } catch (seedErr) {
     console.error('[onboarding] bootstrapTenantStarterContent failed:', seedErr.message);
     return { ok: false, reason: seedErr.message };
   }
 }
 
-async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey }) {
+async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey, marketSkinKey }) {
   const now = Math.floor(Date.now() / 1000);
   const existingUser = await fetchUserByEmail(db, emailClean);
   const legacyTenant = await resolveLegacyTenantByEmail(db, emailClean);
@@ -586,7 +588,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
     sandbox = { ok: true, skipped: true, reason: 'legacy_tenant_attached' };
   } else {
     createdNewTenant = true;
-    const created = await insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, now);
+    const created = await insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, productTierKey, marketSkinKey, now);
     tenantId = created.tenantId;
     tenantSlug = created.tenantSlug;
     tenantName = created.tenantName;
@@ -619,7 +621,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
-    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, emailClean, now);
@@ -638,6 +640,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
       subscription_status: 'TRIAL',
       template_id: tmplId,
       product_tier_key: productTierKey,
+      market_skin_key: marketSkinKey,
     },
     sandbox,
     starter_content,
@@ -677,6 +680,10 @@ async function finishGoogleAuth(c, { mode }) {
     return c.json({ error: 'Invalid or unavailable product_tier_key.' }, 400);
   }
 
+  const marketSkinKey = isSupportedMarketSkin(body?.market_skin_key)
+    ? String(body.market_skin_key).trim()
+    : 'global-default';
+
   const profile = await verifyGoogleIdToken(body?.id_token, c.env.GOOGLE_CLIENT_ID || '');
   const now = Math.floor(Date.now() / 1000);
   const legacyTenant = await resolveLegacyTenantByEmail(db, profile.email);
@@ -699,7 +706,7 @@ async function finishGoogleAuth(c, { mode }) {
 
   if (!tenantId && mode === 'signup') {
     createdNewTenant = true;
-    const created = await insertTenantWithUniqueSlug(db, tenantNameRaw, profile.email, tmplId, productTierKey, now);
+    const created = await insertTenantWithUniqueSlug(db, tenantNameRaw, profile.email, tmplId, productTierKey, marketSkinKey, now);
     tenantId = created.tenantId;
     tenantSlug = created.tenantSlug;
     tenantName = created.tenantName;
@@ -747,7 +754,7 @@ async function finishGoogleAuth(c, { mode }) {
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
-    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, profile.email, now);
@@ -764,6 +771,7 @@ async function finishGoogleAuth(c, { mode }) {
       name: tenantName,
       email: profile.email,
       product_tier_key: productTierKey,
+      market_skin_key: marketSkinKey,
     },
     sandbox,
     starter_content,
@@ -832,13 +840,25 @@ onboarding.post('/signup-onboarding', async (c) => {
     return c.json({ error: 'Invalid or unavailable product_tier_key.' }, 400);
   }
 
-  return finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey });
+  const marketSkinKey = isSupportedMarketSkin(body?.market_skin_key)
+    ? String(body.market_skin_key).trim()
+    : 'global-default';
+
+  return finishEmailSignup(c, { db, kv, emailClean, nameClean, password, tmplId, productTierKey, marketSkinKey });
 });
 
 onboarding.get('/product-tiers', async (c) => {
   const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
   const payload = getProductTierCatalogPayload(lang);
   return c.json({ ok: true, ...payload, default_tier_key: getDefaultSignupTierKey() });
+});
+
+onboarding.get('/market-skins', async (c) => {
+  return c.json({
+    ok: true,
+    market_skins: getMarketSkinCatalog(),
+    default_market_skin_key: 'global-default',
+  });
 });
 
 onboarding.post('/signup-google', async (c) => {

@@ -65,6 +65,50 @@ function validateSeasonDates(data) {
   return errors;
 }
 
+function validatePaxBandRange(data) {
+  const errors = [];
+  const hasMin = data.min_pax !== undefined;
+  const hasMax = data.max_pax !== undefined;
+
+  if (!hasMin && !hasMax) return errors;
+
+  const minPax = data.min_pax;
+  const maxPax = data.max_pax;
+
+  if (!Number.isInteger(minPax) || !Number.isInteger(maxPax)) {
+    errors.push('min_pax and max_pax must be integers');
+    return errors;
+  }
+
+  if (minPax < 1 || maxPax < 1) {
+    errors.push('min_pax and max_pax must be at least 1');
+  }
+  if (minPax > maxPax) {
+    errors.push('min_pax must be less than or equal to max_pax');
+  }
+
+  return errors;
+}
+
+function getMaxChildrenForRooming(sharedAdults, singleAdults) {
+  const sharedDoubleRooms = Math.floor(Math.max(0, Number(sharedAdults) || 0) / 2);
+  const privateRooms = Math.max(0, Number(singleAdults) || 0);
+  return sharedDoubleRooms + (privateRooms * 2);
+}
+
+function validateChildRoomingCapacity(sharedAdults, singleAdults, children) {
+  const maxChildren = getMaxChildrenForRooming(sharedAdults, singleAdults);
+  if (Number(children) <= maxChildren) {
+    return { ok: true, max_children: maxChildren };
+  }
+
+  return {
+    ok: false,
+    max_children: maxChildren,
+    error: `The chosen rooming capacity cannot accommodate the given number of children. Your current rooming allows up to ${maxChildren} child${maxChildren === 1 ? '' : 'ren'}: 1 per shared double room and 2 per private room. Please increase the room count or contact our staff for a family-room/manual quote.`,
+  };
+}
+
 // Whitelist cá»™t cáº§n Ã©p kiá»ƒu sá»‘ trÆ°á»›c khi bind vÃ o D1.
 // D1 strict-type: cá»™t REAL/INTEGER nháº­n string sáº½ throw SQLITE_MISMATCH (1031).
 const NUMERIC_COLUMNS = {
@@ -188,6 +232,13 @@ function buildPriceResponse(result, tenantConfig) {
     grand_total_display: dualPrice(grandTotal, cfg),
   };
 
+  const unit_prices = {
+    adult_shared_room: prices.adult_shared_room ?? 0,
+    adult_single_room: prices.adult_single_room ?? 0,
+    child_shared_with_parents: prices.child_shared_with_parents ?? 0,
+    infant: prices.infant ?? 0,
+  };
+
   const response = {
     ok:                  true,
     applied_season_name: result.applied_season_name,
@@ -201,11 +252,13 @@ function buildPriceResponse(result, tenantConfig) {
       original: { amount: grandTotal, currency: base_currency ?? 'USD' },
       display:  dualPrice(grandTotal, cfg),
     },
+    unit_prices,
     prices:        enrichPricesObject(
       {
         adult_shared_room:         prices.adult_shared_room,
         adult_single_room:         prices.adult_single_room,
         child_shared_with_parents: prices.child_shared_with_parents,
+        infant:                    prices.infant,
       },
       { exchange_rate, target_currency: display_currency }
     ),
@@ -278,6 +331,13 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
     // Ã‰p kiá»ƒu REAL/INTEGER â€” trÃ¡nh SQLITE_MISMATCH (1031) khi client gá»­i string
     coerceNumeric(table, safeData);
 
+    if (group === 'pax-bands') {
+      const paxBandErrors = validatePaxBandRange(safeData);
+      if (paxBandErrors.length > 0) {
+        return Response.json({ error: 'Invalid pax band range', details: paxBandErrors }, { status: 400 });
+      }
+    }
+
     console.log('[CREATE_PRICING] Dá»¯ liá»‡u sau khi Ã©p kiá»ƒu:', safeData);
 
     const id = nanoid();
@@ -312,7 +372,7 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
     }
     if (msg.includes('CHECK constraint failed')) {
       if (msg.includes('pax_bands') || msg.includes('min_pax')) {
-        return Response.json({ error: 'Invalid pax band: min pax must be less than max pax' }, { status: 400 });
+        return Response.json({ error: 'Invalid pax band: min pax must be less than or equal to max pax' }, { status: 400 });
       }
       return Response.json({ error: 'Validation failed — check your input values' }, { status: 400 });
     }
@@ -569,7 +629,9 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
 
     const current = group === 'tour-prices'
       ? await env.DB.prepare('SELECT tour_id FROM tour_prices WHERE id = ? AND tenant_id = ?').bind(itemId, tenant_id).first()
-      : null;
+      : group === 'pax-bands'
+        ? await env.DB.prepare('SELECT min_pax, max_pax FROM pax_bands WHERE id = ? AND tenant_id = ?').bind(itemId, tenant_id).first()
+        : null;
 
     if (group === 'tenant-seasons') {
       const dateErrors = validateSeasonDates(data);
@@ -583,6 +645,21 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
     const safeData = Object.fromEntries(
       Object.entries(data).filter(([k]) => allowed.includes(k))
     );
+
+    coerceNumeric(table, safeData);
+
+    if (group === 'pax-bands') {
+      if (!current) {
+        return Response.json({ error: 'Item not found' }, { status: 404 });
+      }
+      const paxBandErrors = validatePaxBandRange({
+        min_pax: safeData.min_pax ?? Number(current.min_pax),
+        max_pax: safeData.max_pax ?? Number(current.max_pax),
+      });
+      if (paxBandErrors.length > 0) {
+        return Response.json({ error: 'Invalid pax band range', details: paxBandErrors }, { status: 400 });
+      }
+    }
 
     if (Object.keys(safeData).length === 0) {
       return Response.json({ error: 'KhÃ´ng cÃ³ trÆ°á»ng há»£p lá»‡ Ä‘á»ƒ cáº­p nháº­t' }, { status: 400 });
@@ -986,6 +1063,11 @@ export async function calculateTourPrice(env, {
   if (!Number.isInteger(children) || children < 0) return { ok: false, error: 'child_count must be a non-negative integer.' };
   if (!Number.isInteger(infants)  || infants  < 0) return { ok: false, error: 'infant_count must be a non-negative integer.' };
 
+  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, children);
+  if (!childRoomingValidation.ok) {
+    return { ok: false, error: childRoomingValidation.error, max_children: childRoomingValidation.max_children };
+  }
+
   // effectivePax: dÃ¹ng Ä‘á»ƒ khá»›p pax_band â€” infants khÃ´ng chiáº¿m gháº¿
   const effectivePax = totalAdults + children;
 
@@ -1184,6 +1266,10 @@ export async function calculateAllSegmentsPrice(env, {
   const infants      = Number(infant_count ?? 0);
 
   if (totalAdults < 1) return { ok: false, error: 'At least 1 adult is required.' };
+  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, children);
+  if (!childRoomingValidation.ok) {
+    return { ok: false, error: childRoomingValidation.error, max_children: childRoomingValidation.max_children };
+  }
   const effectivePax = totalAdults + children;
 
   let monthDay;

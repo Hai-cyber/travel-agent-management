@@ -1,0 +1,128 @@
+{
+  "common": {
+    "yes": "예",
+    "no": "아니오",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "reload": "새로고침",
+    "edit": "수정",
+    "create": "생성",
+    "search": "검색",
+    "loading": "불러오는 중...",
+    "error": "오류",
+    "success": "성공",
+    "required": "필수"
+  },
+  "language": {
+    "label": "언어",
+    "en": "영어",
+    "vi": "베트남어",
+    "zh": "중국어",
+    "ja": "일본어",
+    "ko": "한국어",
+    "de": "독일어",
+    "fr": "프랑스어",
+    "es": "스페인어"
+  },
+  "currency": {
+    "display_currency": "보조 표시 통화",
+    "secondary_display_currency": "보조 표시 통화"
+  },
+  "pricing": {
+    "title": "요금",
+    "season": "시즌",
+    "segment": "상품 구분",
+    "pax_band": "인원 구간",
+    "base_currency": "가격표 기준 통화",
+    "exchange_rate": "환율"
+  },
+  "invoice": {
+    "title": "청구 요약",
+    "detail": "요금 상세",
+    "grand_total": "총액",
+    "subtotal": "소계",
+    "unit_price": "단가",
+    "qty": "수량",
+    "adult_shared_room": "성인 (공유 객실)",
+    "adult_private_room": "성인 (싱글 객실)",
+    "child": "아동 (2~11세)",
+    "infant": "유아 (0~2세)"
+  },
+  "auth": {
+    "shared": {
+      "email_label": "이메일",
+      "password_label": "비밀번호",
+      "google_hint_disabled": "GOOGLE_CLIENT_ID가 설정되면 Google 로그인 버튼이 표시됩니다.",
+      "google_hint_signup_enabled": "이메일 또는 Google로 계정을 만들 수 있습니다.",
+      "google_hint_login_enabled": "이메일 또는 Google로 로그인할 수 있습니다.",
+      "google_load_failed": "Google Sign-In을 불러올 수 없습니다. 이메일과 비밀번호를 사용해 주세요.",
+      "google_continue": "Google로 계속",
+      "or": "또는",
+      "network_error": "연결 오류가 발생했습니다. 다시 시도해 주세요."
+    },
+    "signup": {
+      "meta_title": "회원가입 - TravelAgent",
+      "name_label": "브랜드 / 팀 / 에이전시 이름",
+      "password_label": "비밀번호 만들기",
+      "proof": "필수: 상품 플랜을 선택하고 이메일과 비밀번호를 입력하세요. 브랜드명 또는 운영명이 워크스페이스 이름이 됩니다.",
+      "tier_hint": "먼저 플랜을 선택하세요. 출시 혜택으로 첫 6개월은 0 EUR이며, 이후 선택한 월간 플랜이 시작됩니다.",
+      "market_skin_label": "주요 시장 프리셋",
+      "market_skin_hint": "주 고객 시장과 가장 가까운 프리셋을 선택하세요. 언어와 통화는 나중에 다시 조정할 수 있습니다.",
+      "submit": "계정 만들기",
+      "busy": "계정을 생성하는 중...",
+      "success": "워크스페이스를 생성하는 중입니다...",
+      "login_prompt": "이미 계정이 있으신가요?",
+      "login_link": "로그인 ->",
+      "missing_fields": "상품 플랜을 선택하고 필수 항목을 모두 입력해 주세요.",
+      "turnstile_note": "계정을 만들기 전에 인증을 완료해 주세요.",
+      "turnstile_required": "인증 챌린지를 완료해 주세요.",
+      "turnstile_error": "인증 컴포넌트를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.",
+      "name_required_for_google": "Google로 계속하기 전에 브랜드명 또는 팀명을 입력해 주세요.",
+      "google_error": "Google 회원가입에 실패했습니다."
+    },
+    "login": {
+      "meta_title": "로그인 - TravelAgent",
+      "subtitle": "투어 운영 대시보드에 로그인합니다.",
+      "submit": "로그인",
+      "busy": "로그인 중...",
+      "success": "로그인에 성공했습니다. 이동 중입니다...",
+      "signup_prompt": "아직 계정이 없으신가요?",
+      "signup_link": "계정 만들기 ->"
+    },
+    "reset_password": {
+      "meta_title": "비밀번호 재설정 - TravelAgent",
+      "subtitle": "재설정 링크를 요청하거나 새 비밀번호를 설정하세요.",
+      "request_submit": "재설정 링크 보내기",
+      "request_busy": "재설정 링크를 준비하는 중...",
+      "request_success": "계정이 존재하면 재설정 링크를 준비했습니다.",
+      "confirm_submit": "비밀번호 업데이트",
+      "confirm_busy": "비밀번호를 업데이트하는 중...",
+      "confirm_success": "비밀번호가 업데이트되었습니다. 로그인 페이지로 이동합니다...",
+      "back_to_login": "로그인으로 돌아가기"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "상품 플랜 선택",
+    "catalog_hint": "현재 신청 가능한 플랜을 선택하세요. 향후 플랜은 로드맵용으로 표시됩니다.",
+    "per_user_month": "월 {{price}} EUR / 사용자",
+    "status_active": "현재 이용 가능",
+    "status_future": "향후 제공 예정"
+  },
+  "widget": {
+    "title": "요금 확인 및 예약",
+    "button_label": "지금 예약",
+    "date_label": "여행 날짜",
+    "pax_label": "인원 수",
+    "segment_label": "패키지",
+    "all_segments": "모든 패키지 비교",
+    "check_btn": "요금 확인",
+    "checking": "확인 중...",
+    "book_btn": "예약 진행",
+    "error_api": "요금을 불러오지 못했습니다. 다시 시도해 주세요.",
+    "error_fields": "필수 항목을 입력해 주세요.",
+    "per_person": "/ 인",
+    "total": "예상 총액",
+    "includes_note": "최종 요금은 예약 시 확정됩니다."
+  }
+}

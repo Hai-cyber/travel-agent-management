@@ -69,6 +69,19 @@ If unpaid:
 - subscription fee
 - commission tracking
 
+## Storefront currency direction
+
+- Tenant storefront currency must follow the tenant's commercial reality, not the SaaS platform's internal billing assumptions
+- The tenant should eventually control one authoritative booking / charging currency for end-customer bookings
+- Currency conversion and secondary display are support layers, not the source of truth
+
+## Market skin direction
+
+- Tenants serving different niche markets need default skins aligned to those markets
+- Code stays English-first internally
+- Tenant-facing locale, currency defaults, booking microcopy, and skin defaults should be bundled by market-oriented presets
+- Automatic translation may assist drafting, but curated locale packs remain the preferred default for real tenant-facing skins
+
 ## NOT included
 
 - customer payment processing

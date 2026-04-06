@@ -7,7 +7,7 @@
 --   [1] tour_prices.tour_id changed to TEXT (matches canonical tours.id)
 --   [2] tour_prices: UNIQUE(tenant_id, tour_id, season_id, segment_id, pax_band_id)
 --       prevents duplicate price rows for same combination
---   [3] pax_bands: CHECK(min_pax < max_pax) prevents invalid ranges
+--   [3] pax_bands: CHECK(min_pax <= max_pax) allows exact single-traveller bands
 --   [4] tenant_seasons: CHECK on month/day ranges prevents bad calendar values
 --   [5] Indexes on all FK columns for join performance and lookup integrity
 --
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS pax_bands (
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active  INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
-  -- [3] Enforce valid range: min must be strictly less than max
-  CHECK (min_pax < max_pax),
+  -- [3] Enforce valid range: min can equal max for exact bands like 1-1
+  CHECK (min_pax <= max_pax),
   FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
 

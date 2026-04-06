@@ -1,0 +1,111 @@
+{
+  "common": {
+    "yes": "Oui",
+    "no": "Non",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "reload": "Recharger",
+    "edit": "Modifier",
+    "create": "Créer",
+    "search": "Rechercher",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "required": "Obligatoire"
+  },
+  "language": {
+    "label": "Langue",
+    "en": "Anglais",
+    "vi": "Vietnamien",
+    "zh": "Chinois",
+    "ja": "Japonais",
+    "ko": "Coréen",
+    "de": "Allemand",
+    "fr": "Français",
+    "es": "Espagnol"
+  },
+  "currency": {
+    "display_currency": "Devise d'affichage secondaire",
+    "secondary_display_currency": "Devise d'affichage secondaire"
+  },
+  "pricing": {
+    "title": "Tarifs",
+    "season": "Saison",
+    "segment": "Segment",
+    "pax_band": "Tranche de voyageurs",
+    "base_currency": "Devise de base de la grille tarifaire",
+    "exchange_rate": "Taux de change"
+  },
+  "invoice": {
+    "title": "Facture",
+    "detail": "Détail de la facture",
+    "grand_total": "Total général",
+    "subtotal": "Sous-total",
+    "unit_price": "Prix unitaire",
+    "qty": "Qté",
+    "adult_shared_room": "Adulte (chambre partagée)",
+    "adult_private_room": "Adulte (chambre individuelle)",
+    "child": "Enfant (2–11 ans)",
+    "infant": "Bébé (0–2 ans)"
+  },
+  "auth": {
+    "shared": {
+      "email_label": "E-mail",
+      "password_label": "Mot de passe",
+      "google_hint_disabled": "La connexion Google apparaîtra lorsque GOOGLE_CLIENT_ID sera configuré.",
+      "google_hint_signup_enabled": "Vous pouvez créer votre compte avec votre e-mail ou Google.",
+      "google_hint_login_enabled": "Vous pouvez vous connecter avec votre e-mail ou Google.",
+      "google_load_failed": "Impossible de charger Google Sign-In. Veuillez utiliser votre e-mail et votre mot de passe.",
+      "google_continue": "Continuer avec Google",
+      "or": "ou",
+      "network_error": "Erreur de connexion. Veuillez réessayer."
+    },
+    "signup": {
+      "meta_title": "Inscription - TravelAgent",
+      "name_label": "Nom de marque / équipe / agence",
+      "password_label": "Créer un mot de passe",
+      "proof": "Obligatoire : choisissez un plan produit, saisissez votre e-mail et créez un mot de passe. Le nom de votre marque ou de votre équipe servira à créer l'espace de travail.",
+      "tier_hint": "Choisissez un plan maintenant. Offre de lancement : 0 EUR pendant 6 mois, puis votre abonnement mensuel sélectionné commence.",
+      "market_skin_label": "Préréglage de marché principal",
+      "market_skin_hint": "Choisissez le préréglage qui correspond le mieux à votre marché client principal. La langue et la devise pourront être ajustées plus tard.",
+      "submit": "Créer un compte",
+      "busy": "Création du compte...",
+      "success": "Votre espace de travail est en cours de création...",
+      "login_prompt": "Vous avez déjà un compte ?",
+      "login_link": "Se connecter ->"
+    },
+    "login": {
+      "meta_title": "Connexion - TravelAgent",
+      "subtitle": "Connectez-vous à votre tableau de bord d'opérations touristiques.",
+      "submit": "Se connecter",
+      "busy": "Connexion en cours..."
+    },
+    "reset_password": {
+      "meta_title": "Réinitialiser le mot de passe - TravelAgent",
+      "subtitle": "Demandez un lien de réinitialisation ou définissez un nouveau mot de passe.",
+      "request_submit": "Envoyer le lien de réinitialisation",
+      "confirm_submit": "Mettre à jour le mot de passe",
+      "back_to_login": "Retour à la connexion"
+    }
+  },
+  "product_tiers": {
+    "catalog_title": "Choisissez votre plan produit",
+    "catalog_hint": "Commencez maintenant avec une offre active. Les futures offres restent visibles pour la feuille de route.",
+    "per_user_month": "EUR {{price}} / utilisateur / mois",
+    "status_active": "Disponible maintenant",
+    "status_future": "Offre future"
+  },
+  "widget": {
+    "title": "Vérifier le prix et réserver",
+    "button_label": "Réserver maintenant",
+    "date_label": "Date de voyage",
+    "pax_label": "Nombre de voyageurs",
+    "segment_label": "Forfait",
+    "check_btn": "Vérifier le prix",
+    "checking": "Vérification...",
+    "book_btn": "Passer à la réservation",
+    "per_person": "/ personne",
+    "total": "Estimation totale"
+  }
+}

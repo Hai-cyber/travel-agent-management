@@ -64,7 +64,7 @@ export const SAFE_SELECTOR_RE = /^[a-zA-Z0-9_\-#.[\]="': >+~^$*|()]+$/;
  *
  * Both paths require subscription_status = 'ACTIVE'.
  *
- * Returns { id, subscription_status, template_id, site_config } or null.
+ * Returns { id, subscription_status, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market } or null.
  */
 export async function resolveTenantByHost(host, db) {
   // Strip port suffix present during local dev (e.g. "localhost:8787" → "localhost")
@@ -73,7 +73,7 @@ export async function resolveTenantByHost(host, db) {
   // 1. Exact custom_domain lookup
   const byDomain = await db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods
+      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market
          FROM tenants
         WHERE custom_domain = ? AND subscription_status = 'ACTIVE'`
     )
@@ -89,7 +89,7 @@ export async function resolveTenantByHost(host, db) {
   const subLabel = labels[0];
   return db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods
+      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market
          FROM tenants
         WHERE subdomain = ? AND subscription_status = 'ACTIVE'`
     )

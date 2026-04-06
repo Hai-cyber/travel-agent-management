@@ -366,6 +366,46 @@
       gap: 8px;
     }
 
+    .field-inline-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field-inline-actions .button {
+      width: auto;
+      min-width: 0;
+      padding: 10px 14px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+    }
+
+    .image-preview {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .image-preview img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .image-preview-meta {
+      color: var(--shell-muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+
     .field span {
       font-size: 11px;
       letter-spacing: 0.14em;
@@ -486,7 +526,9 @@
     const state = {
       tenantId: '',
       bundle: null,
+      assets: [],
       tenantSettings: null,
+      tenantSettingCatalogs: null,
       activeSlug: 'home',
       selected: null,
       activeTheme: null,
@@ -498,6 +540,8 @@
     };
 
     const DEFAULT_TOUR_VARIANT_KEY = 'tour-luxury';
+    const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
+    const MAX_IMAGE_DIMENSION = 6000;
 
     const $ = (id) => document.getElementById(id);
 
@@ -545,6 +589,114 @@
 
     function buildHeaders(tenantId) {
       return { 'X-Tenant-ID': tenantId };
+    }
+
+    function esc(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getOptimizedImageUrl(url, options = {}) {
+      const cleanUrl = String(url || '').trim();
+      if (!cleanUrl) return '';
+      try {
+        const absolute = new URL(cleanUrl, window.location.origin);
+        const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const isSameOrigin = absolute.origin === window.location.origin;
+        const isR2Asset = absolute.hostname.endsWith('.r2.dev');
+        const isTenantAssetApi = absolute.pathname.startsWith('/api/tenant/assets/');
+        if (isLocalDev) return absolute.href;
+        if (isTenantAssetApi) return absolute.href;
+        if (!isSameOrigin && !isR2Asset) return absolute.href;
+        const width = Math.max(64, Number(options.width || 900));
+        const height = Math.max(64, Number(options.height || 540));
+        const fit = options.fit || 'cover';
+        const quality = Math.max(50, Math.min(90, Number(options.quality || 76)));
+        const source = isSameOrigin ? `${absolute.pathname}${absolute.search}` : absolute.href;
+        return `/cdn-cgi/image/width=${width},height=${height},fit=${fit},quality=${quality},format=auto/${source}`;
+      } catch {
+        return cleanUrl;
+      }
+    }
+
+    function inspectImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const objectUrl = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          const info = { width: image.naturalWidth || 0, height: image.naturalHeight || 0 };
+          URL.revokeObjectURL(objectUrl);
+          resolve(info);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('Selected file is not a readable image.'));
+        };
+        image.src = objectUrl;
+      });
+    }
+
+    async function validateImageUpload(file) {
+      if (!String(file?.type || '').startsWith('image/')) {
+        throw new Error('Only image uploads are allowed here.');
+      }
+      if (Number(file.size || 0) > MAX_IMAGE_UPLOAD_BYTES) {
+        throw new Error('Image is too large. Limit is 8 MB per file.');
+      }
+      const info = await inspectImageFile(file);
+      if (Math.max(info.width, info.height) > MAX_IMAGE_DIMENSION) {
+        throw new Error('Image dimensions are too large. Limit is 6000px on the longest side.');
+      }
+      return info;
+    }
+
+    async function uploadAssetFile(file) {
+      const formData = new FormData();
+      formData.set('file', file);
+      const response = await fetch('/api/tenant/assets/upload', {
+        method: 'POST',
+        headers: buildHeaders(state.tenantId),
+        body: formData,
+      });
+      const payload = await readApiPayload(response, 'Failed to upload image');
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to upload image');
+      }
+      return payload;
+    }
+
+    function isImageField(labelText, id, multiline) {
+      if (multiline) return false;
+      return /(image|logo|og image)/i.test(`${labelText} ${id}`);
+    }
+
+    function updateImagePreview(target) {
+      const input = typeof target === 'string' ? $(target) : target;
+      if (!input?.dataset?.imagePreviewTarget) return;
+      const preview = $(input.dataset.imagePreviewTarget);
+      if (!preview) return;
+
+      const url = String(input.value || '').trim();
+      const label = input.dataset.imagePreviewLabel || 'Image preview';
+      if (!url) {
+        preview.innerHTML = `<div class="image-preview-meta">${esc(label)} will appear here after you paste or upload an image.</div>`;
+        return;
+      }
+
+      preview.innerHTML = `
+        <img src="${esc(getOptimizedImageUrl(url))}" alt="${esc(label)}" loading="lazy" />
+        <div class="image-preview-meta">${esc(url)}</div>
+      `;
+
+      const image = preview.querySelector('img');
+      if (image) {
+        image.onerror = () => {
+          preview.innerHTML = `<div class="image-preview-meta">Preview could not be loaded yet, but this field is still storing the URL:<br>${esc(url)}</div>`;
+        };
+      }
     }
 
     async function readApiPayload(response, fallbackMessage) {
@@ -610,6 +762,17 @@
         label: 'Six Senses Immersive Frame',
         description: 'Default tour storefront shell.',
       }];
+    }
+
+    function getMarketSkinOptions() {
+      return Array.isArray(state.tenantSettingCatalogs?.market_skins)
+        ? state.tenantSettingCatalogs.market_skins
+        : [];
+    }
+
+    function getSelectedMarketSkin() {
+      const selectedKey = String(state.tenantSettings?.market_skin_key || 'global-default').trim();
+      return getMarketSkinOptions().find((entry) => entry.key === selectedKey) || null;
     }
 
     function getGroupDefinition(groupKey) {
@@ -961,7 +1124,12 @@
       return labels[scope] || 'Manage: Site Content';
     }
 
-    function buildField(labelText, id, value, multiline = false) {
+    function buildField(labelText, id, value, multilineOrOptions = false) {
+      const options = typeof multilineOrOptions === 'boolean'
+        ? { multiline: multilineOrOptions }
+        : (multilineOrOptions || {});
+      const multiline = options.multiline === true;
+      const imageField = options.image === true || isImageField(labelText, id, multiline);
       const field = document.createElement('label');
       field.className = 'field';
       const label = document.createElement('span');
@@ -969,9 +1137,61 @@
       field.appendChild(label);
       const input = multiline ? document.createElement('textarea') : document.createElement('input');
       input.id = id;
-      if (!multiline) input.type = 'text';
+      if (!multiline) input.type = imageField ? 'url' : 'text';
       input.value = value || '';
       field.appendChild(input);
+
+      if (imageField) {
+        const previewId = `${id}-preview`;
+        input.dataset.imagePreviewTarget = previewId;
+        input.dataset.imagePreviewLabel = labelText;
+
+        const actions = document.createElement('div');
+        actions.className = 'field-inline-actions';
+
+        const uploadButton = document.createElement('button');
+        uploadButton.type = 'button';
+        uploadButton.className = 'button ghost';
+        uploadButton.textContent = 'Upload Image';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.hidden = true;
+
+        uploadButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          try {
+            setStatus(`Uploading ${file.name}...`);
+            await validateImageUpload(file);
+            const uploaded = await uploadAssetFile(file);
+            input.value = uploaded.url || '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            setStatus('Image uploaded and preview updated.');
+          } catch (error) {
+            setStatus(error.message || 'Failed to upload image', true);
+          } finally {
+            fileInput.value = '';
+          }
+        });
+
+        actions.appendChild(uploadButton);
+        actions.appendChild(fileInput);
+        field.appendChild(actions);
+
+        const preview = document.createElement('div');
+        preview.id = previewId;
+        preview.className = 'image-preview';
+        field.appendChild(preview);
+
+        input.addEventListener('input', () => updateImagePreview(input));
+        input.addEventListener('change', () => updateImagePreview(input));
+        updateImagePreview(input);
+      }
+
       return field;
     }
 
@@ -1436,6 +1656,8 @@
       const privacyBlock = getPrimaryPageBodyBlock(privacyPage);
       const contactBlock = getPrimaryPageBodyBlock(contactPage);
       const skinOptions = getSkinOptions();
+      const marketSkinOptions = getMarketSkinOptions();
+      const selectedMarketSkin = getSelectedMarketSkin();
       const selectedSkinVariantKey = getVariantDefinition(site.variant_key || '')?.key
         || skinOptions[0]?.value
         || DEFAULT_TOUR_VARIANT_KEY;
@@ -1540,6 +1762,18 @@
       })));
       skinPanel.appendChild(buildField('Site Name', 'system-site-name', site.site_name || ''));
       skinPanel.appendChild(buildField('Default Language', 'system-default-lang', site.default_lang || 'en'));
+      if (marketSkinOptions.length) {
+        skinPanel.appendChild(buildSelectField('Market Skin', 'system-market-skin', marketSkinOptions.map((option) => ({
+          value: option.key,
+          label: `${option.label} · ${option.default_locale} · ${option.booking_currency}`,
+        })), selectedMarketSkin?.key || 'global-default'));
+        skinPanel.appendChild(makeFull(buildSectionHeading(
+          'Market Preset',
+          selectedMarketSkin
+            ? `Preset hiện tại: ${selectedMarketSkin.label}. Locale mặc định: ${selectedMarketSkin.default_locale}. Booking currency: ${selectedMarketSkin.booking_currency}.`
+            : 'Market skin controls locale hệ thống, navigation copy không editable, và booking currency authoritative của tenant.'
+        )));
+      }
       skinPanel.appendChild(buildSelectField('Home Page', 'system-home-page', pageOptions, site.home_page_key || state.activeSlug));
       skinPanel.appendChild(buildField('Logo URL', 'system-logo-url', theme.logoUrl || ''));
       skinPanel.appendChild(buildField('Heading Font', 'system-font-heading', theme.fontHeading || ''));
@@ -1738,6 +1972,7 @@
       if (settingsResponse.ok) {
         const settingsPayload = await readApiPayload(settingsResponse).catch(() => null);
         if (settingsPayload?.settings) state.tenantSettings = settingsPayload.settings;
+        if (settingsPayload?.catalogs) state.tenantSettingCatalogs = settingsPayload.catalogs;
       }
 
       state.bundle = payload;
@@ -1894,6 +2129,7 @@
         }
         state.bundle = await (await fetch('/api/universal/site/config', { headers: buildHeaders(state.tenantId) })).json();
       } else if (state.selected.mode === 'system') {
+        const selectedMarketSkinKey = $('system-market-skin')?.value?.trim() || state.tenantSettings?.market_skin_key || 'global-default';
         const site = state.bundle?.site || {};
         const nextPagesMap = new Map();
         const termsPage = getPageByKey('terms');
@@ -2084,6 +2320,24 @@
           contacts: nextContacts,
           ...(shouldApplyVariantPreset ? { reset_preset: true } : {}),
         };
+
+        if (selectedMarketSkinKey) {
+          setStatus('Saving market preset...');
+          const tenantSettingsResponse = await fetch('/api/tenants/settings', {
+            method: 'PATCH',
+            headers: {
+              ...buildHeaders(state.tenantId),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ market_skin_key: selectedMarketSkinKey }),
+          });
+          const tenantSettingsPayload = await readApiPayload(tenantSettingsResponse, 'Failed to save market skin');
+          if (!tenantSettingsResponse.ok || !tenantSettingsPayload?.ok) {
+            throw new Error(tenantSettingsPayload?.error || 'Failed to save market skin');
+          }
+          state.tenantSettings = tenantSettingsPayload.settings || state.tenantSettings;
+          state.tenantSettingCatalogs = tenantSettingsPayload.catalogs || state.tenantSettingCatalogs;
+        }
 
         if (!shouldApplyVariantPreset) {
           requestBody.menu = { items: menuItems };

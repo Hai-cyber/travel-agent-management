@@ -62,12 +62,12 @@ JOIN pax_bands pb ON tp.pax_band_id = pb.id
 WHERE tp.tenant_id != pb.tenant_id;
 
 -- ------------------------------------------------------------
--- 6. INVALID PAX BAND RANGES (min_pax >= max_pax)
+-- 6. INVALID PAX BAND RANGES (min_pax > max_pax)
 -- Expect: 0 rows returned
 -- ------------------------------------------------------------
 SELECT id, tenant_id, name, min_pax, max_pax
 FROM pax_bands
-WHERE min_pax >= max_pax;
+WHERE min_pax > max_pax;
 
 -- ------------------------------------------------------------
 -- 7. OVERLAPPING PAX BANDS WITHIN SAME TENANT

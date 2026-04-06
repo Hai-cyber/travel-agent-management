@@ -446,8 +446,8 @@ payments.get('/settings', async (c) => {
     compliance: {
       has_electronic_gateway: hasGateway,
       message: hasGateway
-        ? translate('payments.compliance_gateway_active', lang, { default: 'Tenant has at least one active electronic gateway.' })
-        : translate('payments.compliance_gateway_missing', lang, { default: 'No electronic gateway is enabled yet. Configure API keys to activate one.' }),
+        ? translate('payments.compliance_gateway_active', lang)
+        : translate('payments.compliance_gateway_missing', lang),
     },
   });
 });
