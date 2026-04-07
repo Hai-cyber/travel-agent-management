@@ -195,7 +195,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset
 - `tour-luxury` remains the original Six Senses immersive frame, and `tour-luxury-riviera` adds a second luxury mood with different preset imagery, theme tokens, and typography
 - This keeps operations multi-skin in practice even while the luxury renderer stays shared underneath
-- Architectural direction is now explicitly locked for future expansion: tour-side accommodation remains `stop_accommodation`, while standalone hotel/business operations will move into a separate `property` domain family with staff handled as tenant add-on seats rather than separate tenants
+- Architectural direction is now explicitly locked: `accommodation` is tour-only and exists to strengthen tour storytelling and stop/service context, while `properties` belongs to the hotel-only engine and must not be auto-derived from tour accommodation fields
 
 ### Managed responsive chrome (CHK-R34)
 - `src/lib/siteStudio.js` and `src/routes/pages.js` render managed minimal headers with a mobile menu toggle.

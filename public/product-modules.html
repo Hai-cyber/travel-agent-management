@@ -789,7 +789,7 @@
     <div class="topbar panel">
       <div class="brand">
         <h1>Product Modules</h1>
-        <p>Use these modules as the product source of truth. Quick edit stays for shell and skin adjustments only; destinations, hotels, and gallery content should be managed here.</p>
+        <p>Use these modules as the product source of truth. Quick edit stays for shell and skin adjustments only; destinations, properties, and gallery content should be managed here.</p>
       </div>
       <div class="top-actions">
         <a id="link-dashboard" class="button ghost" href="/dashboard.html">Tenant Admin</a>
@@ -800,7 +800,7 @@
 
     <div class="mode-tabs">
       <a class="pill" data-mode-link="destinations" href="#">Destinations</a>
-      <a class="pill" data-mode-link="hotels" href="#">Hotels</a>
+      <a class="pill" data-mode-link="hotels" href="#">Properties</a>
       <a class="pill" data-mode-link="gallery" href="#">Gallery</a>
     </div>
 
@@ -819,7 +819,7 @@
       <section class="panel editor">
         <div class="editor-head">
           <h2 id="editor-title">Module Editor</h2>
-          <p id="editor-note">Choose a destination, hotel, or gallery source from the list.</p>
+          <p id="editor-note">Choose a destination, property, or gallery source from the list.</p>
         </div>
         <div id="editor-body" class="editor-body">
           <p class="empty">No item selected yet.</p>
@@ -1534,7 +1534,7 @@
     }
 
     function getHotelLabel(hotel) {
-      return hotel?.name || hotel?.hotel_key || 'Untitled hotel';
+      return hotel?.name || hotel?.hotel_key || 'Untitled property';
     }
 
     function getDestinationFlags(tour) {
@@ -1546,12 +1546,8 @@
       };
     }
 
-    function getHotelFlags(hotel, tour) {
-      const content = getTourContent(tour);
-      const modules = getTourModules(tour);
+    function getHotelFlags(hotel) {
       return {
-        module: readBool(modules.accommodation ?? content.show_in_accommodation, true),
-        home: readBool(modules.home_accommodation ?? content.show_on_home_accommodation, false),
         status: String(hotel?.status || 'draft'),
       };
     }
@@ -1766,9 +1762,9 @@
         return;
       }
       if (state.mode === 'hotels') {
-        node.innerHTML = '<button id="btn-add-hotel" class="button primary small" type="button">Add Hotel</button>';
+        node.innerHTML = '<button id="btn-add-hotel" class="button primary small" type="button">Add Property</button>';
         $('btn-add-hotel').addEventListener('click', () => {
-          createHotelModule().catch((error) => setStatus(error.message || 'Failed to create hotel', 'error'));
+          createHotelModule().catch((error) => setStatus(error.message || 'Failed to create property', 'error'));
         });
         return;
       }
@@ -1780,12 +1776,12 @@
       const list = $('entity-list');
       const mode = state.mode;
       if (mode === 'hotels') {
-        $('list-title').textContent = 'Hotel Modules';
-        $('list-note').textContent = 'Each hotel keeps its own name, address, description, media, and homepage toggle.';
+        $('list-title').textContent = 'Properties';
+        $('list-note').textContent = 'Each property belongs to the separate hotel engine. It can link to a tour, but it does not overwrite tour-side accommodation storytelling.';
         list.innerHTML = state.hotels.length
           ? state.hotels.map((hotel) => {
               const linkedTour = state.tours.find((tour) => String(tour.id) === String(hotel.tour_id)) || null;
-              const flags = getHotelFlags(hotel, linkedTour);
+              const flags = getHotelFlags(hotel);
               return `
                 <button type="button" class="entity-item ${state.selectedHotelId === hotel.id ? 'active' : ''}" data-hotel-id="${esc(hotel.id)}">
                   <div class="entity-item-main">
@@ -1794,20 +1790,18 @@
                     </div>
                     <div class="entity-copy">
                       <strong>${esc(getHotelLabel(hotel))}</strong>
-                      <span class="entity-meta">${esc(hotel.address || 'No address yet')}</span>
+                      <span class="entity-meta">${esc(hotel.address || (linkedTour ? `Linked tour: ${getDestinationLabel(linkedTour)}` : 'No address or linked tour yet'))}</span>
                       <div class="entity-flags">
-                        <span class="flag ${flags.module ? 'active' : ''}">Module</span>
-                        <span class="flag ${flags.home ? 'active' : ''}">Home</span>
                         <span class="flag ${flags.status === 'active' ? 'active' : ''}">${esc(flags.status)}</span>
                       </div>
                     </div>
                   </div>
                 </button>`;
             }).join('')
-          : '<p class="empty" style="padding:18px">No hotel module found yet.</p>';
+          : '<p class="empty" style="padding:18px">No property found yet.</p>';
         list.querySelectorAll('[data-hotel-id]').forEach((button) => {
           button.addEventListener('click', () => {
-            selectHotel(button.dataset.hotelId).catch((error) => setStatus(error.message || 'Failed to open hotel module', 'error'));
+            selectHotel(button.dataset.hotelId).catch((error) => setStatus(error.message || 'Failed to open property', 'error'));
           });
         });
         return;
@@ -1842,15 +1836,15 @@
             const homeGalleryCount = galleryMetrics.homeCount;
             const subtitle = mode === 'gallery'
               ? `${galleryMetrics.galleryCount} images, ${homeGalleryCount} on home${galleryMetrics.hasHero ? ', hero ready' : ''}`
-              : (content.destination_summary || tour.title || 'No description yet');
+              : (content.destination_summary || getDestinationLabel(tour) || 'No description yet');
             return `
               <button type="button" class="entity-item ${state.selectedTourId === tour.id ? 'active' : ''}" data-tour-id="${esc(tour.id)}">
                 <div class="entity-item-main">
                   <div class="entity-thumb">
-                    ${(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour)) ? `<img src="${esc(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour))}" alt="${esc(tour.title || 'Module image')}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
+                    ${(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour)) ? `<img src="${esc(mode === 'gallery' ? getGallerySourcePreviewUrl(tour) : getDestinationPreviewUrl(tour))}" alt="${esc(getDestinationLabel(tour) || 'Module image')}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
                   </div>
                   <div class="entity-copy">
-                    <strong>${esc(mode === 'gallery' ? (tour.title || 'Untitled tour') : getDestinationLabel(tour))}</strong>
+                    <strong>${esc(getDestinationLabel(tour))}</strong>
                     <span class="entity-meta">${esc(subtitle)}</span>
                     <div class="entity-flags">
                       ${mode === 'gallery' ? `<span class="flag ${homeGalleryCount ? 'active' : ''}">Home images: ${homeGalleryCount}</span>` : `<span class="flag ${flags.module ? 'active' : ''}">Module</span><span class="flag ${flags.home ? 'active' : ''}">Home</span>`}
@@ -1925,26 +1919,23 @@
       const tour = state.currentTour;
       const body = $('editor-body');
       if (!hotel) {
-        body.innerHTML = '<p class="empty">Choose a hotel source from the left.</p>';
+        body.innerHTML = '<p class="empty">Choose a property source from the left.</p>';
         return;
       }
-      const flags = getHotelFlags(hotel, tour);
-      $('editor-title').textContent = hotel.name || 'Hotel Module';
-      $('editor-note').textContent = 'This hotel module stays separate from skin quick edit and can later grow into a richer hotel system.';
+      const flags = getHotelFlags(hotel);
+      $('editor-title').textContent = hotel.name || 'Property';
+      $('editor-note').textContent = 'Properties belong to the hotel-only engine. Tour-side accommodation remains managed inside tour content and should not be overwritten here.';
       body.innerHTML = `
         <div class="grid two">
-          <label class="field"><span>Linked Tour</span><select id="hotel-tour-link">${state.tours.map((tourItem) => `<option value="${esc(tourItem.id)}" ${String(tourItem.id) === String(hotel.tour_id) ? 'selected' : ''}>${esc(tourItem.title || tourItem.id)}</option>`).join('')}</select></label>
+          <label class="field"><span>Linked Tour</span><select id="hotel-tour-link"><option value="">No linked tour</option>${state.tours.map((tourItem) => `<option value="${esc(tourItem.id)}" ${String(tourItem.id) === String(hotel.tour_id) ? 'selected' : ''}>${esc(getDestinationLabel(tourItem))}</option>`).join('')}</select></label>
           <label class="field"><span>Address</span><input id="hotel-address" type="text" value="${esc(hotel.address || '')}" /></label>
         </div>
-        <label class="field"><span>Hotel Name</span><input id="hotel-name" type="text" value="${esc(hotel.name || '')}" /></label>
+        <label class="field"><span>Property Name</span><input id="hotel-name" type="text" value="${esc(hotel.name || '')}" /></label>
         <label class="field"><span>Description</span><textarea id="hotel-description">${esc(hotel.description || '')}</textarea></label>
-        <label class="field"><span>Image URLs</span><textarea id="hotel-gallery" placeholder="One image URL per line" data-preview-target="hotel-gallery-preview" data-preview-mode="multi" data-preview-label="Hotel image" data-preview-empty="Hotel image previews appear here line by line so the module never feels blind.">${esc(buildGalleryObjects(hotel.gallery || [], hotel.name || 'Hotel').map((entry) => entry.src).join('\n'))}</textarea>${buildFieldPreview('hotel-gallery-preview')}${buildAssetTools('hotel-gallery', { append: true, uploadLabel: 'Upload hotel image', note: 'Each upload is appended as a new line, so the first line can stay as the primary hotel image and the rest become additional gallery images.' })}</label>
-        <div class="toggle-grid">
-          <label class="toggle"><input id="hotel-toggle" type="checkbox" ${flags.module ? 'checked' : ''} /><strong>Show in Hotels Module</strong></label>
-          <label class="toggle"><input id="hotel-home-toggle" type="checkbox" ${flags.home ? 'checked' : ''} /><strong>Show on Homepage</strong></label>
-        </div>
+        <label class="field"><span>Property Images</span><textarea id="hotel-gallery" placeholder="One image URL per line" data-preview-target="hotel-gallery-preview" data-preview-mode="multi" data-preview-label="Property image" data-preview-empty="Property image previews appear here line by line so the module never feels blind.">${esc(buildGalleryObjects(hotel.gallery || [], hotel.name || 'Property').map((entry) => entry.src).join('\n'))}</textarea>${buildFieldPreview('hotel-gallery-preview')}${buildAssetTools('hotel-gallery', { append: true, uploadLabel: 'Upload property image', note: 'Each upload is appended as a new line, so the first line can stay as the primary property image and the rest become additional gallery images.' })}</label>
+        <label class="field"><span>Status</span><select id="hotel-status"><option value="draft" ${flags.status === 'draft' ? 'selected' : ''}>Draft</option><option value="active" ${flags.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${flags.status === 'archived' ? 'selected' : ''}>Archived</option></select></label>
         <div class="actions">
-          <button id="save-hotel" class="button primary" type="button">Save Hotel Module</button>
+          <button id="save-hotel" class="button primary" type="button">Save Property</button>
         </div>`;
       bindAssetToolActions();
       bindPreviewInputs();
@@ -2093,41 +2084,21 @@
     }
 
     async function createHotelModule() {
-      const linkedTourId = state.currentTour?.id || state.tours[0]?.id || '';
-      if (!linkedTourId) {
-        setStatus('Create at least one tour first so the hotel module has a linked product source.', 'error');
-        return;
-      }
-      setStatus('Creating hotel module...');
+      const linkedTourId = state.currentTour?.id || '';
+      setStatus('Creating property...');
       const payload = await api('/api/universal/site/hotels', {
         method: 'POST',
         body: JSON.stringify({
-          tour_id: linkedTourId,
-          name: `New Hotel ${state.hotels.length + 1}`,
+          tour_id: linkedTourId || undefined,
+          name: `New Property ${state.hotels.length + 1}`,
           address: '',
           description: '',
           gallery: [],
           status: 'draft',
         }),
       });
-      const linkedTourPayload = await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`);
-      const linkedModules = linkedTourPayload?.tour?.content_data?.universal_modules || {};
-      await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          content_data: {
-            show_in_accommodation: true,
-            show_on_home_accommodation: false,
-            universal_modules: {
-              ...linkedModules,
-              accommodation: true,
-              home_accommodation: false,
-            },
-          },
-        }),
-      });
       await refreshAfterHotelSave(payload.hotel.id, linkedTourId);
-      setStatus('Hotel module created.', 'ok');
+      setStatus('Property created.', 'ok');
     }
 
     async function saveDestinationModule() {
@@ -2142,6 +2113,7 @@
       await api(`/api/universal/tours/${encodeURIComponent(state.currentTour.id)}/canonical`, {
         method: 'PATCH',
         body: JSON.stringify({
+          ...(destinationName ? { title: destinationName } : {}),
           content_data: {
             destination_name: destinationName,
             destination_summary: destinationSummary,
@@ -2166,44 +2138,28 @@
       const hotelName = $('hotel-name').value.trim();
       const address = $('hotel-address').value.trim();
       const description = $('hotel-description').value.trim();
-      const linkedTourId = $('hotel-tour-link').value;
+      const linkedTourId = $('hotel-tour-link').value.trim();
       const gallery = $('hotel-gallery').value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).map((src, index) => ({
         id: `${state.currentHotel.id}-gallery-${index + 1}`,
         src,
-        alt: hotelName || `Hotel image ${index + 1}`,
+        alt: hotelName || `Property image ${index + 1}`,
         caption: index === 0 ? (hotelName || '') : '',
       }));
-      const enabled = Boolean($('hotel-toggle').checked);
-      const homeEnabled = Boolean($('hotel-home-toggle').checked);
-      setStatus('Saving hotel module...');
+      const status = $('hotel-status').value;
+      setStatus('Saving property...');
       await api(`/api/universal/hotels/${encodeURIComponent(state.currentHotel.id)}`, {
         method: 'PATCH',
         body: JSON.stringify({
+          tour_id: linkedTourId || null,
           name: hotelName,
           address,
           description,
           gallery,
-          status: enabled ? 'active' : 'draft',
-        }),
-      });
-      const linkedTourPayload = await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`);
-      const linkedModules = linkedTourPayload?.tour?.content_data?.universal_modules || {};
-      await api(`/api/universal/tours/${encodeURIComponent(linkedTourId)}/canonical`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          content_data: {
-            show_in_accommodation: enabled,
-            show_on_home_accommodation: homeEnabled,
-            universal_modules: {
-              ...linkedModules,
-              accommodation: enabled,
-              home_accommodation: homeEnabled,
-            },
-          },
+          status,
         }),
       });
       await refreshAfterHotelSave(state.currentHotel.id, linkedTourId);
-      setStatus('Hotel module saved.', 'ok');
+      setStatus('Property saved.', 'ok');
     }
 
     async function saveGalleryModule() {
