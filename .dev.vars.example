@@ -3,6 +3,9 @@
 # so only the public client ID is required here.
 GOOGLE_CLIENT_ID=373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com
 
+# Local admin API secret for /api/admin/* routes.
+ADMIN_SECRET=replace-with-a-local-admin-secret
+
 # Optional Turnstile protection for forgot-password. Leave unset locally unless
 # you also want to verify local requests against a real Turnstile widget.
 TURNSTILE_SITE_KEY=replace-with-your-turnstile-site-key
@@ -17,3 +20,22 @@ PASSWORD_RESET_WEBHOOK_URL=http://127.0.0.1:9999/password-reset
 #   HMAC_SHA256(secret, "<unix_timestamp>.<raw_json_body>")
 # The signature is sent in the X-TravelAgent-Signature header as: v1=<hex>
 PASSWORD_RESET_WEBHOOK_SECRET=replace-with-a-long-random-secret
+
+# Optional suspicious-subdomain review integration.
+# Point this to a Slack/email relay or an internal review intake endpoint.
+SUBDOMAIN_REVIEW_WEBHOOK_URL=http://127.0.0.1:9999/subdomain-review
+SUBDOMAIN_REVIEW_WEBHOOK_SECRET=replace-with-a-long-random-secret
+SUBDOMAIN_REVIEW_EMAIL=ops@example.com
+
+# Optional AI moderation provider control. Default runtime provider is Cloudflare AI.
+AI_MODERATION_PROVIDER=cloudflare-ai
+
+# Preferred production path: add an AI binding named AI in wrangler.jsonc.
+# Optional REST fallback for local scripts or environments without the AI binding.
+CLOUDFLARE_ACCOUNT_ID=replace-with-your-cloudflare-account-id
+CLOUDFLARE_API_TOKEN=replace-with-your-cloudflare-api-token
+AI_MODERATION_MODEL=@cf/meta/llama-3.1-8b-instruct
+
+# Optional Telegram alerting for flagged moderation events.
+TELEGRAM_BOT_TOKEN=replace-with-your-telegram-bot-token
+TELEGRAM_CHAT_ID=replace-with-your-telegram-chat-id

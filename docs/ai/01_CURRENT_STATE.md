@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-04 (includes taxonomy-first discovery foundation, richer media authoring in tour-config/product-modules, shared CTA intent defaults, and production fix for universal hero CTA runtime regression)
+Last updated: 2026-04-07 (includes trust ladder enforcement, Cloudflare AI moderation, silent abuse-risk ledger, asset moderation, authenticated tenant editor route hardening, and remote D1 migration 0041 applied)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -34,7 +34,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0037; local runtime verified against current dev DB)
+### D1 Tables (repo migrations 0001–0041; local runtime verified against current dev DB, and remote production D1 verified through 0041)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -42,11 +42,13 @@ If old documentation says a feature exists but the current rescue repo does not 
 `booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`,
 `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`,
 `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
-`tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`
+`tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`,
+`tenant_review_cases`, `tenant_risk_events`, `tenant_asset_inventory`, `tenant_asset_scan_results`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency` (secondary display currency storage),
-`booking_currency`, `market_skin_key`, `primary_market`, `notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`
+`booking_currency`, `market_skin_key`, `primary_market`, `notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`,
+`trust_status`, `public_indexing_enabled`, `custom_domain_verified_at`
 
 ### API Endpoints
 
@@ -59,9 +61,10 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/auth/turnstile-config` — public auth-page config endpoint that tells the frontend whether login/signup/forgot-password Turnstile protection is enabled and exposes the public site key/action when configured
 - `GET /api/auth/reset-password/:token` — validates a password reset token and returns masked email context for the reset form
 - `POST /api/auth/reset-password` — updates the password, revokes existing auth sessions for that user, and consumes the reset token
-- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key`, accepts optional `market_skin_key`, requires a valid Turnstile token in production, and redirects new tenants into the guided dashboard flow
+- `POST /api/auth/signup-onboarding` — email signup that now requires `product_tier_key`, accepts optional `market_skin_key`, requires a valid Turnstile token in production, applies quiet email/IP soft throttling, logs hashed risk events, and redirects new tenants into the guided dashboard flow
 - `POST /api/auth/google` — Google sign-in via GIS ID token; production requires a valid Turnstile token
 - `POST /api/auth/signup-google` — Google signup with `product_tier_key` and optional `market_skin_key`; production requires a valid Turnstile token
+- `POST /api/auth/login` also applies quiet email/IP soft throttling and logs hashed risk events so obvious credential-stuffing and scripted retries are slowed without adding visible friction for normal operators
 - `GET /api/auth/product-tiers` — public localized tier catalog used by signup and pricing CTAs
 - `GET /api/auth/market-skins` — public curated market-skin catalog used by signup and future onboarding surfaces, now including EUR presets for Germany, France, and Spain
 - `GET /api/marketing-site` — public pricing/marketing content payload sourced from D1 `app_settings`
@@ -88,6 +91,21 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Tenant settings responses now also expose the curated storefront currency basket, curated market-skin presets, currently-supported runtime UI locales, and a computed `secondary_display_currency` alias for the stored `target_currency` field
 - `GET /api/tenants/audit-log` — last 100 entries for `custom_domain` / `payment_config_json` changes
 - Platform subdomains are now validated and effectively one-time lockable: once a tenant saves `subdomain`, later changes are rejected
+- Platform-owned labels are now reserved for SaaS, support, marketing, billing, and infrastructure use; tenant attempts to claim names such as `app`, `auth`, `api`, `blog`, `billing`, `status`, `preview`, `cdn`, `docs`, or other reserved platform namespaces are rejected with policy metadata and brand-safe suggestions
+- Subdomain validation now enforces a 3-63 character pattern, and suspicious labels are blocked for manual review when they contain high-risk auth/finance/authority keywords, resemble protected finance brands, or look randomly generated; review attempts can emit signed webhook alerts via `SUBDOMAIN_REVIEW_WEBHOOK_URL`
+- Tenant settings responses now include a `subdomain_policy` object so dashboard onboarding can render the active apex domain, reserved labels, and suggestion suffixes without hardcoding them
+- Tenant trust control is now a first-class runtime concept: tenants carry `trust_status`, `public_indexing_enabled`, `custom_domain_verified_at`, and durable `tenant_review_cases`, allowing signup to stay low-friction while public exposure follows a ladder of `PREVIEW_ONLY -> PROBATION -> TRUSTED -> SUSPENDED/QUARANTINED`
+- New tenants start as `PREVIEW_ONLY`; a clean first subdomain claim auto-promotes them to `PROBATION`, platform subdomains in probation are served with forced `noindex`, and custom domains only resolve after a tenant is `TRUSTED` and the current domain has been manually verified
+- `POST /api/tenant/publish-site` now inherits the trust ladder and runs a lightweight abuse scan over tenant site content before publish; suspicious or blocked publish attempts open review cases, downgrade trust, disable indexing, and return structured review details instead of publishing
+- `POST /api/tenant/publish-site` also rate-limits repeated publish attempts by trust tier, records `publish_attempt` / `publish_throttled` events in `tenant_risk_events`, and returns `429` before full publish work when behavior looks automated
+- When Cloudflare AI is configured, publish-time moderation now also runs a second-pass scorer over normalized tenant content and merges that result with rule-based heuristics before deciding `ALLOW`, `REVIEW`, `BLOCK`, or `QUARANTINE`
+- Admin ops can manually re-run AI moderation through `POST /api/admin/tenants/:id/moderate-ai`, and flagged moderation events can send Telegram alerts when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are configured
+- Sensitive tenant-editor routes now require a real authenticated tenant session in addition to tenant scoping, including template structure, publish readiness, config save, template switching, snippet loading, preview, soft publish, and publish flows
+- `PATCH /api/tenant/config` now records a durable risk event, applies tenant-age/trust-aware save-rate scoring, runs rule + Cloudflare AI moderation on normalized site content, can open review cases, and can apply a soft trust hold that preserves editing while reducing public exposure
+- `GET /api/tenant/assets` now merges R2 file listing with D1 asset-inventory metadata so tenant UIs can see moderation state, visibility, risk score, and reasons
+- `POST /api/tenant/assets/upload` now computes SHA-256, applies upload velocity checks, runs rule-based asset scanning plus Cloudflare AI asset moderation, correlates cross-tenant asset reuse, stores inventory and scan results in D1, and blocks obviously malicious uploads such as active-content phishing SVGs before R2 persistence
+- `GET /api/tenant/assets/:tenantId/:filename` now enforces asset visibility from D1 inventory, returning `404` for blocked/deleted assets and requiring an authenticated same-tenant session for `AUTHENTICATED_ONLY` assets
+- `DELETE /api/tenant/assets/:filename` now marks the asset inventory row as deleted in addition to removing the underlying object
 
 **Site Studio (CHK-R20 to R24/R29-R33)**
 - `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline
@@ -216,7 +234,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `npm run backfill:tenant-seed` — audits/builds SQL for missing legacy tenant seed gaps
 - `npm run backfill:tenant-seed:apply` — applies the remote SQL backfill for missing stop/price/service minimums
 - `npm run clean:wrangler` / `npm run dev:clean` — clears Wrangler temp cache before local dev when needed
-- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE and booking-compliant with an enabled electronic gateway plus bank transfer, starts a dedicated Wrangler dev instance on `8790`, verifies task patch on `stop-001`, verifies seeded pricing calculate for `tour-001` / `segment-standard` using the current `season-high` fixture date, verifies booking proof + confirm + audit row end to end, then verifies forgot-password request + signed webhook delivery + token validation + password reset + sign-in with the new password
+- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE and booking-compliant with an enabled electronic gateway plus bank transfer, starts a dedicated Wrangler dev instance on `8790`, verifies tenant route boot health, Cloudflare AI fallback behavior, subdomain policy enforcement, asset moderation (safe SVG allow + malicious SVG block), task patch on `stop-001`, seeded pricing calculate for `tour-001` / `segment-standard`, booking proof + confirm + audit row end to end, and forgot-password request + signed webhook delivery + token validation + password reset + sign-in with the new password
 - `docs/PASSWORD_RESET_WEBHOOK.md` — production contract for the reset-email webhook payload, headers, HMAC signature, and current Google Apps Script production receiver setup
 - `docs/GOOGLE_APPS_SCRIPT_PASSWORD_RESET.md` — receiver implementation notes and verified Google Apps Script rollout details
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)

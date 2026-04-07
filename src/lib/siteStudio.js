@@ -22,6 +22,8 @@
  *   custom_selectors                 → setInnerContent on matched CSS elements
  */
 
+import { buildTenantTrustPolicy } from './trustAbuse.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Security helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,9 +75,13 @@ export async function resolveTenantByHost(host, db) {
   // 1. Exact custom_domain lookup
   const byDomain = await db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market
+      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+              trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain
          FROM tenants
-        WHERE custom_domain = ? AND subscription_status = 'ACTIVE'`
+        WHERE custom_domain = ?
+          AND subscription_status = 'ACTIVE'
+          AND trust_status = 'TRUSTED'
+          AND custom_domain_verified_at IS NOT NULL`
     )
     .bind(bareHost)
     .first();
@@ -89,9 +95,12 @@ export async function resolveTenantByHost(host, db) {
   const subLabel = labels[0];
   return db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market
+      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+              trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain
          FROM tenants
-        WHERE subdomain = ? AND subscription_status = 'ACTIVE'`
+        WHERE subdomain = ?
+          AND subscription_status = 'ACTIVE'
+          AND trust_status IN ('PROBATION', 'TRUSTED')`
     )
     .bind(subLabel)
     .first();
@@ -675,6 +684,8 @@ async function serveCanvasPage({
   bgS,   // integer 0–100 or null — background saturation %
   bgL,   // integer 0–100 or null — background lightness %
   headerHeight, // integer px or null — measured by editor-bridge, stored in cfg
+  responseHeaders,
+  metaRobotsContent,
 }) {
   // Kick off both async operations in parallel.
   const [travelImages, chrome] = await Promise.all([
@@ -823,6 +834,7 @@ async function serveCanvasPage({
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escAttr(brandName)}</title>
   <meta name="description" content="${escAttr(heroDesc)}">
+  ${metaRobotsContent ? `<meta name="robots" content="${escAttr(metaRobotsContent)}">` : ''}
   <meta property="og:title" content="${escAttr(brandName)}">
   <meta property="og:description" content="${escAttr(heroDesc)}">
   <link rel="stylesheet" href="/css/cruip-global.css">${styleLinkHtml ? `\n  ${styleLinkHtml}` : ''}
@@ -1264,7 +1276,7 @@ ${buildChromeMenuScript()}
 </html>`;
 
   return new Response(page, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...(responseHeaders || {}) },
   });
 }
 
@@ -1298,6 +1310,12 @@ export async function serveSitePage(tenant, env, options = {}) {
   const injectScript         = options.injectScript ?? '/inject.js';
   // Auto-enable script stripping for editor/preview mode
   const stripTemplateScripts = options.stripTemplateScripts ?? (injectScript === '/editor-bridge.js');
+  const trustPolicy = buildTenantTrustPolicy(tenant);
+  const responseHeaders = Object.assign(
+    {},
+    options.responseHeaders || {},
+    trustPolicy.force_noindex ? { 'X-Robots-Tag': trustPolicy.robots_directive } : {}
+  );
   if (!env.SITE_TEMPLATES) {
     return new Response(
       'SITE_TEMPLATES R2 binding is not configured in wrangler.jsonc.',
@@ -1403,6 +1421,8 @@ export async function serveSitePage(tenant, env, options = {}) {
     bgS,
     bgL,
     headerHeight,
+    responseHeaders,
+    metaRobotsContent: trustPolicy.force_noindex ? trustPolicy.robots_directive : null,
   });
 }
 

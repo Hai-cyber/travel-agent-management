@@ -1,5 +1,7 @@
 // src/lib/publishGuard.js
 // Subscription + payment config guard for the headless publishing pipeline.
+
+import { buildTenantTrustPolicy } from './trustAbuse.js';
 //
 // Usage:
 //   const guard = await checkPublishPermission(env, tenantId);
@@ -37,6 +39,7 @@ export async function checkPublishPermission(env, tenantId) {
     .prepare(
       `SELECT id, subscription_status, terms_accepted,
               custom_domain, subdomain, payment_methods, payment_config_json,
+              trust_status, public_indexing_enabled, custom_domain_verified_at,
               template_id, published_template_id, site_published_at
          FROM tenants WHERE id = ?`
     )
@@ -80,6 +83,8 @@ export async function checkPublishPermission(env, tenantId) {
     (tenant.custom_domain && String(tenant.custom_domain).trim())
   );
   const domainValue = tenant.subdomain || tenant.custom_domain || null;
+  const trustPolicy = buildTenantTrustPolicy(tenant);
+  const trustAllowsPublish = trustPolicy.allow_publish;
 
   // ── Build checklist object ────────────────────────────────────────────────
   const checklist = {
@@ -115,6 +120,14 @@ export async function checkPublishPermission(env, tenantId) {
         : 'Chưa đặt subdomain hoặc custom_domain. Gọi POST /api/tenant/claim-subdomain.',
       action_url: hasDomain ? null : '/dashboard.html#domain',
     },
+    trust_status: {
+      pass:    trustAllowsPublish,
+      label:   'Trust policy cho phép public publish',
+      detail:  trustAllowsPublish
+        ? `Trust status: ${tenant.trust_status ?? 'PREVIEW_ONLY'}`
+        : `Trust status hiện tại: ${tenant.trust_status ?? 'PREVIEW_ONLY'}. Tenant vẫn ở preview-only hoặc đã bị khóa public exposure.`,
+      action_url: trustAllowsPublish ? null : '/dashboard.html#launch',
+    },
   };
 
   // ── Collect failing gates ─────────────────────────────────────────────────
@@ -123,6 +136,7 @@ export async function checkPublishPermission(env, tenantId) {
   if (!hasTerms)   blocks.push('TERMS_NOT_ACCEPTED');
   if (!hasGateway) blocks.push('NO_ELECTRONIC_GATEWAY');
   if (!hasDomain)  blocks.push('NO_DOMAIN');
+  if (!trustAllowsPublish) blocks.push('TRUST_REVIEW_REQUIRED');
 
   if (blocks.length > 0) {
     const labels = blocks.map(b => ({
@@ -130,6 +144,7 @@ export async function checkPublishPermission(env, tenantId) {
       TERMS_NOT_ACCEPTED:      'chưa đồng ý T&C',
       NO_ELECTRONIC_GATEWAY:   'chưa có cổng thanh toán điện tử',
       NO_DOMAIN:               'chưa cấu hình tên miền',
+      TRUST_REVIEW_REQUIRED:   'tenant chưa được phép public publish',
     }[b] ?? b));
 
     return {

@@ -29,6 +29,7 @@ import {
   consumePasswordResetToken,
   createPasswordResetToken,
   createAuthSession,
+  detachAuthSessionReferences,
   getAuthSession,
   getPasswordResetTokenRecord,
   getPrimaryMembership,
@@ -41,6 +42,11 @@ import {
   verifyGoogleIdToken,
   verifyPassword,
 } from '../lib/auth.js';
+import {
+  assessEmailIdentityRisk,
+  buildRiskRequestContext,
+  createRiskEvent,
+} from '../lib/abuseRisk.js';
 
 const onboarding = new Hono();
 const SIGNUP_GUIDED_DASHBOARD_URL = '/dashboard.html?welcome=1&step=subdomain';
@@ -52,6 +58,12 @@ const FORGOT_PASSWORD_EMAIL_WINDOW_MAX = 4;
 const FORGOT_PASSWORD_IP_WINDOW_SECONDS = 15 * 60;
 const FORGOT_PASSWORD_IP_WINDOW_MAX = 12;
 const AUTH_ATTEMPT_RETENTION_SECONDS = 60 * 60 * 24;
+const SIGNUP_WINDOW_SECONDS = 15 * 60;
+const SIGNUP_EMAIL_WINDOW_MAX = 3;
+const SIGNUP_IP_WINDOW_MAX = 8;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
+const LOGIN_EMAIL_WINDOW_MAX = 12;
+const LOGIN_IP_WINDOW_MAX = 20;
 
 const PASSWORD_RESET_EMAIL_COPY = {
   en: {
@@ -289,6 +301,49 @@ async function shouldSoftThrottleForgotPassword(db, { email, ip, now = Math.floo
   }
 
   return { throttled: false };
+}
+
+async function shouldSoftThrottleAuthAction(db, {
+  action,
+  email,
+  ip,
+  now = Math.floor(Date.now() / 1000),
+}) {
+  const limits = action === 'signup'
+    ? {
+        windowSeconds: SIGNUP_WINDOW_SECONDS,
+        emailMax: SIGNUP_EMAIL_WINDOW_MAX,
+        ipMax: SIGNUP_IP_WINDOW_MAX,
+      }
+    : {
+        windowSeconds: LOGIN_WINDOW_SECONDS,
+        emailMax: LOGIN_EMAIL_WINDOW_MAX,
+        ipMax: LOGIN_IP_WINDOW_MAX,
+      };
+
+  if (email) {
+    const emailHits = await countAuthActionAttempts(db, {
+      action,
+      email,
+      since: now - limits.windowSeconds,
+    });
+    if (emailHits >= limits.emailMax) {
+      return { throttled: true, reason: 'email_window', emailHits, ipHits: 0, limits };
+    }
+  }
+
+  if (ip) {
+    const ipHits = await countAuthActionAttempts(db, {
+      action,
+      ip,
+      since: now - limits.windowSeconds,
+    });
+    if (ipHits >= limits.ipMax) {
+      return { throttled: true, reason: 'ip_window', emailHits: 0, ipHits, limits };
+    }
+  }
+
+  return { throttled: false, limits, emailHits: 0, ipHits: 0 };
 }
 
 async function hmacSha256Hex(secret, payload) {
@@ -534,8 +589,8 @@ async function insertTenantWithUniqueSlug(db, nameClean, emailClean, tmplId, pro
   await db
     .prepare(
       `INSERT INTO tenants
-         (id, slug, name, email, subscription_status, template_id, product_tier_key, booking_currency, default_locale, market_skin_key, primary_market, created_at)
-       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?, ?, ?, ?, ?, ?)`
+         (id, slug, name, email, subscription_status, template_id, product_tier_key, booking_currency, default_locale, market_skin_key, primary_market, trust_status, public_indexing_enabled, created_at)
+       VALUES (?, ?, ?, ?, 'TRIAL', ?, ?, ?, ?, ?, ?, 'PREVIEW_ONLY', 0, ?)`
     )
     .bind(tenantId, tenantSlug, nameClean, emailClean, tmplId, productTierKey, preset.booking_currency, preset.default_locale, preset.key, preset.primary_market, now)
     .run();
@@ -817,6 +872,32 @@ onboarding.post('/signup-onboarding', async (c) => {
   if (!EMAIL_RE.test(emailClean)) {
     return c.json({ error: 'Invalid email address.' }, 400);
   }
+  const requesterIp = resolveRequesterIp(c);
+  const now = Math.floor(Date.now() / 1000);
+  const throttle = await shouldSoftThrottleAuthAction(db, {
+    action: 'signup',
+    email: emailClean,
+    ip: requesterIp,
+    now,
+  });
+  const identityRisk = assessEmailIdentityRisk(emailClean);
+  await recordAuthActionAttempt(db, { action: 'signup', email: emailClean, ip: requesterIp, now });
+  await createRiskEvent(c.env, {
+    ...buildRiskRequestContext(c, { email: emailClean }),
+    eventType: 'signup_attempt',
+    severity: throttle.throttled || identityRisk.risk_score >= 35 ? 'review' : 'info',
+    riskScore: Math.max(identityRisk.risk_score, throttle.throttled ? 75 : 0),
+    action: throttle.throttled ? 'throttle' : identityRisk.risk_score >= 35 ? 'review' : 'observe',
+    email: emailClean,
+    evidence: {
+      throttle,
+      identity_risk: identityRisk,
+    },
+    createdAt: now,
+  });
+  if (throttle.throttled) {
+    return c.json({ error: 'Signup is temporarily rate limited. Please wait a few minutes and try again.' }, 429);
+  }
 
   const nameClean = String(tenant_name).trim();
   if (nameClean.length < 2 || nameClean.length > 80) {
@@ -888,12 +969,35 @@ onboarding.post('/login', async (c) => {
 
   const emailClean = normalizeEmail(body?.email);
   const password = String(body?.password || '');
+  const requesterIp = resolveRequesterIp(c);
+  const now = Math.floor(Date.now() / 1000);
 
   if (!EMAIL_RE.test(emailClean)) {
     return c.json({ error: 'Invalid email address.' }, 400);
   }
   if (!password) {
     return c.json({ error: 'Password is required.' }, 400);
+  }
+
+  const throttle = await shouldSoftThrottleAuthAction(db, {
+    action: 'login',
+    email: emailClean,
+    ip: requesterIp,
+    now,
+  });
+  await recordAuthActionAttempt(db, { action: 'login', email: emailClean, ip: requesterIp, now });
+  await createRiskEvent(c.env, {
+    ...buildRiskRequestContext(c, { email: emailClean }),
+    eventType: 'login_attempt',
+    severity: throttle.throttled ? 'review' : 'info',
+    riskScore: throttle.throttled ? 70 : 0,
+    action: throttle.throttled ? 'throttle' : 'observe',
+    email: emailClean,
+    evidence: { throttle },
+    createdAt: now,
+  });
+  if (throttle.throttled) {
+    return c.json({ error: 'Login is temporarily rate limited. Please wait a few minutes and try again.' }, 429);
   }
 
   const user = await fetchUserByEmail(db, emailClean);
@@ -1140,6 +1244,7 @@ onboarding.post('/logout', async (c) => {
     const token = readAuthSessionToken(c);
     const session = await getAuthSession(db, token);
     if (session) {
+      await detachAuthSessionReferences(db, session.id);
       await db.prepare('DELETE FROM auth_sessions WHERE id = ?').bind(session.id).run();
     }
   }

@@ -48,6 +48,20 @@ import {
   saveMarketingSiteConfig,
   getMarketingSitePayload,
 } from '../lib/marketingSite.js';
+import {
+  buildTenantTrustState,
+  createTenantReviewCase,
+  decideTenantModerationOutcome,
+  mergeTrustReasons,
+  normalizeReviewCaseStatus,
+  normalizeTrustStatus,
+  TRUST_STATUSES,
+} from '../lib/trustAbuse.js';
+import {
+  buildTenantModerationPayload,
+  moderateTenantContent,
+  sendTelegramModerationAlert,
+} from '../lib/aiModeration.js';
 
 const admin = new Hono();
 
@@ -383,6 +397,194 @@ admin.put('/marketing-site', async (c) => {
   const config = await saveMarketingSiteConfig(c.env.DB, body);
   const preview = await getMarketingSitePayload(c.env.DB, 'en');
   return c.json({ ok: true, config, preview });
+});
+
+admin.get('/tenant-review-cases', async (c) => {
+  const status = normalizeReviewCaseStatus(c.req.query('status'), 'OPEN');
+  const tenantId = String(c.req.query('tenant_id') || '').trim();
+  const limit = Math.max(1, Math.min(200, Number(c.req.query('limit') || 50) || 50));
+
+  const conditions = ['rc.status = ?'];
+  const binds = [status];
+  if (tenantId) {
+    conditions.push('rc.tenant_id = ?');
+    binds.push(tenantId);
+  }
+
+  const query = `SELECT rc.id, rc.tenant_id, rc.status, rc.category, rc.severity, rc.signal_key, rc.summary, rc.evidence_json,
+                        rc.auto_created, rc.created_at, rc.resolved_at, rc.resolved_by, rc.resolution_note,
+                        t.name AS tenant_name, t.email AS tenant_email, t.trust_status, t.public_indexing_enabled, t.custom_domain_verified_at
+                   FROM tenant_review_cases rc
+                   JOIN tenants t ON t.id = rc.tenant_id
+                  WHERE ${conditions.join(' AND ')}
+                  ORDER BY rc.created_at DESC
+                  LIMIT ?`;
+
+  const { results } = await c.env.DB.prepare(query).bind(...binds, limit).all();
+  const review_cases = (results || []).map((row) => ({
+    ...row,
+    evidence: row.evidence_json ? JSON.parse(row.evidence_json) : null,
+    trust_state: buildTenantTrustState(row),
+  }));
+
+  return c.json({ ok: true, review_cases, status });
+});
+
+admin.get('/tenants/:id/trust', async (c) => {
+  const tenantId = c.req.param('id').trim();
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, email, subdomain, custom_domain, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const openCases = await c.env.DB
+    .prepare('SELECT id, category, severity, signal_key, summary, created_at FROM tenant_review_cases WHERE tenant_id = ? AND status = ? ORDER BY created_at DESC')
+    .bind(tenantId, 'OPEN')
+    .all();
+
+  return c.json({ ok: true, tenant, trust_state: buildTenantTrustState(tenant), open_review_cases: openCases.results || [] });
+});
+
+admin.patch('/tenants/:id/trust', async (c) => {
+  const tenantId = c.req.param('id').trim();
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON.' }, 400);
+  }
+
+  const trustStatus = normalizeTrustStatus(body?.trust_status, '');
+  if (!TRUST_STATUSES.includes(trustStatus)) {
+    return c.json({ error: `trust_status must be one of: ${TRUST_STATUSES.join(', ')}` }, 400);
+  }
+
+  const publicIndexingEnabled = body?.public_indexing_enabled === true || body?.public_indexing_enabled === 1 ? 1 : 0;
+  const verifyCurrentDomain = body?.verify_current_domain === true;
+  const reviewedBy = String(body?.reviewed_by || 'admin:secret').trim().slice(0, 80);
+  const resolutionNote = String(body?.resolution_note || '').trim() || null;
+  const closeOpenCases = body?.close_open_cases !== false;
+  const now = Math.floor(Date.now() / 1000);
+
+  const current = await c.env.DB
+    .prepare('SELECT id, custom_domain, trust_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  if (!current) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const customDomainVerifiedAt = verifyCurrentDomain && current.custom_domain ? now : null;
+
+  await c.env.DB
+    .prepare(
+      `UPDATE tenants
+          SET trust_status = ?,
+              public_indexing_enabled = ?,
+              trust_reviewed_at = ?,
+              trust_reviewed_by = ?,
+              custom_domain_verified_at = CASE
+                WHEN ? = 1 AND custom_domain IS NOT NULL AND TRIM(custom_domain) <> '' THEN ?
+                WHEN ? = 0 THEN custom_domain_verified_at
+                ELSE NULL
+              END
+        WHERE id = ?`
+    )
+    .bind(trustStatus, publicIndexingEnabled, now, reviewedBy, verifyCurrentDomain ? 1 : 0, customDomainVerifiedAt, verifyCurrentDomain ? 1 : 0, tenantId)
+    .run();
+
+  if (closeOpenCases) {
+    const reviewStatus = trustStatus === 'TRUSTED' ? 'APPROVED' : trustStatus === 'QUARANTINED' || trustStatus === 'SUSPENDED' ? 'REJECTED' : 'RESOLVED';
+    await c.env.DB
+      .prepare('UPDATE tenant_review_cases SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ? WHERE tenant_id = ? AND status = ?')
+      .bind(reviewStatus, now, reviewedBy, resolutionNote, tenantId, 'OPEN')
+      .run();
+  }
+
+  const updated = await c.env.DB
+    .prepare('SELECT id, name, email, subdomain, custom_domain, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  return c.json({ ok: true, tenant: updated, trust_state: buildTenantTrustState(updated) });
+});
+
+admin.post('/tenants/:id/moderate-ai', async (c) => {
+  const tenantId = c.req.param('id').trim();
+  let body = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    body = {};
+  }
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, email, subdomain, custom_domain, subscription_status, trust_status, trust_score, trust_reasons_json, site_config FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  let siteConfig = {};
+  try {
+    if (tenant.site_config) siteConfig = JSON.parse(tenant.site_config);
+  } catch {
+    siteConfig = {};
+  }
+
+  const payload = buildTenantModerationPayload({ tenant, siteConfig, stage: 'admin_review' });
+  const aiModeration = await moderateTenantContent(c.env, payload, { stage: 'admin_review' });
+  const moderationOutcome = decideTenantModerationOutcome({ aiModeration });
+  const applyDecision = body?.apply_decision === true;
+  const notifyTelegram = body?.notify_telegram !== false;
+
+  let reviewCase = null;
+  if (applyDecision && moderationOutcome.flagged) {
+    reviewCase = await createTenantReviewCase(c.env, {
+      tenantId,
+      category: moderationOutcome.blocked ? 'admin_ai_block' : 'admin_ai_review',
+      severity: moderationOutcome.blocked ? 'block' : 'review',
+      signalKey: `admin-ai:${moderationOutcome.code}`,
+      summary: moderationOutcome.reason,
+      evidence: { ai: aiModeration, outcome: moderationOutcome },
+    });
+
+    const reasons = mergeTrustReasons(tenant.trust_reasons_json, moderationOutcome.summaries);
+    await c.env.DB
+      .prepare('UPDATE tenants SET trust_status = ?, trust_score = ?, trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ?, public_indexing_enabled = 0 WHERE id = ?')
+      .bind(moderationOutcome.next_trust_status, moderationOutcome.risk_score, JSON.stringify(reasons), Math.floor(Date.now() / 1000), 'admin:ai-moderation', tenantId)
+      .run();
+
+    if (notifyTelegram) {
+      await sendTelegramModerationAlert(c.env, {
+        tenantId,
+        tenantName: tenant.name,
+        stage: 'admin_review',
+        recommendedAction: moderationOutcome.blocked ? 'QUARANTINE' : 'REVIEW',
+        riskScore: moderationOutcome.risk_score,
+        summary: moderationOutcome.reason,
+        reasons: moderationOutcome.summaries,
+        reviewCaseId: reviewCase?.id || null,
+      });
+    }
+  }
+
+  const updated = applyDecision
+    ? await c.env.DB
+        .prepare('SELECT id, name, email, subdomain, custom_domain, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, subscription_status FROM tenants WHERE id = ?')
+        .bind(tenantId)
+        .first()
+    : tenant;
+
+  return c.json({
+    ok: true,
+    applied: applyDecision && moderationOutcome.flagged,
+    tenant: updated,
+    trust_state: buildTenantTrustState(updated),
+    ai_moderation: aiModeration,
+    moderation_outcome: moderationOutcome,
+    review_case_id: reviewCase?.id || null,
+  });
 });
 
 export default function registerAdminRoutes(app) {

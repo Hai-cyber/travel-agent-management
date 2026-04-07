@@ -9,6 +9,45 @@ import pagesRouter, { rebuildAllTenantPageRenders } from '../routes/pages.js';
 import { getSupportedLocales, resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { getTenantCurrencyCatalog, isSupportedTenantCurrency } from '../lib/tenantMarketCatalog.js';
 import { getMarketSkinCatalog, getMarketSkin, isSupportedMarketSkin } from '../lib/marketSkins.js';
+import {
+  buildSubdomainPolicy,
+  dispatchSubdomainReviewAlert,
+  validateSubdomainCandidate,
+} from '../lib/subdomainPolicy.js';
+import {
+  analyzeTenantSiteAbuse,
+  buildTenantTrustPolicy,
+  buildTenantTrustState,
+  createTenantReviewCase,
+  decideTenantModerationOutcome,
+  mergeTrustReasons,
+  normalizeTrustStatus,
+} from '../lib/trustAbuse.js';
+import {
+  buildAssetModerationPayload,
+  buildTenantModerationPayload,
+  moderateAssetWithAI,
+  moderateTenantContent,
+  sendTelegramModerationAlert,
+} from '../lib/aiModeration.js';
+import {
+  analyzeAssetUpload,
+  assessEmailIdentityRisk,
+  buildRiskRequestContext,
+  buildTenantVelocityLimits,
+  countAssetReuseAcrossTenants,
+  countRiskEvents,
+  createRiskEvent,
+  decideAssetModerationOutcome,
+  fetchTenantAssetRecord,
+  hashIdentifier,
+  sha256HexBuffer,
+} from '../lib/abuseRisk.js';
+import {
+  clearAuthSessionCookie,
+  getAuthSession,
+  readAuthSessionToken,
+} from '../lib/auth.js';
 
 const tenants = new Hono();
 
@@ -28,7 +67,6 @@ const ALLOWED_SETTINGS_COLUMNS = [
 
 const VALID_PRICING_POLICIES    = new Set(['PRIORITY_HIGH_SEASON', 'PRIORITY_LOW_SEASON']);
 const VALID_SUBSCRIPTION_STATUS = new Set(['TRIAL', 'ACTIVE', 'SUSPENDED', 'CANCELLED']);
-const SUBDOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
 // Bare hostname regex — no protocol, no path, no port
 const HOSTNAME_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
@@ -95,6 +133,104 @@ async function writeAuditLog(env, tenantId, field, oldValue, newValue, changedBy
   }
 }
 
+async function requireTenantActor(c, tenantId) {
+  const token = readAuthSessionToken(c);
+  if (!token) {
+    return { error: c.json({ error: 'Authentication required.' }, 401) };
+  }
+
+  const cached = typeof c.get === 'function' ? c.get('authSession') : null;
+  const session = cached || await getAuthSession(c.env.DB, token);
+  if (!session) {
+    clearAuthSessionCookie(c);
+    return { error: c.json({ error: 'Session expired. Please log in again.' }, 401) };
+  }
+
+  if (tenantId && session.tenant_id !== tenantId) {
+    return { error: c.json({ error: 'Forbidden for this tenant.' }, 403) };
+  }
+
+  if (!cached && typeof c.set === 'function') {
+    c.set('authSession', session);
+  }
+
+  return { session };
+}
+
+function deriveSoftHoldTrustStatus(currentStatus) {
+  const normalized = normalizeTrustStatus(currentStatus);
+  if (normalized === 'SUSPENDED' || normalized === 'QUARANTINED') return normalized;
+  if (normalized === 'TRUSTED') return 'PROBATION';
+  return 'PREVIEW_ONLY';
+}
+
+async function applySoftTrustHold(env, tenant, { reasons = [], reviewedBy = 'system:risk-hold', riskScore = 0 } = {}) {
+  if (!env?.DB || !tenant?.id) return;
+
+  const mergedReasons = mergeTrustReasons(tenant.trust_reasons_json, reasons);
+  const nextStatus = deriveSoftHoldTrustStatus(tenant.trust_status);
+  await env.DB
+    .prepare('UPDATE tenants SET trust_status = ?, trust_score = ?, trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ?, public_indexing_enabled = 0 WHERE id = ?')
+    .bind(nextStatus, Number(riskScore || 0), JSON.stringify(mergedReasons), Math.floor(Date.now() / 1000), reviewedBy, tenant.id)
+    .run();
+}
+
+async function insertOrReplaceAssetInventory(env, details = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const existing = await env.DB
+    .prepare('SELECT id FROM tenant_asset_inventory WHERE tenant_id = ? AND r2_key = ? LIMIT 1')
+    .bind(details.tenantId, details.r2Key)
+    .first();
+  const assetId = existing?.id || nanoid();
+
+  await env.DB
+    .prepare(
+      `INSERT OR REPLACE INTO tenant_asset_inventory
+         (id, tenant_id, r2_key, filename, mime, size_bytes, sha256, moderation_status, visibility, risk_score, reasons_json, uploaded_by_user_id, uploaded_by_session_id, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+    )
+    .bind(
+      assetId,
+      details.tenantId,
+      details.r2Key,
+      details.filename,
+      details.mime,
+      details.sizeBytes,
+      details.sha256,
+      details.moderationStatus,
+      details.visibility,
+      Number(details.riskScore || 0),
+      JSON.stringify(details.reasons || []),
+      details.userId || null,
+      details.sessionId || null,
+      now,
+    )
+    .run();
+
+  return assetId;
+}
+
+async function appendAssetScanResult(env, details = {}) {
+  await env.DB
+    .prepare(
+      `INSERT INTO tenant_asset_scan_results
+         (id, asset_id, provider, stage, status, risk_score, reasons_json, evidence_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      nanoid(),
+      details.assetId,
+      String(details.provider || 'rules').trim(),
+      String(details.stage || 'upload').trim(),
+      String(details.status || 'ALLOW').trim(),
+      Number(details.riskScore || 0),
+      JSON.stringify(details.reasons || []),
+      JSON.stringify(details.evidence || null),
+      Math.floor(Date.now() / 1000),
+    )
+    .run();
+}
+
 // Validation cho từng trường
 function validateSettings(data) {
   const errors = [];
@@ -154,9 +290,13 @@ function validateSettings(data) {
   }
 
   if ('subdomain' in data) {
-    const subdomain = data.subdomain;
-    if (typeof subdomain !== 'string' || !SUBDOMAIN_RE.test(subdomain)) {
-      errors.push('subdomain phải gồm chữ thường, số, dấu gạch ngang, không bắt đầu/kết thúc bằng gạch ngang, tối đa 48 ký tự.');
+    const validation = validateSubdomainCandidate(data.subdomain, {
+      allowReserved: true,
+      lockOnce: false,
+      enforceRiskChecks: false,
+    });
+    if (!validation.ok) {
+      errors.push('subdomain phải gồm chữ thường, số, dấu gạch ngang, không bắt đầu/kết thúc bằng gạch ngang, và dài từ 3 đến 63 ký tự.');
     }
   }
 
@@ -226,7 +366,11 @@ tenants.patch('/settings', async (c) => {
   }
 
   if ('subdomain' in safeData) {
-    safeData.subdomain = String(safeData.subdomain || '').trim().toLowerCase();
+    safeData.subdomain = validateSubdomainCandidate(safeData.subdomain, {
+      allowReserved: true,
+      lockOnce: false,
+      enforceRiskChecks: false,
+    }).normalized;
   }
 
   if ('target_currency' in safeData) {
@@ -270,7 +414,7 @@ tenants.patch('/settings', async (c) => {
   try {
     // [AUDIT] Đọc giá trị hiện tại trước khi cập nhật để log thay đổi
     const current = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, booking_currency, default_locale, market_skin_key, primary_market, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json FROM tenants WHERE id = ?')
+      .prepare('SELECT name, exchange_rate, target_currency, booking_currency, default_locale, market_skin_key, primary_market, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -279,12 +423,94 @@ tenants.patch('/settings', async (c) => {
     }
 
     if ('subdomain' in safeData) {
-      const existingSubdomain = String(current.subdomain || '').trim().toLowerCase();
-      const requestedSubdomain = String(safeData.subdomain || '').trim().toLowerCase();
-      if (existingSubdomain && requestedSubdomain !== existingSubdomain) {
+      const validation = validateSubdomainCandidate(safeData.subdomain, {
+        currentSubdomain: current.subdomain,
+        tenantName: current.name,
+        env: c.env,
+      });
+      if (!validation.ok) {
+        if (validation.review_required) {
+          await createTenantReviewCase(c.env, {
+            tenantId,
+            category: 'subdomain_review',
+            severity: 'review',
+            signalKey: `subdomain:${validation.normalized}`,
+            summary: validation.reason,
+            evidence: {
+              attempted_subdomain: validation.normalized,
+              review: validation.review,
+              suggestions: validation.suggestions,
+            },
+          });
+          await dispatchSubdomainReviewAlert(c.env, {
+            tenantId,
+            tenantName: current.name,
+            attemptedSubdomain: validation.normalized || String(safeData.subdomain || '').trim().toLowerCase(),
+            currentSubdomain: current.subdomain || null,
+            suggestions: validation.suggestions,
+            review: validation.review,
+            ip: c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? null,
+            userAgent: c.req.header('User-Agent') ?? null,
+          });
+        }
         return c.json({
-          error: 'Subdomain đã được khóa trước đó. Tenant chỉ được chọn platform subdomain một lần.'
+          error: validation.reason,
+          code: validation.code,
+          review_required: validation.review_required,
+          review: validation.review,
+          subdomain_policy: validation.policy,
+          suggestions: validation.suggestions,
         }, 409);
+      }
+      safeData.subdomain = validation.normalized;
+
+      if (!current.subdomain && normalizeTrustStatus(current.trust_status) === 'PREVIEW_ONLY') {
+        safeData.trust_status = 'PROBATION';
+        safeData.trust_reviewed_at = Math.floor(Date.now() / 1000);
+        safeData.trust_reviewed_by = 'system:auto-probation';
+      }
+    }
+
+    if ('custom_domain' in safeData) {
+      const requestedDomain = safeData.custom_domain === null
+        ? null
+        : String(safeData.custom_domain || '').trim().toLowerCase();
+      const trustPolicy = buildTenantTrustPolicy(current);
+
+      if (requestedDomain && !trustPolicy.can_bind_custom_domain) {
+        await createTenantReviewCase(c.env, {
+          tenantId,
+          category: 'custom_domain_request',
+          severity: 'review',
+          signalKey: `custom-domain:${requestedDomain}`,
+          summary: `Custom domain "${requestedDomain}" requested before tenant reached TRUSTED status.`,
+          evidence: {
+            requested_domain: requestedDomain,
+            current_trust_status: current.trust_status,
+          },
+        });
+        return c.json({
+          error: 'Custom domain is only available after this tenant reaches TRUSTED status. Continue with the platform subdomain first.',
+          code: 'CUSTOM_DOMAIN_TRUST_REQUIRED',
+          trust_state: buildTenantTrustState(current),
+        }, 409);
+      }
+
+      safeData.custom_domain = requestedDomain;
+      if (requestedDomain && requestedDomain !== String(current.custom_domain || '').trim().toLowerCase()) {
+        safeData.custom_domain_verified_at = null;
+        safeData.public_indexing_enabled = 0;
+        await createTenantReviewCase(c.env, {
+          tenantId,
+          category: 'custom_domain_verification',
+          severity: 'review',
+          signalKey: `custom-domain-verify:${requestedDomain}`,
+          summary: `Custom domain "${requestedDomain}" requires manual ownership verification before going live.`,
+          evidence: {
+            requested_domain: requestedDomain,
+            trust_status: current.trust_status,
+          },
+        });
       }
     }
 
@@ -318,7 +544,7 @@ tenants.patch('/settings', async (c) => {
 
     // Trả về settings mới để UI có thể cập nhật hiển thị ngay
     const updated = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -329,7 +555,13 @@ tenants.patch('/settings', async (c) => {
     }
 
     const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), updated);
-    return c.json({ ok: true, settings: updated, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) } });
+    return c.json({
+      ok: true,
+      settings: updated,
+      catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) },
+      subdomain_policy: buildSubdomainPolicy(c.env),
+      trust_state: buildTenantTrustState(updated),
+    });
 
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
@@ -349,7 +581,7 @@ tenants.get('/settings', async (c) => {
 
   try {
     const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -364,7 +596,13 @@ tenants.get('/settings', async (c) => {
     }
 
     const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), settings);
-    return c.json({ ok: true, settings, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) } });
+    return c.json({
+      ok: true,
+      settings,
+      catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) },
+      subdomain_policy: buildSubdomainPolicy(c.env),
+      trust_state: buildTenantTrustState(settings),
+    });
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
     return c.json({ error: 'Internal server error. Please try again later.' }, 500);
@@ -531,6 +769,8 @@ publicConfig.get('/config', async (c) => {
 publicConfig.get('/template-structure', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   if (!c.env.SITE_TEMPLATES) {
     return c.json({ error: 'SITE_TEMPLATES R2 binding is not configured.' }, 503);
@@ -583,11 +823,14 @@ publicConfig.get('/template-structure', async (c) => {
 publicConfig.get('/publish-readiness', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   const tenant = await c.env.DB
     .prepare(
       `SELECT id, template_id, subdomain, custom_domain,
               terms_accepted, payment_methods, subscription_status,
+              trust_status, public_indexing_enabled, custom_domain_verified_at,
               onboarding_step
          FROM tenants WHERE id = ?`
     )
@@ -672,6 +915,15 @@ publicConfig.get('/publish-readiness', async (c) => {
       action_url:    hasGateway ? null : '/dashboard.html#payments',
       value:         enabledGateway,
     },
+    TRUST: {
+      pass:          buildTenantTrustPolicy(tenant).allow_publish,
+      label:         'Trust ladder cho phep public exposure',
+      detail:        buildTenantTrustPolicy(tenant).allow_publish
+        ? `Trust status: ${tenant.trust_status || 'PREVIEW_ONLY'}`
+        : `Trust status hiện tại: ${tenant.trust_status || 'PREVIEW_ONLY'}. Tenant cần qua review trước khi public publish.`,
+      action_url:    buildTenantTrustPolicy(tenant).allow_publish ? null : '/dashboard.html#launch',
+      value:         tenant.trust_status || 'PREVIEW_ONLY',
+    },
   };
 
   // ── Collect missing gates ──────────────────────────────────────────────────
@@ -700,6 +952,9 @@ publicConfig.get('/publish-readiness', async (c) => {
 publicConfig.patch('/config', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
+  const session = actor.session;
 
   let body;
   try { body = await c.req.json(); }
@@ -707,7 +962,7 @@ publicConfig.patch('/config', async (c) => {
 
   // [SEC] Read existing config, verify tenant exists (prevents phantom-tenant writes)
   const row = await c.env.DB
-    .prepare('SELECT site_config FROM tenants WHERE id = ?')
+    .prepare('SELECT id, name, subscription_status, trust_status, trust_score, trust_reasons_json, public_indexing_enabled, subdomain, custom_domain, site_config FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!row) return c.json({ error: 'Tenant not found.' }, 404);
@@ -843,7 +1098,88 @@ publicConfig.patch('/config', async (c) => {
     .bind(JSON.stringify(cfg), tenantId)
     .run();
 
-  return c.json({ ok: true, site_config: cfg });
+  const now = Math.floor(Date.now() / 1000);
+  const requestContext = buildRiskRequestContext(c, {
+    tenantId,
+    userId: session.user_id,
+    sessionId: session.id,
+  });
+  const limits = buildTenantVelocityLimits(row.trust_status);
+  const recentConfigWrites = await countRiskEvents(c.env, {
+    tenantId,
+    eventType: 'site_config_saved',
+    since: now - 600,
+  });
+  const configVelocityScore = recentConfigWrites >= limits.configWritesPer10m
+    ? Math.min(45, (recentConfigWrites - limits.configWritesPer10m + 1) * 5)
+    : 0;
+  const contentRules = analyzeTenantSiteAbuse({ tenant: row, siteConfig: cfg });
+  const contentPayload = buildTenantModerationPayload({ tenant: row, siteConfig: cfg, stage: 'config_save' });
+  const aiModeration = await moderateTenantContent(c.env, contentPayload, { stage: 'config_save' });
+  const moderationOutcome = decideTenantModerationOutcome({ ruleAnalysis: contentRules, aiModeration });
+  const riskScore = Math.max(configVelocityScore, moderationOutcome.flagged ? moderationOutcome.risk_score : 0);
+  const riskSummaries = [...new Set([
+    ...moderationOutcome.summaries,
+    configVelocityScore > 0 ? `config save velocity reached ${recentConfigWrites + 1} writes in 10 minutes` : '',
+  ].filter(Boolean))].slice(0, 8);
+
+  await createRiskEvent(c.env, {
+    ...requestContext,
+    eventType: 'site_config_saved',
+    severity: moderationOutcome.blocked ? 'high' : moderationOutcome.flagged || configVelocityScore > 0 ? 'review' : 'info',
+    riskScore,
+    action: moderationOutcome.blocked ? 'trust_hold' : moderationOutcome.flagged || configVelocityScore > 0 ? 'review' : 'observe',
+    signalKey: moderationOutcome.flagged ? `config:${moderationOutcome.code}` : configVelocityScore > 0 ? 'config:velocity' : 'config:ok',
+    evidence: {
+      rules: contentRules,
+      ai: aiModeration,
+      outcome: moderationOutcome,
+      recent_config_writes_10m: recentConfigWrites + 1,
+      limits,
+    },
+    createdAt: now,
+  });
+
+  let reviewCaseId = null;
+  if (moderationOutcome.flagged || configVelocityScore >= 25) {
+    const caseRecord = await createTenantReviewCase(c.env, {
+      tenantId,
+      category: moderationOutcome.blocked ? 'config_content_blocked' : moderationOutcome.flagged ? 'config_content_review' : 'config_velocity_review',
+      severity: moderationOutcome.blocked ? 'block' : 'review',
+      signalKey: moderationOutcome.flagged ? `config:${moderationOutcome.code}` : `config-velocity:${Math.floor(now / 600)}`,
+      summary: moderationOutcome.flagged
+        ? moderationOutcome.reason
+        : `Config save velocity is unusually high for this tenant (${recentConfigWrites + 1} writes in 10 minutes).`,
+      evidence: {
+        rules: contentRules,
+        ai: aiModeration,
+        outcome: moderationOutcome,
+        recent_config_writes_10m: recentConfigWrites + 1,
+        limits,
+      },
+    });
+    reviewCaseId = caseRecord.id || null;
+    await applySoftTrustHold(c.env, row, {
+      reasons: riskSummaries,
+      reviewedBy: moderationOutcome.flagged ? 'system:config-risk' : 'system:config-velocity',
+      riskScore,
+    });
+  }
+
+  return c.json({
+    ok: true,
+    site_config: cfg,
+    review_required: Boolean(reviewCaseId),
+    review_case_id: reviewCaseId,
+    risk_evaluation: {
+      rules: contentRules,
+      ai: aiModeration,
+      outcome: moderationOutcome,
+      config_velocity_score: configVelocityScore,
+      recent_config_writes_10m: recentConfigWrites + 1,
+      limits,
+    },
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1114,6 +1450,8 @@ async function buildAvailableCruipTemplates(env, currentTemplateId = null) {
 publicConfig.get('/templates', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   // Fetch tenant's current template_id
   let currentTemplateId = null;
@@ -1149,6 +1487,8 @@ publicConfig.get('/preview', async (c) => {
   if (!tenantId) {
     return c.json({ error: 'Tenant ID required: X-Tenant-ID header or ?tid= param.' }, 400);
   }
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   let tenant = null;
   try {
@@ -1234,13 +1574,16 @@ async function requireAssetTenant(c, tenantId) {
   if (!tenantId) return { error: c.json({ error: 'X-Tenant-ID header is required.' }, 400) };
   if (!c.env.TOUR_PAGES) return { error: c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503) };
 
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor;
+
   const tenant = await c.env.DB
-    .prepare('SELECT id FROM tenants WHERE id = ?')
+    .prepare('SELECT id, name, subscription_status, trust_status, trust_score, trust_reasons_json, public_indexing_enabled, subdomain, custom_domain FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
   if (!tenant) return { error: c.json({ error: 'Tenant not found.' }, 404) };
-  return { tenant };
+  return { tenant, session: actor.session };
 }
 
 function stripDeletedAssetFromGalleryList(items, assetUrl) {
@@ -1334,12 +1677,18 @@ publicConfig.get('/assets', async (c) => {
 
   const prefix = `assets/${tenantId}/`;
   const objects = await listAllTenantAssetObjects(c.env.TOUR_PAGES, prefix);
+  const { results: inventoryRows } = await c.env.DB
+    .prepare('SELECT filename, moderation_status, visibility, risk_score, reasons_json FROM tenant_asset_inventory WHERE tenant_id = ? AND deleted_at IS NULL')
+    .bind(tenantId)
+    .all();
+  const inventoryByFilename = new Map((inventoryRows || []).map((row) => [row.filename, row]));
 
   const items = objects
     .map((obj) => {
       const filename = String(obj.key || '').slice(prefix.length);
       if (!SAFE_ASSET_FILENAME_RE.test(filename)) return null;
       const extension = filename.split('.').pop()?.toLowerCase() || '';
+      const inventory = inventoryByFilename.get(filename) || null;
       return {
         filename,
         r2_key: obj.key,
@@ -1347,6 +1696,10 @@ publicConfig.get('/assets', async (c) => {
         size: obj.size ?? 0,
         uploaded_at: obj.uploaded ? new Date(obj.uploaded).toISOString() : null,
         mime: EXT_TO_MIME[extension] || null,
+        moderation_status: inventory?.moderation_status || 'ALLOW',
+        visibility: inventory?.visibility || 'PUBLIC',
+        risk_score: Number(inventory?.risk_score || 0),
+        reasons: inventory?.reasons_json ? JSON.parse(inventory.reasons_json) : [],
       };
     })
     .filter(Boolean)
@@ -1372,6 +1725,10 @@ publicConfig.delete('/assets/:filename', async (c) => {
   const r2Key = `assets/${tenantId}/${filename}`;
   const publicUrl = `/api/tenant/assets/${tenantId}/${filename}`;
   await c.env.TOUR_PAGES.delete(r2Key);
+  await c.env.DB
+    .prepare('UPDATE tenant_asset_inventory SET deleted_at = ? WHERE tenant_id = ? AND filename = ?')
+    .bind(Math.floor(Date.now() / 1000), tenantId, filename)
+    .run();
   const cleanup = await cleanupDeletedAssetReferences(c.env.DB, tenantId, publicUrl);
   return c.json({ ok: true, filename, r2_key: r2Key, cleaned_asset_url: publicUrl, cleaned_tours: cleanup.updatedTours });
 });
@@ -1381,6 +1738,39 @@ publicConfig.post('/assets/upload', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   const requirement = await requireAssetTenant(c, tenantId);
   if (requirement.error) return requirement.error;
+  const tenant = requirement.tenant;
+  const session = requirement.session;
+  const now = Math.floor(Date.now() / 1000);
+  const requestContext = buildRiskRequestContext(c, {
+    tenantId,
+    userId: session.user_id,
+    sessionId: session.id,
+  });
+  const limits = buildTenantVelocityLimits(tenant.trust_status);
+  const recentUploads = await countRiskEvents(c.env, {
+    tenantId,
+    eventType: 'asset_uploaded',
+    since: now - 3600,
+  });
+  if (recentUploads >= limits.assetUploadsPerHour) {
+    await createRiskEvent(c.env, {
+      ...requestContext,
+      eventType: 'asset_upload_throttled',
+      severity: 'review',
+      riskScore: 65,
+      action: 'throttle',
+      evidence: {
+        recent_uploads_last_hour: recentUploads,
+        limit: limits.assetUploadsPerHour,
+      },
+      createdAt: now,
+    });
+    return c.json({
+      error: 'Upload velocity is temporarily throttled for this tenant. Continue editing and retry in a few minutes.',
+      code: 'ASSET_UPLOAD_THROTTLED',
+      review_required: true,
+    }, 429);
+  }
 
   // ── Parse multipart ──────────────────────────────────────────────────────
   let formData;
@@ -1417,6 +1807,82 @@ publicConfig.post('/assets/upload', async (c) => {
 
   // ── Upload to R2 ─────────────────────────────────────────────────────────
   const buffer = await file.arrayBuffer();
+  const sha256 = await sha256HexBuffer(buffer);
+  const ruleAnalysis = analyzeAssetUpload({
+    filename: safeFilename,
+    mime: mimeRaw,
+    sizeBytes: file.size,
+    buffer,
+  });
+  const duplicateTenantCount = await countAssetReuseAcrossTenants(c.env, sha256, now - (60 * 60 * 24 * 30));
+  const aiPayload = buildAssetModerationPayload({
+    tenant,
+    asset: {
+      filename: safeFilename,
+      mime: mimeRaw,
+      size_bytes: file.size,
+      sha256,
+    },
+    extractedText: ruleAnalysis.extracted_text_excerpt,
+    stage: 'asset_upload',
+  });
+  const aiModeration = await moderateAssetWithAI(c.env, aiPayload, { stage: 'asset_upload' });
+  const assetOutcome = decideAssetModerationOutcome({
+    ruleAnalysis,
+    aiModeration,
+    duplicateTenantCount,
+  });
+
+  if (assetOutcome.blocked) {
+    await createRiskEvent(c.env, {
+      ...requestContext,
+      eventType: 'asset_upload_blocked',
+      severity: 'high',
+      riskScore: assetOutcome.risk_score,
+      action: 'block',
+      assetSha256: sha256,
+      signalKey: `asset:${assetOutcome.moderation_status}`,
+      evidence: {
+        filename: safeFilename,
+        mime: mimeRaw,
+        size_bytes: file.size,
+        rules: ruleAnalysis,
+        ai: aiModeration,
+        duplicate_tenant_count: duplicateTenantCount,
+      },
+      createdAt: now,
+    });
+    await createTenantReviewCase(c.env, {
+      tenantId,
+      category: 'asset_upload_blocked',
+      severity: 'block',
+      signalKey: `asset-block:${sha256}`,
+      summary: assetOutcome.reason,
+      evidence: {
+        filename: safeFilename,
+        mime: mimeRaw,
+        size_bytes: file.size,
+        rules: ruleAnalysis,
+        ai: aiModeration,
+        duplicate_tenant_count: duplicateTenantCount,
+      },
+    });
+    await applySoftTrustHold(c.env, tenant, {
+      reasons: assetOutcome.summaries,
+      reviewedBy: 'system:asset-upload-block',
+      riskScore: assetOutcome.risk_score,
+    });
+    return c.json({
+      error: assetOutcome.reason,
+      code: ruleAnalysis.primary_code || 'ASSET_BLOCKED',
+      review_required: true,
+      analysis: {
+        rules: ruleAnalysis,
+        ai: aiModeration,
+        outcome: assetOutcome,
+      },
+    }, 403);
+  }
 
   await c.env.TOUR_PAGES.put(r2Key, buffer, {
     httpMetadata: {
@@ -1426,6 +1892,77 @@ publicConfig.post('/assets/upload', async (c) => {
   });
 
   const publicUrl = `/api/tenant/assets/${tenantId}/${safeFilename}`;
+  const assetId = await insertOrReplaceAssetInventory(c.env, {
+    tenantId,
+    r2Key,
+    filename: safeFilename,
+    mime: mimeRaw,
+    sizeBytes: file.size,
+    sha256,
+    moderationStatus: assetOutcome.moderation_status,
+    visibility: assetOutcome.visibility,
+    riskScore: assetOutcome.risk_score,
+    reasons: assetOutcome.summaries,
+    userId: session.user_id,
+    sessionId: session.id,
+  });
+  await appendAssetScanResult(c.env, {
+    assetId,
+    provider: 'rules',
+    stage: 'asset_upload',
+    status: ruleAnalysis.blocked ? 'BLOCK' : ruleAnalysis.review_required ? 'REVIEW' : 'ALLOW',
+    riskScore: assetOutcome.risk_score,
+    reasons: ruleAnalysis.summaries,
+    evidence: ruleAnalysis,
+  });
+  await appendAssetScanResult(c.env, {
+    assetId,
+    provider: aiModeration.provider || 'cloudflare-ai',
+    stage: 'asset_upload',
+    status: aiModeration.skipped ? 'SKIPPED' : aiModeration.recommended_action || 'ALLOW',
+    riskScore: aiModeration.risk_score || 0,
+    reasons: aiModeration.reasons || [],
+    evidence: aiModeration,
+  });
+  await createRiskEvent(c.env, {
+    ...requestContext,
+    eventType: 'asset_uploaded',
+    severity: assetOutcome.review_required ? 'review' : 'info',
+    riskScore: assetOutcome.risk_score,
+    action: assetOutcome.review_required ? 'review' : 'observe',
+    assetSha256: sha256,
+    evidence: {
+      filename: safeFilename,
+      mime: mimeRaw,
+      size_bytes: file.size,
+      visibility: assetOutcome.visibility,
+      duplicate_tenant_count: duplicateTenantCount,
+    },
+    createdAt: now,
+  });
+
+  if (assetOutcome.review_required) {
+    await createTenantReviewCase(c.env, {
+      tenantId,
+      category: 'asset_upload_review',
+      severity: 'review',
+      signalKey: `asset-review:${sha256}`,
+      summary: assetOutcome.reason,
+      evidence: {
+        filename: safeFilename,
+        mime: mimeRaw,
+        size_bytes: file.size,
+        rules: ruleAnalysis,
+        ai: aiModeration,
+        duplicate_tenant_count: duplicateTenantCount,
+      },
+    });
+    await applySoftTrustHold(c.env, tenant, {
+      reasons: assetOutcome.summaries,
+      reviewedBy: 'system:asset-upload-review',
+      riskScore: assetOutcome.risk_score,
+    });
+  }
 
   console.info(`[ASSET_UPLOAD] tenant=${tenantId} key=${r2Key} mime=${mimeRaw} bytes=${file.size}`);
 
@@ -1436,6 +1973,9 @@ publicConfig.post('/assets/upload', async (c) => {
     filename: safeFilename,
     mime:     mimeRaw,
     size:     file.size,
+    moderation_status: assetOutcome.moderation_status,
+    visibility: assetOutcome.visibility,
+    review_required: assetOutcome.review_required,
   }, 201);
 });
 
@@ -1466,6 +2006,19 @@ publicConfig.get('/assets/:tenantId/:filename', async (c) => {
   }
 
   const r2Key = `assets/${rawTenantId}/${rawFilename}`;
+  const assetRecord = await fetchTenantAssetRecord(c.env.DB, rawTenantId, rawFilename);
+  if (assetRecord?.deleted_at) {
+    return new Response('Asset not found.', { status: 404 });
+  }
+  if (assetRecord && (assetRecord.moderation_status === 'BLOCK' || assetRecord.visibility === 'BLOCKED')) {
+    return new Response('Asset not found.', { status: 404 });
+  }
+  if (assetRecord?.visibility === 'AUTHENTICATED_ONLY') {
+    const actor = await requireTenantActor(c, rawTenantId);
+    if (actor.error) {
+      return new Response('Asset not found.', { status: 404 });
+    }
+  }
   const obj   = await c.env.TOUR_PAGES.get(r2Key);
 
   if (!obj) {
@@ -1477,7 +2030,9 @@ publicConfig.get('/assets/:tenantId/:filename', async (c) => {
   return new Response(obj.body, {
     headers: {
       'Content-Type':  contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': assetRecord?.visibility === 'AUTHENTICATED_ONLY'
+        ? 'private, no-store'
+        : 'public, max-age=31536000, immutable',
       'ETag':          obj.etag ?? '',
     },
   });
@@ -1524,6 +2079,8 @@ publicConfig.get('/assets/:tenantId/:filename', async (c) => {
 publicConfig.post('/switch-template', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   if (!c.env.TOUR_PAGES || !c.env.SITE_TEMPLATES) {
     return c.json({ error: 'Storage bindings (TOUR_PAGES / SITE_TEMPLATES) are not configured.' }, 503);
@@ -1705,6 +2262,45 @@ publicConfig.post('/switch-template', async (c) => {
 publicConfig.post('/publish-site', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
+  const session = actor.session;
+
+  const publishNow = Math.floor(Date.now() / 1000);
+  const publishLimits = buildTenantVelocityLimits('PROBATION');
+  const publishAttempts = await countRiskEvents(c.env, {
+    tenantId,
+    eventType: 'publish_attempt',
+    since: publishNow - 3600,
+  });
+  if (publishAttempts >= publishLimits.publishAttemptsPerHour) {
+    await createRiskEvent(c.env, {
+      ...buildRiskRequestContext(c, { tenantId, userId: session.user_id, sessionId: session.id }),
+      eventType: 'publish_throttled',
+      severity: 'review',
+      riskScore: 70,
+      action: 'throttle',
+      evidence: {
+        recent_publish_attempts_last_hour: publishAttempts,
+        limit: publishLimits.publishAttemptsPerHour,
+      },
+      createdAt: publishNow,
+    });
+    return c.json({
+      error: 'Publish attempts are temporarily throttled for this tenant. Continue editing and retry later.',
+      code: 'PUBLISH_THROTTLED',
+      review_required: true,
+    }, 429);
+  }
+
+  await createRiskEvent(c.env, {
+    ...buildRiskRequestContext(c, { tenantId, userId: session.user_id, sessionId: session.id }),
+    eventType: 'publish_attempt',
+    severity: 'info',
+    riskScore: 0,
+    action: 'observe',
+    createdAt: publishNow,
+  });
 
   if (!c.env.TOUR_PAGES) {
     return c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503);
@@ -1725,6 +2321,67 @@ publicConfig.post('/publish-site', async (c) => {
     }, 403);
   }
   const tenant = guard.tenant;
+
+  const tenantSite = await c.env.DB
+    .prepare('SELECT name, subdomain, custom_domain, site_config, trust_status, trust_score, trust_reasons_json FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  let siteConfig = {};
+  try {
+    if (tenantSite?.site_config) siteConfig = JSON.parse(tenantSite.site_config);
+  } catch {
+    siteConfig = {};
+  }
+
+  const abuseAnalysis = analyzeTenantSiteAbuse({ tenant: tenantSite || tenant, siteConfig });
+  const moderationPayload = buildTenantModerationPayload({ tenant: tenantSite || tenant, siteConfig, stage: 'publish' });
+  const aiModeration = await moderateTenantContent(c.env, moderationPayload, { stage: 'publish' });
+  const moderationOutcome = decideTenantModerationOutcome({ ruleAnalysis: abuseAnalysis, aiModeration });
+
+  if (moderationOutcome.flagged) {
+    const reasons = mergeTrustReasons(tenantSite?.trust_reasons_json, moderationOutcome.summaries);
+    const caseRecord = await createTenantReviewCase(c.env, {
+      tenantId,
+      category: moderationOutcome.blocked ? 'publish_content_blocked' : 'publish_content_review',
+      severity: moderationOutcome.blocked ? 'block' : 'review',
+      signalKey: `publish:${moderationOutcome.code}`,
+      summary: moderationOutcome.reason,
+      evidence: {
+        rules: abuseAnalysis,
+        ai: aiModeration,
+        outcome: moderationOutcome,
+      },
+    });
+
+    await c.env.DB
+      .prepare('UPDATE tenants SET trust_status = ?, trust_score = ?, trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ?, public_indexing_enabled = 0 WHERE id = ?')
+      .bind(moderationOutcome.next_trust_status, moderationOutcome.risk_score, JSON.stringify(reasons), Math.floor(Date.now() / 1000), aiModeration?.enabled && !aiModeration?.skipped ? 'system:publish-ai-scan' : 'system:publish-abuse-scan', tenantId)
+      .run();
+
+    await sendTelegramModerationAlert(c.env, {
+      tenantId,
+      tenantName: tenantSite?.name || tenant.name,
+      stage: 'publish',
+      recommendedAction: moderationOutcome.blocked ? 'QUARANTINE' : 'REVIEW',
+      riskScore: moderationOutcome.risk_score,
+      summary: moderationOutcome.reason,
+      reasons: moderationOutcome.summaries,
+      reviewCaseId: caseRecord.id || null,
+    });
+
+    return c.json({
+      error: moderationOutcome.reason,
+      code: moderationOutcome.code,
+      review_required: true,
+      review_case_id: caseRecord.id || null,
+      analysis: {
+        rules: abuseAnalysis,
+        ai: aiModeration,
+        outcome: moderationOutcome,
+      },
+    }, 403);
+  }
 
   const sandboxPrefix = `sandbox/${tenantId}/`;
   const livePrefix    = `live/${tenantId}/`;
@@ -1889,6 +2546,8 @@ publicConfig.post('/publish-site', async (c) => {
 publicConfig.get('/snippets', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   if (!c.env.SITE_TEMPLATES) {
     return c.json({ error: 'SITE_TEMPLATES R2 binding is not configured.' }, 503);
@@ -1924,6 +2583,8 @@ publicConfig.get('/snippets', async (c) => {
 publicConfig.post('/soft-publish', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
 
   if (!c.env.TOUR_PAGES) {
     return c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503);

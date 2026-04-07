@@ -469,14 +469,14 @@
                     <label for="subdomain-input">subdomain</label>
                     <div class="subdomain-setup">
                       <input id="subdomain-input" type="text" placeholder="sunset-travel" autocomplete="off" />
-                      <span class="subdomain-suffix">.tours-market.com</span>
+                      <span class="subdomain-suffix" id="subdomain-suffix">.tours-market.com</span>
                       <div class="subdomain-actions">
                         <a href="#" id="btn-suggest-subdomain" class="button alt small">Suggest</a>
                         <a href="#" id="btn-save-subdomain" class="button small">Lock</a>
                       </div>
                     </div>
                   </div>
-                  <div class="subdomain-hint" id="subdomain-hint">Use lowercase letters, numbers, and hyphens only. You can lock this platform subdomain once.</div>
+                  <div class="subdomain-hint" id="subdomain-hint">Use 3-63 lowercase letters, numbers, and hyphens only. You can lock this platform subdomain once.</div>
                 </div>
 
                 <div class="launch-setting-inline">
@@ -791,18 +791,20 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   }
 
   function slugifySubdomain(value) {
+    const maxLength = Number(getSubdomainPolicy().max_length || 63);
     return String(value || '')
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 48);
+      .slice(0, maxLength);
   }
 
   function buildPlatformPreviewHost(subdomain) {
     const clean = slugifySubdomain(subdomain);
-    return clean ? `${clean}.${PLATFORM_SUBDOMAIN_SUFFIX}` : `your-brand.${PLATFORM_SUBDOMAIN_SUFFIX}`;
+    const suffix = getPlatformSubdomainSuffix();
+    return clean ? `${clean}.${suffix}` : `your-brand.${suffix}`;
   }
 
   function updateSubdomainPreview(value) {
@@ -830,6 +832,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       saveSubdomain.style.opacity = isLocked ? '0.7' : '1';
     }
     updateSubdomainPreview(lockedSubdomain || subdomainInput?.value || getSuggestedSubdomain());
+    syncSubdomainPolicyUi();
   }
 
   const sessionPayload = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
@@ -846,7 +849,72 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   };
   const tenantId = sessionPayload.session.tenant_id;
   const tenantName = sessionPayload.session.tenant_name || '';
-  const onboardingState = { settings: null, catalogs: null, publicConfig: null, universalBundle: null, tours: [] };
+  const onboardingState = { settings: null, catalogs: null, subdomainPolicy: null, publicConfig: null, universalBundle: null, tours: [] };
+
+  function getSubdomainPolicy() {
+    return onboardingState.subdomainPolicy || {};
+  }
+
+  function getPlatformSubdomainSuffix() {
+    return String(getSubdomainPolicy().apex_domain || PLATFORM_SUBDOMAIN_SUFFIX).trim() || PLATFORM_SUBDOMAIN_SUFFIX;
+  }
+
+  function getReservedSubdomainSet() {
+    return new Set(Array.isArray(getSubdomainPolicy().reserved_subdomains) ? getSubdomainPolicy().reserved_subdomains : []);
+  }
+
+  function isReservedSubdomain(value) {
+    return getReservedSubdomainSet().has(slugifySubdomain(value));
+  }
+
+  function getSubdomainLimits() {
+    const policy = getSubdomainPolicy();
+    return {
+      min: Number(policy.min_length || 3),
+      max: Number(policy.max_length || 63),
+      pattern: new RegExp(policy.pattern || '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$'),
+    };
+  }
+
+  function isValidSubdomainDraft(value) {
+    const limits = getSubdomainLimits();
+    const normalized = slugifySubdomain(value);
+    return Boolean(normalized)
+      && normalized.length >= limits.min
+      && normalized.length <= limits.max
+      && limits.pattern.test(normalized);
+  }
+
+  function buildSubdomainFormatHint() {
+    const limits = getSubdomainLimits();
+    return `Use ${limits.min}-${limits.max} lowercase letters, numbers, and hyphens only. You can lock this once.`;
+  }
+
+  function syncSubdomainPolicyUi() {
+    const suffix = document.getElementById('subdomain-suffix');
+    if (suffix) suffix.textContent = `.${getPlatformSubdomainSuffix()}`;
+  }
+
+  function getSubdomainSuggestionCandidates(baseValue) {
+    const base = slugifySubdomain(baseValue) || 'travel-brand';
+    const suffixes = Array.isArray(getSubdomainPolicy().suggestion_suffixes)
+      ? getSubdomainPolicy().suggestion_suffixes
+      : ['travel', 'agency', 'tours', 'studio', 'team', 'co'];
+    const values = [base];
+    suffixes.forEach((suffix) => values.push(slugifySubdomain(`${base}-${suffix}`)));
+    values.push(slugifySubdomain(`go-${base}`));
+    values.push(slugifySubdomain(`${base}-team`));
+    return [...new Set(values)].filter(Boolean);
+  }
+
+  function buildReservedSubdomainHint(subdomain) {
+    const normalized = slugifySubdomain(subdomain);
+    const suggestion = getSubdomainSuggestionCandidates(normalized).find((value) => !isReservedSubdomain(value) && value !== normalized);
+    if (suggestion) {
+      return `"${normalized}" is reserved for platform use. Try ${suggestion}.${getPlatformSubdomainSuffix()} instead.`;
+    }
+    return `"${normalized}" is reserved for platform use. Please choose a tenant-specific brand label.`;
+  }
 
   function getTenantLocalePreference() {
     const currentSkin = getCurrentMarketSkin();
@@ -903,7 +971,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   if (navPayments) navPayments.href = `#payments`;
 
   function getSuggestedSubdomain() {
-    return slugifySubdomain(onboardingState.settings?.name || tenantName || 'travel-brand');
+    const desired = slugifySubdomain(onboardingState.settings?.name || tenantName || 'travel-brand');
+    const available = getSubdomainSuggestionCandidates(desired).find((value) => !isReservedSubdomain(value));
+    return available || desired || 'travel-brand';
   }
 
   function updateSubdomainHint(message, isError) {
@@ -1065,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         complete: hasSubdomain,
         title: i18n.t('dashboard_launch.subdomain_title'),
         description: hasSubdomain
-          ? `${i18n.t('dashboard_launch.subdomain_desc_locked_prefix')} ${settings.subdomain}.tours-market.com. ${i18n.t('dashboard_launch.subdomain_desc_locked_suffix')}`
+          ? `${i18n.t('dashboard_launch.subdomain_desc_locked_prefix')} ${settings.subdomain}.${getPlatformSubdomainSuffix()}. ${i18n.t('dashboard_launch.subdomain_desc_locked_suffix')}`
           : i18n.t('dashboard_launch.subdomain_desc_empty'),
         href: '#launch-guide',
         label: hasSubdomain ? i18n.t('dashboard_launch.subdomain_label_locked') : i18n.t('dashboard_launch.subdomain_label_action'),
@@ -1194,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     suggestSubdomain.addEventListener('click', (event) => {
       event.preventDefault();
       subdomainInput.value = getSuggestedSubdomain();
-      updateSubdomainHint(`Suggested: ${subdomainInput.value}`, false);
+      updateSubdomainHint(`Suggested available option: ${subdomainInput.value}.${getPlatformSubdomainSuffix()}`, false);
       updateSubdomainPreview(subdomainInput.value);
     });
   }
@@ -1202,7 +1272,13 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     subdomainInput.addEventListener('input', () => {
       const normalized = slugifySubdomain(subdomainInput.value);
       updateSubdomainPreview(normalized || subdomainInput.value);
-      if (!normalized) return updateSubdomainHint('Use lowercase letters, numbers, and hyphens only. You can lock this once.', false);
+      if (!normalized) return updateSubdomainHint(buildSubdomainFormatHint(), false);
+      if (!isValidSubdomainDraft(normalized)) {
+        return updateSubdomainHint(buildSubdomainFormatHint(), true);
+      }
+      if (isReservedSubdomain(normalized)) {
+        return updateSubdomainHint(buildReservedSubdomainHint(normalized), true);
+      }
       if (normalized !== subdomainInput.value) {
         updateSubdomainHint(`Will lock as: ${normalized}`, false);
       } else {
@@ -1214,7 +1290,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     saveSubdomain.addEventListener('click', async (event) => {
       event.preventDefault();
       const normalized = slugifySubdomain(subdomainInput.value);
-      if (!normalized) return updateSubdomainHint('Please enter a valid subdomain first.', true);
+      if (!isValidSubdomainDraft(normalized)) return updateSubdomainHint(buildSubdomainFormatHint(), true);
+      if (isReservedSubdomain(normalized)) return updateSubdomainHint(buildReservedSubdomainHint(normalized), true);
 
       saveSubdomain.textContent = 'Locking...';
       try {
@@ -1226,6 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         const payload = await res.json();
         if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not lock subdomain.');
         onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
+        onboardingState.subdomainPolicy = payload.subdomain_policy || onboardingState.subdomainPolicy;
         subdomainInput.value = payload.settings?.subdomain || normalized;
         updateSubdomainHint(`Locked. Reserved preview: ${buildPlatformPreviewHost(payload.settings?.subdomain || normalized)}. This choice cannot be changed later.`, false);
         updateSubdomainPreview(payload.settings?.subdomain || normalized);
@@ -1264,6 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         if (refreshed.payload?.ok) {
           onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
           onboardingState.catalogs = refreshed.payload.catalogs || onboardingState.catalogs;
+          onboardingState.subdomainPolicy = refreshed.payload.subdomain_policy || onboardingState.subdomainPolicy;
         } else if (payload.catalogs) {
           onboardingState.catalogs = payload.catalogs;
         }
@@ -1306,12 +1385,14 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     } else {
       onboardingState.settings = initialPayload?.settings || {};
       onboardingState.catalogs = initialPayload?.catalogs || null;
+      onboardingState.subdomainPolicy = initialPayload?.subdomain_policy || null;
 
       await i18n.setLang(getTenantLocalePreference(), { persist: false });
       const localized = await fetchTenantSettings();
       if (localized.payload?.ok) {
         onboardingState.settings = localized.payload.settings || onboardingState.settings;
         onboardingState.catalogs = localized.payload.catalogs || onboardingState.catalogs;
+        onboardingState.subdomainPolicy = localized.payload.subdomain_policy || onboardingState.subdomainPolicy;
       }
 
       const nameEl = document.getElementById('tenant-name-display');

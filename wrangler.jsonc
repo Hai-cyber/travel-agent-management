@@ -17,6 +17,9 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	"ai": {
+		"binding": "AI"
+	},
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,
@@ -79,6 +82,9 @@
 			"name": "square-wind-2594-staging",
 			"preview_urls": true,
 			"workers_dev": true,
+			"ai": {
+				"binding": "AI"
+			},
 			"routes": [
 				{
 					"pattern": "staging.tours-market.com",

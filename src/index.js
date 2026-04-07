@@ -37,6 +37,7 @@ import registerPricingRoutes, {
 } from './routes/pricing.js';
 import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
 import { clearAuthSessionCookie, getAuthSession, readAuthSessionToken } from './lib/auth.js';
+import { buildTenantTrustPolicy } from './lib/trustAbuse.js';
 
 // ── Under Construction page (in-memory) ───────────────────────────────────────
 // Served when a tenant has not enabled an electronic payment gateway.
@@ -331,6 +332,7 @@ export default {
       const tenant = await resolveTenantByHost(host, env.DB);
 
       if (tenant) {
+        const trustPolicy = buildTenantTrustPolicy(tenant);
         // ── Electronic Gateway Mandate ─────────────────────────────────────
         // Parse tenant's payment_methods and block site rendering if no
         // electronic gateway (Stripe/PayPal/MoMo/ZaloPay/VNPay/GrabPay) is active.
@@ -345,7 +347,9 @@ export default {
 
         // ── Path 1: Site Studio — live template render ────────────────────
         if (tenant.template_id) {
-          return serveSitePage(tenant, env);
+          return serveSitePage(tenant, env, {
+            responseHeaders: trustPolicy.force_noindex ? { 'X-Robots-Tag': trustPolicy.robots_directive } : {},
+          });
         }
 
         // ── Path 2: Legacy TOUR_PAGES — pre-rendered HTML ─────────────────
@@ -357,8 +361,10 @@ export default {
           const r2Key = `${tenant.id}/${safeSlug}.html`;
           const obj   = await env.TOUR_PAGES?.get(r2Key);
           if (obj) {
+            const headers = { 'Content-Type': 'text/html; charset=utf-8' };
+            if (trustPolicy.force_noindex) headers['X-Robots-Tag'] = trustPolicy.robots_directive;
             return new Response(await obj.text(), {
-              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              headers,
             });
           }
         }

@@ -152,6 +152,30 @@ curl -X POST "http://127.0.0.1:8787/api/auth/forgot-password" \
 - CHK-R34: Visual Editor canvas now supports responsive `Laptop`/`Mobile` preview modes. In mobile preview, managed customer-facing headers collapse to logo + `☰ Menu`, with a tap-to-open nav/actions panel.
 - CHK-R34: `editor-bridge.js` now turns snippet sections into 12-column editable grids with persisted `col-span-X`, right-edge resize handles with smart snapping, translucent grid overlay during resize, and per-component `Move / Copy / Delete` controls.
 - CHK-R34: Component handlers support drag-reorder inside the current grid using an in-grid placeholder; drop commits `SECTION_HTML_UPDATED` with editor overlays stripped before save.
+
+### 2026-04-07
+- Platform subdomain policy is now runtime-enforced for tenant onboarding/settings: a shared reserved-subdomain registry blocks platform-owned labels across marketing, product, billing, support, ops, and technical namespaces.
+- `PATCH /api/tenants/settings` now rejects reserved labels such as `app`, `auth`, `api`, `blog`, `billing`, `status`, `preview`, `cdn`, and `docs`, and returns policy metadata plus tenant-safe alternatives.
+- `GET /api/tenants/settings` now exposes `subdomain_policy`, and `public/dashboard.html` uses it to render the active apex suffix, avoid reserved suggestions, and show clearer guidance before a tenant locks a platform subdomain.
+- Added `docs/SUBDOMAIN_POLICY.md` as the human-readable policy reference for reserved platform names, tenant rules, and future-safe namespace planning.
+- Subdomain validation now enforces 3-63 characters and blocks suspicious labels for manual review when they match phishing-sensitive keywords, resemble protected finance brands, or look randomly generated; review attempts emit webhook or log-only alerts for operator follow-up.
+- Added migration `0040_tenant_trust_and_review.sql` plus shared trust helpers so tenants now move through `PREVIEW_ONLY`, `PROBATION`, `TRUSTED`, `SUSPENDED`, and `QUARANTINED` instead of exposing every public surface immediately after onboarding.
+- Signup now creates tenants as `PREVIEW_ONLY`, clean subdomain claims auto-promote them to `PROBATION`, and custom domains are blocked until a tenant is `TRUSTED`; changing a custom domain opens a verification review case and resets live-domain verification.
+- Public host resolution and site rendering now respect the trust ladder: probationary platform subdomains are forced to `noindex`, trusted custom domains require verification, and blocked statuses no longer receive normal public site exposure.
+- Admin moderation endpoints now exist for listing review cases and changing tenant trust state, while `POST /api/tenant/publish-site` also runs a content-abuse scan that can create review cases, disable indexing, and downgrade risky tenants before a publish succeeds.
+- Added Cloudflare AI moderation plumbing in `src/lib/aiModeration.js`; publish-time moderation now sends normalized tenant/site payloads to Cloudflare AI when configured and merges AI output with rule-based signals before enforcing trust downgrades.
+- Added Telegram alert integration for flagged moderation outcomes, plus a new admin endpoint `POST /api/admin/tenants/:id/moderate-ai` for manual AI re-scan and optional enforcement.
+- Added `docs/CLOUDFLARE_AI_TELEGRAM_MODERATION.md` and new env placeholders for `AI_MODERATION_PROVIDER`, `AI_MODERATION_MODEL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID`.
+- Added migration `0041_abuse_risk_and_asset_inventory.sql`, creating `tenant_risk_events`, `tenant_asset_inventory`, and `tenant_asset_scan_results` so silent anti-abuse behavior is durable and queryable instead of living only in logs.
+- Remote production D1 is now up to date through `0041`; `npx wrangler d1 migrations apply travel_agent_db --remote --config ./wrangler.jsonc` completed successfully on 2026-04-07.
+- Added `src/lib/abuseRisk.js` as the shared risk engine for hashed requester context, event logging, tenant-age/trust-aware velocity limits, duplicate asset correlation, quiet email-identity heuristics, and rule-based asset scanning.
+- `src/routes/onboarding.js` now logs hashed signup/login risk events and quietly soft-throttles repeated attempts by email and IP without adding new visible onboarding friction.
+- `src/routes/tenants.js` now requires authenticated tenant sessions on sensitive editor/publish routes, records config-save and publish-attempt risk events, applies soft publish throttles, and can place risky tenants into review/soft-hold states without blocking legitimate editing.
+- Tenant asset handling is now abuse-aware: uploads are SHA-256 fingerprinted, scanned by rules plus Cloudflare AI, correlated for cross-tenant reuse, stored in D1 inventory, and can be hidden behind `AUTHENTICATED_ONLY` or blocked entirely when malicious.
+- `scripts/smoke-local.mjs` now verifies asset moderation explicitly: a safe SVG upload is allowed and publicly served, while an active-content phishing SVG is rejected before storage.
+- Password reset and logout session revocation were hardened after `0041`: auth flows now detach risk-event and asset-inventory session references before deleting `auth_sessions`, eliminating the foreign-key regression that initially broke reset-password smoke.
+- Local validation is green again after the anti-abuse expansion: `npm test` passes end to end, including the new asset moderation cases and password reset flow.
+- Future anti-abuse follow-up has been recorded in docs for the next iteration: Google-auth throttle parity, an internal review UI, background reputation aggregation, stronger asset scanning, and threshold/alert tuning based on live signal quality.
  
 ### 2026-03-31
 - CHK-R35: Universal Site pivot stabilized in parallel with legacy Site Studio. Added `0029_universal_site_foundation.sql` plus `/api/universal/*` routes for config, theme, contact, menu, pages, editor schema, and travel tour-page sync.

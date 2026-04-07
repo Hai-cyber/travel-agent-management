@@ -197,10 +197,31 @@ export async function consumePasswordResetToken(db, {
   passwordHash,
   now = Math.floor(Date.now() / 1000),
 }) {
+  const { results: sessionRows } = await db
+    .prepare('SELECT id FROM auth_sessions WHERE user_id = ?')
+    .bind(userId)
+    .all();
+
+  const detachStatements = [];
+  for (const session of sessionRows || []) {
+    if (!session?.id) continue;
+    detachStatements.push(db.prepare('UPDATE tenant_risk_events SET session_id = NULL WHERE session_id = ?').bind(session.id));
+    detachStatements.push(db.prepare('UPDATE tenant_asset_inventory SET uploaded_by_session_id = NULL WHERE uploaded_by_session_id = ?').bind(session.id));
+  }
+
   await db.batch([
+    ...detachStatements,
     db.prepare('UPDATE users SET hash = ? WHERE id = ?').bind(passwordHash, userId),
     db.prepare('DELETE FROM auth_sessions WHERE user_id = ?').bind(userId),
     db.prepare('UPDATE password_reset_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL').bind(now, tokenRecordId),
+  ]);
+}
+
+export async function detachAuthSessionReferences(db, sessionId) {
+  if (!sessionId) return;
+  await db.batch([
+    db.prepare('UPDATE tenant_risk_events SET session_id = NULL WHERE session_id = ?').bind(sessionId),
+    db.prepare('UPDATE tenant_asset_inventory SET uploaded_by_session_id = NULL WHERE uploaded_by_session_id = ?').bind(sessionId),
   ]);
 }
 
