@@ -6,7 +6,7 @@ import { resolveTenantByHost, serveSitePage, SAFE_SELECTOR_RE, listAllObjects, i
 import { checkPublishPermission } from '../lib/publishGuard.js';
 import { generateTourPage } from '../routes/tours.js';
 import pagesRouter, { rebuildAllTenantPageRenders } from '../routes/pages.js';
-import { getSupportedLocales } from '../utils/formatter.js';
+import { getSupportedLocales, resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { getTenantCurrencyCatalog, isSupportedTenantCurrency } from '../lib/tenantMarketCatalog.js';
 import { getMarketSkinCatalog, getMarketSkin, isSupportedMarketSkin } from '../lib/marketSkins.js';
 
@@ -35,6 +35,15 @@ const HOSTNAME_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 
 // Fields whose changes must be persisted to tenant_audit_log for legal reconciliation.
 const AUDIT_FIELDS = new Set(['custom_domain', 'subdomain', 'stripe_customer_id', 'payment_config_json']);
+
+function resolveTenantCatalogLocale(headerValue, tenantSettings = {}) {
+  const requested = String(headerValue || '').trim();
+  if (requested) return resolveLocaleFromAcceptLanguage(requested);
+
+  const marketSkinLocale = String(getMarketSkin(tenantSettings?.market_skin_key).ui_locale || '').trim();
+  const tenantLocale = String(tenantSettings?.default_locale || '').trim();
+  return resolveLocaleFromAcceptLanguage(marketSkinLocale || tenantLocale || 'en');
+}
 
 /**
  * Sanitise a navigation link URL supplied by a tenant admin.
@@ -319,7 +328,8 @@ tenants.patch('/settings', async (c) => {
       catch { /* leave as string if malformed */ }
     }
 
-    return c.json({ ok: true, settings: updated, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog() } });
+    const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), updated);
+    return c.json({ ok: true, settings: updated, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) } });
 
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
@@ -353,7 +363,8 @@ tenants.get('/settings', async (c) => {
       catch { /* leave as string if malformed */ }
     }
 
-    return c.json({ ok: true, settings, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog() } });
+    const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), settings);
+    return c.json({ ok: true, settings, catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) } });
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
     return c.json({ error: 'Internal server error. Please try again later.' }, 500);

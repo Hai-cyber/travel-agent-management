@@ -145,107 +145,111 @@
       text-transform: uppercase;
       letter-spacing: .06em;
     }
-    .subdomain-setup {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-      margin-bottom: 18px;
+    .launch-settings-toolbar {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
     }
-    .subdomain-setup label {
-      display: grid;
-      gap: 6px;
-      font-size: 13px;
+    .launch-setting-inline {
+      flex: 1 1 420px;
+      min-width: 0;
+    }
+    .launch-setting-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+    .launch-setting-row label {
+      flex: 0 0 auto;
+      margin: 0;
+      font-size: 12px;
       font-weight: 700;
       color: #374151;
+      text-transform: lowercase;
     }
-    .subdomain-setup input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid #93c5fd;
-      border-radius: 10px;
-      font-size: 15px;
+    .subdomain-setup,
+    .market-skin-setup {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      margin: 0;
     }
-    .subdomain-hint {
-      margin-top: 6px;
+    .subdomain-setup input,
+    .market-skin-setup select {
+      width: 180px;
+      max-width: 180px;
+      min-width: 150px;
+      padding: 8px 10px;
+      border: 1px solid #93c5fd;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.2;
+      background: #fff;
+      color: #111827;
+    }
+    .subdomain-suffix {
+      flex: 0 0 auto;
       font-size: 12px;
-      color: #1e40af;
+      font-weight: 700;
+      color: #475569;
     }
     .subdomain-actions {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .subdomain-preview {
-      margin-top: 10px;
-      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1d4ed8;
-      font-size: 13px;
-      font-weight: 600;
-      word-break: break-all;
-    }
-    .subdomain-preview code {
-      background: rgba(255, 255, 255, 0.7);
-      border-radius: 6px;
-      padding: 4px 8px;
-      font-size: 12px;
-      color: #0f172a;
-    }
-    .market-skin-setup {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-      margin-bottom: 18px;
-      margin-top: 16px;
-    }
-    .market-skin-setup label {
-      display: grid;
       gap: 6px;
-      font-size: 13px;
-      font-weight: 700;
-      color: #374151;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
     }
-    .market-skin-setup select {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid #93c5fd;
-      border-radius: 10px;
-      font-size: 15px;
-      background: #fff;
+    .subdomain-actions .button.small {
+      min-width: 0;
+      padding: 8px 12px;
+      font-size: 12px;
+      line-height: 1.1;
+      white-space: nowrap;
     }
+    .subdomain-actions .button.alt.small {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    .subdomain-hint,
     .market-skin-hint {
-      margin-top: 6px;
-      font-size: 12px;
+      margin-top: 5px;
+      font-size: 11px;
+      line-height: 1.35;
       color: #1e40af;
-      line-height: 1.55;
+      min-height: 15px;
     }
-    .market-skin-preview {
-      margin-top: 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1d4ed8;
-      font-size: 13px;
-      font-weight: 600;
+    .subdomain-hint.is-locked {
+      color: #0f766e;
+      font-weight: 700;
     }
-    .market-skin-preview code {
-      background: rgba(255, 255, 255, 0.7);
-      border-radius: 6px;
-      padding: 4px 8px;
-      font-size: 12px;
-      color: #0f172a;
+    .subdomain-hint.is-error,
+    .market-skin-hint.is-error {
+      color: #b91c1c;
+    }
+    @media screen and (max-width: 980px) {
+      .launch-settings-toolbar {
+        gap: 10px;
+      }
+      .launch-setting-inline {
+        flex-basis: 100%;
+      }
+      .market-skin-setup {
+        width: 100%;
+      }
+      .market-skin-setup select {
+        flex: 1 1 auto;
+        width: auto;
+        max-width: none;
+      }
     }
     .launch-steps {
       display: grid;
@@ -405,10 +409,11 @@
             <div class="sidebar-section">
               <h4 data-i18n="sidebar.manage">Manage</h4>
               <ul class="nav-list">
-                <li><a id="sidebar-tours" href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours_destinations">Tours &amp; Destinations</span></a></li>
-                <li><a href="#"><span class="icon">💲</span> <span data-i18n="sidebar.pricing">Pricing</span></a></li>
-                <li><a href="#"><span class="icon">📦</span> <span data-i18n="sidebar.add_ons">Add-ons</span></a></li>
-                <li><a href="#"><span class="icon">👥</span> <span data-i18n="sidebar.customers">Customers</span></a></li>
+                <li><a id="sidebar-tours" href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours">Tours</span></a></li>
+                <li><a id="sidebar-destinations" href="#"><span class="icon">📍</span> <span data-i18n="sidebar.destinations">Destinations</span></a></li>
+                <li><a id="sidebar-accommodations" href="#"><span class="icon">🏨</span> <span data-i18n="sidebar.accommodations">Accommodations</span></a></li>
+                <li><a id="sidebar-gallery" href="#"><span class="icon">🖼️</span> <span data-i18n="sidebar.gallery">Gallery</span></a></li>
+                <li><a id="sidebar-properties" href="#"><span class="icon">🏠</span> <span data-i18n="sidebar.properties">Properties</span></a></li>
               </ul>
             </div>
 
@@ -417,7 +422,6 @@
               <ul class="nav-list">
                 <li><a id="sidebar-universal-admin" href="universal-admin.html"><span class="icon">🧩</span> Website Design</a></li>
                 <li><a id="sidebar-system-settings" href="#"><span class="icon">⚙️</span> Settings</a></li>
-                <li><a id="sidebar-tours-pricing" href="#"><span class="icon">🗂️</span> Tours &amp; Pricing</a></li>
                 <li><a id="sidebar-payments" href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
                 <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
               </ul>
@@ -455,34 +459,39 @@
             <section class="launch-guide" id="launch-guide">
               <div class="launch-guide-head">
                 <div>
-                  <h3 class="launch-guide-title">Start Here: launch in small steps</h3>
-                  <p class="launch-guide-copy">You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build product modules for tours, destinations, hotels, and gallery content.</p>
+                  <h3 class="launch-guide-title" data-i18n="dashboard_launch.guide_title">Start Here: launch in small steps</h3>
+                  <p class="launch-guide-copy" data-i18n="dashboard_launch.guide_copy">You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build product modules for tours, destinations, accommodations, properties, and gallery content.</p>
                 </div>
-                <div class="launch-proof">No card required • 6 months free</div>
               </div>
-              <div class="subdomain-setup">
-                <label>
-                  Pick and lock your platform subdomain first
-                  <input id="subdomain-input" type="text" placeholder="sunset-travel" autocomplete="off" />
+              <div class="launch-settings-toolbar">
+                <div class="launch-setting-inline">
+                  <div class="launch-setting-row">
+                    <label for="subdomain-input">subdomain</label>
+                    <div class="subdomain-setup">
+                      <input id="subdomain-input" type="text" placeholder="sunset-travel" autocomplete="off" />
+                      <span class="subdomain-suffix">.tours-market.com</span>
+                      <div class="subdomain-actions">
+                        <a href="#" id="btn-suggest-subdomain" class="button alt small">Suggest</a>
+                        <a href="#" id="btn-save-subdomain" class="button small">Lock</a>
+                      </div>
+                    </div>
+                  </div>
                   <div class="subdomain-hint" id="subdomain-hint">Use lowercase letters, numbers, and hyphens only. You can lock this platform subdomain once.</div>
-                </label>
-                <div class="subdomain-actions">
-                  <a href="#" id="btn-suggest-subdomain" class="button alt small">Suggest</a>
-                  <a href="#" id="btn-save-subdomain" class="button small">Lock subdomain</a>
+                </div>
+
+                <div class="launch-setting-inline">
+                  <div class="launch-setting-row">
+                    <label for="market-skin-select" data-i18n="dashboard_market_skin.label">market skin</label>
+                    <div class="market-skin-setup">
+                      <select id="market-skin-select"></select>
+                      <div class="subdomain-actions">
+                        <a href="#" id="btn-save-market-skin" class="button small" data-i18n="dashboard_market_skin.save">Save</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="market-skin-hint" id="market-skin-hint" data-i18n="dashboard_market_skin.hint">Market skin controls default locale, authoritative booking currency, and non-editable storefront copy.</div>
                 </div>
               </div>
-              <div class="subdomain-preview" id="subdomain-preview">Reserved preview: <code id="subdomain-preview-value">sunset-travel.tours-market.com</code></div>
-              <div class="market-skin-setup">
-                <label>
-                  Choose market skin for this tenant
-                  <select id="market-skin-select"></select>
-                  <div class="market-skin-hint" id="market-skin-hint">Market skin controls system locale, non-editable UI copy, and authoritative booking currency.</div>
-                </label>
-                <div class="subdomain-actions">
-                  <a href="#" id="btn-save-market-skin" class="button small">Save market skin</a>
-                </div>
-              </div>
-              <div class="market-skin-preview" id="market-skin-preview">Preset preview: <code id="market-skin-preview-value">Global English · en-US · USD</code></div>
               <div class="launch-steps" id="launch-steps"></div>
             </section>
 
@@ -655,15 +664,26 @@
 <script>
 /* ════════════════════════════════════════════════════════════════
    i18n — lightweight translation engine
-   Supported: en (English), vi (Vietnamese), zh (Chinese — optional)
-   Usage: i18n.setLang('vi')  — persisted in localStorage
-   Keys:  data-i18n="key.path"  on any element
+   Defaults to the tenant market skin locale when available.
+   Keys: data-i18n="key.path" on any element
 ════════════════════════════════════════════════════════════════ */
 /* ── Engine ── */
 const i18n = (() => {
   const STORAGE_KEY = 'tam_lang';
   const FALLBACK    = 'en';
   let messages = {};
+  let activeLang = FALLBACK;
+
+  function normalizeLang(lang) {
+    const value = String(lang || '').trim();
+    return value || FALLBACK;
+  }
+
+  function getCandidates(lang) {
+    const normalized = normalizeLang(lang);
+    const base = normalized.split('-')[0];
+    return [...new Set([normalized, base, FALLBACK].filter(Boolean))];
+  }
 
   function get(lang, keyPath) {
     const resolve = (dict, candidate) => {
@@ -675,56 +695,63 @@ const i18n = (() => {
       return node;
     };
 
-    const active = messages[lang] || messages[FALLBACK] || {};
-    const fallback = messages[FALLBACK] || {};
+    for (const candidate of getCandidates(lang)) {
+      const dict = messages[candidate] || {};
+      const value = resolve(dict, keyPath) ?? resolve(dict, `dashboard.${keyPath}`);
+      if (value !== undefined) return value;
+    }
 
-    return resolve(active, keyPath)
-      ?? resolve(active, `dashboard.${keyPath}`)
-      ?? resolve(fallback, keyPath)
-      ?? resolve(fallback, `dashboard.${keyPath}`)
-      ?? keyPath;
+    return keyPath;
   }
 
   function apply(lang) {
-    document.documentElement.lang = lang;
+    activeLang = normalizeLang(lang);
+    document.documentElement.lang = activeLang;
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key  = el.getAttribute('data-i18n');
-      const text = get(lang, key);
+      const text = get(activeLang, key);
       if (el.tagName === 'TITLE') { el.textContent = text; return; }
       // only update leaf nodes — skip elements whose children also have data-i18n
       const hasChildKeys = [...el.children].some(c => c.hasAttribute('data-i18n'));
       if (!hasChildKeys) el.textContent = text;
     });
     document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.lang === lang);
+      btn.classList.toggle('active', btn.dataset.lang === activeLang);
     });
+    window.dispatchEvent(new CustomEvent('dashboard:langchange', { detail: { lang: activeLang } }));
   }
 
   async function ensure(lang) {
-    if (messages[lang]) return;
-    const res = await fetch(`/api/i18n/${encodeURIComponent(lang)}`, {
-      headers: { 'Accept-Language': lang },
+    const normalized = normalizeLang(lang);
+    if (messages[normalized]) return;
+    const res = await fetch(`/api/i18n/${encodeURIComponent(normalized)}`, {
+      headers: { 'Accept-Language': normalized },
     });
     const payload = await res.json();
-    messages[lang] = payload?.messages || {};
+    messages[normalized] = payload?.messages || {};
   }
 
-  async function setLang(lang) {
-    await ensure(FALLBACK);
-    await ensure(lang);
-    if (!messages[lang]) lang = FALLBACK;
-    localStorage.setItem(STORAGE_KEY, lang);
-    apply(lang);
+  async function setLang(lang, options = {}) {
+    const normalized = normalizeLang(lang);
+    const persist = options.persist !== false;
+    await Promise.all(getCandidates(normalized).map((candidate) => ensure(candidate)));
+    if (persist) localStorage.setItem(STORAGE_KEY, normalized);
+    apply(normalized);
   }
 
-  async function init() {
+  async function init(preferredLang = '') {
     const saved     = localStorage.getItem(STORAGE_KEY);
-    const browser   = navigator.language?.split('-')[0];
-    const preferred = saved || browser || FALLBACK;
+    const browser   = navigator.language || FALLBACK;
+    const preferred = preferredLang || saved || browser || FALLBACK;
     await setLang(preferred);
   }
 
-  return { setLang, init };
+  return {
+    setLang,
+    init,
+    t: (key) => get(activeLang, key),
+    getLang: () => activeLang,
+  };
 })();
 
 /* ── Compliance check ── */
@@ -779,9 +806,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   }
 
   function updateSubdomainPreview(value) {
-    const preview = document.getElementById('subdomain-preview-value');
-    if (!preview) return;
-    preview.textContent = buildPlatformPreviewHost(value);
+    const hint = document.getElementById('subdomain-hint');
+    if (!hint) return;
+    hint.dataset.previewHost = buildPlatformPreviewHost(value);
   }
 
   function syncSubdomainLockUi() {
@@ -797,8 +824,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       suggestSubdomain.style.display = isLocked ? 'none' : 'inline-block';
     }
     if (saveSubdomain) {
-      saveSubdomain.textContent = isLocked ? 'Subdomain locked' : 'Lock subdomain';
-      saveSubdomain.classList.toggle('alt', isLocked);
+      saveSubdomain.textContent = isLocked ? 'Locked' : 'Lock';
+      saveSubdomain.classList.remove('alt');
       saveSubdomain.style.pointerEvents = isLocked ? 'none' : 'auto';
       saveSubdomain.style.opacity = isLocked ? '0.7' : '1';
     }
@@ -821,6 +848,19 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   const tenantName = sessionPayload.session.tenant_name || '';
   const onboardingState = { settings: null, catalogs: null, publicConfig: null, universalBundle: null, tours: [] };
 
+  function getTenantLocalePreference() {
+    const currentSkin = getCurrentMarketSkin();
+    return String(currentSkin?.ui_locale || onboardingState.settings?.default_locale || i18n.getLang() || 'en').trim();
+  }
+
+  function buildTenantHeaders(extra = {}) {
+    return {
+      'X-Tenant-ID': tenantId,
+      'Accept-Language': getTenantLocalePreference(),
+      ...extra,
+    };
+  }
+
   function withTenant(path) {
     const url = new URL(path, window.location.origin);
     url.searchParams.set('tid', tenantId);
@@ -832,30 +872,34 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     history.replaceState({}, '', '/dashboard.html');
   }
 
-  document.getElementById('btn-tour-config').href      = withTenant('tour-config.html#pricing');
+  document.getElementById('btn-tour-config').href      = withTenant('tour-config.html');
   document.getElementById('btn-universal-admin').href  = withTenant('universal-admin.html');
   document.getElementById('btn-system-settings').href  = withTenant('universal-admin.html?panel=system&onboarding=system');
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
+  const sidebarDestinations = document.getElementById('sidebar-destinations');
+  const sidebarAccommodations = document.getElementById('sidebar-accommodations');
+  const sidebarGallery = document.getElementById('sidebar-gallery');
+  const sidebarProperties = document.getElementById('sidebar-properties');
   const sidebarUniversal = document.getElementById('sidebar-universal-admin');
   const sidebarSystemSettings = document.getElementById('sidebar-system-settings');
-  const sidebarToursPricing = document.getElementById('sidebar-tours-pricing');
   const sidebarPayment = document.getElementById('sidebar-payments');
   const navUniversal   = document.getElementById('nav-universal-admin');
   const navSettings = document.getElementById('nav-settings');
   const navSystemSettings = document.getElementById('nav-system-settings');
-  const navToursPricing = document.getElementById('nav-tours-pricing');
   const navPayments = document.getElementById('nav-payments');
   if (sidebarTours) sidebarTours.href = withTenant('tour-config.html');
+  if (sidebarDestinations) sidebarDestinations.href = withTenant('product-modules.html?mode=destinations');
+  if (sidebarAccommodations) sidebarAccommodations.href = withTenant('tour-config.html#content');
+  if (sidebarGallery) sidebarGallery.href = withTenant('product-modules.html?mode=gallery');
+  if (sidebarProperties) sidebarProperties.href = withTenant('product-modules.html?mode=hotels');
   if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
   if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
-  if (sidebarToursPricing) sidebarToursPricing.href = withTenant('tour-config.html#pricing');
   if (sidebarPayment) sidebarPayment.href = `#payments`;
   if (navUniversal) navUniversal.href = withTenant('universal-admin.html');
   if (navSettings) navSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
   if (navSystemSettings) navSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
-  if (navToursPricing) navToursPricing.href = withTenant('tour-config.html#pricing');
   if (navPayments) navPayments.href = `#payments`;
 
   function getSuggestedSubdomain() {
@@ -866,7 +910,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     const hint = document.getElementById('subdomain-hint');
     if (!hint) return;
     hint.textContent = message;
-    hint.style.color = isError ? '#b91c1c' : '#92400e';
+    hint.classList.toggle('is-error', isError);
+    hint.classList.toggle('is-locked', !isError && /locked/i.test(String(message || '')));
   }
 
   function getMarketSkinCatalog() {
@@ -879,16 +924,13 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   }
 
   function updateMarketSkinPreview(skin) {
-    const preview = document.getElementById('market-skin-preview-value');
     const hint = document.getElementById('market-skin-hint');
-    if (!preview || !hint) return;
+    if (!hint) return;
     if (!skin) {
-      preview.textContent = 'Global English · en-US · USD';
-      hint.textContent = 'Market skin controls system locale, non-editable UI copy, and authoritative booking currency.';
+      hint.textContent = i18n.t('dashboard_market_skin.hint');
       return;
     }
-    preview.textContent = `${skin.label} · ${skin.default_locale} · ${skin.booking_currency}`;
-    hint.textContent = `Primary market: ${skin.primary_market}. This preset drives system locale and authoritative booking currency.`;
+    hint.textContent = `${skin.primary_market} | ${skin.default_locale} | ${skin.booking_currency}`;
   }
 
   function renderMarketSkinControl() {
@@ -896,13 +938,14 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     if (!select) return;
     const skins = getMarketSkinCatalog();
     if (!skins.length) {
-      select.innerHTML = '<option value="">No market skins available</option>';
+      select.innerHTML = `<option value="">${escapeHtml(i18n.t('dashboard_market_skin.none_available'))}</option>`;
       select.disabled = true;
       updateMarketSkinPreview(null);
       return;
     }
     const currentKey = String(onboardingState.settings?.market_skin_key || 'global-default').trim();
-    select.innerHTML = skins.map((skin) => `<option value="${escapeHtml(skin.key)}">${escapeHtml(skin.label)} · ${escapeHtml(skin.default_locale)} · ${escapeHtml(skin.booking_currency)}</option>`).join('');
+    select.disabled = false;
+    select.innerHTML = skins.map((skin) => `<option value="${escapeHtml(skin.key)}">${escapeHtml(skin.label)} | ${escapeHtml(skin.default_locale)} | ${escapeHtml(skin.booking_currency)}</option>`).join('');
     select.value = skins.some((skin) => skin.key === currentKey) ? currentKey : skins[0].key;
     updateMarketSkinPreview(skins.find((skin) => skin.key === select.value) || skins[0]);
   }
@@ -921,9 +964,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
   }
 
   function buildStepStatus(isComplete, isNext) {
-    if (isComplete) return { label: 'Done', className: 'done' };
-    if (isNext) return { label: 'Next', className: 'next' };
-    return { label: 'Later', className: 'later' };
+    if (isComplete) return { label: i18n.t('dashboard_launch.status_done'), className: 'done' };
+    if (isNext) return { label: i18n.t('dashboard_launch.status_next'), className: 'next' };
+    return { label: i18n.t('dashboard_launch.status_later'), className: 'later' };
   }
 
   function countEnabledContacts(contacts) {
@@ -987,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     const tours = Array.isArray(onboardingState.tours) ? onboardingState.tours : [];
     const toursCount = tours.length || (Array.isArray(runtime.featured_tours) ? runtime.featured_tours.length : 0);
     const destinationCount = toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0;
-    const hotelsCount = toursCount ? (Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0) : 0;
+    const propertiesCount = Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0;
     const featuredCollectionImages = Array.isArray(runtime.featured_collection?.gallery_images) ? runtime.featured_collection.gallery_images : [];
     const homeGalleryBlock = Array.isArray(homePage?.blocks)
       ? homePage.blocks.find((block) => block?.type === 'gallery')
@@ -1009,8 +1052,8 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
 
     updateSubdomainHint(
       hasSubdomain
-        ? `Subdomain locked: ${settings.subdomain}. This platform subdomain can only be chosen once.`
-        : `Suggested: ${getSuggestedSubdomain()} - short, brand-first, and easy to remember. You can lock it once.`,
+        ? `${i18n.t('dashboard_launch.subdomain_locked_prefix')} ${settings.subdomain}. ${i18n.t('dashboard_launch.subdomain_locked_suffix')}`
+        : `${i18n.t('dashboard_launch.subdomain_suggested_prefix')} ${getSuggestedSubdomain()} - ${i18n.t('dashboard_launch.subdomain_suggested_suffix')}`,
       false
     );
     updateSubdomainPreview(settings.subdomain || input?.value || getSuggestedSubdomain());
@@ -1020,82 +1063,82 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       {
         key: 'subdomain',
         complete: hasSubdomain,
-        title: 'Pick and lock your subdomain',
+        title: i18n.t('dashboard_launch.subdomain_title'),
         description: hasSubdomain
-          ? `Locked at ${settings.subdomain}.tours-market.com. This platform address is reserved and cannot be changed later.`
-          : 'Start here first. Platform subdomains are limited, so choose one clean brand address and lock it once.',
+          ? `${i18n.t('dashboard_launch.subdomain_desc_locked_prefix')} ${settings.subdomain}.tours-market.com. ${i18n.t('dashboard_launch.subdomain_desc_locked_suffix')}`
+          : i18n.t('dashboard_launch.subdomain_desc_empty'),
         href: '#launch-guide',
-        label: hasSubdomain ? 'Subdomain locked' : 'Lock subdomain now',
+        label: hasSubdomain ? i18n.t('dashboard_launch.subdomain_label_locked') : i18n.t('dashboard_launch.subdomain_label_action'),
       },
       {
         key: 'skin',
         complete: hasTheme,
-        title: 'Choose skin and brand style',
+        title: i18n.t('dashboard_launch.skin_title'),
         description: hasTheme
-          ? `Skin selected: ${selectedSkin}. You can still refine fonts, colors, and shell details.`
-          : 'Pick the visual direction before editing pages so the whole site stays consistent.',
+          ? `${i18n.t('dashboard_launch.skin_selected_prefix')} ${selectedSkin}. ${i18n.t('dashboard_launch.skin_selected_suffix')}`
+          : i18n.t('dashboard_launch.skin_empty'),
         href: withTenant('universal-admin.html?panel=system&onboarding=skin'),
-        label: hasTheme ? 'Refine skin' : 'Choose skin',
+        label: hasTheme ? i18n.t('dashboard_launch.skin_refine') : i18n.t('dashboard_launch.skin_choose'),
       },
       {
         key: 'website',
         complete: hasWebsiteBase,
-        title: 'Create the website shell',
+        title: i18n.t('dashboard_launch.website_title'),
         description: hasWebsiteBase
-          ? 'The website base exists. Continue shaping homepage sections, copy, and layout from Website Design.'
-          : 'Set the first website structure now: homepage story, sections, and visual identity.',
+          ? i18n.t('dashboard_launch.website_desc_ready')
+          : i18n.t('dashboard_launch.website_desc_empty'),
         href: withTenant('universal-admin.html'),
-        label: hasWebsiteBase ? 'Edit website' : 'Create website',
+        label: hasWebsiteBase ? i18n.t('dashboard_launch.website_label_ready') : i18n.t('dashboard_launch.website_label_empty'),
       },
       {
         key: 'tours',
         complete: toursCount > 0,
-        title: 'Configure tours',
+        title: i18n.t('dashboard_launch.tours_title'),
         description: toursCount > 0
-          ? `${toursCount} tour${toursCount === 1 ? '' : 's'} already loaded. Refine pricing, stops, and sales copy.`
-          : 'Add tours, pricing, stops, and sales-ready content. This is the main commercial setup step today.',
+          ? `${toursCount} ${i18n.t(toursCount === 1 ? 'dashboard_launch.tours_count_single' : 'dashboard_launch.tours_count_plural')}. ${i18n.t('dashboard_launch.tours_desc_ready')}`
+          : i18n.t('dashboard_launch.tours_desc_empty'),
         href: withTenant('tour-config.html'),
-        label: toursCount > 0 ? 'Refine tours' : 'Configure tours',
+        label: toursCount > 0 ? i18n.t('dashboard_launch.tours_label_ready') : i18n.t('dashboard_launch.tours_label_empty'),
       },
       {
         key: 'destinations',
         complete: destinationCount > 0,
-        title: 'Add destinations',
+        title: i18n.t('dashboard_launch.destinations_title'),
         description: destinationCount > 0
-          ? `${destinationCount} destination card${destinationCount === 1 ? '' : 's'} are already feeding the public site.`
-          : 'Turn raw tours into browsable destination stories customers can scan quickly.',
+          ? `${destinationCount} ${i18n.t(destinationCount === 1 ? 'dashboard_launch.destinations_count_single' : 'dashboard_launch.destinations_count_plural')} ${i18n.t('dashboard_launch.destinations_desc_ready')}`
+          : i18n.t('dashboard_launch.destinations_desc_empty'),
         href: withTenant('product-modules.html?mode=destinations'),
-        label: destinationCount > 0 ? 'Refine destinations' : 'Add destinations',
+        label: destinationCount > 0 ? i18n.t('dashboard_launch.destinations_label_ready') : i18n.t('dashboard_launch.destinations_label_empty'),
       },
       {
-        key: 'hotels',
-        complete: hotelsCount > 0,
-        title: 'Add hotels and stays',
-        description: hotelsCount > 0
-          ? `${hotelsCount} stay option${hotelsCount === 1 ? '' : 's'} already linked into the site bundle.`
-          : 'Connect hotel or stay inventory after the tour narrative is clean.',
+        key: 'properties',
+        complete: propertiesCount > 0,
+        title: i18n.t('dashboard_launch.properties_title'),
+        description: propertiesCount > 0
+          ? `${propertiesCount} ${i18n.t(propertiesCount === 1 ? 'dashboard_launch.properties_count_single' : 'dashboard_launch.properties_count_plural')} ${i18n.t('dashboard_launch.properties_desc_ready')}`
+          : i18n.t('dashboard_launch.properties_desc_empty'),
         href: withTenant('product-modules.html?mode=hotels'),
-        label: hotelsCount > 0 ? 'Review stays' : 'Plan stays',
+        label: propertiesCount > 0 ? i18n.t('dashboard_launch.properties_label_ready') : i18n.t('dashboard_launch.properties_label_empty'),
       },
       {
         key: 'gallery',
         complete: galleryCount > 0,
-        title: 'Build the gallery',
+        title: i18n.t('dashboard_launch.gallery_title'),
         description: galleryCount > 0
-          ? `${galleryCount} gallery image${galleryCount === 1 ? '' : 's'} are already available for the storefront.`
-          : 'Add visual proof so the site sells with imagery, not just itinerary text.',
+          ? `${galleryCount} ${i18n.t(galleryCount === 1 ? 'dashboard_launch.gallery_count_single' : 'dashboard_launch.gallery_count_plural')} ${i18n.t('dashboard_launch.gallery_desc_ready')}`
+          : i18n.t('dashboard_launch.gallery_desc_empty'),
         href: withTenant('product-modules.html?mode=gallery'),
-        label: galleryCount > 0 ? 'Refine gallery' : 'Build gallery',
+        label: galleryCount > 0 ? i18n.t('dashboard_launch.gallery_label_ready') : i18n.t('dashboard_launch.gallery_label_empty'),
       },
       {
         key: 'system',
         complete: hasSystemSettings,
-        title: 'Finish system settings',
+        title: i18n.t('dashboard_launch.system_title'),
         description: hasSystemSettings
-          ? 'Contact or legal basics are already in place. Review them before going live.'
-          : 'Finish contact channels, legal pages, and core system defaults before launch.',
+          ? i18n.t('dashboard_launch.system_desc_ready')
+          : i18n.t('dashboard_launch.system_desc_empty'),
         href: withTenant('universal-admin.html?panel=system&onboarding=system'),
-        label: hasSystemSettings ? 'Review system settings' : 'Finish system settings',
+        label: hasSystemSettings ? i18n.t('dashboard_launch.system_label_ready') : i18n.t('dashboard_launch.system_label_empty'),
       },
     ];
 
@@ -1115,9 +1158,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
 
   async function loadLaunchData() {
     const [publicConfigResult, universalBundleResult, toursResult] = await Promise.allSettled([
-      fetch('/api/tenant/config', { headers: { 'X-Tenant-ID': tenantId } }),
-      fetch('/api/universal/site/config', { headers: { 'X-Tenant-ID': tenantId } }),
-      fetch('/api/tours', { headers: { 'X-Tenant-ID': tenantId } }),
+      fetch('/api/tenant/config', { headers: buildTenantHeaders() }),
+      fetch('/api/universal/site/config', { headers: buildTenantHeaders() }),
+      fetch('/api/tours', { headers: buildTenantHeaders() }),
     ]);
 
     if (publicConfigResult.status === 'fulfilled') {
@@ -1134,6 +1177,12 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       const payload = await toursResult.value.json().catch(() => null);
       if (toursResult.value.ok && payload?.ok && Array.isArray(payload.tours)) onboardingState.tours = payload.tours;
     }
+  }
+
+  async function fetchTenantSettings() {
+    const response = await fetch('/api/tenants/settings', { headers: buildTenantHeaders() });
+    const payload = await response.json().catch(() => null);
+    return { response, payload };
   }
 
   const subdomainInput = document.getElementById('subdomain-input');
@@ -1171,10 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       try {
         const res = await fetch('/api/tenants/settings', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tenant-ID': tenantId,
-          },
+          headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ subdomain: normalized, onboarding_step: 'SUBDOMAIN_SELECTED' }),
         });
         const payload = await res.json();
@@ -1207,16 +1253,20 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       try {
         const res = await fetch('/api/tenants/settings', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tenant-ID': tenantId,
-          },
+          headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ market_skin_key: selectedKey }),
         });
         const payload = await res.json();
         if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not update market skin.');
         onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
-        if (payload.catalogs) onboardingState.catalogs = payload.catalogs;
+        await i18n.setLang(getTenantLocalePreference(), { persist: false });
+        const refreshed = await fetchTenantSettings();
+        if (refreshed.payload?.ok) {
+          onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
+          onboardingState.catalogs = refreshed.payload.catalogs || onboardingState.catalogs;
+        } else if (payload.catalogs) {
+          onboardingState.catalogs = payload.catalogs;
+        }
         renderMarketSkinControl();
         renderLaunchGuide();
         saveMarketSkin.textContent = 'Saved';
@@ -1225,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         saveMarketSkin.textContent = error?.message || 'Save failed';
       } finally {
         setTimeout(() => {
-          if (saveMarketSkin) saveMarketSkin.textContent = 'Save market skin';
+          if (saveMarketSkin) saveMarketSkin.textContent = i18n.t('dashboard_market_skin.save');
         }, 1400);
       }
     });
@@ -1245,9 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
 
   try {
     await loadLaunchData();
-    const res = await fetch('/api/tenants/settings', {
-      headers: { 'X-Tenant-ID': tenantId }
-    });
+    const { response: res, payload: initialPayload } = await fetchTenantSettings();
 
     if (!res.ok) {
       if (res.status === 401 || res.status === 403 || res.status === 404) {
@@ -1256,12 +1304,18 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         return;
       }
     } else {
-      const { settings, catalogs } = await res.json();
-      onboardingState.settings = settings || {};
-      onboardingState.catalogs = catalogs || null;
+      onboardingState.settings = initialPayload?.settings || {};
+      onboardingState.catalogs = initialPayload?.catalogs || null;
+
+      await i18n.setLang(getTenantLocalePreference(), { persist: false });
+      const localized = await fetchTenantSettings();
+      if (localized.payload?.ok) {
+        onboardingState.settings = localized.payload.settings || onboardingState.settings;
+        onboardingState.catalogs = localized.payload.catalogs || onboardingState.catalogs;
+      }
 
       const nameEl = document.getElementById('tenant-name-display');
-      if (nameEl && settings.name) nameEl.textContent = settings.name;
+      if (nameEl && onboardingState.settings.name) nameEl.textContent = onboardingState.settings.name;
 
       renderMarketSkinControl();
       renderLaunchGuide();
@@ -1269,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
       let daysLeft = null;
       try {
         const billingRes = await fetch('/api/billing/status', {
-          headers: { 'X-Tenant-ID': tenantId }
+          headers: buildTenantHeaders()
         });
         if (billingRes.ok) {
           const billing = await billingRes.json().catch(() => null);
@@ -1279,9 +1333,9 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
         }
       } catch (_) {}
 
-      if (settings.subscription_status === 'TRIAL' && settings.created_at) {
+      if (onboardingState.settings.subscription_status === 'TRIAL' && onboardingState.settings.created_at) {
         if (!Number.isFinite(daysLeft)) {
-          const elapsed  = Math.floor(Date.now() / 1000 - settings.created_at);
+          const elapsed  = Math.floor(Date.now() / 1000 - onboardingState.settings.created_at);
           daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
         }
         const banner   = document.getElementById('trial-banner');
@@ -1305,6 +1359,11 @@ document.addEventListener('DOMContentLoaded', () => { i18n.init(); });
     console.warn('[dashboard:init] Could not load tenant settings:', err.message);
     renderLaunchGuide();
   }
+
+  window.addEventListener('dashboard:langchange', () => {
+    renderMarketSkinControl();
+    renderLaunchGuide();
+  });
 
   document.documentElement.style.transition  = 'opacity .18s ease';
   document.documentElement.style.opacity     = '0';
