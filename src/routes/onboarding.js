@@ -854,9 +854,10 @@ onboarding.get('/product-tiers', async (c) => {
 });
 
 onboarding.get('/market-skins', async (c) => {
+  const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
   return c.json({
     ok: true,
-    market_skins: getMarketSkinCatalog(),
+    market_skins: getMarketSkinCatalog(lang),
     default_market_skin_key: 'global-default',
   });
 });

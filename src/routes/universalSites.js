@@ -13,10 +13,19 @@ import {
   buildDefaultSiteScaffold,
   buildDefaultThemeTokens,
   buildVariantRuntimeConfig,
+  getUniversalGroups,
+  getUniversalVariants,
+  getUniversalSystemCopy,
+  localizeUniversalContactLabel,
+  localizeUniversalContacts,
+  localizeUniversalMenuItems,
+  localizeUniversalPages,
+  localizeUniversalSystemText,
   resolveThemeCtaLabel,
   getVariantByKey,
   slugify,
 } from '../lib/universalSite.js';
+import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { ensureUniversalSiteInitialized, syncUniversalTourPage } from '../lib/universalSiteSync.js';
 import {
   buildInterestDescription,
@@ -893,7 +902,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     escapeHtml,
     buildUniversalPublicPath,
     buildResponsiveImageMarkup,
-    resolveThemeCtaLabel,
+    resolveThemeCtaLabel: (themeArg, groupKey, intent, explicitLabel = '') => resolveThemeCtaLabel(themeArg, groupKey, intent, explicitLabel, site.default_lang),
     normalizeStringValue,
     clampNumber,
   });
@@ -929,6 +938,24 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const excludedHomeEmbeddedKeys = isLuxuryShell ? new Set(['about-us', 'contact-us']) : new Set();
   const adminMode = options.adminMode === true;
   const adminEditableTypes = new Set(['hero', 'gallery', 'features', 'rich_text']);
+  const systemCopy = getUniversalSystemCopy(site.group_key, site.default_lang);
+  theme.ui = theme.ui || {};
+  theme.ui.cta = theme.ui.cta || {};
+  theme.ui.header = theme.ui.header || {};
+  theme.ui.hero = theme.ui.hero || {};
+  theme.ui.footer = theme.ui.footer || {};
+  theme.ui.menuDrawer = theme.ui.menuDrawer || {};
+  theme.ui.bookNowLabel = localizeUniversalSystemText(theme.ui.bookNowLabel, 'universal_site.cta.booking', site.default_lang);
+  theme.ui.cta.discoveryLabel = localizeUniversalSystemText(theme.ui.cta.discoveryLabel, 'universal_site.cta.discovery', site.default_lang);
+  theme.ui.cta.bookingLabel = localizeUniversalSystemText(theme.ui.cta.bookingLabel, 'universal_site.cta.booking', site.default_lang);
+  theme.ui.cta.contactLabel = localizeUniversalSystemText(theme.ui.cta.contactLabel, 'universal_site.cta.contact', site.default_lang);
+  theme.ui.header.loginLabel = localizeUniversalSystemText(theme.ui.header.loginLabel, 'universal_site.header.login', site.default_lang);
+  theme.ui.header.languageLabel = localizeUniversalSystemText(theme.ui.header.languageLabel, 'universal_site.header.language_chip', site.default_lang);
+  theme.ui.hero.mapLinkLabel = localizeUniversalSystemText(theme.ui.hero.mapLinkLabel, 'universal_site.header.view_map', site.default_lang);
+  theme.ui.hero.searchButtonLabel = localizeUniversalSystemText(theme.ui.hero.searchButtonLabel, 'universal_site.search.button', site.default_lang);
+  theme.ui.menuDrawer.title = localizeUniversalSystemText(theme.ui.menuDrawer.title, 'universal_site.header.curated_menu', site.default_lang);
+  theme.ui.footer.kickerText = localizeUniversalSystemText(theme.ui.footer.kickerText, 'universal_site.footer.kicker', site.default_lang);
+  const localizedThemeCtaLabel = (intent, explicitLabel = '') => resolveThemeCtaLabel(theme, site.group_key, intent, explicitLabel, site.default_lang);
 
   function resolveManagementTarget(targetPage, block) {
     const pageKey = String(targetPage?.page_key || '').toLowerCase();
@@ -1016,17 +1043,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   }
 
   function buildChannelLabel(key, channel) {
-    const lookup = {
-      phone: 'Call',
-      email: 'Email',
-      whatsapp: 'WhatsApp',
-      zalo: 'Zalo',
-      instagram: 'Instagram',
-      facebook: 'Facebook',
-      youtube: 'YouTube',
-      address: 'Address',
-    };
-    return channel?.label || lookup[key] || key;
+    return localizeUniversalContactLabel(channel?.label, key, site.default_lang) || systemCopy.channel[key] || key;
   }
 
   function buildSocialMonogram(key) {
@@ -1040,11 +1057,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   }
 
   function buildLuxurySearchPanel() {
-    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(searchState.action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>Destination or interest</span><input type="text" name="q" value="${escapeHtml(searchState.q)}" aria-label="Destination or interest" placeholder="Beach, adventure, Hoi An" /></label><label><span>Travel starts</span><input type="text" name="start" value="${escapeHtml(searchState.start)}" aria-label="Travel starts" placeholder="12 Oct 2026" /></label><label><span>Travel ends</span><input type="text" name="end" value="${escapeHtml(searchState.end)}" aria-label="Travel ends" placeholder="18 Oct 2026" /></label><label><span>Guests</span><input type="text" name="pax" value="${escapeHtml(searchState.pax)}" aria-label="Guests" placeholder="2 adults" /></label><label><span>Code</span><input type="text" name="code" value="${escapeHtml(searchState.code)}" aria-label="Code" placeholder="Private" /></label></div><button type="submit" class="luxury-search-cta">Search</button></form>`;
+    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(searchState.action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>${escapeHtml(systemCopy.search.destinationLabel)}</span><input type="text" name="q" value="${escapeHtml(searchState.q)}" aria-label="${escapeHtml(systemCopy.search.destinationLabel)}" placeholder="${escapeHtml(systemCopy.search.destinationPlaceholder)}" /></label><label><span>${escapeHtml(systemCopy.search.travelStartsLabel)}</span><input type="text" name="start" value="${escapeHtml(searchState.start)}" aria-label="${escapeHtml(systemCopy.search.travelStartsLabel)}" placeholder="${escapeHtml(systemCopy.search.travelStartsPlaceholder)}" /></label><label><span>${escapeHtml(systemCopy.search.travelEndsLabel)}</span><input type="text" name="end" value="${escapeHtml(searchState.end)}" aria-label="${escapeHtml(systemCopy.search.travelEndsLabel)}" placeholder="${escapeHtml(systemCopy.search.travelEndsPlaceholder)}" /></label><label><span>${escapeHtml(systemCopy.search.guestsLabel)}</span><input type="text" name="pax" value="${escapeHtml(searchState.pax)}" aria-label="${escapeHtml(systemCopy.search.guestsLabel)}" placeholder="${escapeHtml(systemCopy.search.guestsPlaceholder)}" /></label><label><span>${escapeHtml(systemCopy.search.codeLabel)}</span><input type="text" name="code" value="${escapeHtml(searchState.code)}" aria-label="${escapeHtml(systemCopy.search.codeLabel)}" placeholder="${escapeHtml(systemCopy.search.codePlaceholder)}" /></label></div><button type="submit" class="luxury-search-cta">${escapeHtml(systemCopy.search.button)}</button></form>`;
   }
 
   function buildSearchEmptyState(targetPage = page, block = {}) {
-    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">No matching journeys</h2><p class="mt-3 max-w-2xl text-slate-600">No tours matched <strong>${escapeHtml(searchState.q || 'your current filters')}</strong>. Try another destination or interest such as beach, culture, adventure, or a specific place name.</p></section>`;
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(systemCopy.search.noMatchingTitle)}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(systemCopy.search.noMatchingBody.replace('{{query}}', searchState.q || systemCopy.search.button.toLowerCase()))}</p></section>`;
   }
 
   function buildLuxuryStoryImage(targetPage = page) {
@@ -1166,9 +1183,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const targetTitle = getPageTitle(targetPage);
     const targetDescription = getPageDescription(targetPage);
     const isTourDetailTarget = targetPage.page_type === 'tour_detail' || /^tour-/.test(String(targetPage.page_key || ''));
+    const localizedPrimaryExplicit = localizeUniversalSystemText(block.content?.primary_cta_label, 'universal_site.cta.discovery', site.default_lang);
+    const localizedSecondaryExplicit = localizeUniversalSystemText(block.content?.secondary_cta_label, 'universal_site.cta.plan_with_concierge', site.default_lang);
     const primaryHeroLabel = isTourDetailTarget
-      ? resolveThemeCtaLabel(theme, site.group_key, 'booking')
-      : resolveThemeCtaLabel(theme, site.group_key, 'discovery', block.content?.primary_cta_label);
+      ? localizedThemeCtaLabel('booking')
+      : localizedThemeCtaLabel('discovery', localizedPrimaryExplicit);
     const primaryHeroHref = isTourDetailTarget
       ? bookingPageHref
       : (targetPage.page_key === homePageKey
@@ -1189,9 +1208,10 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       buildPageHref,
       bookingPageHref,
       headerPrimaryPageKey,
-      resolveThemeCtaLabel,
+      resolveThemeCtaLabel: (_theme, _groupKey, intent, explicitLabel = '') => localizedThemeCtaLabel(intent, explicitLabel),
       resolveHeroModuleMenuItems,
       searchState,
+      systemCopy,
     });
     if (themedHero) return themedHero;
     const content = block.content || {};
@@ -1213,14 +1233,14 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       const searchMarkup = targetPage.page_key === homePageKey ? `<div class="luxury-hero-search-wrap">${buildLuxurySearchPanel()}</div>` : '';
       const heroButtons = targetPage.page_key === homePageKey
         ? resolveHeroModuleMenuItems()
-            .map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || 'Page')}</a>`)
+            .map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || systemCopy.nav.page)}</a>`)
             .join('')
         : '';
       const heroSidePanel = heroButtons
         ? `<aside class="luxury-hero-side-panel"><div class="luxury-hero-side-links">${heroButtons}</div></aside>`
         : '';
 
-      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">View map</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(primaryHeroHref)}" class="luxury-primary-cta"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
+      return `<section class="luxury-hero ${targetPage.page_key === homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy"><a href="#section-destinations" class="luxury-map-link">${escapeHtml(systemCopy.header.viewMap)}</a><p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(primaryHeroHref)}" class="luxury-primary-cta"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(localizedSecondaryExplicit || systemCopy.cta.planWithConcierge)}</a></div></div>${heroSidePanel}${searchMarkup}</section>`;
     }
 
     if (profile.hero === 'editorial') {
@@ -1232,7 +1252,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
 
     if (profile.hero === 'compact' || profile.hero === 'utility') {
-      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Fast quote')}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
+      return `<section class="grid gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr]"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-3 text-4xl font-semibold text-slate-950">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">${escapeHtml(content.body || targetDescription)}</p><div class="mt-6 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : systemCopy.cta.fastQuote)}</span></div></div><div class="rounded-[20px] bg-slate-50 p-2">${imageMarkup}</div></section>`;
     }
 
     return `<section class="grid gap-6 rounded-[30px] px-6 py-8 text-white shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><div><p class="text-xs uppercase tracking-[0.24em] text-white/75">${escapeHtml(content.eyebrow || runtime.variant_label || '')}</p><h1 class="mt-4 text-5xl font-semibold leading-tight lg:text-6xl">${escapeHtml(content.headline || targetTitle)}</h1><p class="mt-5 max-w-2xl text-lg text-white/85">${escapeHtml(content.body || targetDescription)}</p><div class="mt-8 flex flex-wrap gap-3"><a href="${escapeHtml(primaryHeroHref)}" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950"${primaryHeroAttrs}>${escapeHtml(primaryHeroLabel)}</a><span class="rounded-full bg-white/15 px-4 py-3 text-sm">${escapeHtml(String(highlights.length || itinerary.length))} highlights</span></div></div><div class="rounded-[24px] bg-white/10 p-3 backdrop-blur">${imageMarkup}</div></section>`;
@@ -1298,6 +1318,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       homeSlug,
       resolveListingCards,
       wrapEditableEntityCard,
+      systemCopy,
     });
     if (themedRich) return themedRich;
     if (isLuxuryShell && targetPage.page_key === 'accommodation') {
@@ -1323,17 +1344,21 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const renderPricing = (block) => {
     const cards = Array.isArray(block.content?.price_cards) ? block.content.price_cards : priceCards;
     if (!cards.length) return '';
+    const bookingCtaLabel = localizedThemeCtaLabel('booking', block.content?.cta_label);
+    const bookingCtaHref = bookingPageHref || '#';
+    const bookingCtaAttrs = bookingPageHref ? ' data-open-public-booking="1"' : '';
+    const bookingCtaMarkup = `<div class="mt-6 flex justify-start"><a href="${escapeHtml(bookingCtaHref)}"${bookingCtaAttrs} class="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(bookingCtaLabel)}</a></div>`;
     if (profile.pricing === 'table') {
-      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</td></tr>`).join('')}</tbody></table></div></section>`;
+      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</td></tr>`).join('')}</tbody></table></div><div class="px-6 pb-6">${bookingCtaMarkup}</div></section>`;
     }
     if (profile.pricing === 'sidebar' || profile.pricing === 'spotlight') {
-      return `<section id="pricing" class="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]"><article class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(block.content?.price_from_label || 'From')}</p><p class="mt-4 text-5xl font-semibold">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : 'Quote')}</p><p class="mt-4 text-sm text-white/78">Live price spotlight powered by canonical tour pricing.</p></article><article class="rounded-[26px] bg-white p-6 shadow-sm"><div class="grid gap-4 md:grid-cols-2">${cards.map((card) => `<div class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared room: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">Single room: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></div>`).join('')}</div></article></section>`;
+      return `<section id="pricing" class="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]"><article class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(block.content?.price_from_label || systemCopy.pricing.from)}</p><p class="mt-4 text-5xl font-semibold">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : systemCopy.cta.quote)}</p><p class="mt-4 text-sm text-white/78">${escapeHtml(systemCopy.pricing.spotlightBody)}</p></article><article class="rounded-[26px] bg-white p-6 shadow-sm"><div class="grid gap-4 md:grid-cols-2">${cards.map((card) => `<div class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">${escapeHtml(systemCopy.pricing.sharedRoom)}: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">${escapeHtml(systemCopy.pricing.singleRoom)}: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></div>`).join('')}</div>${bookingCtaMarkup}</article></section>`;
     }
-    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">Shared: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">Single: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></article>`).join('')}</div></section>`;
+    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">${escapeHtml(systemCopy.pricing.shared)}: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">${escapeHtml(systemCopy.pricing.single)}: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></article>`).join('')}</div>${bookingCtaMarkup}</section>`;
   };
 
   const renderContact = (block) => {
-    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleContactEntries.length ? visibleContactEntries.map(([key, value]) => wrapEditableEntityCard({ block, targetPage: page, card: { entity_id: key, entity_type: 'contact', entity_label: buildChannelLabel(key, value), entity_title: buildChannelLabel(key, value), entity_body: value.value, entity_value: value.value, channel_key: key }, className: 'universal-entity-card universal-contact-entity', contentHtml: `<a href="${escapeHtml(buildChannelHref(key, value))}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(buildChannelLabel(key, value))}: ${escapeHtml(value.value)}</a>` })).join('') : '<p class="text-slate-500">No contact channels configured yet.</p>'}</div></section>`;
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Contact')}</h2><p class="mt-3 text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 grid gap-3 md:grid-cols-2">${visibleContactEntries.length ? visibleContactEntries.map(([key, value]) => wrapEditableEntityCard({ block, targetPage: page, card: { entity_id: key, entity_type: 'contact', entity_label: buildChannelLabel(key, value), entity_title: buildChannelLabel(key, value), entity_body: value.value, entity_value: value.value, channel_key: key }, className: 'universal-entity-card universal-contact-entity', contentHtml: `<a href="${escapeHtml(buildChannelHref(key, value))}" class="rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-medium text-slate-900">${escapeHtml(buildChannelLabel(key, value))}: ${escapeHtml(value.value)}</a>` })).join('') : `<p class="text-slate-500">${escapeHtml(systemCopy.contact.noChannels)}</p>`}</div></section>`;
   };
 
   const renderListing = (block, targetPage = page) => {
@@ -1352,6 +1377,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       wrapEditableEntityCard,
       searchState,
       cards,
+      systemCopy,
     });
     if (themedListing) return themedListing;
     if (isLuxuryShell) {
@@ -1361,7 +1387,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
   };
-  const renderBookingSlot = (block) => `<section id="booking-engine" class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><h2 class="text-3xl font-semibold">${escapeHtml(block.content?.heading || 'Booking')}</h2><p class="mt-3 max-w-2xl text-white/80">${escapeHtml(block.content?.body || '')}</p><a href="${escapeHtml(bookingPageHref)}" data-open-public-booking="1" class="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950">${escapeHtml(resolveThemeCtaLabel(theme, site.group_key, 'booking', block.content?.cta_label))}</a></section>`;
+  const renderBookingSlot = () => '';
 
   const wrapAdminBlock = (block, targetPage, html) => {
     if (!adminMode || !html || !adminEditableTypes.has(block.type)) return html;
@@ -1435,26 +1461,26 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const renderedEmbeddedSections = embeddedPages.map(({ page: embeddedPage, menuItem }) => {
     const embeddedBlocks = Array.isArray(embeddedPage.blocks) ? embeddedPage.blocks : [];
     const embeddedBody = renderBlocksList(embeddedBlocks, embeddedPage) || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(getPageTitle(embeddedPage))}</h2><p class="mt-4 text-slate-600">${escapeHtml(getPageDescription(embeddedPage))}</p></section>`;
-    return `<section id="section-${escapeHtml(embeddedPage.page_key)}" class="scroll-mt-28"><div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(menuItem.label || embeddedPage.title)}</p><h2 class="mt-2 text-3xl font-semibold text-slate-950">${escapeHtml(embeddedPage.title)}</h2></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, embeddedPage.slug || embeddedPage.page_key))}" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900">Open standalone page</a></div>${embeddedBody}</section>`;
+    return `<section id="section-${escapeHtml(embeddedPage.page_key)}" class="scroll-mt-28"><div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(menuItem.label || embeddedPage.title)}</p><h2 class="mt-2 text-3xl font-semibold text-slate-950">${escapeHtml(embeddedPage.title)}</h2></div><a href="${escapeHtml(buildUniversalPublicPath(site.tenant_id, embeddedPage.slug || embeddedPage.page_key))}" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900">${escapeHtml(systemCopy.cta.openStandalonePage)}</a></div>${embeddedBody}</section>`;
   }).join('<div class="h-10"></div>');
 
   const headerPrimaryHref = buildPageHref(headerPrimaryPageKey);
-  const headerPrimaryLabel = resolveThemeCtaLabel(theme, site.group_key, 'discovery');
+  const headerPrimaryLabel = localizedThemeCtaLabel('discovery');
 
   const navMarkup = menuItems.length
-    ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav>`
+    ? `<nav class="flex flex-wrap items-center justify-end gap-2 lg:max-w-[60%]">${menuItems.map((item) => `<a href="${escapeHtml(buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''} class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950">${escapeHtml(item.label || item.page_key || systemCopy.nav.page)}</a>`).join('')}</nav>`
     : '';
   const logoMarkup = theme.logoUrl
     ? buildResponsiveImageMarkup(theme.logoUrl, site.site_name || 'Logo', 'luxury-logo-image', 'contain', '160px')
     : `<span class="luxury-logo-text">${escapeHtml(site.site_name || 'Travel House')}</span>`;
   const footerMarkup = isLuxuryShell
-    ? activeTheme.renderFooter?.({ site, homeSlug, menuItems, channels, socialEntries, legalPages, logoMarkup, buildMenuHref, buildChannelHref, buildSocialMonogram, buildChannelLabel, theme })
+    ? activeTheme.renderFooter?.({ site, homeSlug, menuItems, channels, socialEntries, legalPages, logoMarkup, buildMenuHref, buildChannelHref, buildSocialMonogram, buildChannelLabel, theme, systemCopy })
     : '';
   const headerMarkup = isLuxuryShell
-    ? activeTheme.renderHeader?.({ site, homeSlug, menuItems, buildMenuHref, headerCtaHref: headerPrimaryHref, headerCtaLabel: headerPrimaryLabel, socialEntries, buildChannelHref, buildChannelLabel, buildSocialMonogram, logoMarkup, theme })
+    ? activeTheme.renderHeader?.({ site, homeSlug, menuItems, buildMenuHref, headerCtaHref: headerPrimaryHref, headerCtaLabel: headerPrimaryLabel, socialEntries, buildChannelHref, buildChannelLabel, buildSocialMonogram, logoMarkup, theme, systemCopy })
     : `<header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6"><div><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(site.site_name || 'Travel')}</p><p class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</p></div>${navMarkup}<a href="${escapeHtml(headerPrimaryHref)}" class="rounded-full px-4 py-2 text-sm font-medium text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(headerPrimaryLabel)}</a></div></header>`;
   const floatingBookNowMarkup = isLuxuryShell
-    ? activeTheme.renderFloatingBookNow?.({ channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme })
+    ? activeTheme.renderFloatingBookNow?.({ channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme, systemCopy })
     : '';
   const adminPreviewScript = '';
   const bookingViewMarkup = site.group_key === 'tour_operator' && activeBookingTourId
@@ -1462,7 +1488,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   <script src="/tour-booking-view.js"></script>`
     : '';
   const shellScript = isLuxuryShell
-    ? activeTheme.buildScript?.({ theme })
+    ? activeTheme.buildScript?.({ theme, systemCopy })
     : '';
 
   return `<!DOCTYPE html>
@@ -2427,83 +2453,6 @@ async function listHotels(tenantId, db) {
 }
 
 async function ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows) {
-  const existingHotels = await listHotels(tenantId, db);
-  const existingByTourId = new Set(existingHotels.map((hotel) => String(hotel.tour_id || '')).filter(Boolean));
-  const syncedByTourId = new Map((syncedRows || []).map((row) => [String(row.tour_id), parseJsonSafe(row.content_override_json, {})]));
-  const missingTours = (tours || []).filter((tour) => !existingByTourId.has(String(tour.id)));
-  if (!missingTours.length) {
-    return existingHotels;
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const statements = [];
-
-  missingTours.forEach((tour, index) => {
-    const content = parseJsonSafe(tour.content_data, {});
-    const override = syncedByTourId.get(String(tour.id)) || {};
-    const snapshot = override.sync_snapshot || {};
-    const hotelName = normalizeStringValue(
-      override.accommodation_title,
-      override.hotel_name,
-      content.accommodation_title,
-      content.accommodation_name,
-      content.hotel_name,
-      `${normalizeStringValue(snapshot.title, tour.title, `Tour ${index + 1}`)} House`
-    );
-    const hotelDescription = normalizeStringValue(
-      override.accommodation_summary,
-      override.stay_summary,
-      content.accommodation_summary,
-      content.stay_summary,
-      snapshot.summary,
-      'A temporary hotel profile used to decorate accommodation and tour storytelling.'
-    );
-    const gallery = [
-      normalizeStringValue(
-        override.accommodation_image,
-        override.hotel_image,
-        content.accommodation_image,
-        content.hotel_image,
-        Array.isArray(snapshot.gallery_images) ? snapshot.gallery_images[0]?.src : '',
-        LUXURY_SAMPLE_ACCOMMODATION_IMAGES[index % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
-      ),
-      normalizeStringValue(
-        Array.isArray(snapshot.gallery_images) ? snapshot.gallery_images[1]?.src : '',
-        LUXURY_SAMPLE_ACCOMMODATION_IMAGES[(index + 1) % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
-      ),
-    ].filter(Boolean).map((src, galleryIndex) => ({
-      id: `hotel-${tour.id}-${galleryIndex + 1}`,
-      src,
-      alt: hotelName,
-      caption: galleryIndex === 0 ? hotelName : `${hotelName} detail ${galleryIndex + 1}`,
-    }));
-
-    statements.push(
-      db.prepare(
-        `INSERT INTO tenant_universal_hotels
-         (id, tenant_id, hotel_key, tour_id, name, description, address, gallery_json, status, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(
-        nanoid(),
-        tenantId,
-        `tour-${tour.id}`,
-        String(tour.id),
-        hotelName,
-        hotelDescription,
-        normalizeStringValue(content.address, content.hotel_address, content.accommodation_address),
-        JSON.stringify(gallery),
-        'draft',
-        index,
-        now,
-        now,
-      )
-    );
-  });
-
-  if (statements.length) {
-    await db.batch(statements);
-  }
-
   return listHotels(tenantId, db);
 }
 
@@ -2541,8 +2490,8 @@ async function listMenuItems(tenantId, db) {
   return results.map(normalizeMenuItem);
 }
 
-async function resetSitePreset(db, tenantId, groupKey, variantKey, siteName) {
-  const scaffold = buildDefaultSiteScaffold(groupKey, variantKey);
+async function resetSitePreset(db, tenantId, groupKey, variantKey, siteName, defaultLang = 'en') {
+  const scaffold = buildDefaultSiteScaffold(groupKey, variantKey, defaultLang);
   const now = Math.floor(Date.now() / 1000);
 
   await db.batch([
@@ -2647,11 +2596,14 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
   const siteRow = await ensureUniversalSiteInitialized(db, tenantId, tenant.name);
   const themeRow = await db.prepare('SELECT * FROM tenant_universal_theme_tokens WHERE tenant_id = ?').bind(tenantId).first();
   const contactsRow = await db.prepare('SELECT * FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenantId).first();
+  const bundleLang = typeof tenant.default_locale === 'string' && tenant.default_locale.trim()
+    ? tenant.default_locale.trim()
+    : 'en';
   const fallbackGroupKey = UNIVERSAL_GROUPS[siteRow.group_key] ? siteRow.group_key : 'tour_operator';
   const fallbackVariantKey = UNIVERSAL_VARIANTS.find((variant) => variant.group_key === fallbackGroupKey)?.key || 'tour-luxury';
-  const runtime = buildVariantRuntimeConfig(siteRow.group_key, siteRow.variant_key)
-    || buildVariantRuntimeConfig(fallbackGroupKey, fallbackVariantKey)
-    || buildVariantRuntimeConfig('tour_operator', 'tour-luxury');
+  const runtime = buildVariantRuntimeConfig(siteRow.group_key, siteRow.variant_key, bundleLang)
+    || buildVariantRuntimeConfig(fallbackGroupKey, fallbackVariantKey, bundleLang)
+    || buildVariantRuntimeConfig('tour_operator', 'tour-luxury', bundleLang);
   const site = normalizeSite({
     ...siteRow,
     group_key: runtime?.group_key || fallbackGroupKey,
@@ -2668,9 +2620,9 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
   const tenantSiteConfig = parseJsonSafe(tenant.site_config, {});
   site.current_theme = typeof tenantSiteConfig.current_theme === 'string' ? tenantSiteConfig.current_theme.trim() : '';
   const theme = normalizeTheme(themeRow);
-  const contacts = normalizeContacts(contactsRow);
-  const menu = await listMenuItems(tenantId, db);
-  const pages = await listPages(tenantId, db);
+  const contacts = localizeUniversalContacts(normalizeContacts(contactsRow), site.default_lang);
+  const menu = localizeUniversalMenuItems(await listMenuItems(tenantId, db), site.group_key, site.default_lang);
+  const pages = localizeUniversalPages(await listPages(tenantId, db), site.group_key, site.default_lang);
   const activeTheme = resolveUniversalTheme(site, runtime);
   let tourRuntime = {};
   let interestRuntime = {};
@@ -2730,8 +2682,8 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
     tour_runtime: tourRuntime,
     interest_runtime: interestRuntime,
     ...buildEditorStoreBundle({ site, theme, contacts, menu, pages, runtime }),
-    groups: Object.values(UNIVERSAL_GROUPS),
-    variants: UNIVERSAL_VARIANTS,
+    groups: getUniversalGroups(bundleLang),
+    variants: getUniversalVariants(bundleLang),
     legacy: {
       site_studio_present: Boolean(tenant.template_id || tenant.site_config),
       mode: 'legacy-preserved',
@@ -2909,7 +2861,8 @@ router.get('/health', async (c) => {
 });
 
 router.get('/site/variants', async (c) => {
-  return c.json({ ok: true, groups: Object.values(UNIVERSAL_GROUPS), variants: UNIVERSAL_VARIANTS });
+  const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
+  return c.json({ ok: true, groups: getUniversalGroups(lang), variants: getUniversalVariants(lang) });
 });
 
 router.get('/site/bootstrap', async (c) => {
@@ -2934,7 +2887,11 @@ router.post('/site/bootstrap', async (c) => {
     return jsonError(c, 400, 'description is required');
   }
 
-  const bootstrap = buildUniversalBootstrapMock(description, body.site_name || ctx.tenant.name);
+  const bootstrap = buildUniversalBootstrapMock(
+    description,
+    body.site_name || ctx.tenant.name,
+    typeof ctx.tenant.default_locale === 'string' && ctx.tenant.default_locale.trim() ? ctx.tenant.default_locale.trim() : 'en'
+  );
   bootstrap.site.tenant_id = ctx.tenantId;
   bootstrap.pages = bootstrap.pages.map((page) => ({ ...page, tenant_id: ctx.tenantId }));
   bootstrap.editor_model.site.tenant_id = ctx.tenantId;
@@ -3203,6 +3160,10 @@ router.patch('/site/config', async (c) => {
     return jsonError(c, 400, 'No valid fields provided');
   }
 
+  const nextDefaultLang = typeof sitePatch.default_lang === 'string' && sitePatch.default_lang.trim()
+    ? sitePatch.default_lang.trim()
+    : (current.default_lang || 'en');
+
   if (body.reset_preset === true) {
     await resetSitePreset(
       c.env.DB,
@@ -3210,6 +3171,7 @@ router.patch('/site/config', async (c) => {
       nextGroupKey,
       nextVariantKey,
       typeof sitePatch.site_name === 'string' && sitePatch.site_name.trim() ? sitePatch.site_name.trim() : (ctx.tenant.name || current.site_name || 'Universal Site'),
+      nextDefaultLang,
     );
   }
 
@@ -3227,7 +3189,7 @@ router.patch('/site/config', async (c) => {
         .run();
     }
   } else if (body.reset_theme === true || sitePatch.group_key || sitePatch.variant_key) {
-    const tokens = buildDefaultThemeTokens(nextGroupKey, nextVariantKey);
+    const tokens = buildDefaultThemeTokens(nextGroupKey, nextVariantKey, nextDefaultLang);
     await c.env.DB
       .prepare('UPDATE tenant_universal_theme_tokens SET tokens_json = ?, updated_at = ? WHERE tenant_id = ?')
       .bind(JSON.stringify(tokens), Math.floor(Date.now() / 1000), ctx.tenantId)
@@ -3430,14 +3392,15 @@ router.post('/site/hotels', async (c) => {
   const gallery = Array.isArray(body.gallery) ? body.gallery : [];
   const status = String(body.status || 'draft').trim() || 'draft';
 
-  if (!tourId) return jsonError(c, 400, 'tour_id is required');
   if (!name) return jsonError(c, 400, 'name is required');
 
-  const linkedTour = await c.env.DB
-    .prepare('SELECT id FROM tours WHERE tenant_id = ? AND id = ?')
-    .bind(ctx.tenantId, tourId)
-    .first();
-  if (!linkedTour) return jsonError(c, 404, 'Linked tour not found');
+  if (tourId) {
+    const linkedTour = await c.env.DB
+      .prepare('SELECT id FROM tours WHERE tenant_id = ? AND id = ?')
+      .bind(ctx.tenantId, tourId)
+      .first();
+    if (!linkedTour) return jsonError(c, 404, 'Linked tour not found');
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const hotelId = nanoid();
@@ -3453,7 +3416,7 @@ router.post('/site/hotels', async (c) => {
       hotelId,
       ctx.tenantId,
       hotelKey,
-      tourId,
+      tourId || null,
       name,
       description,
       address,
@@ -3484,7 +3447,7 @@ router.get('/hotels/:hotelId', async (c) => {
     .first();
 
   if (!row) {
-    return jsonError(c, 404, 'Hotel not found');
+    return jsonError(c, 404, 'Property not found');
   }
 
   return c.json({ ok: true, hotel: normalizeHotel(row) });
@@ -3525,6 +3488,19 @@ router.patch('/hotels/:hotelId', async (c) => {
     if (!Array.isArray(body.gallery)) return jsonError(c, 400, 'gallery must be an array');
     setValue('gallery_json', JSON.stringify(body.gallery));
   }
+  if ('tour_id' in body) {
+    const nextTourId = String(body.tour_id || '').trim();
+    if (nextTourId) {
+      const linkedTour = await c.env.DB
+        .prepare('SELECT id FROM tours WHERE tenant_id = ? AND id = ?')
+        .bind(ctx.tenantId, nextTourId)
+        .first();
+      if (!linkedTour) return jsonError(c, 404, 'Linked tour not found');
+      setValue('tour_id', nextTourId);
+    } else {
+      setValue('tour_id', null);
+    }
+  }
   if ('status' in body) {
     setValue('status', String(body.status || 'draft').trim() || 'draft');
   }
@@ -3543,7 +3519,7 @@ router.patch('/hotels/:hotelId', async (c) => {
     .run();
 
   if (!result.meta?.changes) {
-    return jsonError(c, 404, 'Hotel not found');
+    return jsonError(c, 404, 'Property not found');
   }
 
   await purgeTenantPublicCache(c.env.DB, ctx.tenantId);

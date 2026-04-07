@@ -52,12 +52,14 @@ export function createSixSensesTheme(helpers = {}) {
   function buildSearchPanel(theme = {}) {
     const heroUi = getHeroUi(theme);
     const searchState = theme.searchState || {};
+    const systemCopy = theme.systemCopy || {};
     const action = searchState.action || '#';
-    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>Destination or interest</span><input type="text" name="q" value="${escapeHtml(searchState.q || '')}" aria-label="Destination or interest" placeholder="Beach, adventure, Hoi An" /></label><label><span>Travel starts</span><input type="text" name="start" value="${escapeHtml(searchState.start || '')}" aria-label="Travel starts" placeholder="12 Oct 2026" /></label><label><span>Travel ends</span><input type="text" name="end" value="${escapeHtml(searchState.end || '')}" aria-label="Travel ends" placeholder="18 Oct 2026" /></label><label><span>Guests</span><input type="text" name="pax" value="${escapeHtml(searchState.pax || '')}" aria-label="Guests" placeholder="2 adults" /></label><label><span>Code</span><input type="text" name="code" value="${escapeHtml(searchState.code || '')}" aria-label="Code" placeholder="Private" /></label></div><button type="submit" class="luxury-search-cta">${escapeHtml(heroUi.searchButtonLabel || 'Search')}</button></form>`;
+    return `<form class="luxury-search-panel" method="GET" action="${escapeHtml(action)}"><div class="luxury-search-grid"><label class="luxury-search-label-primary"><span>${escapeHtml(systemCopy.search?.destinationLabel || 'Destination or interest')}</span><input type="text" name="q" value="${escapeHtml(searchState.q || '')}" aria-label="${escapeHtml(systemCopy.search?.destinationLabel || 'Destination or interest')}" placeholder="${escapeHtml(systemCopy.search?.destinationPlaceholder || 'Beach, adventure, Hoi An')}" /></label><label><span>${escapeHtml(systemCopy.search?.travelStartsLabel || 'Travel starts')}</span><input type="text" name="start" value="${escapeHtml(searchState.start || '')}" aria-label="${escapeHtml(systemCopy.search?.travelStartsLabel || 'Travel starts')}" placeholder="${escapeHtml(systemCopy.search?.travelStartsPlaceholder || '12 Oct 2026')}" /></label><label><span>${escapeHtml(systemCopy.search?.travelEndsLabel || 'Travel ends')}</span><input type="text" name="end" value="${escapeHtml(searchState.end || '')}" aria-label="${escapeHtml(systemCopy.search?.travelEndsLabel || 'Travel ends')}" placeholder="${escapeHtml(systemCopy.search?.travelEndsPlaceholder || '18 Oct 2026')}" /></label><label><span>${escapeHtml(systemCopy.search?.guestsLabel || 'Guests')}</span><input type="text" name="pax" value="${escapeHtml(searchState.pax || '')}" aria-label="${escapeHtml(systemCopy.search?.guestsLabel || 'Guests')}" placeholder="${escapeHtml(systemCopy.search?.guestsPlaceholder || '2 adults')}" /></label><label><span>${escapeHtml(systemCopy.search?.codeLabel || 'Code')}</span><input type="text" name="code" value="${escapeHtml(searchState.code || '')}" aria-label="${escapeHtml(systemCopy.search?.codeLabel || 'Code')}" placeholder="${escapeHtml(systemCopy.search?.codePlaceholder || 'Private')}" /></label></div><button type="submit" class="luxury-search-cta">${escapeHtml(heroUi.searchButtonLabel || systemCopy.search?.button || 'Search')}</button></form>`;
   }
 
   function renderHero(ctx) {
     const heroUi = getHeroUi(ctx.theme);
+    const systemCopy = ctx.systemCopy || {};
     const content = ctx.block.content || {};
     const runtimeHero = ctx.targetPage.page_key === ctx.homePageKey ? ctx.tourRuntime.featured_tour : null;
     const isTourDetailTarget = ctx.targetPage.page_type === 'tour_detail' || /^tour-/.test(String(ctx.targetPage.page_key || ''));
@@ -79,20 +81,20 @@ export function createSixSensesTheme(helpers = {}) {
         ? `<video class="luxury-hero-media-asset" style="filter:brightness(${escapeHtml(String(imageBrightness))})" autoplay muted loop playsinline src="${escapeHtml(image)}"></video>`
         : `<div style="filter:brightness(${escapeHtml(String(imageBrightness))})">${buildResponsiveImageMarkup(image, content.headline || ctx.targetTitle, 'luxury-hero-media-asset', 'cover', '100vw')}</div>`)
       : '<div class="luxury-hero-media-fallback">Replace with a cinematic hero image or video.</div>';
-    const searchMarkup = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showSearchPanel !== false ? `<div class="luxury-hero-search-wrap">${buildSearchPanel({ ...ctx.theme, searchState: ctx.searchState || {} })}</div>` : '';
+    const searchMarkup = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showSearchPanel !== false ? `<div class="luxury-hero-search-wrap">${buildSearchPanel({ ...ctx.theme, searchState: ctx.searchState || {}, systemCopy })}</div>` : '';
     const heroButtons = ctx.targetPage.page_key === ctx.homePageKey && heroUi.showModuleShortcuts !== false
       ? ctx.resolveHeroModuleMenuItems()
-          .map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || 'Page')}</a>`)
+        .map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}" class="luxury-hero-side-link">${escapeHtml(item.label || item.page_key || systemCopy.nav?.page || 'Page')}</a>`)
           .join('')
       : '';
     const heroSidePanel = heroButtons
       ? `<aside class="luxury-hero-side-panel"><div class="luxury-hero-side-links">${heroButtons}</div></aside>`
       : '';
 
-    const mapLinkMarkup = heroUi.showMapLink === false ? '' : `<a href="${escapeHtml(heroUi.mapLinkHref || '#section-destinations')}" class="luxury-map-link">${escapeHtml(heroUi.mapLinkLabel || 'View map')}</a>`;
+    const mapLinkMarkup = heroUi.showMapLink === false ? '' : `<a href="${escapeHtml(heroUi.mapLinkHref || '#section-destinations')}" class="luxury-map-link">${escapeHtml(heroUi.mapLinkLabel || systemCopy.header?.viewMap || 'View map')}</a>`;
     const secondaryCtaMarkup = heroUi.showSecondaryCta === false
       ? ''
-      : `<a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || 'Plan with concierge')}</a>`;
+      : `<a href="${escapeHtml(content.secondary_cta_href || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us'))}" class="luxury-secondary-cta">${escapeHtml(content.secondary_cta_label || systemCopy.cta?.planWithConcierge || 'Plan with concierge')}</a>`;
     return `<section class="luxury-hero ${ctx.targetPage.page_key === ctx.homePageKey ? 'luxury-hero-home' : 'luxury-hero-inner'}"><div class="luxury-hero-media">${mediaMarkup}<div class="luxury-hero-overlay" style="opacity:${escapeHtml(String(overlayStrength))}"></div></div><div class="luxury-hero-copy">${mapLinkMarkup}<p class="luxury-hero-eyebrow">${escapeHtml(content.eyebrow || ctx.runtime.variant_label || '')}</p><h1>${escapeHtml(content.headline || runtimeHero?.title || ctx.targetTitle)}</h1><p class="luxury-hero-body">${escapeHtml(content.body || runtimeHero?.summary || ctx.targetDescription)}</p><div class="luxury-hero-actions"><a href="${escapeHtml(primaryCtaHref)}" class="luxury-primary-cta"${primaryCtaAttrs}>${escapeHtml(primaryCtaLabel)}</a>${secondaryCtaMarkup}</div></div>${heroSidePanel}${searchMarkup}</section>`;
   }
 
@@ -178,9 +180,10 @@ export function createSixSensesTheme(helpers = {}) {
   }
 
   function renderListing(ctx) {
+    const systemCopy = ctx.systemCopy || {};
     const cards = Array.isArray(ctx.cards) ? ctx.cards : ctx.resolveListingCards(ctx.block.data_bindings?.cards?.source, ctx.targetPage);
     if (!cards.length && ctx.searchState?.q) {
-      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">Search</p><h2>No matching journeys</h2></div><p>Try another destination or interest such as beach, culture, nature, or a specific place name.</p></div></section>`;
+      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(systemCopy.search?.emptyKicker || 'Search')}</p><h2>${escapeHtml(systemCopy.search?.noMatchingTitle || 'No matching journeys')}</h2></div><p>${escapeHtml((systemCopy.search?.noMatchingBody || 'No journeys matched {{query}}.').replace('{{query}}', ctx.searchState?.q || (systemCopy.search?.button || 'search')))}</p></div></section>`;
     }
     const accentColor = normalizeStringValue(ctx.block.content?.accent_color, ctx.theme.colorAccent, '#7f3f73');
     const isHotelCollection = String(ctx.block.data_bindings?.cards?.source || '').toLowerCase().includes('accommodation');
@@ -200,12 +203,13 @@ export function createSixSensesTheme(helpers = {}) {
 
   function renderHeader(ctx) {
     const headerUi = getHeaderUi(ctx.theme);
+    const systemCopy = ctx.systemCopy || {};
     const primaryCtaHref = ctx.headerCtaHref || '#';
     const primaryCtaLabel = ctx.headerCtaLabel || '';
-    const menuButtonMarkup = headerUi.showMenuButton === false ? '<div></div>' : `<button type="button" class="luxury-menu-toggle" aria-label="Open navigation"><span></span><span></span><span></span></button>`;
-    const languageMarkup = headerUi.showLanguageChip === false ? '' : `<span class="luxury-lang-chip">${escapeHtml(headerUi.languageLabel || 'EN')}</span>`;
+    const menuButtonMarkup = headerUi.showMenuButton === false ? '<div></div>' : `<button type="button" class="luxury-menu-toggle" aria-label="${escapeHtml(systemCopy.header?.openNavigation || 'Open navigation')}"><span></span><span></span><span></span></button>`;
+    const languageMarkup = headerUi.showLanguageChip === false ? '' : `<span class="luxury-lang-chip">${escapeHtml(headerUi.languageLabel || systemCopy.header?.languageChip || 'EN')}</span>`;
     const loginHref = headerUi.loginHref || buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us');
-    const loginMarkup = headerUi.showLoginLink === false ? '' : `<a href="${escapeHtml(loginHref)}" class="luxury-login-link">${escapeHtml(headerUi.loginLabel || 'Login')}</a>`;
+    const loginMarkup = headerUi.showLoginLink === false ? '' : `<a href="${escapeHtml(loginHref)}" class="luxury-login-link">${escapeHtml(headerUi.loginLabel || systemCopy.header?.login || 'Login')}</a>`;
     const bookNowMarkup = headerUi.showBookNowButton === false || !primaryCtaLabel
       ? ''
       : `<a href="${escapeHtml(primaryCtaHref)}" class="luxury-book-now">${escapeHtml(primaryCtaLabel)}</a>`;
@@ -214,9 +218,10 @@ export function createSixSensesTheme(helpers = {}) {
 
   function renderDrawer(ctx) {
     const headerUi = getHeaderUi(ctx.theme);
-    const drawerTitle = getUi(ctx.theme).menuDrawer?.title || 'Curated Menu';
+    const systemCopy = ctx.systemCopy || {};
+    const drawerTitle = getUi(ctx.theme).menuDrawer?.title || systemCopy.header?.curatedMenu || 'Curated Menu';
     if (headerUi.showMenuButton === false || !ctx.menuItems.length) return '';
-    return `<div class="luxury-drawer-backdrop" data-luxury-close="true"></div><aside class="luxury-drawer" aria-label="Luxury navigation"><div class="luxury-drawer-head"><span>${escapeHtml(drawerTitle)}</span><button type="button" class="luxury-drawer-close" data-luxury-close="true">Close</button></div><nav class="luxury-drawer-nav">${ctx.menuItems.map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''}>${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('')}</nav></aside>`;
+    return `<div class="luxury-drawer-backdrop" data-luxury-close="true"></div><aside class="luxury-drawer" aria-label="Luxury navigation"><div class="luxury-drawer-head"><span>${escapeHtml(drawerTitle)}</span><button type="button" class="luxury-drawer-close" data-luxury-close="true">${escapeHtml(systemCopy.header?.close || 'Close')}</button></div><nav class="luxury-drawer-nav">${ctx.menuItems.map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}" target="${escapeHtml(item.target || '_self')}"${item.is_external ? ' rel="noreferrer"' : ''}>${escapeHtml(item.label || item.page_key || systemCopy.nav?.page || 'Page')}</a>`).join('')}</nav></aside>`;
   }
 
   function renderSocialRail(ctx) {
@@ -226,11 +231,12 @@ export function createSixSensesTheme(helpers = {}) {
 
   function renderFooter(ctx) {
     const footerUi = getFooterUi(ctx.theme);
-    const navColumn = footerUi.showNavigation === false ? '' : `<div><p class="luxury-footer-heading">${escapeHtml(ctx.site.site_name || 'Travel House')}</p><div class="luxury-footer-links">${ctx.menuItems.slice(0, 8).map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}">${escapeHtml(item.label || item.page_key || 'Page')}</a>`).join('') || '<span>Navigation stays tenant-controlled.</span>'}</div></div>`;
-    const contactColumn = footerUi.showContacts === false ? '' : `<div><p class="luxury-footer-heading">Get in touch</p><div class="luxury-footer-links">${['phone', 'email', 'address'].map((key) => ctx.channels[key]?.enabled && ctx.channels[key]?.value ? `<a href="${escapeHtml(ctx.buildChannelHref(key, ctx.channels[key]))}">${escapeHtml(ctx.channels[key].value)}</a>` : '').join('') || '<span>Concierge details can be configured per tenant.</span>'}</div></div>`;
+    const systemCopy = ctx.systemCopy || {};
+    const navColumn = footerUi.showNavigation === false ? '' : `<div><p class="luxury-footer-heading">${escapeHtml(ctx.site.site_name || 'Travel House')}</p><div class="luxury-footer-links">${ctx.menuItems.slice(0, 8).map((item) => `<a href="${escapeHtml(ctx.buildMenuHref(item))}">${escapeHtml(item.label || item.page_key || systemCopy.nav?.page || 'Page')}</a>`).join('') || `<span>${escapeHtml(systemCopy.footer?.navFallback || 'Navigation stays tenant-controlled.')}</span>`}</div></div>`;
+    const contactColumn = footerUi.showContacts === false ? '' : `<div><p class="luxury-footer-heading">${escapeHtml(systemCopy.footer?.getInTouch || 'Get in touch')}</p><div class="luxury-footer-links">${['phone', 'email', 'address'].map((key) => ctx.channels[key]?.enabled && ctx.channels[key]?.value ? `<a href="${escapeHtml(ctx.buildChannelHref(key, ctx.channels[key]))}">${escapeHtml(ctx.channels[key].value)}</a>` : '').join('') || `<span>${escapeHtml(systemCopy.footer?.conciergeFallback || 'Concierge details can be configured per tenant.')}</span>`}</div></div>`;
     const legalMarkup = footerUi.showLegalLinks === false ? '' : `<div class="luxury-footer-links luxury-footer-legal">${ctx.legalPages.map((entry) => `<a href="${escapeHtml(buildUniversalPublicPath(ctx.site.tenant_id, entry.slug || entry.page_key))}">${escapeHtml(entry.title)}</a>`).join('')}</div>`;
-    const socialColumn = footerUi.showSocials === false ? '' : `<div><p class="luxury-footer-heading">Follow</p><div class="luxury-footer-socials">${ctx.socialEntries.map(([key, value]) => `<a href="${escapeHtml(ctx.buildChannelHref(key, value))}" target="_blank" rel="noreferrer">${escapeHtml(ctx.buildSocialMonogram(key))}</a>`).join('') || '<span>Social channels can be toggled per tenant.</span>'}</div>${legalMarkup}</div>`;
-    return `<footer class="luxury-footer"><div class="luxury-footer-grid"><div class="luxury-footer-brand"><a href="${escapeHtml(buildUniversalPublicPath(ctx.site.tenant_id, ctx.homeSlug))}" class="luxury-footer-logo">${ctx.logoMarkup}</a><p class="luxury-footer-kicker">${escapeHtml(footerUi.kickerText || 'Private journeys, quietly crafted')}</p></div>${navColumn}${contactColumn}${socialColumn}</div></footer>`;
+    const socialColumn = footerUi.showSocials === false ? '' : `<div><p class="luxury-footer-heading">${escapeHtml(systemCopy.footer?.follow || 'Follow')}</p><div class="luxury-footer-socials">${ctx.socialEntries.map(([key, value]) => `<a href="${escapeHtml(ctx.buildChannelHref(key, value))}" target="_blank" rel="noreferrer">${escapeHtml(ctx.buildSocialMonogram(key))}</a>`).join('') || `<span>${escapeHtml(systemCopy.footer?.conciergeFallback || 'Social channels can be toggled per tenant.')}</span>`}</div>${legalMarkup}</div>`;
+    return `<footer class="luxury-footer"><div class="luxury-footer-grid"><div class="luxury-footer-brand"><a href="${escapeHtml(buildUniversalPublicPath(ctx.site.tenant_id, ctx.homeSlug))}" class="luxury-footer-logo">${ctx.logoMarkup}</a><p class="luxury-footer-kicker">${escapeHtml(footerUi.kickerText || systemCopy.footer?.kicker || 'Private journeys, quietly crafted')}</p></div>${navColumn}${contactColumn}${socialColumn}</div></footer>`;
   }
 
   function renderFloatingBookNow(ctx) {

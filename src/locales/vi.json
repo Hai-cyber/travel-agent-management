@@ -123,6 +123,11 @@
       "revenue": "Doanh thu",
       "orders": "Đơn hàng",
       "manage": "Quản lý",
+      "tours": "Tours",
+      "destinations": "Điểm đến",
+      "accommodations": "Lưu trú",
+      "gallery": "Thư viện ảnh",
+      "properties": "Properties",
       "tours_destinations": "Tour & Điểm đến",
       "pricing": "Bảng giá",
       "add_ons": "Dịch vụ bổ sung",
@@ -382,6 +387,89 @@
   "payments": {
     "compliance_gateway_active": "Tenant đã có ít nhất một cổng điện tử đang hoạt động.",
     "compliance_gateway_missing": "Chưa có cổng điện tử nào được bật. Hãy cấu hình API key để kích hoạt."
+  },
+  "universal_site": {
+    "nav": {
+      "home": "Trang chủ",
+      "tours": "Tours",
+      "destinations": "Điểm đến",
+      "featured_tours": "Tours nổi bật",
+      "accommodation": "Lưu trú",
+      "hotels": "Khách sạn",
+      "services": "Dịch vụ",
+      "booking": "Đặt chỗ",
+      "reservation": "Đặt chỗ",
+      "about_us": "Về chúng tôi",
+      "contact_us": "Liên hệ",
+      "terms": "Điều khoản & Điều kiện",
+      "privacy": "Chính sách quyền riêng tư",
+      "impressum": "Thông tin pháp lý",
+      "page": "Trang"
+    },
+    "cta": {
+      "discovery": "Khám phá",
+      "booking": "Kiểm tra chỗ trống",
+      "contact": "Liên hệ",
+      "view_itinerary": "Xem hành trình",
+      "open_standalone_page": "Mở trang riêng",
+      "request_quote": "Yêu cầu báo giá",
+      "fast_quote": "Báo giá nhanh",
+      "quote": "Báo giá",
+      "plan_with_concierge": "Lên kế hoạch cùng concierge"
+    },
+    "header": {
+      "view_map": "Xem bản đồ",
+      "login": "Đăng nhập",
+      "open_navigation": "Mở điều hướng",
+      "close": "Đóng",
+      "curated_menu": "Menu tuyển chọn",
+      "language_chip": "VI"
+    },
+    "search": {
+      "destination_label": "Điểm đến hoặc sở thích",
+      "destination_placeholder": "Biển, phiêu lưu, Hội An",
+      "travel_starts_label": "Khởi hành",
+      "travel_starts_placeholder": "12 Thg 10 2026",
+      "travel_ends_label": "Kết thúc",
+      "travel_ends_placeholder": "18 Thg 10 2026",
+      "guests_label": "Số khách",
+      "guests_placeholder": "2 người lớn",
+      "code_label": "Mã",
+      "code_placeholder": "Riêng tư",
+      "button": "Tìm kiếm",
+      "empty_kicker": "Tìm kiếm",
+      "no_matching_title": "Không có hành trình phù hợp",
+      "no_matching_body": "Không có hành trình nào khớp với {{query}}. Hãy thử điểm đến hoặc sở thích khác như biển, văn hóa, phiêu lưu hoặc tên địa danh cụ thể."
+    },
+    "footer": {
+      "get_in_touch": "Liên hệ",
+      "follow": "Theo dõi",
+      "nav_fallback": "Điều hướng vẫn do tenant kiểm soát.",
+      "concierge_fallback": "Thông tin concierge có thể được cấu hình theo từng tenant.",
+      "kicker": "Hành trình riêng tư, được chăm chút tinh tế"
+    },
+    "contact": {
+      "no_channels": "Chưa có kênh liên hệ nào được cấu hình.",
+      "send_message": "Gửi tin nhắn cho chúng tôi"
+    },
+    "pricing": {
+      "from": "Từ",
+      "shared": "Phòng ghép",
+      "single": "Phòng riêng",
+      "shared_room": "Phòng ghép",
+      "single_room": "Phòng riêng",
+      "spotlight_body": "Giá nổi bật trực tiếp từ pricing engine chuẩn."
+    },
+    "channel": {
+      "phone": "Gọi cho chúng tôi",
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "zalo": "Zalo",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "youtube": "YouTube",
+      "address": "Địa chỉ"
+    }
   },
   "tour_config": {
     "meta": {
@@ -660,5 +748,141 @@
       "template_switched": "Đã chuyển template sang \"{{template}}\"",
       "switch_failed": "Đổi template thất bại: {{error}}"
     }
+  },
+  "market_skins": {
+    "labels": {
+      "global_default": "Toàn cầu tiếng Anh",
+      "vietnam_domestic": "Nội địa Việt Nam",
+      "china_outbound": "Trung Quốc outbound",
+      "japan_premium": "Nhật Bản cao cấp",
+      "korea_premium": "Hàn Quốc cao cấp",
+      "uk_curated": "Vương quốc Anh tuyển chọn",
+      "australia_outbound": "Úc outbound",
+      "germany_curated": "Đức tuyển chọn",
+      "france_curated": "Pháp tuyển chọn",
+      "spain_curated": "Tây Ban Nha tuyển chọn"
+    }
+  },
+  "theme_presets": {
+    "variants": {
+      "tour_adventure": {
+        "label": "Nhà điều hành tour mạo hiểm",
+        "description": "Mẫu bán tour thiên về hành trình năng động, nhịp tuyến mạnh và chiều sâu lịch trình."
+      },
+      "tour_luxury": {
+        "label": "Khung immersive Six Senses",
+        "description": "Khung storefront mặc định cho thương hiệu hành trình cao cấp với tinh thần biên tập kiểu Six Senses."
+      },
+      "tour_luxury_riviera": {
+        "label": "Khung Maison Verenne Riviera",
+        "description": "Biến thể luxury ven biển sáng hơn, giữ shell Six Senses nhưng chuyển cảm xúc sang Địa Trung Hải thư thái và giàu tính biên tập."
+      },
+      "stay_boutique": {
+        "label": "Lưu trú boutique",
+        "description": "Bố cục ấm áp cho boutique hotel, guesthouse và lodge."
+      },
+      "stay_resort": {
+        "label": "Resort cao cấp",
+        "description": "Bố cục hình ảnh lớn cho resort và các tài sản lưu trú cao cấp."
+      },
+      "transfer_private": {
+        "label": "Đưa đón riêng",
+        "description": "Shell thiên utility cho doanh nghiệp đưa đón riêng và dịch vụ vận chuyển."
+      },
+      "tour_expedition": {
+        "label": "Tour thám hiểm",
+        "description": "Mẫu kể chuyện ưu tiên logic tuyến đường cho hành trình nhiều chặng và expedition có hướng dẫn."
+      },
+      "stay_urban": {
+        "label": "Lưu trú đô thị",
+        "description": "Bố cục thành thị gọn cho khách sạn công tác và căn hộ hiện đại."
+      },
+      "transfer_city": {
+        "label": "Đưa đón thành phố",
+        "description": "Bố cục phản hồi nhanh cho dịch vụ sân bay, ga tàu và shuttle nội đô."
+      }
+    }
+  },
+  "dashboard_market_skin": {
+    "label": "market skin",
+    "hint": "Market skin kiểm soát locale mặc định, booking currency authoritative, và storefront copy không cho tenant sửa.",
+    "none_available": "Không có market skin khả dụng",
+    "save": "Lưu",
+    "saved": "Lưu market skin"
+  },
+  "dashboard_launch": {
+    "guide_title": "Bắt đầu tại đây: launch theo từng bước nhỏ",
+    "guide_copy": "Bạn đã đăng ký mà không cần thẻ tín dụng và gói launch của bạn vẫn miễn phí trong 6 tháng. Tiếp theo, hãy đặt một subdomain gọn, chọn hoặc tinh chỉnh website skin, rồi xây các product module cho tours, destinations, accommodations, properties và gallery.",
+    "status_done": "Xong",
+    "status_next": "Tiếp theo",
+    "status_later": "Để sau",
+    "subdomain_locked_prefix": "Subdomain đã khóa:",
+    "subdomain_locked_suffix": "Subdomain nền tảng này chỉ được chọn một lần.",
+    "subdomain_suggested_prefix": "Gợi ý:",
+    "subdomain_suggested_suffix": "ngắn, bám thương hiệu và dễ nhớ. Bạn chỉ khóa được một lần.",
+    "subdomain_title": "Chọn và khóa subdomain",
+    "subdomain_desc_locked_prefix": "Đã khóa tại",
+    "subdomain_desc_locked_suffix": "Địa chỉ nền tảng này đã được giữ chỗ và không thể đổi về sau.",
+    "subdomain_desc_empty": "Bắt đầu từ đây trước. Subdomain nền tảng có giới hạn, nên hãy chọn một địa chỉ thương hiệu gọn và khóa lại một lần.",
+    "subdomain_label_locked": "Đã khóa subdomain",
+    "subdomain_label_action": "Khóa subdomain ngay",
+    "skin_title": "Chọn skin và định hướng thương hiệu",
+    "skin_selected_prefix": "Skin đã chọn:",
+    "skin_selected_suffix": "Bạn vẫn có thể tinh chỉnh font, màu và chi tiết shell.",
+    "skin_empty": "Chọn hướng hình ảnh trước khi sửa page để toàn site nhất quán.",
+    "skin_choose": "Chọn skin",
+    "skin_refine": "Tinh chỉnh skin",
+    "website_title": "Tạo website shell",
+    "website_desc_ready": "Website base đã có. Tiếp tục chỉnh homepage section, nội dung và layout trong Website Design.",
+    "website_desc_empty": "Thiết lập cấu trúc website đầu tiên ngay bây giờ: câu chuyện trang chủ, section và định hướng hình ảnh.",
+    "website_label_ready": "Sửa website",
+    "website_label_empty": "Tạo website",
+    "tours_title": "Cấu hình tours",
+    "tours_count_single": "tour đã được nạp",
+    "tours_count_plural": "tours đã được nạp",
+    "tours_desc_ready": "Tinh chỉnh giá, stops và sales copy.",
+    "tours_desc_empty": "Thêm tours, giá, stops và nội dung sẵn sàng bán hàng. Đây là bước setup thương mại chính hôm nay.",
+    "tours_label_ready": "Tinh chỉnh tours",
+    "tours_label_empty": "Cấu hình tours",
+    "destinations_title": "Thêm điểm đến",
+    "destinations_count_single": "destination card đang",
+    "destinations_count_plural": "destination cards đang",
+    "destinations_desc_ready": "được đẩy ra site public.",
+    "destinations_desc_empty": "Biến tour thô thành các câu chuyện điểm đến để khách có thể quét nhanh.",
+    "destinations_label_ready": "Tinh chỉnh điểm đến",
+    "destinations_label_empty": "Thêm điểm đến",
+    "properties_title": "Thêm properties",
+    "properties_count_single": "property đang",
+    "properties_count_plural": "properties đang",
+    "properties_desc_ready": "được quản lý trong hotel engine tách riêng.",
+    "properties_desc_empty": "Thêm property phía hotel trong property engine riêng. Chúng không ghi đè accommodation storytelling của tour.",
+    "properties_label_ready": "Rà properties",
+    "properties_label_empty": "Thêm properties",
+    "gallery_title": "Xây gallery",
+    "gallery_count_single": "gallery image đang",
+    "gallery_count_plural": "gallery images đang",
+    "gallery_desc_ready": "sẵn cho storefront.",
+    "gallery_desc_empty": "Thêm bằng chứng hình ảnh để site bán bằng visual, không chỉ bằng itinerary text.",
+    "gallery_label_ready": "Tinh chỉnh gallery",
+    "gallery_label_empty": "Xây gallery",
+    "system_title": "Hoàn tất system settings",
+    "system_desc_ready": "Phần contact hoặc legal cơ bản đã có. Hãy rà lại trước khi lên live.",
+    "system_desc_empty": "Hoàn tất contact channels, legal pages và các mặc định hệ thống cốt lõi trước khi launch.",
+    "system_label_ready": "Rà system settings",
+    "system_label_empty": "Hoàn tất system settings"
+  },
+  "tour_config_market_skin": {
+    "settings_title": "Thiết lập Market Skin",
+    "settings_title_pricing": "Market Skin và Booking Currency Authoritative",
+    "primary_label": "Market Skin chính",
+    "hint_default": "Preset này kiểm soát locale mặc định của tenant, booking currency authoritative và storefront copy không editable.",
+    "hint_pricing": "Preset này kiểm soát booking currency và locale mặc định của tenant. Display currency bên dưới chỉ áp dụng cho workspace pricing này.",
+    "save": "Lưu Market Skin",
+    "no_catalog": "Không có market skin khả dụng",
+    "preview_prefix": "Xem trước preset:",
+    "preview_empty": "Chưa tải preset market skin nào.",
+    "extra_summary": "Primary market: {{market}}. UI locale đi theo {{locale}}. Booking currency đi theo {{currency}}.",
+    "saved": "Đã lưu market skin. Locale mặc định và authoritative currency đã được cập nhật.",
+    "save_failed": "Không thể lưu market skin."
   }
 }

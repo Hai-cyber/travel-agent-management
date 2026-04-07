@@ -13,65 +13,56 @@ import enGb from '../locales/en-gb.json';
 import enAu from '../locales/en-au.json';
 
 // ── Translation registry ──────────────────────────────────────────────────────
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function deepMerge(base, override) {
-  if (!isPlainObject(base) || !isPlainObject(override)) {
-    return override === undefined ? base : override;
-  }
-
-  const result = { ...base };
-  for (const [key, value] of Object.entries(override)) {
-    if (isPlainObject(value) && isPlainObject(base[key])) {
-      result[key] = deepMerge(base[key], value);
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
 const LOCALES = {
   en,
-  'en-gb': deepMerge(en, enGb),
-  'en-au': deepMerge(en, enAu),
+  'en-GB': enGb,
+  'en-AU': enAu,
   vi,
   zh,
-  ja: deepMerge(en, ja),
-  ko: deepMerge(en, ko),
-  de: deepMerge(en, de),
-  fr: deepMerge(en, fr),
-  es: deepMerge(en, es),
+  ja,
+  ko,
+  de,
+  fr,
+  es,
 };
 
-const CANONICAL_LOCALE_TAGS = {
+const LOCALE_ALIASES = {
   en: 'en',
+  'en-us': 'en',
   'en-gb': 'en-GB',
   'en-au': 'en-AU',
   vi: 'vi',
+  'vi-vn': 'vi',
   zh: 'zh',
+  'zh-cn': 'zh',
+  'zh-hans': 'zh',
   ja: 'ja',
+  'ja-jp': 'ja',
   ko: 'ko',
+  'ko-kr': 'ko',
   de: 'de',
+  'de-de': 'de',
   fr: 'fr',
+  'fr-fr': 'fr',
   es: 'es',
+  'es-es': 'es',
 };
 
+const SUPPORTED_LOCALES = Object.freeze(['en', 'en-GB', 'en-AU', 'vi', 'zh', 'ja', 'ko', 'de', 'fr', 'es']);
+
 export function getSupportedLocales() {
-  return Object.keys(LOCALES).map((key) => CANONICAL_LOCALE_TAGS[key] || key);
+  return [...SUPPORTED_LOCALES];
 }
 
 export function normalizeLocale(lang) {
   const fallback = 'en';
   if (!lang) return fallback;
 
-  const raw = String(lang).trim().replace(/_/g, '-').toLowerCase();
-  if (LOCALES[raw]) return raw;
+  const normalized = String(lang).trim().replace(/_/g, '-').toLowerCase();
+  if (LOCALE_ALIASES[normalized]) return LOCALE_ALIASES[normalized];
 
-  const base = raw.split('-')[0];
-  return LOCALES[base] ? base : fallback;
+  const base = normalized.split('-')[0];
+  return LOCALE_ALIASES[base] || fallback;
 }
 
 export function getLocaleMessages(lang = 'en') {
@@ -84,7 +75,6 @@ const CURRENCY_LOCALE = {
   VND: 'vi-VN',
   USD: 'en-US',
   EUR: 'de-DE',
-  CNY: 'zh-CN',
   GBP: 'en-GB',
   THB: 'th-TH',
   JPY: 'ja-JP',
@@ -135,45 +125,6 @@ export function formatMoney(amount, locale, currency, exchangeRate = 1) {
   }
 
   return _moneyCache.get(cacheKey).format(converted);
-}
-
-export function convertMoney(amount, fromCurrency, toCurrency, exchangeRate = 1) {
-  if (amount == null || isNaN(amount)) return null;
-  const source = String(fromCurrency || '').toUpperCase();
-  const target = String(toCurrency || '').toUpperCase();
-  if (!source || !target || source === target) return Number(amount);
-
-  const raw = Number(amount) * Number(exchangeRate || 1);
-  return ZERO_DECIMAL_CURRENCIES.has(target) ? Math.round(raw / 1000) * 1000 : raw;
-}
-
-export function presentMoney(amount, {
-  sourceCurrency = 'USD',
-  bookingCurrency = sourceCurrency,
-  exchangeRate = 1,
-  locale,
-} = {}) {
-  const authoritativeCurrency = String(bookingCurrency || sourceCurrency).toUpperCase();
-  const source = String(sourceCurrency || authoritativeCurrency).toUpperCase();
-  const resolvedLocale = locale || CURRENCY_LOCALE[authoritativeCurrency] || 'en-US';
-  const authoritativeAmount = convertMoney(amount, source, authoritativeCurrency, exchangeRate);
-
-  const result = {
-    amount: authoritativeAmount,
-    currency: authoritativeCurrency,
-    formatted: formatMoney(authoritativeAmount, resolvedLocale, authoritativeCurrency, 1),
-  };
-
-  if (source !== authoritativeCurrency) {
-    result.reference = {
-      amount: Number(amount ?? 0),
-      currency: source,
-      formatted: formatMoney(Number(amount ?? 0), CURRENCY_LOCALE[source] || 'en-US', source, 1),
-      exchange_rate: Number(exchangeRate || 1),
-    };
-  }
-
-  return result;
 }
 
 // ── 2. formatDateTime ─────────────────────────────────────────────────────────
@@ -297,7 +248,6 @@ export function enrichPricesObject(prices, tenantConfig) {
     adult_shared_room:         enrichPrice(prices.adult_shared_room, tenantConfig),
     adult_single_room:         enrichPrice(prices.adult_single_room, tenantConfig),
     child_shared_with_parents: enrichPrice(prices.child_shared_with_parents, tenantConfig),
-    infant:                    enrichPrice(prices.infant, tenantConfig),
   };
 }
 
@@ -408,19 +358,20 @@ export function dualPrice(amountUSD, tenantConfig) {
 export function resolveLocaleFromAcceptLanguage(acceptLang) {
   if (!acceptLang) return 'en';
 
+  const supported = getSupportedLocales();
+
+  // Parse "fr-FR,fr;q=0.9,en;q=0.8" → sorted [['fr-FR', 0.9], ['fr', 0.9], ['en', 0.8]]
   const langs = acceptLang
     .split(',')
     .map(part => {
       const [tag, q] = part.trim().split(';q=');
-      const normalizedTag = String(tag || '').trim().replace(/_/g, '-').toLowerCase();
-      const baseTag = normalizedTag.split('-')[0];
-      return [{ exact: normalizedTag, base: baseTag }, q ? parseFloat(q) : 1.0];
+      return [tag.trim(), q ? parseFloat(q) : 1.0];
     })
     .sort((a, b) => b[1] - a[1]);
 
-  for (const [candidate] of langs) {
-    if (LOCALES[candidate.exact]) return CANONICAL_LOCALE_TAGS[candidate.exact] || candidate.exact;
-    if (LOCALES[candidate.base]) return CANONICAL_LOCALE_TAGS[candidate.base] || candidate.base;
+  for (const [lang] of langs) {
+    const normalized = normalizeLocale(lang);
+    if (supported.includes(normalized)) return normalized;
   }
   return 'en';
 }

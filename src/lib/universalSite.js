@@ -1,3 +1,5 @@
+import { getSupportedLocales, normalizeLocale, translate } from '../utils/formatter.js';
+
 const GROUP_DEFINITIONS = {
   tour_operator: {
     key: 'tour_operator',
@@ -22,6 +24,140 @@ const GROUP_DEFINITIONS = {
   },
 };
 
+const GROUP_LABEL_KEYS = Object.freeze({
+  tour_operator: 'universal_site.groups.tour_operator',
+  stay_accommodation: 'universal_site.groups.stay_accommodation',
+  transport_service: 'universal_site.groups.transport_service',
+});
+
+const GROUP_LABEL_FALLBACKS = Object.freeze({
+  'en-GB': {
+    tour_operator: 'Tour Operator',
+    stay_accommodation: 'Stay Accommodation',
+    transport_service: 'Transport Service',
+  },
+  'en-AU': {
+    tour_operator: 'Tour Operator',
+    stay_accommodation: 'Stay Accommodation',
+    transport_service: 'Transport Service',
+  },
+  vi: {
+    tour_operator: 'Nha dieu hanh tour',
+    stay_accommodation: 'Luu tru',
+    transport_service: 'Dich vu van chuyen',
+  },
+  zh: {
+    tour_operator: '行程运营商',
+    stay_accommodation: '住宿业务',
+    transport_service: '交通服务',
+  },
+  ja: {
+    tour_operator: 'ツアー運営',
+    stay_accommodation: '宿泊事業',
+    transport_service: '送迎サービス',
+  },
+  ko: {
+    tour_operator: '투어 운영사',
+    stay_accommodation: '숙박 업종',
+    transport_service: '교통 서비스',
+  },
+  de: {
+    tour_operator: 'Tourveranstalter',
+    stay_accommodation: 'Unterkunft',
+    transport_service: 'Transportservice',
+  },
+  fr: {
+    tour_operator: 'Operateur de voyages',
+    stay_accommodation: 'Hebergement',
+    transport_service: 'Service de transport',
+  },
+  es: {
+    tour_operator: 'Operador turistico',
+    stay_accommodation: 'Alojamiento',
+    transport_service: 'Servicio de transporte',
+  },
+});
+
+const VARIANT_TRANSLATION_FALLBACKS = Object.freeze({
+  'en-GB': {
+    tour_adventure: { label: 'Adventure Operator', description: 'Action-forward travel sales with route energy and itinerary depth.' },
+    tour_luxury: { label: 'Six Senses Immersive Frame', description: 'Default storefront shell for premium journey brands with Six Senses-style editorial chrome.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera Frame', description: 'A brighter coastal luxury variation that keeps the Six Senses shell but shifts the mood toward Mediterranean calm and editorial leisure.' },
+    stay_boutique: { label: 'Boutique Stay', description: 'Warm hospitality layout for boutique hotels, guesthouses, and lodges.' },
+    stay_resort: { label: 'Luxury Resort', description: 'Large-image layout for resorts and premium accommodation properties.' },
+    transfer_private: { label: 'Private Transfer', description: 'Utility-first shell for private transfer and transport service businesses.' },
+    tour_expedition: { label: 'Expedition Tour', description: 'Dense route-first storytelling for serious multi-stop itineraries and guided expeditions.' },
+    stay_urban: { label: 'Urban Stay', description: 'Compact city-hospitality layout for business hotels and modern apartments.' },
+    transfer_city: { label: 'City Transfer', description: 'Fast-response layout for airport, station, and city shuttle services.' },
+  },
+  'en-AU': {
+    tour_adventure: { label: 'Adventure Operator', description: 'Action-forward travel sales with route energy and itinerary depth.' },
+    tour_luxury: { label: 'Six Senses Immersive Frame', description: 'Default storefront shell for premium journey brands with Six Senses-style editorial chrome.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera Frame', description: 'A brighter coastal luxury variation that keeps the Six Senses shell but shifts the mood toward Mediterranean calm and editorial leisure.' },
+    stay_boutique: { label: 'Boutique Stay', description: 'Warm hospitality layout for boutique hotels, guesthouses, and lodges.' },
+    stay_resort: { label: 'Luxury Resort', description: 'Large-image layout for resorts and premium accommodation properties.' },
+    transfer_private: { label: 'Private Transfer', description: 'Utility-first shell for private transfer and transport service businesses.' },
+    tour_expedition: { label: 'Expedition Tour', description: 'Dense route-first storytelling for serious multi-stop itineraries and guided expeditions.' },
+    stay_urban: { label: 'Urban Stay', description: 'Compact city-hospitality layout for business hotels and modern apartments.' },
+    transfer_city: { label: 'City Transfer', description: 'Fast-response layout for airport, station, and city shuttle services.' },
+  },
+  ja: {
+    tour_adventure: { label: 'アドベンチャーオペレーター', description: 'ルートの勢いと旅程の厚みを前面に出す、アクション志向の販売テンプレート。' },
+    tour_luxury: { label: 'Six Senses 没入フレーム', description: 'Six Senses 風のエディトリアル感を備えた、高級旅ブランド向けの既定ストアフロント。' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera フレーム', description: 'Six Senses の骨格を保ちながら、地中海らしい静けさへ雰囲気を寄せた明るい海辺ラグジュアリー変種。' },
+    stay_boutique: { label: 'ブティック滞在', description: 'ブティックホテル、ゲストハウス、ロッジ向けの温かみあるレイアウト。' },
+    stay_resort: { label: 'ラグジュアリーリゾート', description: 'リゾートや高級宿泊施設向けの大きなビジュアル重視レイアウト。' },
+    transfer_private: { label: 'プライベート送迎', description: '専用送迎や交通サービス事業者向けの utility-first シェル。' },
+    tour_expedition: { label: 'エクスペディションツアー', description: '多停泊の本格行程や探検型商品向けに、ルート優先で濃く見せるストーリー構成。' },
+    stay_urban: { label: 'アーバン滞在', description: 'ビジネスホテルやモダンアパート向けのコンパクトな都市型ホスピタリティレイアウト。' },
+    transfer_city: { label: 'シティ送迎', description: '空港・駅・市内シャトル向けの高速レスポンス型レイアウト。' },
+  },
+  ko: {
+    tour_adventure: { label: '어드벤처 운영사', description: '루트의 에너지와 일정의 깊이를 전면에 내세운 액션 지향형 판매 템플릿입니다.' },
+    tour_luxury: { label: 'Six Senses 몰입형 프레임', description: 'Six Senses 스타일의 에디토리얼 감성을 담은 프리미엄 여행 브랜드용 기본 storefront 셸입니다.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera 프레임', description: 'Six Senses 셸은 유지하면서 지중해식 여유와 해안 감성으로 톤을 바꾼 밝은 럭셔리 변형입니다.' },
+    stay_boutique: { label: '부티크 스테이', description: '부티크 호텔, 게스트하우스, 로지에 맞는 따뜻한 호스피탈리티 레이아웃입니다.' },
+    stay_resort: { label: '럭셔리 리조트', description: '리조트와 프리미엄 숙박 자산을 위한 대형 비주얼 중심 레이아웃입니다.' },
+    transfer_private: { label: '프라이빗 트랜스퍼', description: '프라이빗 이동 및 교통 서비스 사업자를 위한 utility-first 셸입니다.' },
+    tour_expedition: { label: '원정 투어', description: '다구간 일정과 원정형 상품을 위해 경로 논리를 우선시한 밀도 높은 스토리텔링 템플릿입니다.' },
+    stay_urban: { label: '어반 스테이', description: '비즈니스 호텔과 현대적인 아파트를 위한 컴팩트한 도심형 숙박 레이아웃입니다.' },
+    transfer_city: { label: '시티 트랜스퍼', description: '공항, 역, 도심 셔틀 서비스에 맞춘 빠른 응답형 레이아웃입니다.' },
+  },
+  de: {
+    tour_adventure: { label: 'Adventure Operator', description: 'Verkaufs-Template mit viel Bewegungsenergie, starker Route und tiefer Reisedramaturgie.' },
+    tour_luxury: { label: 'Six Senses Immersive Frame', description: 'Standard-Storefront fuer Premium-Reisemarken mit editorieller Anmutung im Stil von Six Senses.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera Frame', description: 'Hellere Kuesten-Luxusvariation, die die Six-Senses-Struktur behaelt, aber Richtung mediterraner Ruhe verschiebt.' },
+    stay_boutique: { label: 'Boutique Stay', description: 'Warme Hospitality-Struktur fuer Boutique-Hotels, Gaestehaeuser und Lodges.' },
+    stay_resort: { label: 'Luxury Resort', description: 'Grossformatiges Bildlayout fuer Resorts und hochwertige Unterkunftsmarken.' },
+    transfer_private: { label: 'Private Transfer', description: 'Utility-first-Shell fuer private Transfers und Transportdienstleister.' },
+    tour_expedition: { label: 'Expedition Tour', description: 'Routenorientiertes Storytelling fuer ernsthafte mehrtaegige Expeditionen und komplexe Programme.' },
+    stay_urban: { label: 'Urban Stay', description: 'Kompaktes Stadt-Hospitality-Layout fuer Businesshotels und moderne Apartments.' },
+    transfer_city: { label: 'City Transfer', description: 'Schnelles Layout fuer Flughafen-, Bahnhof- und City-Shuttle-Services.' },
+  },
+  fr: {
+    tour_adventure: { label: 'Adventure Operator', description: 'Template de vente oriente action, avec energie de route et profondeur de parcours.' },
+    tour_luxury: { label: 'Six Senses Immersive Frame', description: 'Shell storefront par defaut pour les marques de voyage premium, avec une finition editoriale inspiree de Six Senses.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera Frame', description: 'Variation cotiere plus lumineuse qui conserve la structure Six Senses tout en glissant vers une ambiance mediterraneenne.' },
+    stay_boutique: { label: 'Boutique Stay', description: 'Mise en page chaleureuse pour boutique-hotels, guesthouses et lodges.' },
+    stay_resort: { label: 'Luxury Resort', description: 'Mise en page a grande image pour resorts et hebergements premium.' },
+    transfer_private: { label: 'Private Transfer', description: 'Shell utility-first pour les activites de transfert prive et de transport.' },
+    tour_expedition: { label: 'Expedition Tour', description: 'Storytelling dense, guide par l itineraire, pour les circuits complexes et les expeditions accompagnees.' },
+    stay_urban: { label: 'Urban Stay', description: 'Mise en page urbaine compacte pour hotels d affaires et appartements modernes.' },
+    transfer_city: { label: 'City Transfer', description: 'Mise en page a reponse rapide pour navettes d aeroport, de gare et transferts urbains.' },
+  },
+  es: {
+    tour_adventure: { label: 'Adventure Operator', description: 'Plantilla comercial orientada a la accion, con energia de ruta y mas profundidad de itinerario.' },
+    tour_luxury: { label: 'Six Senses Immersive Frame', description: 'Shell storefront por defecto para marcas de viaje premium con una capa editorial al estilo Six Senses.' },
+    tour_luxury_riviera: { label: 'Maison Verenne Riviera Frame', description: 'Variacion costera mas luminosa que mantiene la base Six Senses pero mueve el tono hacia una calma mediterranea.' },
+    stay_boutique: { label: 'Boutique Stay', description: 'Diseno calido para hoteles boutique, guesthouses y lodges.' },
+    stay_resort: { label: 'Luxury Resort', description: 'Diseno de gran imagen para resorts y propiedades de alojamiento premium.' },
+    transfer_private: { label: 'Private Transfer', description: 'Shell utility-first para negocios de traslados privados y servicios de transporte.' },
+    tour_expedition: { label: 'Expedition Tour', description: 'Storytelling denso, guiado por la ruta, para itinerarios serios de varias paradas y expediciones guiadas.' },
+    stay_urban: { label: 'Urban Stay', description: 'Diseno compacto de hospitalidad urbana para hoteles de negocios y apartamentos modernos.' },
+    transfer_city: { label: 'City Transfer', description: 'Diseno de respuesta rapida para aeropuertos, estaciones y servicios de shuttle urbano.' },
+  },
+});
+
 const STRONG_LANGUAGE_OPTIONS = [
   { label: 'English', value: 'en' },
   { label: 'English (United Kingdom)', value: 'en-GB' },
@@ -37,6 +173,262 @@ const STRONG_LANGUAGE_OPTIONS = [
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+const UNIVERSAL_PAGE_TITLE_KEYS = {
+  home: 'universal_site.nav.home',
+  tours: 'universal_site.nav.tours',
+  destinations: 'universal_site.nav.destinations',
+  'featured-tours': 'universal_site.nav.featured_tours',
+  accommodation: 'universal_site.nav.accommodation',
+  hotels: 'universal_site.nav.hotels',
+  services: 'universal_site.nav.services',
+  booking: 'universal_site.nav.booking',
+  reservation: 'universal_site.nav.reservation',
+  'about-us': 'universal_site.nav.about_us',
+  'contact-us': 'universal_site.nav.contact_us',
+  terms: 'universal_site.nav.terms',
+  privacy: 'universal_site.nav.privacy',
+  impressum: 'universal_site.nav.impressum',
+};
+
+const UNIVERSAL_MENU_ITEM_KEYS = {
+  home: 'universal_site.nav.home',
+  tours: 'universal_site.nav.tours',
+  destinations: 'universal_site.nav.destinations',
+  'featured-tours': 'universal_site.nav.featured_tours',
+  accommodation: 'universal_site.nav.accommodation',
+  hotels: 'universal_site.nav.hotels',
+  services: 'universal_site.nav.services',
+  booking: 'universal_site.nav.booking',
+  reservation: 'universal_site.nav.reservation',
+  'about-us': 'universal_site.nav.about_us',
+  'contact-us': 'universal_site.nav.contact_us',
+};
+
+const UNIVERSAL_CHANNEL_LABEL_KEYS = {
+  phone: 'universal_site.channel.phone',
+  email: 'universal_site.channel.email',
+  whatsapp: 'universal_site.channel.whatsapp',
+  zalo: 'universal_site.channel.zalo',
+  instagram: 'universal_site.channel.instagram',
+  facebook: 'universal_site.channel.facebook',
+  youtube: 'universal_site.channel.youtube',
+  address: 'universal_site.channel.address',
+};
+
+function normalizeSystemText(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function getUniversalText(key, lang = 'en', vars = {}) {
+  return translate(key, normalizeLocale(lang), vars);
+}
+
+function localizeGroupDefinition(group, lang = 'en') {
+  const translationKey = GROUP_LABEL_KEYS[group?.key];
+  const locale = normalizeLocale(lang);
+  const translated = translationKey ? getUniversalText(translationKey, locale) : group?.label;
+  const fallbackLabel = GROUP_LABEL_FALLBACKS[locale]?.[group?.key];
+  return {
+    ...group,
+    label: translated === translationKey && fallbackLabel ? fallbackLabel : translated,
+  };
+}
+
+function getVariantLabelKey(variantKey) {
+  return `theme_presets.variants.${String(variantKey || '').replace(/-/g, '_')}.label`;
+}
+
+function getVariantDescriptionKey(variantKey) {
+  return `theme_presets.variants.${String(variantKey || '').replace(/-/g, '_')}.description`;
+}
+
+function localizeVariantDefinition(variant, lang = 'en') {
+  if (!variant) return null;
+  const locale = normalizeLocale(lang);
+  const fallback = VARIANT_TRANSLATION_FALLBACKS[locale]?.[String(variant.key || '').replace(/-/g, '_')];
+  const labelKey = getVariantLabelKey(variant.key);
+  const descriptionKey = getVariantDescriptionKey(variant.key);
+  const translatedLabel = getUniversalText(labelKey, locale);
+  const translatedDescription = getUniversalText(descriptionKey, locale);
+  return {
+    ...variant,
+    label: translatedLabel === labelKey && fallback?.label ? fallback.label : translatedLabel,
+    description: translatedDescription === descriptionKey && fallback?.description ? fallback.description : translatedDescription,
+  };
+}
+
+function isKnownUniversalDefault(value, key) {
+  const target = normalizeSystemText(value);
+  if (!target) return true;
+  const supported = getSupportedLocales();
+  for (const locale of supported) {
+    if (normalizeSystemText(getUniversalText(key, locale)) === target) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function resolveUniversalDefaultValue(currentValue, key, lang = 'en') {
+  const localized = getUniversalText(key, lang);
+  if (!String(currentValue || '').trim()) return localized;
+  return isKnownUniversalDefault(currentValue, key) ? localized : currentValue;
+}
+
+function getUniversalPageTitleKey(pageKey, groupKey = 'tour_operator') {
+  if (pageKey === 'booking' && groupKey !== 'tour_operator') return 'universal_site.nav.reservation';
+  return UNIVERSAL_PAGE_TITLE_KEYS[pageKey] || null;
+}
+
+function getUniversalMenuLabelKey(itemKey, pageKey, groupKey = 'tour_operator') {
+  if (pageKey) return getUniversalPageTitleKey(pageKey, groupKey);
+  return UNIVERSAL_MENU_ITEM_KEYS[itemKey] || null;
+}
+
+export function getUniversalSystemCopy(groupKey = 'tour_operator', lang = 'en') {
+  const locale = normalizeLocale(lang);
+  const listingKey = groupKey === 'stay_accommodation' ? 'hotels' : (groupKey === 'transport_service' ? 'services' : 'tours');
+  const reservationKey = groupKey === 'tour_operator' ? 'booking' : 'reservation';
+  const t = (key, vars = {}) => getUniversalText(`universal_site.${key}`, locale, vars);
+  return {
+    locale,
+    nav: {
+      home: t('nav.home'),
+      listing: t(`nav.${listingKey}`),
+      destinations: t('nav.destinations'),
+      featuredTours: t('nav.featured_tours'),
+      accommodation: t('nav.accommodation'),
+      reservation: t(`nav.${reservationKey}`),
+      aboutUs: t('nav.about_us'),
+      contactUs: t('nav.contact_us'),
+      terms: t('nav.terms'),
+      privacy: t('nav.privacy'),
+      impressum: t('nav.impressum'),
+      page: t('nav.page'),
+    },
+    cta: {
+      discovery: t('cta.discovery'),
+      booking: t('cta.booking'),
+      contact: t('cta.contact'),
+      viewItinerary: t('cta.view_itinerary'),
+      openStandalonePage: t('cta.open_standalone_page'),
+      requestQuote: t('cta.request_quote'),
+      fastQuote: t('cta.fast_quote'),
+      quote: t('cta.quote'),
+      planWithConcierge: t('cta.plan_with_concierge'),
+    },
+    header: {
+      viewMap: t('header.view_map'),
+      login: t('header.login'),
+      openNavigation: t('header.open_navigation'),
+      close: t('header.close'),
+      curatedMenu: t('header.curated_menu'),
+      languageChip: t('header.language_chip'),
+    },
+    search: {
+      destinationLabel: t('search.destination_label'),
+      destinationPlaceholder: t('search.destination_placeholder'),
+      travelStartsLabel: t('search.travel_starts_label'),
+      travelStartsPlaceholder: t('search.travel_starts_placeholder'),
+      travelEndsLabel: t('search.travel_ends_label'),
+      travelEndsPlaceholder: t('search.travel_ends_placeholder'),
+      guestsLabel: t('search.guests_label'),
+      guestsPlaceholder: t('search.guests_placeholder'),
+      codeLabel: t('search.code_label'),
+      codePlaceholder: t('search.code_placeholder'),
+      button: t('search.button'),
+      emptyKicker: t('search.empty_kicker'),
+      noMatchingTitle: t('search.no_matching_title'),
+      noMatchingBody: t('search.no_matching_body'),
+    },
+    footer: {
+      getInTouch: t('footer.get_in_touch'),
+      follow: t('footer.follow'),
+      navFallback: t('footer.nav_fallback'),
+      conciergeFallback: t('footer.concierge_fallback'),
+      kicker: t('footer.kicker'),
+    },
+    contact: {
+      noChannels: t('contact.no_channels'),
+      sendMessage: t('contact.send_message'),
+    },
+    pricing: {
+      from: t('pricing.from'),
+      shared: t('pricing.shared'),
+      single: t('pricing.single'),
+      sharedRoom: t('pricing.shared_room'),
+      singleRoom: t('pricing.single_room'),
+      spotlightBody: t('pricing.spotlight_body'),
+    },
+    channel: Object.fromEntries(Object.entries(UNIVERSAL_CHANNEL_LABEL_KEYS).map(([key, translationKey]) => [key, getUniversalText(translationKey, locale)])),
+  };
+}
+
+export function localizeUniversalPageTitle(title, pageKey, groupKey = 'tour_operator', lang = 'en') {
+  const translationKey = getUniversalPageTitleKey(pageKey, groupKey);
+  return translationKey ? resolveUniversalDefaultValue(title, translationKey, lang) : title;
+}
+
+export function localizeUniversalMenuLabel(label, itemKey, pageKey, groupKey = 'tour_operator', lang = 'en') {
+  const translationKey = getUniversalMenuLabelKey(itemKey, pageKey, groupKey);
+  return translationKey ? resolveUniversalDefaultValue(label, translationKey, lang) : label;
+}
+
+export function localizeUniversalContactLabel(label, channelKey, lang = 'en') {
+  const translationKey = UNIVERSAL_CHANNEL_LABEL_KEYS[channelKey];
+  return translationKey ? resolveUniversalDefaultValue(label, translationKey, lang) : label;
+}
+
+export function localizeUniversalSystemText(currentValue, translationKey, lang = 'en') {
+  return resolveUniversalDefaultValue(currentValue, translationKey, lang);
+}
+
+export function localizeUniversalContacts(contacts, lang = 'en') {
+  const next = clone(contacts || {});
+  if (next.contactForm && typeof next.contactForm === 'object') {
+    next.contactForm.label = resolveUniversalDefaultValue(next.contactForm.label, 'universal_site.contact.send_message', lang);
+  }
+  const channels = next.channels && typeof next.channels === 'object' ? next.channels : {};
+  for (const [channelKey, channel] of Object.entries(channels)) {
+    if (!channel || typeof channel !== 'object') continue;
+    channel.label = localizeUniversalContactLabel(channel.label, channelKey, lang);
+  }
+  return next;
+}
+
+export function localizeUniversalPages(pages, groupKey = 'tour_operator', lang = 'en') {
+  return (Array.isArray(pages) ? pages : []).map((page) => {
+    const localizedTitle = localizeUniversalPageTitle(page.title, page.page_key, groupKey, lang);
+    const blocks = (Array.isArray(page.blocks) ? page.blocks : []).map((block) => {
+      if (page.page_type !== 'legal' || block?.type !== 'legal') return block;
+      return {
+        ...block,
+        label: localizeUniversalPageTitle(block.label, page.page_key, groupKey, lang),
+        content: {
+          ...(block.content || {}),
+          heading: localizeUniversalPageTitle(block.content?.heading, page.page_key, groupKey, lang),
+        },
+      };
+    });
+    return {
+      ...page,
+      title: localizedTitle,
+      blocks,
+    };
+  });
+}
+
+export function localizeUniversalMenuItems(menuItems, groupKey = 'tour_operator', lang = 'en') {
+  return (Array.isArray(menuItems) ? menuItems : []).map((item) => ({
+    ...item,
+    label: localizeUniversalMenuLabel(item.label, item.item_key, item.page_key, groupKey, lang),
+  }));
 }
 
 function createField(id, label, type, path, extra = {}) {
@@ -239,23 +631,6 @@ function createTourDetailSections(heroClasses) {
       {
         price_cards: { source: 'tour.pricing_cards' },
         price_from: { source: 'tour.price_from' },
-      },
-    ),
-    createSection(
-      'booking-engine',
-      'booking_engine_slot',
-      'Booking Engine Slot',
-      'py-16 bg-slate-900 text-white',
-      {
-        heading: 'Check availability',
-        body: 'This block is reserved for the system booking engine.',
-        cta_label: 'Check availability',
-      },
-      {
-        slot: {
-          source: 'system.booking_engine',
-          binds_to: ['tour_id', 'pricing_engine'],
-        },
       },
     ),
   ];
@@ -1081,6 +1456,24 @@ export const UNIVERSAL_VARIANTS = VARIANT_DEFINITIONS.map((variant) => ({
   layout_profile: clone(variant.layoutProfile || {}),
 }));
 
+export function getUniversalGroups(lang = 'en') {
+  return Object.values(GROUP_DEFINITIONS).map((group) => localizeGroupDefinition(group, lang));
+}
+
+export function getUniversalVariants(lang = 'en') {
+  return VARIANT_DEFINITIONS.map((variant) => {
+    const localized = localizeVariantDefinition(variant, lang);
+    return {
+      key: localized.key,
+      group_key: localized.groupKey,
+      label: localized.label,
+      description: localized.description,
+      theme: clone(localized.theme),
+      layout_profile: clone(localized.layoutProfile || {}),
+    };
+  });
+}
+
 export function slugify(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -1107,21 +1500,25 @@ export function getVariantByKey(variantKey) {
   return VARIANT_DEFINITIONS.find((variant) => variant.key === variantKey) || null;
 }
 
-export function getVariantsForGroup(groupKey) {
+export function getVariantsForGroup(groupKey, lang = 'en') {
   return VARIANT_DEFINITIONS
     .filter((variant) => variant.groupKey === groupKey)
-    .map((variant) => ({
-      key: variant.key,
-      group_key: variant.groupKey,
-      label: variant.label,
-      description: variant.description,
-      theme: clone(variant.theme),
-      layout_profile: clone(variant.layoutProfile || {}),
-    }));
+    .map((variant) => {
+      const localized = localizeVariantDefinition(variant, lang);
+      return {
+        key: localized.key,
+        group_key: localized.groupKey,
+        label: localized.label,
+        description: localized.description,
+        theme: clone(localized.theme),
+        layout_profile: clone(localized.layoutProfile || {}),
+      };
+    });
 }
 
-export function buildDefaultThemeTokens(groupKey, variantKey) {
+export function buildDefaultThemeTokens(groupKey, variantKey, lang = 'en') {
   const variant = getVariantByKey(variantKey) || getVariantByKey(getVariantsForGroup(groupKey)[0]?.key) || VARIANT_DEFINITIONS[0];
+  const copy = getUniversalSystemCopy(groupKey, lang);
   return {
     mode: 'light',
     group_key: groupKey,
@@ -1145,9 +1542,9 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
       header: {
         showMenuButton: true,
         showLanguageChip: true,
-        languageLabel: 'EN',
+        languageLabel: copy.header.languageChip,
         showLoginLink: true,
-        loginLabel: 'Login',
+        loginLabel: copy.header.login,
         loginHref: '',
         showBookNowButton: true,
         primaryPageKey: '',
@@ -1155,18 +1552,18 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
       },
       hero: {
         showMapLink: true,
-        mapLinkLabel: 'View map',
+        mapLinkLabel: copy.header.viewMap,
         mapLinkHref: '#section-destinations',
         showModuleShortcuts: true,
         showSearchPanel: true,
-        searchButtonLabel: 'Search',
+        searchButtonLabel: copy.search.button,
         showSecondaryCta: true,
       },
       socialRail: {
         visible: true,
       },
       menuDrawer: {
-        title: 'Curated Menu',
+        title: copy.header.curatedMenu,
       },
       floating: {
         showBookNow: false,
@@ -1178,7 +1575,7 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
         showInstagram: false,
       },
       footer: {
-        kickerText: 'Private journeys, quietly crafted',
+        kickerText: copy.footer.kicker,
         showNavigation: true,
         showContacts: true,
         showSocials: true,
@@ -1188,25 +1585,20 @@ export function buildDefaultThemeTokens(groupKey, variantKey) {
   };
 }
 
-export function getDefaultCtaLabels(groupKey) {
-  switch (String(groupKey || '').trim()) {
-    case 'stay_accommodation':
-    case 'transport_service':
-    case 'tour_operator':
-    default:
-      return {
-        discovery: 'Explore',
-        booking: 'Check availability',
-        contact: 'Contact us',
-      };
-  }
+export function getDefaultCtaLabels(groupKey, lang = 'en') {
+  const copy = getUniversalSystemCopy(groupKey, lang);
+  return {
+    discovery: copy.cta.discovery,
+    booking: copy.cta.booking,
+    contact: copy.cta.contact,
+  };
 }
 
-export function resolveThemeCtaLabel(theme, groupKey, intent, explicitLabel = '') {
+export function resolveThemeCtaLabel(theme, groupKey, intent, explicitLabel = '', lang = 'en') {
   const cleanExplicit = String(explicitLabel || '').trim();
   if (cleanExplicit) return cleanExplicit;
 
-  const defaults = getDefaultCtaLabels(groupKey);
+  const defaults = getDefaultCtaLabels(groupKey, lang);
   const cta = theme?.ui?.cta || {};
   if (intent === 'booking') {
     const bookingLabel = String(cta.bookingLabel || theme?.ui?.bookNowLabel || '').trim();
@@ -1218,27 +1610,28 @@ export function resolveThemeCtaLabel(theme, groupKey, intent, explicitLabel = ''
   return String(cta.discoveryLabel || '').trim() || defaults.discovery;
 }
 
-export function buildDefaultContacts() {
+export function buildDefaultContacts(lang = 'en') {
+  const copy = getUniversalSystemCopy('tour_operator', lang);
   return {
     contactForm: {
       enabled: true,
-      label: 'Send us a message',
+      label: copy.contact.sendMessage,
       endpoint: '/api/contact',
     },
     channels: {
-      phone: { enabled: false, label: 'Call us', value: '' },
-      email: { enabled: false, label: 'Email', value: '' },
-      whatsapp: { enabled: false, label: 'WhatsApp', value: '' },
-      zalo: { enabled: false, label: 'Zalo', value: '' },
-      instagram: { enabled: false, label: 'Instagram', value: '' },
-      facebook: { enabled: false, label: 'Facebook', value: '' },
-      youtube: { enabled: false, label: 'YouTube', value: '' },
-      address: { enabled: false, label: 'Address', value: '', mapUrl: '' },
+      phone: { enabled: false, label: copy.channel.phone, value: '' },
+      email: { enabled: false, label: copy.channel.email, value: '' },
+      whatsapp: { enabled: false, label: copy.channel.whatsapp, value: '' },
+      zalo: { enabled: false, label: copy.channel.zalo, value: '' },
+      instagram: { enabled: false, label: copy.channel.instagram, value: '' },
+      facebook: { enabled: false, label: copy.channel.facebook, value: '' },
+      youtube: { enabled: false, label: copy.channel.youtube, value: '' },
+      address: { enabled: false, label: copy.channel.address, value: '', mapUrl: '' },
     },
   };
 }
 
-function buildStandardPages(groupKey, variant) {
+function buildStandardPages(groupKey, variant, lang = 'en') {
   const group = GROUP_DEFINITIONS[groupKey];
   const blueprints = expandPageBlueprints(variant);
   const pages = groupKey === 'tour_operator'
@@ -1284,16 +1677,16 @@ function buildStandardPages(groupKey, variant) {
     pages.push({ pageKey: 'tour-detail-template', title: 'Tour Detail Template', slug: 'tour-detail-template', pageType: 'system', visible: 0, status: 'draft' });
   }
 
-  return pages.map((page) => ({
+  return localizeUniversalPages(pages.map((page) => ({
     ...page,
     blocks: clone(blueprints[page.pageKey] || []),
     seo: {},
-  }));
+  })), groupKey, lang);
 }
 
-export function buildDefaultMenuItems(groupKey, variantKey) {
+export function buildDefaultMenuItems(groupKey, variantKey, lang = 'en') {
   const variant = getVariantByKey(variantKey) || getVariantByKey(getVariantsForGroup(groupKey)[0]?.key) || VARIANT_DEFINITIONS[0];
-  return variant.defaultConfig.menu_structure.map((item, index) => ({
+  return localizeUniversalMenuItems(variant.defaultConfig.menu_structure.map((item, index) => ({
     itemKey: item.item_key,
     label: item.label,
     href: item.href,
@@ -1302,22 +1695,24 @@ export function buildDefaultMenuItems(groupKey, variantKey) {
     isExternal: 0,
     visible: 1,
     sortOrder: index,
-  }));
+  })), groupKey, lang);
 }
 
-export function buildVariantRuntimeConfig(groupKey, variantKey) {
+export function buildVariantRuntimeConfig(groupKey, variantKey, lang = 'en') {
   const variant = getVariantByKey(variantKey);
   if (!variant || variant.groupKey !== groupKey) {
     return null;
   }
 
   const group = GROUP_DEFINITIONS[groupKey];
+  const localizedVariant = localizeVariantDefinition(variant, lang);
+  const localizedGroup = localizeGroupDefinition(group, lang);
   return {
     group_key: groupKey,
-    group_label: group.label,
-    variant_key: variant.key,
-    variant_label: variant.label,
-    description: variant.description,
+    group_label: localizedGroup.label,
+    variant_key: localizedVariant.key,
+    variant_label: localizedVariant.label,
+    description: localizedVariant.description,
     entity_type: group.entityType,
     layout_profile: clone(variant.layoutProfile || {}),
     default_config: {
@@ -1354,8 +1749,8 @@ export function buildVariantRuntimeConfig(groupKey, variantKey) {
   };
 }
 
-export function buildEditorSchema(groupKey, variantKey) {
-  const runtime = buildVariantRuntimeConfig(groupKey, variantKey);
+export function buildEditorSchema(groupKey, variantKey, lang = 'en') {
+  const runtime = buildVariantRuntimeConfig(groupKey, variantKey, lang);
   if (!runtime) return null;
 
   const bookingPagePath = groupKey === 'tour_operator'
@@ -1370,10 +1765,10 @@ export function buildEditorSchema(groupKey, variantKey) {
       createEditorGroup('site_identity', 'Site Identity', [
         createField('site_name', 'Site Name', 'text', 'site.site_name'),
         createField('group_key', 'Industry Group', 'select', 'site.group_key', {
-          options: Object.values(GROUP_DEFINITIONS).map((group) => ({ label: group.label, value: group.key })),
+          options: getUniversalGroups(lang).map((group) => ({ label: group.label, value: group.key })),
         }),
         createField('variant_key', 'Variant', 'select', 'site.variant_key', {
-          options: getVariantsForGroup(groupKey).map((variant) => ({ label: variant.label, value: variant.key })),
+          options: getVariantsForGroup(groupKey, lang).map((variant) => ({ label: variant.label, value: variant.key })),
         }),
         createField('default_lang', 'Default Language', 'select', 'site.default_lang', {
           options: STRONG_LANGUAGE_OPTIONS,
@@ -1507,9 +1902,10 @@ export function buildEditorModel(site, theme, contacts, menu, pages, runtime) {
 }
 
 export function buildEditorStoreBundle({ site, theme, contacts, menu, pages, runtime }) {
+  const lang = site?.default_lang || 'en';
   return {
     editor_model: buildEditorModel(site, theme, contacts, menu, pages, runtime),
-    editor_schema: buildEditorSchema(site.group_key, site.variant_key),
+    editor_schema: buildEditorSchema(site.group_key, site.variant_key, lang),
     render_contract: runtime?.render_contract || null,
     variant_runtime: runtime,
   };
@@ -1525,6 +1921,31 @@ function setBlockContent(pages, pageKey, blockId, updates) {
   const block = page?.blocks?.find((entry) => entry.id === blockId);
   if (!block) return;
   block.content = { ...block.content, ...updates };
+}
+
+function getBootstrapSystemText(key, lang = 'en', vars = {}) {
+  const locale = normalizeLocale(lang);
+  const templates = {
+    en: {
+      auto_selected: 'Auto-selected {{variant}} based on your onboarding description. You can edit every field after bootstrap.',
+      onboarding_mock: 'Onboarding mock for {{siteName}}. Source prompt: {{summary}}',
+      rationale: 'Matched onboarding keywords against the template registry and selected {{variant}}.',
+      universal_site_name: 'Universal Site',
+    },
+    vi: {
+      auto_selected: 'Da tu dong chon {{variant}} dua tren mo ta onboarding. Ban co the sua moi truong sau khi bootstrap.',
+      onboarding_mock: 'Ban mock onboarding cho {{siteName}}. Mo ta nguon: {{summary}}',
+      rationale: 'Da doi chieu tu khoa onboarding voi registry template va chon {{variant}}.',
+      universal_site_name: 'Universal Site',
+    },
+    zh: {
+      auto_selected: '已根据 onboarding 描述自动选择 {{variant}}。Bootstrap 后您仍可编辑所有字段。',
+      onboarding_mock: '{{siteName}} 的 onboarding mock。来源描述：{{summary}}',
+      rationale: '已根据 onboarding 关键词匹配模板库，并选择 {{variant}}。',
+      universal_site_name: 'Universal Site',
+    },
+  };
+  return applyVars(templates[locale]?.[key] || templates.en[key] || key, vars);
 }
 
 export function recommendUniversalVariant(description = '') {
@@ -1587,31 +2008,27 @@ function buildBootstrapMediaSet(groupKey, variantKey) {
   };
 }
 
-export function buildUniversalBootstrapMock(description, tenantName = 'Universal Site') {
+export function buildUniversalBootstrapMock(description, tenantName = 'Universal Site', lang = 'en') {
   const variant = recommendUniversalVariant(description);
-  const scaffold = buildDefaultSiteScaffold(variant.groupKey, variant.key);
-  const siteName = tenantName || 'Universal Site';
-  const summary = String(description || '').trim() || variant.description;
-  const heroLabel = variant.groupKey === 'tour_operator'
-    ? 'Signature Route'
-    : variant.groupKey === 'stay_accommodation'
-      ? 'Signature Stay'
-      : 'Signature Service';
+  const localizedVariant = localizeVariantDefinition(variant, lang);
+  const scaffold = buildDefaultSiteScaffold(variant.groupKey, variant.key, lang);
+  const siteName = tenantName || getBootstrapSystemText('universal_site_name', lang);
+  const summary = String(description || '').trim() || localizedVariant.description;
   const heroTitle = summary.length > 72 ? `${summary.slice(0, 69)}...` : summary;
   const mediaSet = buildBootstrapMediaSet(variant.groupKey, variant.key);
   const heroImage = mediaSet.heroImage;
 
   setBlockContent(scaffold.pages, 'home', 'hero', {
-    eyebrow: variant.label,
+    eyebrow: localizedVariant.label,
     headline: heroTitle,
-    body: `Auto-selected ${variant.label} based on your onboarding description. You can edit every field after bootstrap.`,
+    body: getBootstrapSystemText('auto_selected', lang, { variant: localizedVariant.label }),
     hero_image: heroImage,
   });
   setBlockContent(scaffold.pages, 'home', 'gallery', {
     images: mediaSet.galleryImages,
   });
   setBlockContent(scaffold.pages, 'about-us', variant.groupKey === 'tour_operator' ? 'about-story' : variant.groupKey === 'stay_accommodation' ? 'stay-story' : 'service-story', {
-    body: `Onboarding mock for ${siteName}. Source prompt: ${summary}`,
+    body: getBootstrapSystemText('onboarding_mock', lang, { siteName, summary }),
   });
 
   const site = {
@@ -1620,7 +2037,7 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
     variant_key: variant.key,
     status: 'draft',
     site_name: siteName,
-    default_lang: 'en',
+    default_lang: normalizeLocale(lang),
     home_page_key: 'home',
   };
 
@@ -1635,7 +2052,7 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
     visible: Boolean(page.visible),
     blocks: clone(page.blocks || []),
     seo: {
-      title: `${siteName} | ${variant.label}`,
+      title: `${siteName} | ${localizedVariant.label}`,
       description: summary,
       og_image: heroImage,
     },
@@ -1654,14 +2071,15 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
     sort_order: item.sortOrder,
   }));
   const runtime = buildVariantRuntimeConfig(variant.groupKey, variant.key);
+  const localizedRuntime = buildVariantRuntimeConfig(variant.groupKey, variant.key, lang);
 
   return {
     recommendation: {
       description: summary,
       group_key: variant.groupKey,
       variant_key: variant.key,
-      variant_label: variant.label,
-      rationale: `Matched onboarding keywords against the 8-template registry and selected ${variant.label}.`,
+      variant_label: localizedVariant.label,
+      rationale: getBootstrapSystemText('rationale', lang, { variant: localizedVariant.label }),
     },
     site,
     theme: scaffold.themeTokens,
@@ -1674,23 +2092,23 @@ export function buildUniversalBootstrapMock(description, tenantName = 'Universal
       contacts: scaffold.contacts,
       menu,
       pages,
-      runtime,
+      runtime: localizedRuntime || runtime,
     }),
   };
 }
 
-export function buildDefaultSiteScaffold(groupKey, variantKey) {
-  const runtime = buildVariantRuntimeConfig(groupKey, variantKey);
+export function buildDefaultSiteScaffold(groupKey, variantKey, lang = 'en') {
+  const runtime = buildVariantRuntimeConfig(groupKey, variantKey, lang);
   if (!runtime) {
     throw new Error(`Unknown universal variant: ${groupKey}/${variantKey}`);
   }
 
   return {
-    themeTokens: buildDefaultThemeTokens(groupKey, variantKey),
-    contacts: buildDefaultContacts(),
-    menuItems: buildDefaultMenuItems(groupKey, variantKey),
-    pages: buildStandardPages(groupKey, getVariantByKey(variantKey)),
-    editorSchema: buildEditorSchema(groupKey, variantKey),
+    themeTokens: buildDefaultThemeTokens(groupKey, variantKey, lang),
+    contacts: buildDefaultContacts(lang),
+    menuItems: buildDefaultMenuItems(groupKey, variantKey, lang),
+    pages: buildStandardPages(groupKey, getVariantByKey(variantKey), lang),
+    editorSchema: buildEditorSchema(groupKey, variantKey, lang),
     renderContract: runtime.render_contract,
     variantRuntime: runtime,
   };

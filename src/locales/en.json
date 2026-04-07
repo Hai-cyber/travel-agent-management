@@ -128,6 +128,11 @@
       "revenue": "Revenue",
       "orders": "Orders",
       "manage": "Manage",
+      "tours": "Tours",
+      "destinations": "Destinations",
+      "accommodations": "Accommodations",
+      "gallery": "Gallery",
+      "properties": "Properties",
       "tours_destinations": "Tours & Destinations",
       "pricing": "Pricing",
       "add_ons": "Add-ons",
@@ -387,6 +392,89 @@
   "payments": {
     "compliance_gateway_active": "Tenant has at least one active electronic gateway.",
     "compliance_gateway_missing": "No electronic gateway is enabled yet. Configure API keys to activate one."
+  },
+  "universal_site": {
+    "nav": {
+      "home": "Home",
+      "tours": "Tours",
+      "destinations": "Destinations",
+      "featured_tours": "Featured Tours",
+      "accommodation": "Accommodation",
+      "hotels": "Hotels",
+      "services": "Services",
+      "booking": "Booking",
+      "reservation": "Reservation",
+      "about_us": "About Us",
+      "contact_us": "Contact Us",
+      "terms": "Terms & Conditions",
+      "privacy": "Privacy Policy",
+      "impressum": "Impressum",
+      "page": "Page"
+    },
+    "cta": {
+      "discovery": "Explore",
+      "booking": "Check availability",
+      "contact": "Contact us",
+      "view_itinerary": "View itinerary",
+      "open_standalone_page": "Open standalone page",
+      "request_quote": "Request quote",
+      "fast_quote": "Fast quote",
+      "quote": "Quote",
+      "plan_with_concierge": "Plan with concierge"
+    },
+    "header": {
+      "view_map": "View map",
+      "login": "Login",
+      "open_navigation": "Open navigation",
+      "close": "Close",
+      "curated_menu": "Curated Menu",
+      "language_chip": "EN"
+    },
+    "search": {
+      "destination_label": "Destination or interest",
+      "destination_placeholder": "Beach, adventure, Hoi An",
+      "travel_starts_label": "Travel starts",
+      "travel_starts_placeholder": "12 Oct 2026",
+      "travel_ends_label": "Travel ends",
+      "travel_ends_placeholder": "18 Oct 2026",
+      "guests_label": "Guests",
+      "guests_placeholder": "2 adults",
+      "code_label": "Code",
+      "code_placeholder": "Private",
+      "button": "Search",
+      "empty_kicker": "Search",
+      "no_matching_title": "No matching journeys",
+      "no_matching_body": "No journeys matched {{query}}. Try another destination or interest such as beach, culture, adventure, or a specific place name."
+    },
+    "footer": {
+      "get_in_touch": "Get in touch",
+      "follow": "Follow",
+      "nav_fallback": "Navigation stays tenant-controlled.",
+      "concierge_fallback": "Concierge details can be configured per tenant.",
+      "kicker": "Private journeys, quietly crafted"
+    },
+    "contact": {
+      "no_channels": "No contact channels configured yet.",
+      "send_message": "Send us a message"
+    },
+    "pricing": {
+      "from": "From",
+      "shared": "Shared",
+      "single": "Single",
+      "shared_room": "Shared room",
+      "single_room": "Single room",
+      "spotlight_body": "Live price spotlight powered by canonical tour pricing."
+    },
+    "channel": {
+      "phone": "Call us",
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "zalo": "Zalo",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "youtube": "YouTube",
+      "address": "Address"
+    }
   },
   "tour_config": {
     "meta": {
@@ -665,5 +753,141 @@
       "template_switched": "Template switched to \"{{template}}\"",
       "switch_failed": "Switch failed: {{error}}"
     }
+  },
+  "market_skins": {
+    "labels": {
+      "global_default": "Global English",
+      "vietnam_domestic": "Vietnam Domestic",
+      "china_outbound": "China Outbound",
+      "japan_premium": "Japan Premium",
+      "korea_premium": "Korea Premium",
+      "uk_curated": "United Kingdom",
+      "australia_outbound": "Australia Outbound",
+      "germany_curated": "Germany",
+      "france_curated": "France",
+      "spain_curated": "Spain"
+    }
+  },
+  "theme_presets": {
+    "variants": {
+      "tour_adventure": {
+        "label": "Adventure Operator",
+        "description": "Action-forward travel sales with route energy and itinerary depth."
+      },
+      "tour_luxury": {
+        "label": "Six Senses Immersive Frame",
+        "description": "Default storefront shell for premium journey brands with Six Senses-style editorial chrome."
+      },
+      "tour_luxury_riviera": {
+        "label": "Maison Verenne Riviera Frame",
+        "description": "A brighter coastal luxury variation that keeps the Six Senses shell but shifts the mood toward Mediterranean calm and editorial leisure."
+      },
+      "stay_boutique": {
+        "label": "Boutique Stay",
+        "description": "Warm hospitality layout for boutique hotels, guesthouses, and lodges."
+      },
+      "stay_resort": {
+        "label": "Luxury Resort",
+        "description": "Large-image layout for resorts and premium accommodation properties."
+      },
+      "transfer_private": {
+        "label": "Private Transfer",
+        "description": "Utility-first shell for private transfer and transport service businesses."
+      },
+      "tour_expedition": {
+        "label": "Expedition Tour",
+        "description": "Dense route-first storytelling for serious multi-stop itineraries and guided expeditions."
+      },
+      "stay_urban": {
+        "label": "Urban Stay",
+        "description": "Compact city-hospitality layout for business hotels and modern apartments."
+      },
+      "transfer_city": {
+        "label": "City Transfer",
+        "description": "Fast-response layout for airport, station, and city shuttle services."
+      }
+    }
+  },
+  "dashboard_market_skin": {
+    "label": "market skin",
+    "hint": "Market skin controls default locale, authoritative booking currency, and non-editable storefront copy.",
+    "none_available": "No market skins available",
+    "save": "Save",
+    "saved": "Save market skin"
+  },
+  "dashboard_launch": {
+    "guide_title": "Start Here: launch in small steps",
+    "guide_copy": "You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build product modules for tours, destinations, accommodations, properties, and gallery content.",
+    "status_done": "Done",
+    "status_next": "Next",
+    "status_later": "Later",
+    "subdomain_locked_prefix": "Subdomain locked:",
+    "subdomain_locked_suffix": "This platform subdomain can only be chosen once.",
+    "subdomain_suggested_prefix": "Suggested:",
+    "subdomain_suggested_suffix": "short, brand-first, and easy to remember. You can lock it once.",
+    "subdomain_title": "Pick and lock your subdomain",
+    "subdomain_desc_locked_prefix": "Locked at",
+    "subdomain_desc_locked_suffix": "This platform address is reserved and cannot be changed later.",
+    "subdomain_desc_empty": "Start here first. Platform subdomains are limited, so choose one clean brand address and lock it once.",
+    "subdomain_label_locked": "Subdomain locked",
+    "subdomain_label_action": "Lock subdomain now",
+    "skin_title": "Choose skin and brand style",
+    "skin_selected_prefix": "Skin selected:",
+    "skin_selected_suffix": "You can still refine fonts, colors, and shell details.",
+    "skin_empty": "Pick the visual direction before editing pages so the whole site stays consistent.",
+    "skin_choose": "Choose skin",
+    "skin_refine": "Refine skin",
+    "website_title": "Create the website shell",
+    "website_desc_ready": "The website base exists. Continue shaping homepage sections, copy, and layout from Website Design.",
+    "website_desc_empty": "Set the first website structure now: homepage story, sections, and visual identity.",
+    "website_label_ready": "Edit website",
+    "website_label_empty": "Create website",
+    "tours_title": "Configure tours",
+    "tours_count_single": "tour is already loaded",
+    "tours_count_plural": "tours are already loaded",
+    "tours_desc_ready": "Refine pricing, stops, and sales copy.",
+    "tours_desc_empty": "Add tours, pricing, stops, and sales-ready content. This is the main commercial setup step today.",
+    "tours_label_ready": "Refine tours",
+    "tours_label_empty": "Configure tours",
+    "destinations_title": "Add destinations",
+    "destinations_count_single": "destination card is",
+    "destinations_count_plural": "destination cards are",
+    "destinations_desc_ready": "already feeding the public site.",
+    "destinations_desc_empty": "Turn raw tours into browsable destination stories customers can scan quickly.",
+    "destinations_label_ready": "Refine destinations",
+    "destinations_label_empty": "Add destinations",
+    "properties_title": "Add properties",
+    "properties_count_single": "property is",
+    "properties_count_plural": "properties are",
+    "properties_desc_ready": "already managed in the separate hotel engine.",
+    "properties_desc_empty": "Add hotel-side properties in the separate property engine. These do not overwrite tour accommodation storytelling.",
+    "properties_label_ready": "Review properties",
+    "properties_label_empty": "Add properties",
+    "gallery_title": "Build the gallery",
+    "gallery_count_single": "gallery image is",
+    "gallery_count_plural": "gallery images are",
+    "gallery_desc_ready": "already available for the storefront.",
+    "gallery_desc_empty": "Add visual proof so the site sells with imagery, not just itinerary text.",
+    "gallery_label_ready": "Refine gallery",
+    "gallery_label_empty": "Build gallery",
+    "system_title": "Finish system settings",
+    "system_desc_ready": "Contact or legal basics are already in place. Review them before going live.",
+    "system_desc_empty": "Finish contact channels, legal pages, and core system defaults before launch.",
+    "system_label_ready": "Review system settings",
+    "system_label_empty": "Finish system settings"
+  },
+  "tour_config_market_skin": {
+    "settings_title": "Market Skin Settings",
+    "settings_title_pricing": "Market Skin and Authoritative Currency",
+    "primary_label": "Primary Market Skin",
+    "hint_default": "This preset controls the tenant default locale, authoritative booking currency, and non-editable storefront copy.",
+    "hint_pricing": "This preset controls the tenant booking currency and default locale. Display currency below is only for this pricing workspace view.",
+    "save": "Save Market Skin",
+    "no_catalog": "No market skins available",
+    "preview_prefix": "Preset preview:",
+    "preview_empty": "No market skin preset loaded yet.",
+    "extra_summary": "Primary market: {{market}}. UI locale follows {{locale}}. Booking currency follows {{currency}}.",
+    "saved": "Market skin saved. Default locale and authoritative currency updated.",
+    "save_failed": "Failed to save market skin."
   }
 }

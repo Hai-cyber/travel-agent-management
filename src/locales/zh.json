@@ -128,6 +128,11 @@
       "revenue": "收入",
       "orders": "订单",
       "manage": "管理",
+      "tours": "行程",
+      "destinations": "目的地",
+      "accommodations": "住宿",
+      "gallery": "图库",
+      "properties": "物业",
       "tours_destinations": "行程与目的地",
       "pricing": "价格",
       "add_ons": "附加服务",
@@ -387,6 +392,89 @@
   "payments": {
     "compliance_gateway_active": "该租户至少已启用一个电子支付网关。",
     "compliance_gateway_missing": "尚未启用任何电子支付网关。请先配置 API key 再激活。"
+  },
+  "universal_site": {
+    "nav": {
+      "home": "首页",
+      "tours": "行程",
+      "destinations": "目的地",
+      "featured_tours": "精选行程",
+      "accommodation": "住宿",
+      "hotels": "酒店",
+      "services": "服务",
+      "booking": "预订",
+      "reservation": "预订",
+      "about_us": "关于我们",
+      "contact_us": "联系我们",
+      "terms": "条款与条件",
+      "privacy": "隐私政策",
+      "impressum": "法律声明",
+      "page": "页面"
+    },
+    "cta": {
+      "discovery": "探索",
+      "booking": "查看可订情况",
+      "contact": "联系我们",
+      "view_itinerary": "查看行程",
+      "open_standalone_page": "打开独立页面",
+      "request_quote": "请求报价",
+      "fast_quote": "快速报价",
+      "quote": "报价",
+      "plan_with_concierge": "与礼宾团队规划行程"
+    },
+    "header": {
+      "view_map": "查看地图",
+      "login": "登录",
+      "open_navigation": "打开导航",
+      "close": "关闭",
+      "curated_menu": "精选菜单",
+      "language_chip": "中文"
+    },
+    "search": {
+      "destination_label": "目的地或兴趣",
+      "destination_placeholder": "海滩、探险、会安",
+      "travel_starts_label": "出发日期",
+      "travel_starts_placeholder": "2026年10月12日",
+      "travel_ends_label": "结束日期",
+      "travel_ends_placeholder": "2026年10月18日",
+      "guests_label": "人数",
+      "guests_placeholder": "2位成人",
+      "code_label": "代码",
+      "code_placeholder": "私享",
+      "button": "搜索",
+      "empty_kicker": "搜索",
+      "no_matching_title": "没有匹配的行程",
+      "no_matching_body": "没有与 {{query}} 匹配的行程。请尝试其他目的地或兴趣，例如海滩、文化、探险，或输入具体地点名称。"
+    },
+    "footer": {
+      "get_in_touch": "联系咨询",
+      "follow": "关注我们",
+      "nav_fallback": "导航仍由租户自行控制。",
+      "concierge_fallback": "礼宾联系方式可按租户单独配置。",
+      "kicker": "私享旅程，安静而精心地打造"
+    },
+    "contact": {
+      "no_channels": "尚未配置任何联系渠道。",
+      "send_message": "给我们留言"
+    },
+    "pricing": {
+      "from": "起价",
+      "shared": "拼房",
+      "single": "单住",
+      "shared_room": "拼房价格",
+      "single_room": "单住价格",
+      "spotlight_body": "价格亮点直接来自标准定价引擎。"
+    },
+    "channel": {
+      "phone": "致电我们",
+      "email": "邮箱",
+      "whatsapp": "WhatsApp",
+      "zalo": "Zalo",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "youtube": "YouTube",
+      "address": "地址"
+    }
   },
   "tour_config": {
     "meta": {
@@ -665,5 +753,141 @@
       "template_switched": "模板已切换为 \"{{template}}\"",
       "switch_failed": "模板切换失败：{{error}}"
     }
+  },
+  "market_skins": {
+    "labels": {
+      "global_default": "全球英语",
+      "vietnam_domestic": "越南本地市场",
+      "china_outbound": "中国出境",
+      "japan_premium": "日本高端",
+      "korea_premium": "韩国高端",
+      "uk_curated": "英国精选",
+      "australia_outbound": "澳大利亚出境",
+      "germany_curated": "德国精选",
+      "france_curated": "法国精选",
+      "spain_curated": "西班牙精选"
+    }
+  },
+  "theme_presets": {
+    "variants": {
+      "tour_adventure": {
+        "label": "冒险旅行运营商",
+        "description": "偏行动感的旅行销售模板，强调路线张力与行程深度。"
+      },
+      "tour_luxury": {
+        "label": "Six Senses 沉浸式框架",
+        "description": "适用于高端旅程品牌的默认 storefront 外壳，带有 Six Senses 风格的编辑气质。"
+      },
+      "tour_luxury_riviera": {
+        "label": "Maison Verenne Riviera 框架",
+        "description": "更明亮的海岸奢华变体，保留 Six Senses 外壳，但将氛围转向地中海式的平静与编辑感。"
+      },
+      "stay_boutique": {
+        "label": "精品住宿",
+        "description": "适合精品酒店、民宿与小型度假屋的温暖待客布局。"
+      },
+      "stay_resort": {
+        "label": "奢华度假村",
+        "description": "适合度假村与高端住宿资产的大图布局。"
+      },
+      "transfer_private": {
+        "label": "私人接送",
+        "description": "面向私人接送与交通服务业务的 utility-first 外壳。"
+      },
+      "tour_expedition": {
+        "label": "探险行程",
+        "description": "强调路线逻辑的密集叙事模板，适合多站深度行程与探险产品。"
+      },
+      "stay_urban": {
+        "label": "都市住宿",
+        "description": "适合商务酒店与现代公寓的紧凑型城市住宿布局。"
+      },
+      "transfer_city": {
+        "label": "城市接送",
+        "description": "适用于机场、车站与城市接驳服务的快速响应布局。"
+      }
+    }
+  },
+  "dashboard_market_skin": {
+    "label": "market skin",
+    "hint": "Market skin 控制默认语言、权威预订货币，以及租户不可编辑的 storefront 文案。",
+    "none_available": "没有可用的 market skin",
+    "save": "保存",
+    "saved": "保存 market skin"
+  },
+  "dashboard_launch": {
+    "guide_title": "从这里开始：分小步完成上线",
+    "guide_copy": "你已经在无需信用卡的情况下完成注册，而且 launch 方案可免费使用 6 个月。接下来，请先设置一个干净的子域名，选择或微调网站 skin，然后继续为 tours、destinations、accommodations、properties 和 gallery 内容建立 product modules。",
+    "status_done": "完成",
+    "status_next": "下一步",
+    "status_later": "稍后",
+    "subdomain_locked_prefix": "子域名已锁定：",
+    "subdomain_locked_suffix": "这个平台子域名只能选择一次。",
+    "subdomain_suggested_prefix": "建议：",
+    "subdomain_suggested_suffix": "简短、品牌优先、便于记忆。你只能锁定一次。",
+    "subdomain_title": "选择并锁定子域名",
+    "subdomain_desc_locked_prefix": "已锁定为",
+    "subdomain_desc_locked_suffix": "这个平台地址已保留，之后不能再修改。",
+    "subdomain_desc_empty": "先从这里开始。平台子域名数量有限，所以请选择一个干净的品牌地址并一次性锁定。",
+    "subdomain_label_locked": "子域名已锁定",
+    "subdomain_label_action": "立即锁定子域名",
+    "skin_title": "选择 skin 与品牌风格",
+    "skin_selected_prefix": "已选 skin：",
+    "skin_selected_suffix": "您仍可继续微调字体、颜色与 shell 细节。",
+    "skin_empty": "请先确定视觉方向，再编辑页面，以保证整站一致性。",
+    "skin_choose": "选择 skin",
+    "skin_refine": "微调 skin",
+    "website_title": "创建网站外壳",
+    "website_desc_ready": "网站基础已经存在。继续在 Website Design 中调整首页 sections、文案与布局。",
+    "website_desc_empty": "现在先搭建第一版网站结构：首页故事、sections 和视觉识别。",
+    "website_label_ready": "编辑网站",
+    "website_label_empty": "创建网站",
+    "tours_title": "配置行程",
+    "tours_count_single": "个行程已加载",
+    "tours_count_plural": "个行程已加载",
+    "tours_desc_ready": "继续优化价格、stops 与销售文案。",
+    "tours_desc_empty": "添加行程、价格、stops 与可销售内容。这是当前最核心的商业配置步骤。",
+    "tours_label_ready": "优化行程",
+    "tours_label_empty": "配置行程",
+    "destinations_title": "添加目的地",
+    "destinations_count_single": "个目的地卡片已经",
+    "destinations_count_plural": "个目的地卡片已经",
+    "destinations_desc_ready": "在公网站点中生效。",
+    "destinations_desc_empty": "把原始 tours 转成用户可快速浏览的目的地故事。",
+    "destinations_label_ready": "优化目的地",
+    "destinations_label_empty": "添加目的地",
+    "properties_title": "添加物业",
+    "properties_count_single": "个物业已经",
+    "properties_count_plural": "个物业已经",
+    "properties_desc_ready": "在独立酒店引擎中管理。",
+    "properties_desc_empty": "在独立的 property engine 中添加酒店侧物业。这不会覆盖 tour accommodation 的叙事内容。",
+    "properties_label_ready": "查看物业",
+    "properties_label_empty": "添加物业",
+    "gallery_title": "构建图库",
+    "gallery_count_single": "张图库图片已经",
+    "gallery_count_plural": "张图库图片已经",
+    "gallery_desc_ready": "可用于 storefront。",
+    "gallery_desc_empty": "补充视觉素材，让网站靠图像销售，而不是只靠 itinerary 文案。",
+    "gallery_label_ready": "优化图库",
+    "gallery_label_empty": "构建图库",
+    "system_title": "完成系统设置",
+    "system_desc_ready": "联系信息或法律基础内容已经具备。上线前请再检查一遍。",
+    "system_desc_empty": "上线前完成联系渠道、法律页面和核心系统默认值。",
+    "system_label_ready": "检查系统设置",
+    "system_label_empty": "完成系统设置"
+  },
+  "tour_config_market_skin": {
+    "settings_title": "Market Skin 设置",
+    "settings_title_pricing": "Market Skin 与权威预订货币",
+    "primary_label": "主 Market Skin",
+    "hint_default": "该 preset 控制租户默认语言、权威预订货币，以及不可编辑的 storefront 文案。",
+    "hint_pricing": "该 preset 控制租户预订货币与默认语言。下方显示货币仅用于当前 pricing 工作区视图。",
+    "save": "保存 Market Skin",
+    "no_catalog": "没有可用的 market skin",
+    "preview_prefix": "Preset 预览：",
+    "preview_empty": "尚未加载任何 market skin preset。",
+    "extra_summary": "Primary market：{{market}}。UI locale 跟随 {{locale}}。Booking currency 跟随 {{currency}}。",
+    "saved": "Market skin 已保存。默认语言与权威货币已更新。",
+    "save_failed": "保存 market skin 失败。"
   }
 }

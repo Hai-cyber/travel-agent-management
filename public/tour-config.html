@@ -847,12 +847,34 @@
   </div>
 </section>
 
+<template id="market-skin-settings-template">
+  <div class="card" style="margin-bottom:0">
+    <div class="card-header"><h2>Market Skin Settings</h2></div>
+    <div class="card-body">
+      <div class="field-row cols-2" style="align-items:end">
+        <div class="field">
+          <label>Primary Market Skin</label>
+          <select data-market-skin-select></select>
+          <div class="field-note" data-market-skin-hint>Market skin controls tenant default locale, authoritative booking currency, and non-editable storefront copy.</div>
+        </div>
+        <div class="btn-row" style="justify-content:flex-end;margin-top:0">
+          <button type="button" class="btn btn-primary" data-market-skin-save>Save Market Skin</button>
+        </div>
+      </div>
+      <div data-market-skin-preview style="margin-top:12px;padding:12px 14px;border-radius:10px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:13px;font-weight:600">Preset preview appears here.</div>
+      <div data-market-skin-extra style="margin-top:10px;font-size:12px;line-height:1.6;color:#64748b"></div>
+    </div>
+  </div>
+</template>
+
 <!-- ----------------------------  TAB 3: CONTENT  ---------------------------- -->
 <section class="panel" id="panel-content">
   <div id="content-selected-notice" class="selected-notice" style="display:none">
     <span data-i18n="tour_config.content.editing">Editing:</span> <strong id="content-tour-name-label"></strong>
     <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="content-tour-id-label"></span>
   </div>
+
+  <div id="content-market-skin-slot" style="margin-bottom:20px"></div>
 
   <div class="card">
     <div class="card-body">
@@ -1123,6 +1145,8 @@
     <span><span data-i18n="tour_config.pricing.pricing_for">Pricing for:</span> <strong id="pricing-tour-label"></strong></span>
     <button class="btn btn-ghost btn-sm" id="btn-refresh-pricing" style="margin-left:auto"><span aria-hidden="true">&#x21BA;</span> <span data-i18n="tour_config.pricing.refresh">Refresh</span></button>
   </div>
+
+  <div id="pricing-market-skin-slot" style="margin-bottom:20px"></div>
 
   <!-- TWO-COLUMN GRID -->
   <div style="display:grid;grid-template-columns:65fr 35fr;gap:24px;align-items:start">
@@ -1438,7 +1462,41 @@ const S = {
     appendMode: false,
     title: 'Add image',
   },
-  uiLang: localStorage.getItem('tc_ui_lang') ?? ((navigator.language || 'en').toLowerCase().split('-')[0]),
+  uiLang: 'en',
+  uiLocaleTag: localStorage.getItem('tc_ui_lang') || (navigator.language || 'en'),
+  calcCurrency: 'EUR',
+  tenantSettings: null,
+  tenantCatalogs: {
+    locales: ['en', 'vi', 'zh'],
+    currencies: [
+      { code: 'EUR', label: 'Euro', locale: 'de-DE', symbol: '€' },
+      { code: 'USD', label: 'US Dollar', locale: 'en-US', symbol: '$' },
+      { code: 'VND', label: 'Vietnamese Dong', locale: 'vi-VN', symbol: '₫' },
+    ],
+    market_skins: [],
+  },
+  activeMarketSkin: null,
+};
+
+const LOCALE_LABELS = {
+  en: 'English',
+  'en-US': 'English (United States)',
+  'en-GB': 'English (United Kingdom)',
+  'en-AU': 'English (Australia)',
+  vi: 'Vietnamese',
+  'vi-VN': 'Vietnamese',
+  zh: 'Chinese',
+  'zh-CN': 'Chinese (Simplified)',
+  ja: 'Japanese',
+  'ja-JP': 'Japanese',
+  ko: 'Korean',
+  'ko-KR': 'Korean',
+  de: 'German',
+  'de-DE': 'German',
+  fr: 'French',
+  'fr-FR': 'French',
+  es: 'Spanish',
+  'es-ES': 'Spanish',
 };
 
 const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -1446,6 +1504,7 @@ const WARN_IMAGE_UPLOAD_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 6000;
 
 let UI_MESSAGES = {};
+let UI_MESSAGES_FALLBACK = {};
 
 function getNestedValue(dict, key) {
   return String(key).split('.').reduce((node, part) => node?.[part], dict);
@@ -1456,12 +1515,235 @@ function applyVars(template, vars = {}) {
 }
 
 function ti(key, vars = {}) {
-  return applyVars(getNestedValue(UI_MESSAGES, key) ?? key, vars);
+  return applyVars(getNestedValue(UI_MESSAGES, key) ?? getNestedValue(UI_MESSAGES_FALLBACK, key) ?? key, vars);
+}
+
+function normalizeLocaleTag(tag, fallback = 'en') {
+  const value = String(tag || '').trim();
+  return value || fallback;
+}
+
+function getLocaleOptions() {
+  const locales = Array.isArray(S.tenantCatalogs?.locales) && S.tenantCatalogs.locales.length
+    ? S.tenantCatalogs.locales
+    : ['en', 'vi', 'zh'];
+  return [...new Set(locales.map((entry) => normalizeLocaleTag(entry)))];
+}
+
+function getCurrencyOptions() {
+  return Array.isArray(S.tenantCatalogs?.currencies) && S.tenantCatalogs.currencies.length
+    ? S.tenantCatalogs.currencies
+    : [
+        { code: 'EUR', label: 'Euro', locale: 'de-DE', symbol: '€' },
+        { code: 'USD', label: 'US Dollar', locale: 'en-US', symbol: '$' },
+        { code: 'VND', label: 'Vietnamese Dong', locale: 'vi-VN', symbol: '₫' },
+      ];
+}
+
+function getUiLocaleDisplay(tag) {
+  const exact = normalizeLocaleTag(tag);
+  if (LOCALE_LABELS[exact]) return LOCALE_LABELS[exact];
+  try {
+    const [languageCode, regionCode] = exact.split('-');
+    const languageName = new Intl.DisplayNames(['en'], { type: 'language' }).of(languageCode);
+    if (!regionCode) return languageName || exact;
+    const regionName = new Intl.DisplayNames(['en'], { type: 'region' }).of(regionCode.toUpperCase());
+    if (languageName && regionName) return `${languageName} (${regionName})`;
+    return languageName || exact;
+  } catch {
+    return exact;
+  }
+}
+
+function buildCurrencyOptionLabel(entry) {
+  const code = String(entry?.code || '').toUpperCase();
+  const symbol = String(entry?.symbol || '').trim();
+  const locale = String(entry?.locale || '').trim();
+  const label = String(entry?.label || code).trim();
+  const parts = [code];
+  if (symbol) parts.push(symbol);
+  parts.push(label);
+  if (locale) parts.push(`(${locale})`);
+  return parts.join(' — ');
+}
+
+function getMarketSkinOptions() {
+  return Array.isArray(S.tenantCatalogs?.market_skins) ? S.tenantCatalogs.market_skins : [];
+}
+
+function getCurrentMarketSkin() {
+  const currentKey = String(S.tenantSettings?.market_skin_key || 'global-default').trim();
+  return getMarketSkinOptions().find((entry) => entry.key === currentKey) || null;
+}
+
+function buildMarketSkinOptionLabel(skin) {
+  return `${skin.label} — ${skin.default_locale} — ${skin.booking_currency}`;
+}
+
+function buildMarketSkinPreviewText(skin) {
+  if (!skin) return `${ti('market_skins.labels.global_default')} — en-US — USD`;
+  return `${skin.label} — ${skin.default_locale} — ${skin.booking_currency}`;
+}
+
+function renderMarketSkinCard(slotId, variant = 'content') {
+  const slot = document.getElementById(slotId);
+  const template = document.getElementById('market-skin-settings-template');
+  if (!slot || !template) return;
+  slot.innerHTML = '';
+  const fragment = template.content.cloneNode(true);
+  const heading = fragment.querySelector('h2');
+  const hint = fragment.querySelector('[data-market-skin-hint]');
+  const extra = fragment.querySelector('[data-market-skin-extra]');
+  const saveButton = fragment.querySelector('[data-market-skin-save]');
+  const select = fragment.querySelector('[data-market-skin-select]');
+  const preview = fragment.querySelector('[data-market-skin-preview]');
+  const primaryLabel = fragment.querySelector('label');
+
+  if (heading) heading.textContent = variant === 'pricing' ? ti('tour_config_market_skin.settings_title_pricing') : ti('tour_config_market_skin.settings_title');
+  if (primaryLabel) primaryLabel.textContent = ti('tour_config_market_skin.primary_label');
+  if (hint) {
+    hint.textContent = variant === 'pricing'
+      ? ti('tour_config_market_skin.hint_pricing')
+      : ti('tour_config_market_skin.hint_default');
+  }
+  if (saveButton) saveButton.textContent = ti('tour_config_market_skin.save');
+  if (saveButton) saveButton.dataset.marketSkinContext = variant;
+  if (select) select.id = `${variant}-market-skin-select`;
+  if (preview) {
+    preview.id = `${variant}-market-skin-preview`;
+    preview.textContent = `${ti('tour_config_market_skin.preview_prefix')} ${ti('tour_config_market_skin.preview_empty')}`;
+  }
+  if (extra) extra.id = `${variant}-market-skin-extra`;
+
+  slot.appendChild(fragment);
+}
+
+function renderMarketSkinSlots() {
+  renderMarketSkinCard('content-market-skin-slot', 'content');
+  renderMarketSkinCard('pricing-market-skin-slot', 'pricing');
+  syncMarketSkinControls();
+  bindMarketSkinActions();
+}
+
+function syncMarketSkinControls() {
+  const skins = getMarketSkinOptions();
+  const selectedSkin = getCurrentMarketSkin() || skins[0] || null;
+  ['content', 'pricing'].forEach((context) => {
+    const select = document.getElementById(`${context}-market-skin-select`);
+    const preview = document.getElementById(`${context}-market-skin-preview`);
+    const extra = document.getElementById(`${context}-market-skin-extra`);
+    if (select) {
+      if (!skins.length) {
+        select.innerHTML = `<option value="">${esc(ti('tour_config_market_skin.no_catalog'))}</option>`;
+        select.disabled = true;
+      } else {
+        select.disabled = false;
+        setSelectOptions(select, skins.map((skin) => ({ value: skin.key, label: buildMarketSkinOptionLabel(skin) })), selectedSkin?.key || 'global-default');
+      }
+    }
+    if (preview) preview.textContent = `${ti('tour_config_market_skin.preview_prefix')} ${buildMarketSkinPreviewText(selectedSkin)}`;
+    if (extra) {
+      extra.textContent = selectedSkin
+        ? ti('tour_config_market_skin.extra_summary', { market: selectedSkin.primary_market, locale: selectedSkin.ui_locale || selectedSkin.default_locale, currency: selectedSkin.booking_currency })
+        : ti('tour_config_market_skin.preview_empty');
+    }
+  });
+}
+
+async function saveMarketSkinSetting(context = 'content') {
+  const select = document.getElementById(`${context}-market-skin-select`);
+  if (!select) return;
+  const nextKey = String(select.value || '').trim();
+  if (!nextKey) return;
+  const button = document.querySelector(`[data-market-skin-context="${context}"]`);
+  const originalLabel = button?.textContent || ti('tour_config_market_skin.save');
+  if (button) button.textContent = ti('common.loading');
+  try {
+    const response = await fetch(`${S.baseUrl}/api/tenants/settings`, {
+      method: 'PATCH',
+      headers: {
+        'X-Tenant-ID': S.tenantId,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ market_skin_key: nextKey }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+    S.tenantSettings = payload.settings || S.tenantSettings;
+    S.tenantCatalogs = payload.catalogs || S.tenantCatalogs;
+    S.activeMarketSkin = getCurrentMarketSkin();
+    S.uiLocaleTag = normalizeLocaleTag(S.activeMarketSkin?.ui_locale || S.tenantSettings?.default_locale || S.uiLocaleTag || 'en', 'en');
+    await loadUiLocale(S.uiLocaleTag);
+    syncTenantSelectors();
+    syncMarketSkinControls();
+    if (S.tour) {
+      prefillContent(S.tour);
+      try {
+        await loadPricing();
+      } catch (_) {}
+    }
+    toast(ti('tour_config_market_skin.saved'));
+    if (button) button.textContent = ti('common.success');
+  } catch (error) {
+    toast(error.message || ti('tour_config_market_skin.save_failed'), 'err');
+    syncMarketSkinControls();
+    if (button) button.textContent = ti('common.error');
+  } finally {
+    window.setTimeout(() => {
+      if (button) button.textContent = originalLabel;
+    }, 1400);
+  }
+}
+
+function bindMarketSkinActions() {
+  document.querySelectorAll('[data-market-skin-save]').forEach((button) => {
+    button.onclick = () => saveMarketSkinSetting(button.dataset.marketSkinContext || 'content');
+  });
+  ['content', 'pricing'].forEach((context) => {
+    const select = document.getElementById(`${context}-market-skin-select`);
+    if (!select) return;
+    select.onchange = () => {
+      const skin = getMarketSkinOptions().find((entry) => entry.key === select.value) || null;
+      const preview = document.getElementById(`${context}-market-skin-preview`);
+      const extra = document.getElementById(`${context}-market-skin-extra`);
+      if (preview) preview.textContent = `${ti('tour_config_market_skin.preview_prefix')} ${buildMarketSkinPreviewText(skin)}`;
+      if (extra) {
+        extra.textContent = skin
+          ? ti('tour_config_market_skin.extra_summary', { market: skin.primary_market, locale: skin.ui_locale || skin.default_locale, currency: skin.booking_currency })
+          : ti('tour_config_market_skin.preview_empty');
+      }
+    };
+  });
+}
+
+function setSelectOptions(selectEl, options, selectedValue) {
+  if (!selectEl) return;
+  const safeSelected = String(selectedValue || '').trim();
+  selectEl.innerHTML = options.map((option) => `<option value="${esc(option.value)}">${esc(option.label)}</option>`).join('');
+  if (safeSelected && options.some((option) => option.value === safeSelected)) {
+    selectEl.value = safeSelected;
+  } else if (options[0]) {
+    selectEl.value = options[0].value;
+  }
+}
+
+function syncTenantSelectors() {
+  const localeOptions = getLocaleOptions().map((tag) => ({ value: tag, label: getUiLocaleDisplay(tag) }));
+  const currentUiLocale = normalizeLocaleTag(S.uiLocaleTag || S.activeMarketSkin?.ui_locale || S.tenantSettings?.default_locale || 'en');
+  setSelectOptions(document.getElementById('input-ui-lang'), localeOptions, currentUiLocale);
+  setSelectOptions(document.getElementById('new-lang'), localeOptions, normalizeLocaleTag(document.getElementById('new-lang')?.value || S.tenantSettings?.default_locale || currentUiLocale));
+  setSelectOptions(document.getElementById('meta-lang'), localeOptions, normalizeLocaleTag(document.getElementById('meta-lang')?.value || S.tour?.lang || S.tenantSettings?.default_locale || currentUiLocale));
+
+  const currencyOptions = getCurrencyOptions().map((entry) => ({ value: entry.code, label: buildCurrencyOptionLabel(entry) }));
+  const preferredCurrency = String(S.tenantSettings?.booking_currency || S.tenantSettings?.target_currency || S.calcCurrency || currencyOptions[0]?.value || 'USD').toUpperCase();
+  setSelectOptions(document.getElementById('price-currency-sel'), currencyOptions, preferredCurrency);
+  S.calcCurrency = document.getElementById('price-currency-sel')?.value || preferredCurrency;
+  syncMarketSkinControls();
 }
 
 function formatUiDate(dateLike) {
   if (!dateLike) return ti('common.not_yet');
-  const locale = { en: 'en-GB', vi: 'vi-VN', zh: 'zh-CN' }[S.uiLang] ?? 'en-GB';
+  const locale = normalizeLocaleTag(S.uiLocaleTag || S.tenantSettings?.default_locale || S.uiLang || 'en-GB', 'en-GB');
   return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(dateLike));
 }
 
@@ -1484,28 +1766,58 @@ function applyStaticTranslations(root = document) {
   });
 
   document.title = ti('tour_config.meta.title');
-  const langSel = document.getElementById('input-ui-lang');
-  if (langSel) langSel.value = S.uiLang;
-
-  const currencySel = document.getElementById('price-currency-sel');
-  if (currencySel) {
-    [...currencySel.options].forEach((option) => {
-      option.textContent = ti(`currency.${option.value}`);
-    });
-  }
+  syncTenantSelectors();
 }
 
-async function loadUiLocale(lang = S.uiLang) {
-  const locale = String(lang || 'en').toLowerCase().split('-')[0];
-  const res = await fetch(`${S.baseUrl}/api/i18n/${encodeURIComponent(locale)}`, {
-    headers: { 'Accept-Language': locale },
-  });
-  const payload = await res.json();
+async function loadUiLocale(lang = S.uiLocaleTag || S.uiLang) {
+  const requestedLocale = normalizeLocaleTag(lang || 'en', 'en');
+  const needsFallbackFetch = !Object.keys(UI_MESSAGES_FALLBACK || {}).length || requestedLocale === 'en';
+  const requests = [
+    fetch(`${S.baseUrl}/api/i18n/${encodeURIComponent(requestedLocale)}`, {
+      headers: { 'Accept-Language': requestedLocale },
+    }).then((response) => response.json()),
+  ];
+
+  if (needsFallbackFetch && requestedLocale !== 'en') {
+    requests.push(
+      fetch(`${S.baseUrl}/api/i18n/en`, {
+        headers: { 'Accept-Language': 'en' },
+      }).then((response) => response.json())
+    );
+  }
+
+  const [payload, fallbackPayload] = await Promise.all(requests);
   UI_MESSAGES = payload?.messages || {};
-  S.uiLang = payload?.lang || locale;
-  localStorage.setItem('tc_ui_lang', S.uiLang);
-  document.documentElement.lang = S.uiLang;
+  if (requestedLocale === 'en') {
+    UI_MESSAGES_FALLBACK = UI_MESSAGES;
+  } else if (fallbackPayload?.messages) {
+    UI_MESSAGES_FALLBACK = fallbackPayload.messages;
+  }
+  S.uiLang = payload?.lang || requestedLocale;
+  S.uiLocaleTag = requestedLocale;
+  localStorage.setItem('tc_ui_lang', S.uiLocaleTag);
+  document.documentElement.lang = requestedLocale;
   applyStaticTranslations();
+  renderMarketSkinSlots();
+}
+
+async function loadTenantSettings() {
+  if (!S.tenantId) return null;
+  const response = await fetch(`${S.baseUrl}/api/tenants/settings`, {
+    headers: {
+      'X-Tenant-ID': S.tenantId,
+      'Content-Type': 'application/json',
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  S.tenantSettings = payload.settings || null;
+  S.tenantCatalogs = payload.catalogs || S.tenantCatalogs;
+  S.activeMarketSkin = Array.isArray(S.tenantCatalogs.market_skins)
+    ? S.tenantCatalogs.market_skins.find((entry) => entry.key === S.tenantSettings?.market_skin_key) || null
+    : null;
+  S.uiLocaleTag = normalizeLocaleTag(S.activeMarketSkin?.ui_locale || S.tenantSettings?.default_locale || S.uiLocaleTag || 'en', 'en');
+  return payload;
 }
 
 /* --------------------------------  HELPERS  -------------------------------- */
@@ -1530,7 +1842,9 @@ function getOptimizedImageUrl(url, options = {}) {
     const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const isSameOrigin = absolute.origin === window.location.origin;
     const isR2Asset = absolute.hostname.endsWith('.r2.dev');
+    const isTenantAssetApi = absolute.pathname.startsWith('/api/tenant/assets/');
     if (isLocalDev) return absolute.href;
+    if (isTenantAssetApi) return absolute.href;
     if (!isSameOrigin && !isR2Asset) return absolute.href;
     const width = Math.max(64, Number(options.width || 640));
     const height = Math.max(64, Number(options.height || 640));
@@ -1541,6 +1855,11 @@ function getOptimizedImageUrl(url, options = {}) {
   } catch {
     return cleanUrl;
   }
+}
+
+function getBrokenPreviewOnError(message = 'Preview unavailable.') {
+  const html = `<div style=&quot;display:grid;place-items:center;width:100%;height:100%;padding:10px;color:#94a3b8;font-size:11px;line-height:1.45;text-align:center&quot;>${esc(message)}</div>`;
+  return esc(`this.onerror=null;var wrap=this.parentElement;if(wrap) wrap.innerHTML='${html}';`);
 }
 
 function inspectImageFile(file) {
@@ -1937,7 +2256,7 @@ function renderSingleImagePreview(previewId, imageUrl, emptyMessage) {
     'cd-destination-image-preview': 'cd-destination-image',
     'cd-accommodation-image-preview': 'cd-accommodation-image',
   })[previewId] || '';
-  node.innerHTML = `${fieldId ? `<button type="button" class="preview-remove-btn" data-clear-field="${esc(fieldId)}" aria-label="Remove image">Remove</button>` : ''}<img src="${esc(getOptimizedImageUrl(src, { width: 960, height: 720, quality: 74 }))}" alt="${esc(previewId)}" loading="lazy" />`;
+  node.innerHTML = `${fieldId ? `<button type="button" class="preview-remove-btn" data-clear-field="${esc(fieldId)}" aria-label="Remove image">Remove</button>` : ''}<img src="${esc(getOptimizedImageUrl(src, { width: 960, height: 720, quality: 74 }))}" alt="${esc(previewId)}" loading="lazy" onerror="${getBrokenPreviewOnError('Preview unavailable. Replace this image or pick another asset.')}" />`;
 }
 
 function renderGalleryPreview(previewId, images, emptyMessage) {
@@ -1952,7 +2271,7 @@ function renderGalleryPreview(previewId, images, emptyMessage) {
   node.innerHTML = images.map((item, index) => `
     <div class="gallery-preview-card">
       <button type="button" class="preview-remove-btn" data-remove-gallery-index="${index}" aria-label="Remove gallery image">Remove</button>
-      <img src="${esc(getOptimizedImageUrl(item.src, { width: 240, height: 240, quality: 72 }))}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" />
+      <img src="${esc(getOptimizedImageUrl(item.src, { width: 240, height: 240, quality: 72 }))}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" onerror="${getBrokenPreviewOnError('Gallery preview unavailable.')}" />
       <span>${esc(item.caption || item.alt || `Gallery ${index + 1}`)}</span>
     </div>
   `).join('');
@@ -1980,7 +2299,7 @@ function buildMediaPickerCards() {
   }
   return `<div class="media-picker-grid">${items.map((item, index) => `
     <button type="button" class="media-picker-card" data-media-picker-asset data-asset-url="${esc(item.url || '')}">
-      <div class="media-picker-thumb"><img src="${esc(getOptimizedImageUrl(item.url || '', { width: 320, height: 320, quality: 72 }))}" alt="${esc(item.filename || `Image ${index + 1}`)}" loading="lazy" /></div>
+      <div class="media-picker-thumb"><img src="${esc(getOptimizedImageUrl(item.url || '', { width: 320, height: 320, quality: 72 }))}" alt="${esc(item.filename || `Image ${index + 1}`)}" loading="lazy" onerror="${getBrokenPreviewOnError('Stored asset preview unavailable.')}" /></div>
       <div class="media-picker-card-title">${esc(item.filename || `Image ${index + 1}`)}</div>
       <div class="media-picker-card-meta">${esc(item.mime || 'image')}</div>
     </button>
@@ -2258,6 +2577,8 @@ async function connectWithCurrentTenant() {
   if (!tenantId) return;
   status.textContent = ti('tour_config.message.reconnecting');
   try {
+    await loadTenantSettings();
+    await loadUiLocale(S.uiLocaleTag);
     await ensureTaxonomyCatalog();
     const [data, assets] = await Promise.all([
       api('/api/tours'),
@@ -2269,6 +2590,7 @@ async function connectWithCurrentTenant() {
     ]);
     S.tours = data.tours ?? [];
     S.assets = Array.isArray(assets.items) ? assets.items : [];
+    syncTenantSelectors();
     await loadTourTaxonomySummaries();
     renderTourFilterChips();
     renderTourList();
@@ -2280,7 +2602,6 @@ async function connectWithCurrentTenant() {
 
 document.getElementById('input-base').value   = S.baseUrl;
 document.getElementById('input-tenant').value = S.tenantId;
-document.getElementById('input-ui-lang').value = S.uiLang;
 document.getElementById('input-ui-lang').addEventListener('change', async (event) => {
   await loadUiLocale(event.target.value);
   renderTourList();
@@ -2291,7 +2612,7 @@ document.getElementById('input-ui-lang').addEventListener('change', async (event
   }
 });
 
-loadUiLocale().catch(() => {});
+loadUiLocale(S.uiLocaleTag).catch(() => {});
 
 connectWithCurrentTenant().catch(() => {});
 bindContentAssetInputs();
@@ -2506,7 +2827,7 @@ function prefillContent(tour) {
   document.getElementById('meta-title').value       = tour.title     ?? '';
   document.getElementById('meta-duration').value    = tour.duration_text ?? '';
   document.getElementById('meta-status').value      = tour.status    ?? 'draft';
-  document.getElementById('meta-lang').value        = tour.lang      ?? 'vi';
+  document.getElementById('meta-lang').value        = tour.lang      ?? normalizeLocaleTag(S.tenantSettings?.default_locale || 'en', 'en');
 
   // content_data
   const cd = parseContentData(tour);
@@ -3044,15 +3365,24 @@ function renderDefs() {
   wrap.style.display = items.length ? '' : 'none';
 }
 
-let _calcCurrency = 'EUR';
-const CURRENCY_CONFIG = {
-  EUR: { locale: 'de-DE', opts: { style: 'currency', currency: 'EUR' } },
-  USD: { locale: 'en-US', opts: { style: 'currency', currency: 'USD' } },
-  VND: { locale: 'vi-VN', opts: { style: 'currency', currency: 'VND', maximumFractionDigits: 0 } },
-};
+function getCurrencyFormatterConfig(code) {
+  const normalized = String(code || '').trim().toUpperCase();
+  const catalog = getCurrencyOptions();
+  const entry = catalog.find((item) => String(item.code || '').toUpperCase() === normalized) || catalog[0] || { code: 'USD', locale: 'en-US' };
+  const zeroDecimal = new Set(['VND', 'JPY', 'KRW']);
+  return {
+    locale: entry.locale || 'en-US',
+    opts: {
+      style: 'currency',
+      currency: entry.code || normalized || 'USD',
+      ...(zeroDecimal.has(entry.code) ? { maximumFractionDigits: 0 } : {}),
+    },
+  };
+}
+
 function fmtMoney(n) {
   if (n == null || n === '') return '\u2014';
-  const cfg = CURRENCY_CONFIG[_calcCurrency] ?? CURRENCY_CONFIG.EUR;
+  const cfg = getCurrencyFormatterConfig(S.calcCurrency);
   return new Intl.NumberFormat(cfg.locale, cfg.opts).format(Number(n));
 }
 
@@ -3063,7 +3393,8 @@ function buildCompactSummary() {
   const children= parseInt(document.getElementById('bv-child-count')?.value)  || 0;
   const doubles = parseInt(document.getElementById('bv-double-rooms')?.value) || 0;
   const singles = parseInt(document.getElementById('bv-single-rooms')?.value) || 0;
-  const datePart = d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : 'no date';
+  const dateLocale = normalizeLocaleTag(S.uiLocaleTag || S.tenantSettings?.default_locale || 'en-GB', 'en-GB');
+  const datePart = d ? new Date(d).toLocaleDateString(dateLocale, { day:'numeric', month:'short', year:'numeric' }) : ti('common.no_date');
   return `${datePart} · ${adults} adult${adults !== 1 ? 's' : ''}, ${children} child${children !== 1 ? 'ren' : ''} · ${doubles} dbl + ${singles} sgl`;
 }
 
@@ -3334,7 +3665,7 @@ async function loadPricing() {
   document.getElementById('pricing-tour-label').textContent = S.tour.title;
   document.getElementById('calc-date').value = _calcState.date;
   const _pcs = document.getElementById('price-currency-sel');
-  if (_pcs) _pcs.value = _calcCurrency;
+  if (_pcs) _pcs.value = S.calcCurrency;
 
   const [seasonsRes, segmentsRes, paxRes, pricesRes] = await Promise.all([
     api('/api/pricing/tenant-seasons').catch(() => ({})),
@@ -3458,7 +3789,7 @@ async function loadPricing() {
 document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
 
 document.getElementById('price-currency-sel').addEventListener('change', e => {
-  _calcCurrency = e.target.value;
+  S.calcCurrency = e.target.value;
   loadPricing();
 });
 

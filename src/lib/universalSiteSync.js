@@ -161,10 +161,6 @@ function buildTourDetailBlocks(snapshot, variantRuntime) {
     } else if (block.id === 'pricing') {
       block.content.price_cards = snapshot.pricing_cards;
       block.content.price_from = snapshot.price_from;
-    } else if (block.id === 'booking-engine') {
-      block.content.heading = snapshot.booking_cta_label;
-      block.content.cta_label = snapshot.booking_cta_label;
-      block.content.tour_id = snapshot.tour_id;
     }
   }
 
@@ -202,7 +198,7 @@ export async function ensureUniversalSiteInitialized(db, tenantId, tenantName, p
   const variantKey = preferred.variantKey || 'tour-luxury';
   const defaultLang = String(preferred.defaultLang || 'en').trim() || 'en';
   const siteName = tenantName || 'Universal Site';
-  const scaffold = buildDefaultSiteScaffold(groupKey, variantKey);
+  const scaffold = buildDefaultSiteScaffold(groupKey, variantKey, defaultLang);
   const now = Math.floor(Date.now() / 1000);
 
   const statements = [
