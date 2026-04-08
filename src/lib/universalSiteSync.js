@@ -69,10 +69,12 @@ function buildItineraryItems(content) {
     .filter((entry) => entry && typeof entry === 'object')
     .map((entry, index) => {
       const dayNumber = Number(entry.day) || (index + 1);
+      const dayEnd = Number(entry.day_end) || null;
+      const dayLabel = dayEnd && dayEnd > dayNumber ? `Day ${dayNumber}\u2013${dayEnd}` : `Day ${dayNumber}`;
       return {
         id: `content-day-${dayNumber}`,
-        title: String(entry.title || `Day ${dayNumber}`).trim(),
-        day_label: String(entry.day_label || `Day ${dayNumber}`).trim(),
+        title: String(entry.title || dayLabel).trim(),
+        day_label: String(entry.day_label || dayLabel).trim(),
         description: String(entry.description || '').trim(),
         nights: 0,
         meals: [],

@@ -1043,10 +1043,14 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day-bottom" data-i18n="tour_config.content.add_day">+ Add Day</button>
       </div>
       <div id="add-day-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px">
-        <div class="field-row cols-3">
+        <div class="field-row cols-4">
           <div class="field">
             <label data-i18n="tour_config.content.day_number">Day #</label>
             <input type="number" id="day-num" min="1" value="1" />
+          </div>
+          <div class="field">
+            <label>To Day <span style="font-weight:400;color:#94a3b8">(opt.)</span></label>
+            <input type="number" id="day-num-end" min="1" placeholder="—" />
           </div>
           <div class="field" style="grid-column: span 2">
             <label data-i18n="tour_config.content.day_title">Title</label>
@@ -2938,7 +2942,7 @@ function renderItinerary() {
     const li = document.createElement('li');
     li.className = 'itin-item';
     li.innerHTML = `
-      <span class="itin-day-badge">${esc(`${ti('tour_config.content.day_number').replace(' #', '')} ${d.day}`)}</span>
+      <span class="itin-day-badge">${esc(d.day_end && d.day_end > d.day ? `Day ${d.day}\u2013${d.day_end}` : `${ti('tour_config.content.day_number').replace(' #', '')} ${d.day}`)}</span>
       <div class="itin-content">
         <div class="itin-title">${esc(d.title)}</div>
         <div class="itin-desc">${esc(d.description ?? '')}</div>
@@ -2972,14 +2976,19 @@ document.getElementById('btn-cancel-day').addEventListener('click', () => {
   document.getElementById('add-day-form').style.display = 'none';
 });
 document.getElementById('btn-save-day').addEventListener('click', () => {
-  const num   = Number(document.getElementById('day-num').value);
-  const title = document.getElementById('day-title').value.trim();
-  const desc  = document.getElementById('day-desc').value.trim();
+  const num    = Number(document.getElementById('day-num').value);
+  const numEnd = Number(document.getElementById('day-num-end').value) || null;
+  const title  = document.getElementById('day-title').value.trim();
+  const desc   = document.getElementById('day-desc').value.trim();
   if (!title) { toast(ti('tour_config.message.day_title_required'), 'err'); return; }
-  S.itinerary.push({ day: num, title, description: desc });
+  const entry = { day: num, title, description: desc };
+  if (numEnd && numEnd > num) entry.day_end = numEnd;
+  S.itinerary.push(entry);
   S.itinerary.sort((a, b) => a.day - b.day);
   renderItinerary();
   document.getElementById('add-day-form').style.display = 'none';
+  document.getElementById('day-num').value = ((numEnd || num) + 1).toString();
+  document.getElementById('day-num-end').value = '';
   document.getElementById('day-title').value = '';
   document.getElementById('day-desc').value  = '';
   toast(ti('tour_config.message.day_added'));
