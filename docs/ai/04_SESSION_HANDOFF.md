@@ -20,6 +20,159 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
+Date: 2026-04-08
+Checkpoint: CHK-R48 — Product Modules catalog architecture (destinations + hotels + junction tables)
+Goal of session: Decouple destinations and hotels from tours into reusable catalog tables with junction links. Replace inline hotel cards in Tour Content with catalog pickers.
+
+### What was completed
+
+**DB migration** (`scripts/migrate-catalog-tables.sql`) applied to production D1:
+- `tenant_destinations` — standalone destination catalog per tenant (name, description, region, gallery_json, status, sort_order)
+- `tour_destination_links` — M:N junction between tours and destinations (sort_order)
+- `tour_hotel_links` — M:N junction between tours and hotels (nights, sort_order)
+
+**API routes** added to `src/routes/universalSites.js`:
+- `GET/POST /api/universal/destinations` — destination catalog CRUD
+- `GET/PATCH/DELETE /api/universal/destinations/:id`
+- `GET/POST /api/universal/tours/:tourId/destination-links`
+- `DELETE /api/universal/destination-links/:id`
+- `GET/POST /api/universal/tours/:tourId/hotel-links` (with `nights` field)
+- `PATCH/DELETE /api/universal/hotel-links/:id`
+
+**Product Modules UI** (`public/product-modules.html`):
+- "Properties" tab renamed to "Hotels"; removed "Linked Tour" dropdown from hotel editor
+- Destinations tab now manages `tenant_destinations` catalog (name, region, description, gallery, status/delete support)
+- State extended with `destinations[]`, `selectedDestinationId`, `currentDestination`
+- `loadSourceData()` now fetches `/api/universal/destinations` alongside tours/hotels
+- `createDestinationModule()` POSTs to new catalog endpoint (no longer creates a ghost tour)
+- `saveDestinationModule()` PATCHes catalog endpoint with gallery-url textarea serialization
+- `saveHotelModule()` / `createHotelModule()` no longer send `tour_id`
+
+**Tour Content** (`public/tour-config.html`):
+- Inline hotel add form replaced by **Linked Destinations** + **Linked Hotels** catalog picker sections
+- `loadCatalogs()` fetches hotel + destination catalogs on page load and populates `<select>` dropdowns
+- `loadTourLinks(tourId)` called on `selectTour()` — fetches both link lists and renders inline lists
+- `renderLinkedHotels()` / `renderLinkedDestinations()` — show linked items with unlink (×) button
+- `btn-link-hotel` / `btn-link-dest` — POST to junction endpoints with `nights` field for hotels
+- Legacy `renderHotelCards()` / `btn-add-hotel` inline form removed
+
+**Sync** (`src/lib/universalSiteSync.js`):
+- Hotel slide source changed from `WHERE tour_id = ?` to `JOIN tour_hotel_links` (junction-first)
+- Backward-compat fallback: if no junction links exist, legacy `tour_id`-linked hotels are used
+
+### Files changed
+```
+scripts/migrate-catalog-tables.sql    (new)
+src/routes/universalSites.js          (new routes + normalizeDestination)
+src/lib/universalSiteSync.js          (junction-first hotel query + legacy fallback)
+public/product-modules.html           (Destinations catalog tab, Hotels renamed, no tour_id)
+public/tour-config.html               (catalog pickers replace inline hotel form)
+```
+
+### What is still not done
+- Destinations tab in Product Modules has no taxonomy/interest tagging (intentionally deferred)
+- `tour_destination_links` data is not yet consumed by sync (destinations don't appear in tour page blocks yet — use `content_data.destination_*` fields for now)
+- Tour Content UI: destination link sort_order reordering and hotel link nights editing are not yet exposed (links are created in order, nights editable only at link time)
+
+### Known risks / TODOs
+- `tenant_destinations` gallery is stored as JSON array `[{id,src,alt,caption}]` matching hotel gallery format
+- Backward-compat: all existing hotel rows with `tour_id` still work via sync fallback — no data migration needed
+- New hotels created via Product Modules no longer receive `tour_id`; this is intentional
+
+### Suggested next prompt
+"Surface linked destinations in the tour sync, so the tour page shows a destinations carousel similar to the hotel carousel. Use `tour_destination_links JOIN tenant_destinations` the same way hotels are now queried."
+
+---
+Goal of session: Implement `GET /api/admin/tenants/:id/broken-assets` and record the interrupted 2026-04-07 anti-abuse session.
+
+### What was completed this session
+
+- Added `GET /api/admin/tenants/:id/broken-assets` to `src/routes/admin.js` (admin-secret protected)
+  - Scans **five D1 surfaces** for `/api/tenant/assets/{tenantId}/...` URL patterns:
+    `tours.content_data`, `tenant_universal_hotels.gallery_json`,
+    `tenant_universal_tour_pages.content_override_json`, `tenant_universal_pages.blocks_json`,
+    and `tenants.site_config`
+  - Bulk-loads the tenant's full `tenant_asset_inventory` in one query and classifies URLs as
+    `deleted`, `blocked`, `not_in_r2`, or `not_in_inventory_or_r2`
+  - Accepts `?check_r2=1` to HEAD-check each URL against TOUR_PAGES R2 for deep validation of
+    untracked or inventory-live assets
+  - Returns structured report: `broken[]` with reason + inventory state + references per surface,
+    and `live[]` with optional notes for untracked assets
+  - [SEC] tenantId sourced from URL param only, never from request body; protected by admin middleware
+
+### Files changed
+```
+src/routes/admin.js
+docs/ai/04_SESSION_HANDOFF.md
+```
+
+---
+
+## Formal 2026-04-07 Handoff (written retroactively)
+Date: 2026-04-07
+Checkpoint: Tenant anti-abuse phase 1 + Cloudflare AI moderation pivot
+Goal of session: Ship subdomain abuse-review policy, tenant trust ladder enforcement, and switch AI moderation from Gemini to Cloudflare AI.
+
+### What was completed
+- Fixed `scripts/smoke-local.mjs`: added `fetch failed` retry logic (3 attempts: 250 ms / 750 ms / 1500 ms) and accepted `webhook` or `log_only` as valid password-reset delivery modes so local smoke passes on Windows again
+- Added `src/lib/subdomainPolicy.js`:
+  - 3–63 character platform subdomains with strict character validation
+  - Reserved group blocking (marketing, commercial, product, operations, technical namespaces)
+  - Phishing-sensitive keyword detection (auth, finance, government, payment categories)
+  - High-entropy label heuristic (random-looking subdomains sent to manual review)
+  - Protected finance-brand similarity check
+  - Webhook alerting via `SUBDOMAIN_REVIEW_WEBHOOK_URL` with `SUBDOMAIN_REVIEW_WEBHOOK_SECRET`
+  - Brand-safe suggestion suffixes returned to tenants on rejection
+- Added `db/migrations/0040_tenant_trust_and_review.sql`:
+  - `trust_status`, `public_indexing_enabled`, `custom_domain_verified_at` columns on tenants
+  - `tenant_review_cases` table for durable review audit trail
+  - `tenant_risk_events` table for silent abuse-risk ledger
+  - `tenant_asset_inventory` and `tenant_asset_scan_results` tables for asset moderation
+- Enforced trust ladder at runtime: `PREVIEW_ONLY → PROBATION → TRUSTED → SUSPENDED/QUARANTINED`
+  - New tenants start `PREVIEW_ONLY`; clean first subdomain claim auto-promotes to `PROBATION`
+  - Probation sites forced `noindex`; custom domains only resolve after `TRUSTED` + domain verified
+  - Publish now runs content-abuse scan, rate-limits by trust tier, and returns `429` on automated behavior
+- Pivoted AI moderation from Gemini to Cloudflare AI in `src/lib/aiModeration.js`:
+  - Prefers Workers `AI` binding, falls back to Cloudflare REST credentials
+  - Same normalized moderation contract (`ALLOW`, `REVIEW`, `BLOCK`, `QUARANTINE`)
+  - Telegram alert support via `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`
+- Remote D1 migration `0041` applied and verified on production
+
+### Files changed
+```
+db/migrations/0040_tenant_trust_and_review.sql
+src/lib/subdomainPolicy.js
+src/lib/aiModeration.js
+src/lib/trustAbuse.js
+src/routes/tenants.js
+src/routes/onboarding.js
+src/index.js
+scripts/smoke-local.mjs
+docs/ai/01_CURRENT_STATE.md
+docs/ai/03_PROGRESS_LEDGER.md
+```
+
+### What was still not done at session end
+- No admin diagnostic for broken asset URLs persisted in D1 (fixed 2026-04-08)
+- Dead asset URLs from pre-2026-04-06 deletes still not bulk-swept
+- Product-modules gallery still requires explicit Save after image pick
+- No formal handoff was written (written retroactively 2026-04-08)
+
+### Known risks / TODOs
+- `DELETE /api/tenant/assets/:filename` cleanup still only sweeps `tours.content_data`; other surfaces (`tenant_universal_pages`, `tenant_universal_hotels`, `site_config`) require a separate pass or the new admin diagnostic to surface then manually repair
+- Existing tenants may still carry pre-cleanup dead asset references; use `GET /api/admin/tenants/:id/broken-assets` to identify them before building automated repair scripts
+- Trust-ladder enforcement changes affect existing paying tenants if their `trust_status` is `NULL`; NULL is treated as `PREVIEW_ONLY`, so operators added before the migration may be unexpectedly restricted
+
+### Suggested next prompt
+```
+Run GET /api/admin/tenants/ten-demo-001/broken-assets?check_r2=1 against local dev to verify
+the diagnostic returns correct results, then plan a bulk-repair pass for any dead asset URLs
+discovered across tour content_data and other surfaces.
+```
+
+---
+
+## Latest Handoff (pre-2026-04-08)
 Date: 2026-04-06
 Checkpoint: Tenant media preview root-cause repair
 Goal of session: restore reliable tenant-uploaded image preview/render paths, support exact `1-1` pax bands live, and stop deleted tenant assets from leaving dead gallery references behind in product modules.

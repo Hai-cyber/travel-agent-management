@@ -62,6 +62,7 @@ import {
   moderateTenantContent,
   sendTelegramModerationAlert,
 } from '../lib/aiModeration.js';
+import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
 
 const admin = new Hono();
 
@@ -585,6 +586,194 @@ admin.post('/tenants/:id/moderate-ai', async (c) => {
     moderation_outcome: moderationOutcome,
     review_case_id: reviewCase?.id || null,
   });
+});
+
+// ── GET /api/admin/tenants/:id/broken-assets ─────────────────────────────────
+// Scans all D1 JSON surfaces for this tenant's asset URLs
+// (/api/tenant/assets/{tenantId}/...) and identifies which ones are broken:
+// either deleted in the asset inventory, blocked by moderation, or absent from
+// R2 entirely (when ?check_r2=1 is passed).
+//
+// Surfaces scanned:
+//   tours.content_data           — hero_image, destination_image, gallery_images, home_gallery_images
+//   tenant_universal_hotels.gallery_json — hotel gallery entries
+//   tenant_universal_tour_pages.content_override_json — per-tour content overrides
+//   tenant_universal_pages.blocks_json — universal page blocks
+//   tenants.site_config          — custom_imgs, custom_sections, brand images
+//
+// Query params:
+//   check_r2=1  (optional) — also HEAD-check each unique URL against TOUR_PAGES R2;
+//                            adds network cost but catches untracked orphaned files
+//
+// Response:
+//   { ok, tenant_id, scanned_surfaces, total_urls_found, broken_count, live_count, broken[], live[] }
+//
+// broken[] entries include { url, r2_key, reason, inventory, references[] }
+//   reason: "deleted" | "blocked" | "not_in_r2" | "not_in_inventory_or_r2"
+//
+// [SEC] Admin-only via X-Admin-Secret middleware above.
+// [SEC] tenantId from URL param — never from caller-supplied body.
+admin.get('/tenants/:id/broken-assets', async (c) => {
+  const tenantId = c.req.param('id').trim();
+  const checkR2 = c.req.query('check_r2') === '1';
+
+  // Verify tenant exists
+  const tenant = await c.env.DB
+    .prepare('SELECT id FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  // Asset URL prefix owned by this tenant
+  const assetPrefix = `/api/tenant/assets/${tenantId}/`;
+
+  // Extract all asset URLs matching the tenant prefix from a raw text blob.
+  // Stops at quote, whitespace, or JSON structural characters to avoid over-reading.
+  function extractAssetUrls(text) {
+    if (!text || typeof text !== 'string' || !text.includes(assetPrefix)) return [];
+    const urls = new Set();
+    let idx = 0;
+    while (true) {
+      const pos = text.indexOf(assetPrefix, idx);
+      if (pos < 0) break;
+      let end = pos + assetPrefix.length;
+      while (end < text.length && !/[\s"'<>{}[\]\\]/.test(text[end])) end++;
+      const url = text.slice(pos, end);
+      if (url.length > assetPrefix.length) urls.add(url); // discard bare prefix
+      idx = end;
+    }
+    return [...urls];
+  }
+
+  // Accumulates { url, surface, source_id, field } triples from one text blob.
+  const references = [];
+  function collectFromText(text, surface, sourceId, field) {
+    for (const url of extractAssetUrls(text)) {
+      references.push({ url, surface, source_id: sourceId, field });
+    }
+  }
+
+  // ── Scan all D1 surfaces ──────────────────────────────────────────────────
+
+  const [toursResult, hotelsResult, tourPagesResult, uniPagesResult, tenantRow] = await Promise.all([
+    c.env.DB.prepare('SELECT id, content_data FROM tours WHERE tenant_id = ?').bind(tenantId).all(),
+    c.env.DB.prepare('SELECT id, gallery_json FROM tenant_universal_hotels WHERE tenant_id = ?').bind(tenantId).all(),
+    c.env.DB.prepare('SELECT id, content_override_json FROM tenant_universal_tour_pages WHERE tenant_id = ?').bind(tenantId).all(),
+    c.env.DB.prepare('SELECT id, page_key, blocks_json FROM tenant_universal_pages WHERE tenant_id = ?').bind(tenantId).all(),
+    c.env.DB.prepare('SELECT site_config FROM tenants WHERE id = ?').bind(tenantId).first(),
+  ]);
+
+  for (const tour of (toursResult.results || [])) {
+    collectFromText(tour.content_data, 'tours', tour.id, 'content_data');
+  }
+  for (const hotel of (hotelsResult.results || [])) {
+    collectFromText(hotel.gallery_json, 'tenant_universal_hotels', hotel.id, 'gallery_json');
+  }
+  for (const page of (tourPagesResult.results || [])) {
+    collectFromText(page.content_override_json, 'tenant_universal_tour_pages', page.id, 'content_override_json');
+  }
+  for (const page of (uniPagesResult.results || [])) {
+    collectFromText(page.blocks_json, 'tenant_universal_pages', page.id, 'blocks_json');
+  }
+  if (tenantRow?.site_config) {
+    collectFromText(tenantRow.site_config, 'tenants', tenantId, 'site_config');
+  }
+
+  // ── Build URL → references map ────────────────────────────────────────────
+  const urlRefMap = new Map();
+  for (const ref of references) {
+    if (!urlRefMap.has(ref.url)) urlRefMap.set(ref.url, []);
+    urlRefMap.get(ref.url).push({ surface: ref.surface, source_id: ref.source_id, field: ref.field });
+  }
+
+  // ── Bulk load asset inventory for this tenant ─────────────────────────────
+  const { results: inventoryRows } = await c.env.DB
+    .prepare('SELECT r2_key, moderation_status, visibility, deleted_at FROM tenant_asset_inventory WHERE tenant_id = ?')
+    .bind(tenantId)
+    .all();
+  const inventoryMap = new Map();
+  for (const row of (inventoryRows || [])) {
+    inventoryMap.set(row.r2_key, row);
+  }
+
+  // ── Classify each unique URL ──────────────────────────────────────────────
+  const broken = [];
+  const live = [];
+
+  for (const [url, refs] of urlRefMap) {
+    const filename = url.slice(assetPrefix.length);
+    const r2Key = `assets/${tenantId}/${filename}`;
+    const inventory = inventoryMap.get(r2Key) ?? null;
+
+    if (inventory) {
+      if (inventory.deleted_at !== null && inventory.deleted_at !== undefined) {
+        broken.push({ url, r2_key: r2Key, reason: 'deleted', inventory, references: refs });
+        continue;
+      }
+      if (inventory.visibility === 'BLOCKED') {
+        broken.push({ url, r2_key: r2Key, reason: 'blocked', inventory, references: refs });
+        continue;
+      }
+      // Inventory says it's live. Optionally validate against R2.
+      if (checkR2 && c.env.TOUR_PAGES) {
+        const obj = await c.env.TOUR_PAGES.head(r2Key);
+        if (!obj) {
+          broken.push({ url, r2_key: r2Key, reason: 'not_in_r2', inventory, references: refs });
+          continue;
+        }
+      }
+      live.push({ url, references: refs });
+      continue;
+    }
+
+    // Not in inventory at all.
+    if (checkR2 && c.env.TOUR_PAGES) {
+      const obj = await c.env.TOUR_PAGES.head(r2Key);
+      if (!obj) {
+        broken.push({ url, r2_key: r2Key, reason: 'not_in_inventory_or_r2', inventory: null, references: refs });
+        continue;
+      }
+      // Present in R2 but not tracked in inventory — treat as live but flag it.
+      live.push({ url, references: refs, note: 'untracked_in_inventory' });
+      continue;
+    }
+
+    // Not in inventory, R2 not checked — treat as unknown/live.
+    live.push({ url, references: refs, note: 'not_in_inventory' });
+  }
+
+  return c.json({
+    ok: true,
+    tenant_id: tenantId,
+    scanned_surfaces: [
+      'tours:content_data',
+      'tenant_universal_hotels:gallery_json',
+      'tenant_universal_tour_pages:content_override_json',
+      'tenant_universal_pages:blocks_json',
+      'tenants:site_config',
+    ],
+    total_urls_found: urlRefMap.size,
+    broken_count: broken.length,
+    live_count: live.length,
+    check_r2: checkR2,
+    broken,
+    live,
+  });
+});
+
+// [SEC] Admin-only via X-Admin-Secret middleware above.
+// Force re-sync a tour's universal page (picks up latest content_data, stops, images).
+admin.post('/tenants/:tenantId/tours/:tourId/sync', async (c) => {
+  const tenantId = c.req.param('tenantId').trim();
+  const tourId = c.req.param('tourId').trim();
+
+  const tenant = await c.env.DB.prepare('SELECT id FROM tenants WHERE id = ?').bind(tenantId).first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const result = await syncUniversalTourPage(c.env, tenantId, tourId);
+  if (!result.ok) return c.json({ error: result.error || 'Sync failed', details: result.details }, result.status || 500);
+
+  return c.json({ ok: true, tour_id: tourId, tenant_id: tenantId, message: 'Tour page synced.' });
 });
 
 export default function registerAdminRoutes(app) {

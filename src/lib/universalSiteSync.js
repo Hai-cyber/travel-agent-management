@@ -63,6 +63,26 @@ function normalizeHighlights(content, stops) {
   }));
 }
 
+function buildItineraryItems(content) {
+  if (!Array.isArray(content.itinerary) || !content.itinerary.length) return [];
+  return content.itinerary
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry, index) => {
+      const dayNumber = Number(entry.day) || (index + 1);
+      return {
+        id: `content-day-${dayNumber}`,
+        title: String(entry.title || `Day ${dayNumber}`).trim(),
+        day_label: String(entry.day_label || `Day ${dayNumber}`).trim(),
+        description: String(entry.description || '').trim(),
+        nights: 0,
+        meals: [],
+        day_number: dayNumber,
+      };
+    })
+    .filter((entry) => entry.title || entry.description)
+    .sort((left, right) => left.day_number - right.day_number);
+}
+
 function buildPricingCards(rows) {
   const seen = new Set();
   const cards = [];
@@ -97,22 +117,54 @@ function buildPricingCards(rows) {
     });
   }
 
-  return { cards: cards.slice(0, 8), priceFrom };
+  return { cards, priceFrom };
 }
 
-function buildTourSyncSnapshot(tour, stops, pricingRows) {
+function buildHighlightsWithImages(content, stops, images) {
+  const rawHighlights = normalizeHighlights(content, stops);
+  return rawHighlights.map((h, i) => ({
+    ...h,
+    image: images[i]?.src || '',
+  }));
+}
+
+function buildDestinationStops(stops, images) {
+  if (!stops.length) return [];
+  return stops.map((stop, i) => ({
+    name: stop.label,
+    day_label: stop.day_from === stop.day_to ? `Day ${stop.day_from}` : `Day ${stop.day_from}–${stop.day_to}`,
+    nights: Number(stop.nights || 0),
+    description: stop.description || '',
+    image: images[i % Math.max(images.length, 1)]?.src || '',
+  }));
+}
+
+function buildHotelCardsFromRows(hotelRows) {
+  return hotelRows
+    .filter((h) => h && h.name)
+    .map((h) => {
+      const gallery = parseJsonSafe(h.gallery_json, []);
+      const images = Array.isArray(gallery)
+        ? gallery.filter((img) => img?.src).map((img) => ({ src: img.src, alt: img.alt || h.name, caption: img.caption || '' }))
+        : [];
+      return {
+        name: String(h.name || '').trim(),
+        images,
+        image: images[0]?.src || '',
+        location: String(h.address || '').trim(),
+        description: String(h.description || '').trim(),
+        category: '',
+      };
+    })
+    .filter((h) => h.name);
+}
+
+function buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows = []) {
   const content = parseJsonSafe(tour.content_data, {});
   const ctaDefaults = getDefaultCtaLabels('tour_operator');
   const title = content.tour_name || tour.title;
   const images = normalizeImageItems(content, title);
-  const itineraryStops = stops.map((stop) => ({
-    id: stop.id,
-    title: stop.label,
-    day_label: stop.day_from === stop.day_to ? `Day ${stop.day_from}` : `Day ${stop.day_from}-${stop.day_to}`,
-    description: stop.description || '',
-    nights: Number(stop.nights || 0),
-    meals: buildStopMeals(stop),
-  }));
+  const itineraryStops = buildItineraryItems(content);
   const pricing = buildPricingCards(pricingRows);
 
   return {
@@ -125,10 +177,15 @@ function buildTourSyncSnapshot(tour, stops, pricingRows) {
     about_section: content.tour_desc || content.description || content.hero_desc || itineraryStops[0]?.description || '',
     hero_image: typeof content.hero_image === 'string' ? content.hero_image : (images[0]?.src || ''),
     gallery_images: images,
-    highlights: normalizeHighlights(content, stops),
+    highlights: buildHighlightsWithImages(content, stops, images),
+    includes: Array.isArray(content.includes) ? content.includes.filter(Boolean) : [],
+    excludes: Array.isArray(content.excludes) ? content.excludes.filter(Boolean) : [],
     itinerary_stops: itineraryStops,
+    destination_stops: buildDestinationStops(stops, images),
+    hotel_cards: hotelRows.length ? buildHotelCardsFromRows(hotelRows) : [],
+    hotel_cards_fallback: [],  // kept for schema compat
     pricing_cards: pricing.cards,
-    price_from: pricing.priceFrom,
+    price_from: pricing.priceFrom ?? (typeof content.base_price === 'number' && content.base_price > 0 ? content.base_price : null),
     booking_cta_label: ctaDefaults.booking,
     route_label: itineraryStops.length
       ? `${itineraryStops[0].title} to ${itineraryStops[itineraryStops.length - 1].title}`
@@ -162,6 +219,34 @@ function buildTourDetailBlocks(snapshot, variantRuntime) {
       block.content.price_cards = snapshot.pricing_cards;
       block.content.price_from = snapshot.price_from;
     }
+  }
+
+  // Append dynamic blocks after the blueprint blocks
+  if (snapshot.includes?.length || snapshot.excludes?.length) {
+    blocks.push({
+      id: 'includes_excludes',
+      type: 'includes_excludes',
+      label: 'Included & Excluded',
+      content: { includes: snapshot.includes, excludes: snapshot.excludes },
+    });
+  }
+
+  if (snapshot.destination_stops?.length > 1) {
+    blocks.push({
+      id: 'destination_carousel',
+      type: 'destination_carousel',
+      label: 'Destinations',
+      content: { items: snapshot.destination_stops },
+    });
+  }
+
+  if (snapshot.hotel_cards?.length) {
+    blocks.push({
+      id: 'hotel_carousel',
+      type: 'hotel_carousel',
+      label: 'Where You Stay',
+      content: { items: snapshot.hotel_cards },
+    });
   }
 
   return blocks;
@@ -334,8 +419,27 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
     ).bind(tenantId, tourId),
   ]);
 
+  const { results: hotelLinkRows } = await env.DB
+    .prepare(`SELECT h.id, h.name, h.description, h.address, h.gallery_json
+              FROM tour_hotel_links thl
+              JOIN tenant_universal_hotels h ON h.id = thl.hotel_id
+              WHERE thl.tour_id = ? AND thl.tenant_id = ? AND h.status = 'active'
+              ORDER BY thl.sort_order ASC, thl.created_at ASC`)
+    .bind(tourId, tenantId)
+    .all();
+
+  // Fallback: use legacy tour_id-linked hotels if no junction links exist
+  let hotelRows = hotelLinkRows || [];
+  if (!hotelRows.length) {
+    const { results: legacyRows } = await env.DB
+      .prepare('SELECT id, name, description, address, gallery_json FROM tenant_universal_hotels WHERE tenant_id = ? AND tour_id = ? AND status = ? ORDER BY sort_order ASC')
+      .bind(tenantId, tourId, 'active')
+      .all();
+    hotelRows = legacyRows || [];
+  }
+
   const variantRuntime = buildVariantRuntimeConfig(site.group_key, site.variant_key);
-  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows);
+  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows || []);
   const slotMapping = syncTourToUniversalPageSlots(snapshot);
   const blocks = buildTourDetailBlocks(snapshot, variantRuntime);
   const now = Math.floor(Date.now() / 1000);

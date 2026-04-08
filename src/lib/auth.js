@@ -314,7 +314,7 @@ export async function resolveLegacyTenantByEmail(db, email) {
     .prepare(
       `SELECT t.id, t.slug, t.name, t.email, t.created_at, t.subscription_status, t.template_id, t.product_tier_key
          FROM tenants t
-        WHERE t.email = ?
+        WHERE lower(t.email) = lower(?)
           AND NOT EXISTS (
             SELECT 1
               FROM memberships m

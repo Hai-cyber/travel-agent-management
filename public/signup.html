@@ -300,8 +300,32 @@
       font-size: 13px;
       color: #64748b;
       font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
-    .login-link a { color: #2563eb; text-decoration: none; font-weight: 700; }
+    .login-link a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 180px;
+      padding: 11px 18px;
+      border-radius: 8px;
+      border: 1.5px solid #bfdbfe;
+      background: rgba(255, 255, 255, 0.96);
+      color: #1d4ed8;
+      text-decoration: none;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      transition: background .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .login-link a:hover {
+      background: #eff6ff;
+      border-color: #60a5fa;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 28px rgba(29, 78, 216, 0.14);
+    }
     .spinner {
       display: inline-block;
       width: 14px;
@@ -406,7 +430,7 @@
       </div>
     </form>
 
-    <div class="login-link"><span id="login-prompt">Already have an account?</span> <a id="login-link" href="/login.html">Sign in -></a></div>
+    <div class="login-link"><span id="login-prompt">Already have an account?</span><a id="login-link" href="/login.html">Sign in</a></div>
   </div>
 </div>
 
@@ -482,7 +506,7 @@
   document.getElementById('google-hint').textContent = shared('google_hint_disabled', 'Google sign-in will appear when GOOGLE_CLIENT_ID is configured.');
   document.getElementById('success-msg').textContent = page('success', 'Your workspace is being created...');
   document.getElementById('login-prompt').textContent = page('login_prompt', 'Already have an account?');
-  document.getElementById('login-link').textContent = page('login_link', 'Sign in ->');
+  document.getElementById('login-link').textContent = page('login_link', 'Sign in');
   document.getElementById('signup-proof').textContent = launchOffer?.signup_requirement_copy || page('proof', 'Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.');
   document.getElementById('signup-offer').textContent = launchOffer
     ? `${launchOffer.launch_offer_badge || '0 EUR for 6 months'}. ${launchOffer.launch_offer_terms || 'Then your selected plan starts. Cancel anytime.'}`

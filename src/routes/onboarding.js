@@ -554,7 +554,7 @@ async function fetchUserByEmail(db, emailClean) {
                  WHERE m.user_id = u.id
               ) AS has_memberships
          FROM users u
-        WHERE u.email = ?
+              WHERE lower(u.email) = lower(?)
         LIMIT 1`
     )
     .bind(emailClean)
@@ -571,11 +571,11 @@ async function fetchUserByGoogleOrEmail(db, googleSub, emailClean) {
                  WHERE m.user_id = u.id
               ) AS has_memberships
          FROM users u
-        WHERE u.google_sub = ? OR u.email = ?
-        ORDER BY CASE WHEN u.google_sub = ? THEN 0 ELSE 1 END
+              WHERE u.google_sub = ? OR lower(u.email) = lower(?)
+              ORDER BY CASE WHEN u.google_sub = ? THEN 0 WHEN lower(u.email) = lower(?) THEN 1 ELSE 2 END
         LIMIT 1`
     )
-    .bind(googleSub, emailClean, googleSub)
+            .bind(googleSub, emailClean, googleSub, emailClean)
     .first();
 }
 

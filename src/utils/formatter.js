@@ -11,6 +11,7 @@ import fr from '../locales/fr.json';
 import es from '../locales/es.json';
 import enGb from '../locales/en-gb.json';
 import enAu from '../locales/en-au.json';
+import th from '../locales/th.json';
 
 // ── Translation registry ──────────────────────────────────────────────────────
 const LOCALES = {
@@ -24,6 +25,7 @@ const LOCALES = {
   de,
   fr,
   es,
+  th,
 };
 
 const LOCALE_ALIASES = {
@@ -46,9 +48,11 @@ const LOCALE_ALIASES = {
   'fr-fr': 'fr',
   es: 'es',
   'es-es': 'es',
+  th: 'th',
+  'th-th': 'th',
 };
 
-const SUPPORTED_LOCALES = Object.freeze(['en', 'en-GB', 'en-AU', 'vi', 'zh', 'ja', 'ko', 'de', 'fr', 'es']);
+const SUPPORTED_LOCALES = Object.freeze(['en', 'en-GB', 'en-AU', 'vi', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'th']);
 
 export function getSupportedLocales() {
   return [...SUPPORTED_LOCALES];

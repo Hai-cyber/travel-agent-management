@@ -76,6 +76,11 @@ const GROUP_LABEL_FALLBACKS = Object.freeze({
     stay_accommodation: 'Alojamiento',
     transport_service: 'Servicio de transporte',
   },
+  th: {
+    tour_operator: 'ผู้ให้บริการทัวร์',
+    stay_accommodation: 'ที่พัก',
+    transport_service: 'บริการขนส่ง',
+  },
 });
 
 const VARIANT_TRANSLATION_FALLBACKS = Object.freeze({
@@ -169,6 +174,7 @@ const STRONG_LANGUAGE_OPTIONS = [
   { label: 'German', value: 'de' },
   { label: 'French', value: 'fr' },
   { label: 'Spanish', value: 'es' },
+  { label: 'Thai (ไทย)', value: 'th' },
 ];
 
 function clone(value) {
@@ -1478,7 +1484,7 @@ export function slugify(value) {
   return String(value ?? '')
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[^a-z0-9\s_-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');

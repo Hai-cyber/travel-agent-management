@@ -414,7 +414,7 @@ tours.get('/', async (c) => {
   const { results } = await c.env.DB
     .prepare(
       `SELECT id, title, slug, template_id, status, category_id,
-              published_at, published_url, lang, duration_text, start_date, created_at
+              published_at, published_url, lang, duration_text, start_date, created_at, content_data
        FROM tours WHERE tenant_id = ? ORDER BY created_at DESC`
     )
     .bind(tenantId)

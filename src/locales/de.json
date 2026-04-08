@@ -17,13 +17,16 @@
   "language": {
     "label": "Sprache",
     "en": "Englisch",
+    "en-GB": "Englisch (UK)",
+    "en-AU": "Englisch (Australien)",
     "vi": "Vietnamesisch",
     "zh": "Chinesisch",
     "ja": "Japanisch",
     "ko": "Koreanisch",
     "de": "Deutsch",
     "fr": "Französisch",
-    "es": "Spanisch"
+    "es": "Spanisch",
+    "th": "Thai"
   },
   "currency": {
     "display_currency": "Sekundäre Anzeigewährung",
@@ -49,9 +52,87 @@
     "child": "Kind (2–11 Jahre)",
     "infant": "Kleinkind (0–2 Jahre)"
   },
+  "dashboard": {
+    "meta": {
+      "title": "Dashboard - Travel Agent Management",
+      "subtitle": "Management-Dashboard"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "bookings": "Buchungen",
+      "all_orders": "Alle Bestellungen",
+      "pending_confirm": "Warten auf Bestätigung",
+      "pending_payment": "Warten auf Zahlung",
+      "pending_proof": "Warten auf Nachweis",
+      "settings": "Einstellungen",
+      "payments": "Zahlungen",
+      "tours_pricing": "Touren & Preise",
+      "notifications": "Benachrichtigungen"
+    },
+    "sidebar": {
+      "overview": "Überblick",
+      "booking_calendar": "Buchungskalender",
+      "revenue": "Umsatz",
+      "orders": "Bestellungen",
+      "manage": "Verwalten",
+      "tours": "Touren",
+      "destinations": "Reiseziele",
+      "accommodations": "Unterkünfte",
+      "gallery": "Galerie",
+      "properties": "Unterkünfte & Objekte",
+      "tours_destinations": "Touren & Reiseziele",
+      "pricing": "Preise",
+      "add_ons": "Zusatzleistungen",
+      "customers": "Kunden",
+      "system": "System"
+    },
+    "status": {
+      "awaiting_payment": "Warten auf Zahlung",
+      "awaiting_proof": "Warten auf Nachweis",
+      "proof_uploaded": "Nachweis hochgeladen",
+      "confirmed": "Bestätigt",
+      "pending_arrival": "Warten auf Ankunft"
+    },
+    "compliance": {
+      "warning_title": "Warnung:",
+      "warning_body": "Es ist kein elektronisches Zahlungsgateway konfiguriert. Ihre Website ist derzeit offline.",
+      "setup_now": "Jetzt einrichten ->"
+    },
+    "action": {
+      "tour_config": "Touren konfigurieren",
+      "website_design": "Website gestalten",
+      "payment_settings": "Zahlungseinstellungen",
+      "confirm": "Bestätigen",
+      "view": "Ansehen",
+      "remind": "Erinnern",
+      "unlock": "Entsperren"
+    },
+    "stat": {
+      "total_orders": "Bestellungen gesamt",
+      "pending_payment": "Ausstehende Zahlungen",
+      "pending_identity": "Warten auf Identitätsprüfung",
+      "confirmed": "Bestätigt",
+      "revenue_month": "Umsatz diesen Monat"
+    },
+    "table": {
+      "recent_orders": "Neueste Bestellungen",
+      "audit_log": "Prüfprotokoll zur Identität",
+      "col_id": "Bestell-ID",
+      "col_guest": "Gast",
+      "col_tour": "Tour",
+      "col_payment": "Zahlung",
+      "col_status": "Status",
+      "col_date": "Datum",
+      "col_time": "Zeit",
+      "col_action": "Aktion",
+      "col_actor": "Akteur",
+      "locked_guest": "*** (nicht verifiziert)"
+    }
+  },
   "auth": {
     "shared": {
       "email_label": "E-Mail",
+      "email_placeholder": "agency@example.com",
       "password_label": "Passwort",
       "google_hint_disabled": "Google-Anmeldung wird angezeigt, sobald GOOGLE_CLIENT_ID konfiguriert ist.",
       "google_hint_signup_enabled": "Sie können Ihr Konto mit E-Mail oder Google erstellen.",
@@ -63,29 +144,72 @@
     },
     "signup": {
       "meta_title": "Registrieren - TravelAgent",
+      "watermark": "Startangebot - 0 EUR für 6 Monate, danach Ihr gewählter Tarif. Jederzeit kündbar.",
+      "subtitle": "0 EUR für 6 Monate, danach startet Ihr gewählter Tarif. Jederzeit kündbar.",
       "name_label": "Markenname / Team / Agenturname",
+      "name_placeholder": "Sunset Journeys",
       "password_label": "Passwort erstellen",
+      "password_placeholder": "Erstellen Sie ein Passwort mit mindestens 8 Zeichen",
       "proof": "Pflicht: Wählen Sie einen Produktplan, geben Sie Ihre E-Mail-Adresse ein und erstellen Sie ein Passwort. Ihr Marken- oder Teamname wird für den Workspace verwendet.",
+      "offer": "0 EUR für 6 Monate, danach Ihr gewählter Tarif. Jederzeit kündbar.",
       "tier_hint": "Wählen Sie jetzt einen Tarif. Zum Start zahlen Sie 6 Monate lang 0 EUR, danach beginnt Ihr gewählter Monatstarif.",
+      "tier_required_error": "Bitte wählen Sie einen Produktplan.",
       "market_skin_label": "Primäres Markt-Preset",
       "market_skin_hint": "Wählen Sie das Preset, das am besten zu Ihrem wichtigsten Kundenmarkt passt. Sprache und Währung können später überschrieben werden.",
       "submit": "Konto erstellen",
       "busy": "Konto wird erstellt...",
       "success": "Ihr Workspace wird erstellt...",
       "login_prompt": "Sie haben bereits ein Konto?",
-      "login_link": "Anmelden ->"
+      "login_link": "Anmelden ->",
+      "missing_fields": "Bitte wählen Sie einen Produktplan und füllen Sie alle Pflichtfelder aus.",
+      "turnstile_note": "Schließen Sie die Verifizierung ab, bevor Sie Ihr Konto erstellen.",
+      "turnstile_required": "Bitte schließen Sie die Verifizierungsabfrage ab.",
+      "turnstile_error": "Die Verifizierung konnte nicht geladen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+      "name_required_for_google": "Geben Sie Ihren Marken-, Team- oder Arbeitsnamen ein, bevor Sie mit Google fortfahren.",
+      "google_error": "Google-Registrierung fehlgeschlagen."
     },
     "login": {
       "meta_title": "Anmelden - TravelAgent",
       "subtitle": "Melden Sie sich in Ihrem Touren-Dashboard an.",
+      "password_placeholder": "Geben Sie Ihr Passwort ein",
+      "forgot_password_link": "Passwort vergessen?",
       "submit": "Anmelden",
-      "busy": "Anmeldung läuft..."
+      "busy": "Anmeldung läuft...",
+      "success": "Erfolgreich angemeldet. Weiterleitung...",
+      "reset_success": "Ihr Passwort wurde aktualisiert. Bitte melden Sie sich mit dem neuen Passwort an.",
+      "signup_prompt": "Sie haben noch kein Konto?",
+      "signup_link": "Konto erstellen ->",
+      "missing_fields": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.",
+      "turnstile_note": "Schließen Sie die Verifizierung ab, bevor Sie sich anmelden.",
+      "turnstile_required": "Bitte schließen Sie die Verifizierungsabfrage ab.",
+      "turnstile_error": "Die Verifizierung konnte nicht geladen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+      "google_error": "Google-Anmeldung fehlgeschlagen.",
+      "default_error": "Anmeldung fehlgeschlagen."
     },
     "reset_password": {
       "meta_title": "Passwort zurücksetzen - TravelAgent",
       "subtitle": "Fordern Sie einen Reset-Link an oder setzen Sie ein neues Passwort.",
       "request_submit": "Reset-Link senden",
+      "request_busy": "Reset-Link wird vorbereitet...",
+      "request_success": "Falls das Konto existiert, wurde ein Reset-Link vorbereitet.",
+      "request_error": "Ein Reset-Link konnte nicht vorbereitet werden.",
+      "request_missing_email": "Bitte geben Sie die E-Mail-Adresse Ihres Kontos ein.",
+      "turnstile_note": "Schließen Sie die Verifizierung ab, bevor Sie einen Reset-Link anfordern.",
+      "turnstile_required": "Bitte schließen Sie die Verifizierungsabfrage ab.",
+      "turnstile_error": "Die Verifizierung konnte nicht geladen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+      "dev_link_hint": "Lokaler/dev Reset-Link:",
+      "new_password_label": "Neues Passwort",
+      "new_password_placeholder": "Erstellen Sie ein neues Passwort",
+      "confirm_password_label": "Neues Passwort bestätigen",
+      "confirm_password_placeholder": "Wiederholen Sie Ihr neues Passwort",
       "confirm_submit": "Passwort aktualisieren",
+      "confirm_busy": "Passwort wird aktualisiert...",
+      "confirm_success": "Ihr Passwort wurde aktualisiert. Weiterleitung zur Anmeldung...",
+      "confirm_error": "Das Passwort konnte nicht zurückgesetzt werden.",
+      "confirm_missing_fields": "Bitte geben Sie Ihr neues Passwort ein und bestätigen Sie es.",
+      "confirm_mismatch": "Die Passwortbestätigung stimmt nicht überein.",
+      "token_invalid": "Der Reset-Link ist ungültig oder abgelaufen.",
+      "token_valid_hint": "Passwort wird für {{email_hint}} zurückgesetzt.",
       "back_to_login": "Zurück zur Anmeldung"
     }
   },
@@ -94,7 +218,53 @@
     "catalog_hint": "Starten Sie jetzt mit einem aktiven Plan. Zukünftige Pläne bleiben zur Orientierung sichtbar.",
     "per_user_month": "EUR {{price}} / Benutzer / Monat",
     "status_active": "Jetzt verfügbar",
-    "status_future": "Zukünftiger Plan"
+    "status_future": "Zukünftiger Plan",
+    "tiers": {
+      "starter_landing": {
+        "name": "Landing Page Starter",
+        "tagline": "Eine einfache Webpräsenz für Agenturen in der Frühphase",
+        "description": "Landingpage, Plattform-Subdomain, nur Kontaktformular und keine Online-Zahlung.",
+        "features": [
+          "Landingpage-Builder",
+          "Plattform-Subdomain inklusive",
+          "Nur Kontaktformular",
+          "Keine Online-Zahlung"
+        ]
+      },
+      "tour_operator_pro": {
+        "name": "Tour Operator Pro",
+        "tagline": "Touren betreiben und online verkaufen",
+        "description": "Workspace für Tour-Operationen mit öffentlichem Tourverkauf, Online-Zahlungsunterstützung und verpflichtender eigener Domain.",
+        "features": [
+          "Software für Tour-Operationen",
+          "Öffentlicher Tourverkaufsablauf",
+          "Unterstützung für Online-Zahlung",
+          "Eigene Domain erforderlich"
+        ]
+      },
+      "hotel_operator_pro": {
+        "name": "Hotel Operator Pro",
+        "tagline": "Hotelsoftware für direkte Hospitality-Verkäufe",
+        "description": "Hotelsoftware mit eigener Domain und Zahlungsunterstützung. Geplant als zukünftiger Entwicklungstarif.",
+        "features": [
+          "Hotel-Operations-Software",
+          "Unterstützung für Online-Zahlung",
+          "Eigene Domain erforderlich",
+          "Zukünftiger Entwicklungstarif"
+        ]
+      },
+      "tour_hotel_suite": {
+        "name": "Tours + Hotel Suite",
+        "tagline": "Kombinierte Abläufe für Reise- und Hospitality-Unternehmen",
+        "description": "Vereinte Touren- und Hotelprozesse mit eigener Domain und Zahlungsunterstützung. Geplant als zukünftiger Entwicklungstarif.",
+        "features": [
+          "Touren plus Hotelabläufe",
+          "Unterstützung für Online-Zahlung",
+          "Eigene Domain erforderlich",
+          "Zukünftiger Entwicklungstarif"
+        ]
+      }
+    }
   },
   "widget": {
     "title": "Preis prüfen und buchen",
@@ -190,9 +360,105 @@
       "youtube": "YouTube",
       "address": "Adresse"
     }
-  }
-  ,"dashboard_market_skin": {
-    "label": "Market Skin",
+  },
+  "tour_config": {
+    "meta": {
+      "title": "Tour-Konfiguration - Agenten-Dashboard"
+    },
+    "header": {
+      "title": "Tour-Konfiguration",
+      "dashboard": "Dashboard",
+      "category_manager": "Kategorien verwalten",
+      "tenant_admin": "Tenant-Admin",
+      "note": "Der Tenant-Kontext wird automatisch aus Ihrer angemeldeten Admin-Sitzung geladen.",
+      "reload": "Neu laden",
+      "lang_label": "Sprache",
+      "base_url_placeholder": "http://127.0.0.1:8787",
+      "tenant_placeholder": "z. B. ten-demo-001"
+    },
+    "tabs": {
+      "tours": "Touren",
+      "content": "Inhalt",
+      "tagging": "Tagging",
+      "stops": "Stops",
+      "pricing": "Preis-Konfiguration",
+      "preview": "Vorschau",
+      "publish": "Veröffentlichen"
+    },
+    "tours": {
+      "search_placeholder": "Nach Tour, Reiseziel oder Tag suchen",
+      "edit_tags": "Tags bearbeiten ->",
+      "no_tours_match": "Keine Tour passt zum aktuellen Tag-Filter oder zur Suche.",
+      "no_tags_yet": "Noch keine Tags",
+      "untitled": "Unbenannte Tour"
+    },
+    "tagging": {
+      "selected_label": "Tagging:",
+      "title": "Discovery-Tags & Interessen",
+      "note": "Taggen Sie die Tour direkt dort, wo Sie sie erstellen. Diese Tags steuern Interessenseiten, Discovery-Sortierung und die Suche nach Reiseziel oder Interesse.",
+      "top_level": "Interessen der obersten Ebene",
+      "sub_interests": "Unterinteressen",
+      "primary_interest": "Primäres Interesse",
+      "catalog_unavailable": "Taxonomie-Katalog nicht verfügbar.",
+      "no_sub_interests": "Noch keine Unterinteressen konfiguriert.",
+      "choose_top_level_first": "Wählen Sie zuerst mindestens ein Interesse der obersten Ebene.",
+      "save": "Tags speichern",
+      "back_to_content": "Zurück zum Inhalt"
+    },
+    "content": {
+      "notice_title": "Discovery-Tags wurden in einen eigenen Tab verschoben.",
+      "notice_body": "Verwenden Sie den Tab Tagging, um diese Tour nach Interessen zu klassifizieren.",
+      "open_tagging": "Tagging öffnen",
+      "hero_summary": "Hero-Zusammenfassung",
+      "hero_summary_placeholder": "Zwei oder drei Zeilen, die die Reise bereits im Hero-Bereich verkaufen.",
+      "story_description": "Story / Lange Beschreibung",
+      "story_description_placeholder": "Längerer redaktioneller Text für den Hauptbereich der Tour-Seite.",
+      "hero_image_url": "Hero-Bild-URL",
+      "image_url_placeholder": "https://...",
+      "asset_add_hero": "Hero-Bild hinzufügen",
+      "hero_image_note": "Wählen Sie aus dem lokalen Laufwerk oder der Tenant-Galerie. Das Hero-Bild bleibt explizit gesetzt und wird nicht automatisch aus der Galerie übernommen.",
+      "hero_image_preview_empty": "Die Hero-Bildvorschau erscheint hier.",
+      "gallery_images": "Galeriebilder",
+      "gallery_images_placeholder": "https://...\nhttps://...",
+      "asset_add_gallery": "Galeriebild hinzufügen",
+      "gallery_image_note": "Jedes hochgeladene oder gewählte Bild wird nur dieser Galerie-Liste hinzugefügt. Es fließt nicht in Hero, Reiseziel oder Unterkunft, außer Sie wählen es dort ausdrücklich aus.",
+      "gallery_preview_empty": "Galerie-Vorschauen erscheinen hier, sobald Sie Bilder einfügen oder hochladen.",
+      "destination_name": "Name des Reiseziels",
+      "destination_name_placeholder": "z. B. Hoi An",
+      "destination_image_url": "Reiseziel-Bild-URL",
+      "asset_add_destination": "Reiseziel-Bild hinzufügen",
+      "destination_image_preview_empty": "Die Reiseziel-Bildvorschau erscheint hier.",
+      "accommodation_title": "Unterkunftstitel",
+      "accommodation_title_placeholder": "z. B. Lotus Heritage Suites",
+      "accommodation_image_url": "Unterkunfts-Bild-URL",
+      "asset_add_accommodation": "Unterkunfts-Bild hinzufügen",
+      "accommodation_image_preview_empty": "Die Unterkunfts-Bildvorschau erscheint hier.",
+      "accommodation_summary": "Unterkunftszusammenfassung",
+      "accommodation_summary_placeholder": "Beschreiben Sie Aufenthalt, Tonalität und warum diese Unterkunft auf die Tour-Seite gehört.",
+      "remove_image": "Entfernen",
+      "remove_gallery_image": "Galeriebild entfernen"
+    },
+    "media_picker": {
+      "title": "Bild hinzufügen",
+      "copy": "Vom lokalen Laufwerk hochladen oder ein Bild wiederverwenden, das bereits in dieser Tenant-Galerie vorhanden ist.",
+      "close": "Schließen",
+      "upload": "Vom lokalen Laufwerk hochladen",
+      "refresh": "Galerie aktualisieren",
+      "gallery": "Tenant-Galerie",
+      "count_one": "{{count}} Bild",
+      "count_other": "{{count}} Bilder",
+      "note": "Ausgewählte Bilder werden direkt in das aktuelle Feld eingefügt. Galerie-Bilder bleiben auf Galerie-Ebene, bis Sie sie für ein anderes Modul-Feld auswählen.",
+      "empty_gallery": "Noch keine Tenant-Bilder vorhanden. Laden Sie eines lokal hoch, damit es sofort wiederverwendbar wird.",
+      "inserted": "Bild aus der Tenant-Galerie eingefügt.",
+      "gallery_removed": "Galeriebild aus diesem Entwurf entfernt.",
+      "field_cleared": "Bild aus diesem Modul-Feld entfernt.",
+      "refreshed": "Tenant-Galerie aktualisiert.",
+      "refresh_failed": "Tenant-Galerie konnte nicht aktualisiert werden.",
+      "uploading": "{{name}} wird hochgeladen..."
+    }
+  },
+  "dashboard_market_skin": {
+    "label": "Markt-Skin",
     "hint": "Das Market Skin steuert Standardsprache, maßgebliche Buchungswährung und nicht editierbare Storefront-Texte.",
     "none_available": "Keine Market Skins verfügbar",
     "save": "Speichern",
@@ -200,7 +466,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Hier starten: in kleinen Schritten live gehen",
-    "guide_copy": "Sie haben sich bereits ohne Kreditkarte registriert und Ihr Launch-Plan bleibt 6 Monate lang kostenlos. Als Nächstes legen Sie eine saubere Subdomain fest, wählen oder verfeinern das Website-Skin und bauen dann Produktmodule für Touren, Reiseziele, Unterkünfte, Properties und Galerie-Inhalte.",
+    "guide_copy": "Sie haben sich bereits ohne Kreditkarte registriert und Ihr Launch-Plan bleibt 6 Monate lang kostenlos. Als Nächstes legen Sie eine klare Subdomain fest, wählen oder verfeinern das Website-Skin und bauen dann Touren, Reiseziele, Unterkünfte und Galerie-Inhalte. Objektverwaltung kommt später in die separate Engine für Hotels und andere Standorte.",
     "status_done": "Erledigt",
     "status_next": "Als Nächstes",
     "status_later": "Später",
@@ -239,13 +505,20 @@
     "destinations_desc_empty": "Verwandeln Sie rohe Touren in durchsuchbare Destination-Storys, die Kunden schnell erfassen können.",
     "destinations_label_ready": "Reiseziele verfeinern",
     "destinations_label_empty": "Reiseziele hinzufügen",
-    "properties_title": "Properties hinzufügen",
+    "accommodations_title": "Unterkünfte hinzufügen",
+    "accommodations_count_single": "Accommodation-Modul wird bereits",
+    "accommodations_count_plural": "Accommodation-Module werden bereits",
+    "accommodations_desc_ready": "im aktuellen Hotel-Module-Workspace verwaltet.",
+    "accommodations_desc_empty": "Fügen Sie hotelseitige Accommodations im aktuellen Hotel-Module-Workspace hinzu.",
+    "accommodations_label_ready": "Unterkünfte prüfen",
+    "accommodations_label_empty": "Unterkünfte hinzufügen",
+    "properties_title": "Properties Engine",
     "properties_count_single": "Property wird bereits",
     "properties_count_plural": "Properties werden bereits",
-    "properties_desc_ready": "in der separaten Hotel-Engine verwaltet.",
-    "properties_desc_empty": "Fügen Sie hotelseitige Properties in der separaten Property-Engine hinzu. Diese überschreiben nicht das Accommodation-Storytelling der Tour.",
-    "properties_label_ready": "Properties prüfen",
-    "properties_label_empty": "Properties hinzufügen",
+    "properties_desc_ready": "in der dedizierten Properties-Engine verwaltet.",
+    "properties_desc_empty": "Properties gehören später in die separate Engine für Hotels und andere Venues im Hotel-Operator-Pro-Pfad.",
+    "properties_label_ready": "Properties Engine öffnen",
+    "properties_label_empty": "Properties Engine öffnen",
     "gallery_title": "Galerie aufbauen",
     "gallery_count_single": "Galeriebild ist bereits",
     "gallery_count_plural": "Galeriebilder sind bereits",
@@ -258,5 +531,19 @@
     "system_desc_empty": "Schließen Sie Kontaktkanäle, Rechtsseiten und zentrale Systemstandards vor dem Launch ab.",
     "system_label_ready": "Systemeinstellungen prüfen",
     "system_label_empty": "Systemeinstellungen abschließen"
+  },
+  "tour_config_market_skin": {
+    "settings_title": "Markt-Skin-Einstellungen",
+    "settings_title_pricing": "Markt-Skin und maßgebliche Buchungswährung",
+    "primary_label": "Primärer Markt-Skin",
+    "hint_default": "Dieses Preset steuert die Standard-Sprache des Tenants, die maßgebliche Buchungswährung und nicht editierbare Storefront-Texte.",
+    "hint_pricing": "Dieses Preset steuert die Buchungswährung und Standardsprache des Tenants. Die Anzeigewährung unten gilt nur für diese Preisansicht.",
+    "save": "Markt-Skin speichern",
+    "no_catalog": "Keine Markt-Skins verfügbar",
+    "preview_prefix": "Preset-Vorschau:",
+    "preview_empty": "Noch kein Markt-Skin-Preset geladen.",
+    "extra_summary": "Primärmarkt: {{market}}. Die UI-Sprache folgt {{locale}}. Die Buchungswährung folgt {{currency}}.",
+    "saved": "Markt-Skin gespeichert. Standardsprache und maßgebliche Währung wurden aktualisiert.",
+    "save_failed": "Markt-Skin konnte nicht gespeichert werden."
   }
 }

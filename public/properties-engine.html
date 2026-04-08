@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Properties Engine</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg-deep: #0f172a;
+      --bg-blue: #1d4ed8;
+      --surface: rgba(255, 255, 255, 0.94);
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: rgba(148, 163, 184, 0.24);
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.12);
+      --shadow: 0 28px 72px rgba(15, 23, 42, 0.24);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 16px/1.55 "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.14), transparent 24%),
+        linear-gradient(145deg, var(--bg-deep) 0%, var(--bg-blue) 100%);
+      padding: 32px 18px;
+    }
+
+    .shell {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 34px 34px 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(32px, 5vw, 48px);
+      line-height: 1.08;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 65ch;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .body {
+      padding: 0 34px 34px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      padding: 20px 22px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .card p,
+    .card li {
+      color: #334155;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      color: var(--ink);
+      background: #fff;
+      font-weight: 700;
+    }
+
+    .button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Hotel Operator Pro</div>
+      <h1>Properties Engine Reserved For The Hotel And Venue Track</h1>
+      <p class="lead">This dashboard entry is intentionally separate from tour-side accommodations. Hotel and venue properties will live here later as their own engine, without overwriting tour storytelling.</p>
+    </section>
+    <section class="body">
+      <article class="card">
+        <h2>Current Direction</h2>
+        <ul>
+          <li>Accommodations in the tenant dashboard now point to the current hotel module flow.</li>
+          <li>Properties are reserved for the future dedicated engine for hotels and other venues.</li>
+          <li>This future engine is aligned with the Hotel Operator Pro tier and later bundle expansion.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h2>Use Today</h2>
+        <p>If you need to manage hotel-side presentation modules now, continue in the current hotel module editor. That keeps today’s operations moving while leaving room for the real properties engine later.</p>
+        <div class="actions">
+          <a id="btn-hotel-modules" class="button primary" href="/product-modules.html?mode=hotels#hotel">Open Hotel Modules</a>
+          <a id="btn-dashboard" class="button" href="/dashboard.html">Back To Dashboard</a>
+        </div>
+      </article>
+      <div class="meta">This page is a roadmap placeholder, not the final hotel/property runtime.</div>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const tenantId = String(params.get('tid') || '').trim();
+      const withTenant = (path) => {
+        const url = new URL(path, window.location.origin);
+        if (tenantId) url.searchParams.set('tid', tenantId);
+        return `${url.pathname}${url.search}${url.hash}`;
+      };
+
+      const hotelModules = document.getElementById('btn-hotel-modules');
+      const dashboard = document.getElementById('btn-dashboard');
+      if (hotelModules) hotelModules.href = withTenant('/product-modules.html?mode=hotels#hotel');
+      if (dashboard) dashboard.href = withTenant('/dashboard.html');
+    })();
+  </script>
+</body>
+</html>

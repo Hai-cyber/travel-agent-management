@@ -1343,7 +1343,8 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
   const renderPricing = (block) => {
     const cards = Array.isArray(block.content?.price_cards) ? block.content.price_cards : priceCards;
-    if (!cards.length) return '';
+    const priceFromVal = snapshot?.price_from;
+    if (!cards.length && priceFromVal == null) return '';
     const bookingCtaLabel = localizedThemeCtaLabel('booking', block.content?.cta_label);
     const bookingCtaHref = bookingPageHref || '#';
     const bookingCtaAttrs = bookingPageHref ? ' data-open-public-booking="1"' : '';
@@ -1352,9 +1353,44 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</td></tr>`).join('')}</tbody></table></div><div class="px-6 pb-6">${bookingCtaMarkup}</div></section>`;
     }
     if (profile.pricing === 'sidebar' || profile.pricing === 'spotlight') {
-      return `<section id="pricing" class="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]"><article class="rounded-[26px] p-6 text-white shadow-sm" style="background:linear-gradient(135deg, ${escapeHtml(primaryColor)}, ${escapeHtml(secondaryColor)})"><p class="text-xs uppercase tracking-[0.24em] text-white/70">${escapeHtml(block.content?.price_from_label || systemCopy.pricing.from)}</p><p class="mt-4 text-5xl font-semibold">${escapeHtml(snapshot?.price_from != null ? `$${snapshot.price_from}` : systemCopy.cta.quote)}</p><p class="mt-4 text-sm text-white/78">${escapeHtml(systemCopy.pricing.spotlightBody)}</p></article><article class="rounded-[26px] bg-white p-6 shadow-sm"><div class="grid gap-4 md:grid-cols-2">${cards.map((card) => `<div class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">${escapeHtml(systemCopy.pricing.sharedRoom)}: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">${escapeHtml(systemCopy.pricing.singleRoom)}: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></div>`).join('')}</div>${bookingCtaMarkup}</article></section>`;
+      const segmentGroups = Array.from(cards.reduce((map, card, index) => {
+        const key = String(card.segment_id || card.segment_code || card.segment_name || `segment-${index}`);
+        const sharedPrice = typeof card.adult_shared_room_price === 'number' && Number.isFinite(card.adult_shared_room_price) && card.adult_shared_room_price > 0
+          ? card.adult_shared_room_price
+          : null;
+        const singlePrice = typeof card.adult_single_room_price === 'number' && Number.isFinite(card.adult_single_room_price) && card.adult_single_room_price > 0
+          ? card.adult_single_room_price
+          : null;
+        const candidateRank = Math.min(sharedPrice ?? Number.POSITIVE_INFINITY, singlePrice ?? Number.POSITIVE_INFINITY);
+        const current = map.get(key);
+        if (!current) {
+          map.set(key, {
+            segment_name: card.segment_name || card.segment_code || 'Segment',
+            season_name: card.season_name || '',
+            pax_range_label: card.pax_range_label || '',
+            shared_price: sharedPrice,
+            single_price: singlePrice,
+            rank: candidateRank,
+          });
+          return map;
+        }
+        if (sharedPrice != null && (current.shared_price == null || sharedPrice < current.shared_price)) current.shared_price = sharedPrice;
+        if (singlePrice != null && (current.single_price == null || singlePrice < current.single_price)) current.single_price = singlePrice;
+        if (candidateRank < current.rank) {
+          current.rank = candidateRank;
+          current.season_name = card.season_name || current.season_name;
+          current.pax_range_label = card.pax_range_label || current.pax_range_label;
+        }
+        return map;
+      }, new Map()).values()).sort((left, right) => left.rank - right.rank);
+
+      const priceChip = priceFromVal != null ? `<span class="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(block.content?.price_from_label || systemCopy.pricing.from)} $${priceFromVal}</span>` : '';
+      const pricingTableHtml = segmentGroups.length ? `<div class="mt-5 overflow-x-auto rounded-[18px] border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-4 py-3 font-medium">Segment</th><th class="px-4 py-3 font-medium">Season</th><th class="px-4 py-3 font-medium">Pax</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.sharedRoom)}</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.singleRoom)}</th></tr></thead><tbody>${segmentGroups.map((card) => `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-medium text-slate-900">${escapeHtml(card.segment_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.season_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.pax_range_label)}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.shared_price ?? '—'))}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.single_price ?? '—'))}</td></tr>`).join('')}</tbody></table></div>` : '';
+      return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm overflow-hidden"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-2xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2>${priceChip}</div>${pricingTableHtml}${bookingCtaMarkup}</section>`;
     }
-    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2><div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[20px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-sm text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-3 text-sm text-slate-700">${escapeHtml(systemCopy.pricing.shared)}: ${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</p><p class="text-sm text-slate-700">${escapeHtml(systemCopy.pricing.single)}: ${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</p></article>`).join('')}</div>${bookingCtaMarkup}</section>`;
+    const priceFromDisplay = priceFromVal != null ? `$${priceFromVal}` : null;
+    const priceFromBar = priceFromDisplay ? `<div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] p-4 text-white" style="background:linear-gradient(135deg,${escapeHtml(primaryColor)},${escapeHtml(secondaryColor)})"><div><p class="text-[11px] uppercase tracking-[0.2em] text-white/70">${escapeHtml(block.content?.price_from_label || systemCopy.pricing.from)}</p><p class="mt-1 text-3xl font-semibold leading-none">${escapeHtml(priceFromDisplay)}</p></div><a href="${escapeHtml(bookingCtaHref)}"${bookingCtaAttrs} class="inline-flex shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-white ring-2 ring-white/40 hover:ring-white/70 transition">${escapeHtml(bookingCtaLabel)}</a></div>` : bookingCtaMarkup;
+    return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-2xl font-semibold text-slate-950 mb-4">${escapeHtml(block.content?.heading || 'Pricing')}</h2>${priceFromBar}<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${cards.map((card) => `<article class="rounded-[18px] border border-slate-200 p-4"><h3 class="font-semibold text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</h3><p class="mt-1 text-xs text-slate-500">${escapeHtml(card.season_name || '')} • ${escapeHtml(card.pax_range_label || '')}</p><p class="mt-2 text-sm text-slate-700">${escapeHtml(systemCopy.pricing.shared)}: <span class="font-semibold text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</span></p><p class="text-sm text-slate-700">${escapeHtml(systemCopy.pricing.single)}: <span class="font-semibold text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</span></p></article>`).join('')}</div></section>`;
   };
 
   const renderContact = (block) => {
@@ -1397,6 +1433,37 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     return `<div class="universal-admin-slot" data-universal-editable="1" data-ve-section="1" data-section-id="${escapeHtml(block.id || block.type)}" data-section-type="${escapeHtml(sectionType)}" data-section-label="${escapeHtml(blockLabel)}" data-admin-page-key="${escapeHtml(targetPage.page_key || page.page_key || 'home')}" data-admin-block-id="${escapeHtml(block.id || block.type)}" data-admin-block-type="${escapeHtml(block.type)}" data-admin-block-label="${escapeHtml(blockLabel)}" data-admin-management-target="${escapeHtml(managementTarget)}">${html}</div>`;
   };
 
+  const renderIncludesExcludes = (block) => {
+    const inc = Array.isArray(block.content?.includes) ? block.content.includes : [];
+    const exc = Array.isArray(block.content?.excludes) ? block.content.excludes : [];
+    if (!inc.length && !exc.length) return '';
+    const incHtml = inc.length ? `<div><h3 class="mb-3 text-base font-semibold text-slate-900">Included</h3><ul class="space-y-2">${inc.map((item) => `<li class="flex items-start gap-2 text-sm text-slate-700"><span class="mt-0.5 shrink-0 text-emerald-500">✓</span>${escapeHtml(item)}</li>`).join('')}</ul></div>` : '';
+    const excHtml = exc.length ? `<div><h3 class="mb-3 text-base font-semibold text-slate-900">Not Included</h3><ul class="space-y-2">${exc.map((item) => `<li class="flex items-start gap-2 text-sm text-slate-700"><span class="mt-0.5 shrink-0 text-slate-400">✗</span>${escapeHtml(item)}</li>`).join('')}</ul></div>` : '';
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="mb-5 text-2xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Included & Excluded')}</h2><div class="grid gap-6 md:grid-cols-2">${incHtml}${excHtml}</div></section>`;
+  };
+
+  const renderDestinationCarousel = (block) => {
+    const items = Array.isArray(block.content?.items) ? block.content.items : [];
+    if (!items.length) return '';
+    const slides = items.map((item, i) => `<article class="destination-slide shrink-0 w-[80vw] max-w-[360px] sm:w-[340px] snap-start overflow-hidden rounded-[22px] bg-white shadow-sm" aria-label="${escapeHtml(item.name || '')}"><div class="relative h-[220px] overflow-hidden bg-slate-200">${item.image ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || '')}" class="h-full w-full object-cover" loading="${i === 0 ? 'eager' : 'lazy'}" />` : `<div class="h-full w-full flex items-center justify-center text-slate-400 text-4xl">✦</div>`}<span class="absolute bottom-3 left-3 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">${escapeHtml(item.day_label || '')}</span></div><div class="p-4"><h3 class="text-lg font-semibold text-slate-900">${escapeHtml(item.name || '')}</h3>${item.nights ? `<p class="mt-0.5 text-xs text-slate-500">${escapeHtml(String(item.nights))} night${item.nights !== 1 ? 's' : ''}</p>` : ''}<p class="mt-2 text-sm leading-6 text-slate-600 line-clamp-3">${escapeHtml(item.description || '')}</p></div></article>`).join('');
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm" id="destinations"><h2 class="mb-5 text-2xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Destinations')}</h2><div class="relative"><div class="destination-track flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory" style="scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none" data-carousel="destination">${slides}</div><button type="button" class="carousel-prev absolute -left-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md text-slate-600 hover:bg-slate-50" data-carousel-target="destination" data-dir="-1" aria-label="Previous">‹</button><button type="button" class="carousel-next absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md text-slate-600 hover:bg-slate-50" data-carousel-target="destination" data-dir="1" aria-label="Next">›</button></div></section>`;
+  };
+
+  const renderHotelCarousel = (block) => {
+    const items = Array.isArray(block.content?.items) ? block.content.items : [];
+    if (!items.length) return '';
+    // Expand: each image of each hotel becomes a slide; hotel info overlaid at bottom
+    const slides = items.flatMap((item, hotelIdx) => {
+      const imgs = Array.isArray(item.images) && item.images.length ? item.images : [{ src: item.image || '', alt: item.name || '' }];
+      return imgs.map((img, imgIdx) => {
+        const isFirst = hotelIdx === 0 && imgIdx === 0;
+        const photoCountBadge = imgs.length > 1 ? `<span class="absolute top-3 right-3 rounded-full bg-black/50 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">${imgIdx + 1}/${imgs.length}</span>` : '';
+        return `<article class="hotel-slide shrink-0 w-[72vw] max-w-[300px] sm:w-[280px] snap-start rounded-[22px] overflow-hidden bg-white shadow-sm" aria-label="${escapeHtml(item.name || '')}"><div class="relative bg-slate-200" style="aspect-ratio:3/4">${img.src ? `<img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.alt || item.name || '')}" class="h-full w-full object-cover" loading="${isFirst ? 'eager' : 'lazy'}" />` : `<div class="h-full w-full flex items-center justify-center text-slate-400 text-4xl">🏨</div>`}${photoCountBadge}<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4"><h3 class="text-sm font-semibold text-white leading-snug">${escapeHtml(item.name || '')}</h3>${item.location ? `<p class="mt-0.5 text-[11px] text-white/70 truncate" title="${escapeHtml(item.location)}">${escapeHtml(item.location)}</p>` : ''}</div></div>${item.description && imgIdx === 0 ? `<div class="px-4 py-3"><p class="text-xs leading-5 text-slate-600 line-clamp-3">${escapeHtml(item.description)}</p></div>` : ''}</article>`;
+      });
+    }).join('');
+    return `<section class="rounded-[26px] bg-white p-6 shadow-sm" id="hotels"><h2 class="mb-5 text-2xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Where You Stay')}</h2><div class="relative"><div class="hotel-track flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory" style="scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none" data-carousel="hotel">${slides}</div><button type="button" class="carousel-prev absolute -left-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md text-slate-600 hover:bg-slate-50" data-carousel-target="hotel" data-dir="-1" aria-label="Previous">‹</button><button type="button" class="carousel-next absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md text-slate-600 hover:bg-slate-50" data-carousel-target="hotel" data-dir="1" aria-label="Next">›</button></div></section>`;
+  };
+
   const renderBlocksList = (blockList, targetPage = page) => blockList.map((block) => {
     let html = '';
     switch (block.type) {
@@ -1412,6 +1479,9 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       case 'reservation_entry':
       case 'booking_entry': html = renderListing(block, targetPage); break;
       case 'booking_engine_slot': html = renderBookingSlot(block); break;
+      case 'includes_excludes': html = renderIncludesExcludes(block); break;
+      case 'destination_carousel': html = renderDestinationCarousel(block); break;
+      case 'hotel_carousel': html = renderHotelCarousel(block); break;
       default: html = ''; break;
     }
     return wrapAdminBlock(block, targetPage, html);
@@ -2244,7 +2314,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     .luxury-gallery-prev { left: 0; }
     .luxury-gallery-next { right: 0; }
     .luxury-gallery-thumbs {
-      display: grid;
+      display: none;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       margin-top: 12px;
@@ -2414,6 +2484,26 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   </main>
   ${footerMarkup}
   ${shellScript}
+  <script>
+    /* Destination & hotel carousel — scroll-snap prev/next */
+    (function(){
+      document.querySelectorAll('[data-carousel-target]').forEach(function(btn){
+        btn.addEventListener('click',function(){
+          var key=btn.dataset.carouselTarget;
+          var dir=Number(btn.dataset.dir||1);
+          var track=document.querySelector('[data-carousel="'+key+'"]');
+          if(!track)return;
+          var card=track.querySelector('article');
+          var w=card?card.offsetWidth+16:320;
+          track.scrollBy({left:dir*w,behavior:'smooth'});
+        });
+      });
+      /* Hide scrollbar on carousel tracks (WebKit) */
+      var style=document.createElement('style');
+      style.textContent='[data-carousel]::-webkit-scrollbar{display:none}';
+      document.head.appendChild(style);
+    })();
+  </script>
   ${bookingViewMarkup}
   ${adminPreviewScript}
 </body>
@@ -3531,6 +3621,191 @@ router.patch('/hotels/:hotelId', async (c) => {
 
   return c.json({ ok: true, hotel: normalizeHotel(row) });
 });
+
+// ── Destination catalog ──────────────────────────────────────────────────────
+
+function normalizeDestination(row) {
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    name: row.name || '',
+    description: row.description || '',
+    region: row.region || '',
+    gallery: parseJsonSafe(row.gallery_json, []),
+    status: row.status || 'draft',
+    sort_order: Number(row.sort_order || 0),
+    created_at: Number(row.created_at || 0),
+    updated_at: Number(row.updated_at || 0),
+  };
+}
+
+router.get('/destinations', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const { results } = await c.env.DB
+    .prepare('SELECT * FROM tenant_destinations WHERE tenant_id = ? ORDER BY sort_order ASC, created_at ASC')
+    .bind(ctx.tenantId)
+    .all();
+  return c.json({ ok: true, destinations: (results || []).map(normalizeDestination) });
+});
+
+router.post('/destinations', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const name = String(body.name || '').trim();
+  if (!name) return jsonError(c, 400, 'name is required');
+  const now = Math.floor(Date.now() / 1000);
+  const id = nanoid();
+  await c.env.DB
+    .prepare('INSERT INTO tenant_destinations (id, tenant_id, name, description, region, gallery_json, status, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, ctx.tenantId, name, String(body.description || '').trim(), String(body.region || '').trim(), JSON.stringify(Array.isArray(body.gallery) ? body.gallery : []), String(body.status || 'draft').trim() || 'draft', Number(body.sort_order || 0), now, now)
+    .run();
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_destinations WHERE id = ? AND tenant_id = ?').bind(id, ctx.tenantId).first();
+  return c.json({ ok: true, destination: normalizeDestination(row) }, 201);
+});
+
+router.get('/destinations/:destId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_destinations WHERE id = ? AND tenant_id = ?').bind(c.req.param('destId'), ctx.tenantId).first();
+  if (!row) return jsonError(c, 404, 'Destination not found');
+  return c.json({ ok: true, destination: normalizeDestination(row) });
+});
+
+router.patch('/destinations/:destId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const updates = [];
+  const binds = [];
+  const sv = (col, val) => { if (val === undefined) return; updates.push(`${col} = ?`); binds.push(val); };
+  if ('name' in body) { const n = String(body.name || '').trim(); if (!n) return jsonError(c, 400, 'name cannot be empty'); sv('name', n); }
+  if ('description' in body) sv('description', String(body.description || '').trim());
+  if ('region' in body) sv('region', String(body.region || '').trim());
+  if ('gallery' in body) { if (!Array.isArray(body.gallery)) return jsonError(c, 400, 'gallery must be array'); sv('gallery_json', JSON.stringify(body.gallery)); }
+  if ('status' in body) sv('status', String(body.status || 'draft').trim() || 'draft');
+  if ('sort_order' in body) sv('sort_order', Number(body.sort_order || 0));
+  if (!updates.length) return jsonError(c, 400, 'No valid fields provided');
+  const now = Math.floor(Date.now() / 1000);
+  updates.push('updated_at = ?');
+  binds.push(now, c.req.param('destId'), ctx.tenantId);
+  const result = await c.env.DB.prepare(`UPDATE tenant_destinations SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`).bind(...binds).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Destination not found');
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_destinations WHERE id = ? AND tenant_id = ?').bind(c.req.param('destId'), ctx.tenantId).first();
+  return c.json({ ok: true, destination: normalizeDestination(row) });
+});
+
+router.delete('/destinations/:destId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await c.env.DB.prepare('DELETE FROM tour_destination_links WHERE destination_id = ? AND tenant_id = ?').bind(c.req.param('destId'), ctx.tenantId).run();
+  const result = await c.env.DB.prepare('DELETE FROM tenant_destinations WHERE id = ? AND tenant_id = ?').bind(c.req.param('destId'), ctx.tenantId).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Destination not found');
+  return c.json({ ok: true });
+});
+
+// ── Tour → destination links ──────────────────────────────────────────────────
+
+router.get('/tours/:tourId/destination-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const { results } = await c.env.DB
+    .prepare(`SELECT l.*, d.name, d.description, d.region, d.gallery_json, d.status
+              FROM tour_destination_links l
+              JOIN tenant_destinations d ON d.id = l.destination_id
+              WHERE l.tour_id = ? AND l.tenant_id = ?
+              ORDER BY l.sort_order ASC, l.created_at ASC`)
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .all();
+  return c.json({ ok: true, links: results || [] });
+});
+
+router.post('/tours/:tourId/destination-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const destId = String(body.destination_id || '').trim();
+  if (!destId) return jsonError(c, 400, 'destination_id is required');
+  const dest = await c.env.DB.prepare('SELECT id FROM tenant_destinations WHERE id = ? AND tenant_id = ?').bind(destId, ctx.tenantId).first();
+  if (!dest) return jsonError(c, 404, 'Destination not found');
+  const existing = await c.env.DB.prepare('SELECT id FROM tour_destination_links WHERE tour_id = ? AND destination_id = ? AND tenant_id = ?').bind(c.req.param('tourId'), destId, ctx.tenantId).first();
+  if (existing) return c.json({ ok: true, link: existing });
+  const now = Math.floor(Date.now() / 1000);
+  const id = nanoid();
+  await c.env.DB.prepare('INSERT INTO tour_destination_links (id, tenant_id, tour_id, destination_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, ctx.tenantId, c.req.param('tourId'), destId, Number(body.sort_order || 0), now).run();
+  return c.json({ ok: true, link: { id, tour_id: c.req.param('tourId'), destination_id: destId } }, 201);
+});
+
+router.delete('/destination-links/:linkId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const result = await c.env.DB.prepare('DELETE FROM tour_destination_links WHERE id = ? AND tenant_id = ?').bind(c.req.param('linkId'), ctx.tenantId).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Link not found');
+  return c.json({ ok: true });
+});
+
+// ── Tour → hotel links ────────────────────────────────────────────────────────
+
+router.get('/tours/:tourId/hotel-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const { results } = await c.env.DB
+    .prepare(`SELECT l.*, h.name, h.address, h.description, h.gallery_json, h.status
+              FROM tour_hotel_links l
+              JOIN tenant_universal_hotels h ON h.id = l.hotel_id
+              WHERE l.tour_id = ? AND l.tenant_id = ?
+              ORDER BY l.sort_order ASC, l.created_at ASC`)
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .all();
+  return c.json({ ok: true, links: results || [] });
+});
+
+router.post('/tours/:tourId/hotel-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const hotelId = String(body.hotel_id || '').trim();
+  if (!hotelId) return jsonError(c, 400, 'hotel_id is required');
+  const hotel = await c.env.DB.prepare('SELECT id FROM tenant_universal_hotels WHERE id = ? AND tenant_id = ?').bind(hotelId, ctx.tenantId).first();
+  if (!hotel) return jsonError(c, 404, 'Hotel not found');
+  const existing = await c.env.DB.prepare('SELECT id FROM tour_hotel_links WHERE tour_id = ? AND hotel_id = ? AND tenant_id = ?').bind(c.req.param('tourId'), hotelId, ctx.tenantId).first();
+  if (existing) return c.json({ ok: true, link: existing });
+  const now = Math.floor(Date.now() / 1000);
+  const id = nanoid();
+  await c.env.DB.prepare('INSERT INTO tour_hotel_links (id, tenant_id, tour_id, hotel_id, nights, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, ctx.tenantId, c.req.param('tourId'), hotelId, Number(body.nights || 0), Number(body.sort_order || 0), now).run();
+  return c.json({ ok: true, link: { id, tour_id: c.req.param('tourId'), hotel_id: hotelId, nights: Number(body.nights || 0) } }, 201);
+});
+
+router.patch('/hotel-links/:linkId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const updates = [];
+  const binds = [];
+  if ('nights' in body) { updates.push('nights = ?'); binds.push(Number(body.nights || 0)); }
+  if ('sort_order' in body) { updates.push('sort_order = ?'); binds.push(Number(body.sort_order || 0)); }
+  if (!updates.length) return jsonError(c, 400, 'No valid fields provided');
+  binds.push(c.req.param('linkId'), ctx.tenantId);
+  const result = await c.env.DB.prepare(`UPDATE tour_hotel_links SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`).bind(...binds).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Link not found');
+  return c.json({ ok: true });
+});
+
+router.delete('/hotel-links/:linkId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const result = await c.env.DB.prepare('DELETE FROM tour_hotel_links WHERE id = ? AND tenant_id = ?').bind(c.req.param('linkId'), ctx.tenantId).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Link not found');
+  return c.json({ ok: true });
+});
+
+// ── Tour canonical ────────────────────────────────────────────────────────────
 
 router.get('/tours/:tourId/canonical', async (c) => {
   const ctx = await requireTenant(c);

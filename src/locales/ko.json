@@ -17,13 +17,16 @@
   "language": {
     "label": "언어",
     "en": "영어",
+    "en-GB": "영어 (영국)",
+    "en-AU": "영어 (호주)",
     "vi": "베트남어",
     "zh": "중국어",
     "ja": "일본어",
     "ko": "한국어",
     "de": "독일어",
     "fr": "프랑스어",
-    "es": "스페인어"
+    "es": "스페인어",
+    "th": "태국어"
   },
   "currency": {
     "display_currency": "보조 표시 통화",
@@ -49,9 +52,87 @@
     "child": "아동 (2~11세)",
     "infant": "유아 (0~2세)"
   },
+  "dashboard": {
+    "meta": {
+      "title": "대시보드 - Travel Agent Management",
+      "subtitle": "관리 대시보드"
+    },
+    "nav": {
+      "dashboard": "대시보드",
+      "bookings": "예약",
+      "all_orders": "전체 주문",
+      "pending_confirm": "확인 대기",
+      "pending_payment": "결제 대기",
+      "pending_proof": "증빙 대기",
+      "settings": "설정",
+      "payments": "결제",
+      "tours_pricing": "투어 및 요금",
+      "notifications": "알림"
+    },
+    "sidebar": {
+      "overview": "개요",
+      "booking_calendar": "예약 캘린더",
+      "revenue": "매출",
+      "orders": "주문",
+      "manage": "관리",
+      "tours": "투어",
+      "destinations": "목적지",
+      "accommodations": "숙박",
+      "gallery": "갤러리",
+      "properties": "프로퍼티",
+      "tours_destinations": "투어 및 목적지",
+      "pricing": "요금",
+      "add_ons": "추가 옵션",
+      "customers": "고객",
+      "system": "시스템"
+    },
+    "status": {
+      "awaiting_payment": "결제 대기",
+      "awaiting_proof": "증빙 대기",
+      "proof_uploaded": "증빙 업로드됨",
+      "confirmed": "확정됨",
+      "pending_arrival": "도착 대기"
+    },
+    "compliance": {
+      "warning_title": "경고:",
+      "warning_body": "전자 결제 게이트웨이가 아직 설정되지 않았습니다. 현재 웹사이트는 오프라인 상태입니다.",
+      "setup_now": "지금 설정하기 ->"
+    },
+    "action": {
+      "tour_config": "투어 설정",
+      "website_design": "웹사이트 디자인",
+      "payment_settings": "결제 설정",
+      "confirm": "확인",
+      "view": "보기",
+      "remind": "알림",
+      "unlock": "잠금 해제"
+    },
+    "stat": {
+      "total_orders": "총 주문 수",
+      "pending_payment": "결제 대기",
+      "pending_identity": "신원 확인 대기",
+      "confirmed": "확정",
+      "revenue_month": "이번 달 매출"
+    },
+    "table": {
+      "recent_orders": "최근 주문",
+      "audit_log": "신원 감사 로그",
+      "col_id": "주문 ID",
+      "col_guest": "고객",
+      "col_tour": "투어",
+      "col_payment": "결제",
+      "col_status": "상태",
+      "col_date": "날짜",
+      "col_time": "시간",
+      "col_action": "작업",
+      "col_actor": "담당자",
+      "locked_guest": "*** (미확인)"
+    }
+  },
   "auth": {
     "shared": {
       "email_label": "이메일",
+      "email_placeholder": "agency@example.com",
       "password_label": "비밀번호",
       "google_hint_disabled": "GOOGLE_CLIENT_ID가 설정되면 Google 로그인 버튼이 표시됩니다.",
       "google_hint_signup_enabled": "이메일 또는 Google로 계정을 만들 수 있습니다.",
@@ -63,10 +144,16 @@
     },
     "signup": {
       "meta_title": "회원가입 - TravelAgent",
+      "watermark": "런칭 혜택 - 6개월 동안 0 EUR, 이후 선택한 플랜이 시작됩니다. 언제든지 취소할 수 있습니다.",
+      "subtitle": "6개월 동안 0 EUR, 이후 선택한 플랜이 시작됩니다. 언제든지 취소할 수 있습니다.",
       "name_label": "브랜드 / 팀 / 에이전시 이름",
+      "name_placeholder": "Sunset Journeys",
       "password_label": "비밀번호 만들기",
+      "password_placeholder": "8자 이상 비밀번호를 만들어 주세요",
       "proof": "필수: 상품 플랜을 선택하고 이메일과 비밀번호를 입력하세요. 브랜드명 또는 운영명이 워크스페이스 이름이 됩니다.",
+      "offer": "6개월 동안 0 EUR, 이후 선택한 플랜이 시작됩니다. 언제든지 취소할 수 있습니다.",
       "tier_hint": "먼저 플랜을 선택하세요. 출시 혜택으로 첫 6개월은 0 EUR이며, 이후 선택한 월간 플랜이 시작됩니다.",
+      "tier_required_error": "상품 플랜을 선택해 주세요.",
       "market_skin_label": "주요 시장 프리셋",
       "market_skin_hint": "주 고객 시장과 가장 가까운 프리셋을 선택하세요. 언어와 통화는 나중에 다시 조정할 수 있습니다.",
       "submit": "계정 만들기",
@@ -84,11 +171,20 @@
     "login": {
       "meta_title": "로그인 - TravelAgent",
       "subtitle": "투어 운영 대시보드에 로그인합니다.",
+      "password_placeholder": "비밀번호를 입력해 주세요",
+      "forgot_password_link": "비밀번호를 잊으셨나요?",
       "submit": "로그인",
       "busy": "로그인 중...",
       "success": "로그인에 성공했습니다. 이동 중입니다...",
+      "reset_success": "비밀번호가 업데이트되었습니다. 새 비밀번호로 다시 로그인해 주세요.",
       "signup_prompt": "아직 계정이 없으신가요?",
-      "signup_link": "계정 만들기 ->"
+      "signup_link": "계정 만들기 ->",
+      "missing_fields": "이메일과 비밀번호를 입력해 주세요.",
+      "turnstile_note": "로그인하기 전에 인증을 완료해 주세요.",
+      "turnstile_required": "인증 챌린지를 완료해 주세요.",
+      "turnstile_error": "인증 컴포넌트를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.",
+      "google_error": "Google 로그인에 실패했습니다.",
+      "default_error": "로그인에 실패했습니다."
     },
     "reset_password": {
       "meta_title": "비밀번호 재설정 - TravelAgent",
@@ -96,9 +192,24 @@
       "request_submit": "재설정 링크 보내기",
       "request_busy": "재설정 링크를 준비하는 중...",
       "request_success": "계정이 존재하면 재설정 링크를 준비했습니다.",
+      "request_error": "재설정 링크를 준비할 수 없습니다.",
+      "request_missing_email": "계정 이메일을 입력해 주세요.",
+      "turnstile_note": "재설정 링크를 요청하기 전에 인증을 완료해 주세요.",
+      "turnstile_required": "인증 챌린지를 완료해 주세요.",
+      "turnstile_error": "인증 컴포넌트를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.",
+      "dev_link_hint": "로컬/dev 재설정 링크:",
+      "new_password_label": "새 비밀번호",
+      "new_password_placeholder": "새 비밀번호 만들기",
+      "confirm_password_label": "새 비밀번호 확인",
+      "confirm_password_placeholder": "새 비밀번호를 다시 입력해 주세요",
       "confirm_submit": "비밀번호 업데이트",
       "confirm_busy": "비밀번호를 업데이트하는 중...",
       "confirm_success": "비밀번호가 업데이트되었습니다. 로그인 페이지로 이동합니다...",
+      "confirm_error": "비밀번호를 재설정할 수 없습니다.",
+      "confirm_missing_fields": "새 비밀번호를 입력하고 다시 확인해 주세요.",
+      "confirm_mismatch": "비밀번호 확인이 일치하지 않습니다.",
+      "token_invalid": "재설정 링크가 유효하지 않거나 만료되었습니다.",
+      "token_valid_hint": "{{email_hint}} 계정의 비밀번호를 재설정하는 중입니다.",
       "back_to_login": "로그인으로 돌아가기"
     }
   },
@@ -107,7 +218,53 @@
     "catalog_hint": "현재 신청 가능한 플랜을 선택하세요. 향후 플랜은 로드맵용으로 표시됩니다.",
     "per_user_month": "월 {{price}} EUR / 사용자",
     "status_active": "현재 이용 가능",
-    "status_future": "향후 제공 예정"
+    "status_future": "향후 제공 예정",
+    "tiers": {
+      "starter_landing": {
+        "name": "Landing Page Starter",
+        "tagline": "초기 단계 에이전시를 위한 간단한 웹 프레즌스",
+        "description": "랜딩 페이지, 플랫폼 서브도메인, 문의 폼만 제공되며 온라인 결제는 없습니다.",
+        "features": [
+          "랜딩 페이지 빌더",
+          "플랫폼 서브도메인 포함",
+          "문의 폼만 제공",
+          "온라인 결제 없음"
+        ]
+      },
+      "tour_operator_pro": {
+        "name": "Tour Operator Pro",
+        "tagline": "투어 운영을 관리하고 온라인으로 판매",
+        "description": "공개 판매 흐름, 온라인 결제 지원, 필수 커스텀 도메인을 갖춘 투어 운영 워크스페이스입니다.",
+        "features": [
+          "투어 운영 소프트웨어",
+          "공개 투어 판매 흐름",
+          "온라인 결제 지원",
+          "커스텀 도메인 필수"
+        ]
+      },
+      "hotel_operator_pro": {
+        "name": "Hotel Operator Pro",
+        "tagline": "직접 숙박 판매를 위한 호텔 운영 소프트웨어",
+        "description": "커스텀 도메인과 결제 지원을 포함한 호텔 운영 소프트웨어입니다. 향후 개발 티어로 계획되어 있습니다.",
+        "features": [
+          "호텔 운영 소프트웨어",
+          "온라인 결제 지원",
+          "커스텀 도메인 필수",
+          "향후 개발 티어"
+        ]
+      },
+      "tour_hotel_suite": {
+        "name": "Tours + Hotel Suite",
+        "tagline": "여행과 호스피탈리티 비즈니스를 위한 통합 운영",
+        "description": "투어와 호텔 운영을 하나로 통합하고 커스텀 도메인과 결제 지원을 제공합니다. 향후 개발 티어로 계획되어 있습니다.",
+        "features": [
+          "투어와 호텔 운영 통합",
+          "온라인 결제 지원",
+          "커스텀 도메인 필수",
+          "향후 개발 티어"
+        ]
+      }
+    }
   },
   "widget": {
     "title": "요금 확인 및 예약",
@@ -207,9 +364,105 @@
       "youtube": "YouTube",
       "address": "주소"
     }
-  }
-  ,"dashboard_market_skin": {
-    "label": "market skin",
+  },
+  "tour_config": {
+    "meta": {
+      "title": "투어 설정 - 에이전트 대시보드"
+    },
+    "header": {
+      "title": "투어 설정",
+      "dashboard": "대시보드",
+      "category_manager": "카테고리 관리자",
+      "tenant_admin": "테넌트 관리자",
+      "note": "테넌트 컨텍스트는 로그인된 관리자 세션에서 자동으로 불러옵니다.",
+      "reload": "새로고침",
+      "lang_label": "언어",
+      "base_url_placeholder": "http://127.0.0.1:8787",
+      "tenant_placeholder": "예: ten-demo-001"
+    },
+    "tabs": {
+      "tours": "투어",
+      "content": "콘텐츠",
+      "tagging": "태깅",
+      "stops": "정차 지점",
+      "pricing": "가격 설정",
+      "preview": "미리보기",
+      "publish": "게시"
+    },
+    "tours": {
+      "search_placeholder": "투어, 목적지 또는 태그로 검색",
+      "edit_tags": "태그 수정 ->",
+      "no_tours_match": "현재 태그 필터 또는 검색과 일치하는 투어가 없습니다.",
+      "no_tags_yet": "아직 태그가 없습니다",
+      "untitled": "제목 없는 투어"
+    },
+    "tagging": {
+      "selected_label": "태깅:",
+      "title": "탐색 태그 및 관심사",
+      "note": "투어를 만드는 자리에서 바로 태그를 지정하세요. 이 태그는 관심사 페이지, 탐색 정렬, 목적지 또는 관심사 검색에 사용됩니다.",
+      "top_level": "상위 관심사",
+      "sub_interests": "하위 관심사",
+      "primary_interest": "주요 관심사",
+      "catalog_unavailable": "분류 카탈로그를 사용할 수 없습니다.",
+      "no_sub_interests": "아직 구성된 하위 관심사가 없습니다.",
+      "choose_top_level_first": "먼저 상위 관심사를 하나 이상 선택하세요.",
+      "save": "태그 저장",
+      "back_to_content": "콘텐츠로 돌아가기"
+    },
+    "content": {
+      "notice_title": "탐색 태그가 별도 탭으로 이동했습니다.",
+      "notice_body": "이 투어를 관심사 기준으로 분류하려면 태깅 탭을 사용하세요.",
+      "open_tagging": "태깅 열기",
+      "hero_summary": "히어로 요약",
+      "hero_summary_placeholder": "미리보기 히어로 영역에서 여정을 팔아주는 두세 줄의 문구입니다.",
+      "story_description": "스토리 / 긴 설명",
+      "story_description_placeholder": "투어 페이지 본문용으로 더 긴 에디토리얼 카피를 입력하세요.",
+      "hero_image_url": "히어로 이미지 URL",
+      "image_url_placeholder": "https://...",
+      "asset_add_hero": "히어로 이미지 추가",
+      "hero_image_note": "로컬 드라이브 또는 테넌트 갤러리에서 선택하세요. 히어로 이미지는 명시적으로 지정되며, 설정하지 않으면 갤러리에서 자동 추론되지 않습니다.",
+      "hero_image_preview_empty": "히어로 이미지 미리보기가 여기에 표시됩니다.",
+      "gallery_images": "갤러리 이미지",
+      "gallery_images_placeholder": "https://...\nhttps://...",
+      "asset_add_gallery": "갤러리 이미지 추가",
+      "gallery_image_note": "업로드하거나 선택한 이미지는 이 갤러리 목록에만 추가됩니다. 명시적으로 선택하지 않는 한 히어로, 목적지, 숙박 영역으로 넘어가지 않습니다.",
+      "gallery_preview_empty": "이미지를 붙여넣거나 업로드하면 갤러리 미리보기가 여기에 표시됩니다.",
+      "destination_name": "목적지 이름",
+      "destination_name_placeholder": "예: 호이안",
+      "destination_image_url": "목적지 이미지 URL",
+      "asset_add_destination": "목적지 이미지 추가",
+      "destination_image_preview_empty": "목적지 이미지 미리보기가 여기에 표시됩니다.",
+      "accommodation_title": "숙박 제목",
+      "accommodation_title_placeholder": "예: Lotus Heritage Suites",
+      "accommodation_image_url": "숙박 이미지 URL",
+      "asset_add_accommodation": "숙박 이미지 추가",
+      "accommodation_image_preview_empty": "숙박 이미지 미리보기가 여기에 표시됩니다.",
+      "accommodation_summary": "숙박 요약",
+      "accommodation_summary_placeholder": "숙박 경험, 분위기, 그리고 왜 이 내용이 투어 페이지에 있어야 하는지 설명하세요.",
+      "remove_image": "제거",
+      "remove_gallery_image": "갤러리 이미지 제거"
+    },
+    "media_picker": {
+      "title": "이미지 추가",
+      "copy": "로컬 드라이브에서 업로드하거나 이 테넌트 갤러리에 이미 있는 이미지를 다시 사용하세요.",
+      "close": "닫기",
+      "upload": "로컬 드라이브에서 업로드",
+      "refresh": "갤러리 새로고침",
+      "gallery": "테넌트 갤러리",
+      "count_one": "이미지 {{count}}개",
+      "count_other": "이미지 {{count}}개",
+      "note": "선택한 이미지는 현재 필드에 바로 삽입됩니다. 갤러리 이미지는 다른 모듈 필드에 선택하기 전까지 갤러리 수준에 유지됩니다.",
+      "empty_gallery": "아직 테넌트 이미지가 없습니다. 로컬에서 하나 업로드하면 즉시 재사용할 수 있습니다.",
+      "inserted": "테넌트 갤러리에서 이미지를 삽입했습니다.",
+      "gallery_removed": "이 초안에서 갤러리 이미지를 제거했습니다.",
+      "field_cleared": "이 모듈 필드에서 이미지를 제거했습니다.",
+      "refreshed": "테넌트 갤러리를 새로고침했습니다.",
+      "refresh_failed": "테넌트 갤러리를 새로고침하지 못했습니다.",
+      "uploading": "{{name}} 업로드 중..."
+    }
+  },
+  "dashboard_market_skin": {
+    "label": "마켓 스킨",
     "hint": "market skin 은 기본 언어, 권위 있는 예약 통화, 그리고 테넌트가 수정할 수 없는 storefront 문구를 제어합니다.",
     "none_available": "사용 가능한 market skin 이 없습니다",
     "save": "저장",
@@ -217,7 +470,7 @@
   },
   "dashboard_launch": {
     "guide_title": "여기서 시작: 작은 단계로 런칭 준비",
-    "guide_copy": "신용카드 없이 이미 가입이 완료되었고 launch 플랜은 6개월 동안 무료로 유지됩니다. 다음으로 깔끔한 서브도메인을 확정하고, website skin 을 선택하거나 다듬은 뒤, tours, destinations, accommodations, properties, gallery content 용 product modules 를 구축하세요.",
+    "guide_copy": "신용카드 없이 이미 가입이 완료되었고 launch 플랜은 6개월 동안 무료로 유지됩니다. 다음으로 깔끔한 서브도메인을 확정하고, 사이트 스킨을 선택하거나 다듬은 뒤, 투어, 목적지, 숙박, 갤러리 콘텐츠를 구축하세요. 프로퍼티 관리는 나중에 호텔과 다른 장소를 위한 별도 엔진으로 이동합니다.",
     "status_done": "완료",
     "status_next": "다음",
     "status_later": "나중에",
@@ -256,13 +509,20 @@
     "destinations_desc_empty": "원본 tours 를 고객이 빠르게 훑어볼 수 있는 destination story 로 바꾸세요.",
     "destinations_label_ready": "destinations 다듬기",
     "destinations_label_empty": "destinations 추가",
-    "properties_title": "properties 추가",
+    "accommodations_title": "accommodations 추가",
+    "accommodations_count_single": "accommodation module 가 이미",
+    "accommodations_count_plural": "accommodation modules 가 이미",
+    "accommodations_desc_ready": "현재 hotel modules workspace 에서 관리되고 있습니다.",
+    "accommodations_desc_empty": "호텔 측 accommodations 를 현재 hotel modules workspace 에 추가하세요.",
+    "accommodations_label_ready": "accommodations 검토",
+    "accommodations_label_empty": "accommodations 추가",
+    "properties_title": "Properties Engine",
     "properties_count_single": "property 가 이미",
     "properties_count_plural": "properties 가 이미",
-    "properties_desc_ready": "별도의 hotel engine 에서 관리되고 있습니다.",
-    "properties_desc_empty": "별도의 property engine 에 호텔 측 properties 를 추가하세요. 이는 tour accommodation storytelling 을 덮어쓰지 않습니다.",
-    "properties_label_ready": "properties 검토",
-    "properties_label_empty": "properties 추가",
+    "properties_desc_ready": "전용 properties engine 에서 관리되고 있습니다.",
+    "properties_desc_empty": "properties 는 나중에 Hotel Operator Pro 방향의 hotels 와 다른 venues 용 별도 engine 에서 다뤄집니다.",
+    "properties_label_ready": "properties engine 열기",
+    "properties_label_empty": "properties engine 열기",
     "gallery_title": "gallery 구축",
     "gallery_count_single": "gallery image 가 이미",
     "gallery_count_plural": "gallery images 가 이미",
@@ -275,5 +535,19 @@
     "system_desc_empty": "런칭 전에 contact channels, legal pages, 핵심 system defaults 를 마무리하세요.",
     "system_label_ready": "system settings 검토",
     "system_label_empty": "system settings 완료"
+  },
+  "tour_config_market_skin": {
+    "settings_title": "마켓 스킨 설정",
+    "settings_title_pricing": "마켓 스킨 및 기준 예약 통화",
+    "primary_label": "기본 마켓 스킨",
+    "hint_default": "이 프리셋은 테넌트 기본 언어, 기준 예약 통화, 그리고 수정할 수 없는 storefront 문구를 제어합니다.",
+    "hint_pricing": "이 프리셋은 테넌트의 예약 통화와 기본 언어를 제어합니다. 아래 표시 통화는 현재 가격 작업 화면에만 적용됩니다.",
+    "save": "마켓 스킨 저장",
+    "no_catalog": "사용 가능한 마켓 스킨이 없습니다",
+    "preview_prefix": "프리셋 미리보기:",
+    "preview_empty": "아직 불러온 마켓 스킨 프리셋이 없습니다.",
+    "extra_summary": "주요 시장: {{market}}. UI 로케일은 {{locale}} 를 따릅니다. 예약 통화는 {{currency}} 를 따릅니다.",
+    "saved": "마켓 스킨이 저장되었습니다. 기본 로케일과 기준 통화가 업데이트되었습니다.",
+    "save_failed": "마켓 스킨을 저장할 수 없습니다."
   }
 }

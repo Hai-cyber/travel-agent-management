@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tour Config - Agent Dashboard</title>
+  <title data-i18n="tour_config.meta.title">Tour Config - Agent Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   <style>
@@ -680,23 +680,19 @@
 <header class="topbar">
   <h1>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-    Tour Config
+    <span data-i18n="tour_config.header.title">Tour Config</span>
   </h1>
   <form class="connect-form" id="connect-form" autocomplete="off">
     <input type="text" id="input-base"   placeholder="http://127.0.0.1:8787" spellcheck="false" data-i18n-placeholder="tour_config.header.base_url_placeholder" />
     <input type="text" id="input-tenant" placeholder="e.g. ten-demo-001"    spellcheck="false" data-i18n-placeholder="tour_config.header.tenant_placeholder" />
-    <span class="context-note">Tenant context is loaded automatically from your signed-in admin session.</span>
-    <button type="submit" class="btn-connect">Reload</button>
+    <span class="context-note" data-i18n="tour_config.header.note">Tenant context is loaded automatically from your signed-in admin session.</span>
+    <button type="submit" class="btn-connect" data-i18n="tour_config.header.reload">Reload</button>
     <span id="connect-status"></span>
   </form>
   <div class="topbar-right">
-    <label for="input-ui-lang" style="font-size:12px;color:#94a3b8">Lang</label>
-    <select id="input-ui-lang" style="background:#313244;border:1px solid #45475a;color:#cdd6f4;padding:5px 8px;border-radius:5px;font-size:12px">
-      <option value="en">EN</option>
-      <option value="vi">VI</option>
-      <option value="zh">ZH</option>
-    </select>
-    <a id="tenant-admin-link" href="dashboard.html">Tenant Admin</a>
+    <label for="input-ui-lang" style="font-size:12px;color:#94a3b8" data-i18n="tour_config.header.lang_label">Lang</label>
+    <select id="input-ui-lang" style="background:#313244;border:1px solid #45475a;color:#cdd6f4;padding:5px 8px;border-radius:5px;font-size:12px"></select>
+    <a id="tenant-admin-link" href="dashboard.html" data-i18n="tour_config.header.tenant_admin">Tenant Admin</a>
     <a href="dashboard.html" data-i18n="tour_config.header.dashboard">Dashboard</a>
     <a href="category-manager.html" data-i18n="tour_config.header.category_manager">Category Manager</a>
   </div>
@@ -706,7 +702,7 @@
 <nav class="tabs" id="tab-nav">
   <button class="tab-btn active" data-tab="tours" data-i18n="tour_config.tabs.tours">Tours</button>
   <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled data-i18n="tour_config.tabs.content">Content</button>
-  <button class="tab-btn"        data-tab="tagging"  id="tab-tagging"  disabled>Tagging</button>
+  <button class="tab-btn"        data-tab="tagging"  id="tab-tagging"  disabled data-i18n="tour_config.tabs.tagging">Tagging</button>
   <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled data-i18n="tour_config.tabs.stops">Stops</button>
   <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled data-i18n="tour_config.tabs.pricing">Price Config</button>
   <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled data-i18n="tour_config.tabs.preview">Preview</button>
@@ -726,7 +722,7 @@
         </div>
         <div class="card-body" style="padding:12px">
           <div class="tour-list-toolbar">
-            <input type="search" id="tour-list-search" class="tour-list-search" placeholder="Search by tour, destination, or tag" />
+            <input type="search" id="tour-list-search" class="tour-list-search" placeholder="Search by tour, destination, or tag" data-i18n-placeholder="tour_config.tours.search_placeholder" />
             <div id="tour-filter-chips" class="tour-filter-chips"></div>
           </div>
           <div class="empty-state" id="tour-list-placeholder" data-i18n="tour_config.tours.connect_to_load">Connect to load tours.</div>
@@ -758,11 +754,7 @@
             <div class="field-row cols-2">
               <div class="field">
                 <label data-i18n="language.label">Language</label>
-                <select id="new-lang">
-                  <option value="vi" data-i18n="language.vi">Vietnamese</option>
-                  <option value="en" data-i18n="language.en">English</option>
-                  <option value="zh" data-i18n="language.zh">Chinese</option>
-                </select>
+                <select id="new-lang"></select>
               </div>
               <div class="field">
                 <label data-i18n="tour_config.tours.status">Status</label>
@@ -796,7 +788,7 @@
           <hr />
           <div class="btn-row">
             <button class="btn btn-primary"   id="btn-goto-content" data-i18n="tour_config.tours.edit_content">Edit Content &rarr;</button>
-            <button class="btn btn-ghost"     id="btn-goto-tagging">Edit Tags &rarr;</button>
+            <button class="btn btn-ghost"     id="btn-goto-tagging" data-i18n="tour_config.tours.edit_tags">Edit Tags &rarr;</button>
             <button class="btn btn-ghost"     id="btn-goto-stops" data-i18n="tour_config.tours.goto_stops">Stops &rarr;</button>
             <button class="btn btn-ghost"     id="btn-goto-preview" data-i18n="tour_config.tours.goto_preview">Preview &rarr;</button>
           </div>
@@ -817,31 +809,31 @@
 <!-- ----------------------------  TAB 2: TAGGING  ---------------------------- -->
 <section class="panel" id="panel-tagging">
   <div id="tagging-selected-notice" class="selected-notice" style="display:none">
-    <span>Tagging:</span> <strong id="tagging-tour-name-label"></strong>
+    <span data-i18n="tour_config.tagging.selected_label">Tagging:</span> <strong id="tagging-tour-name-label"></strong>
     <span style="margin-left:auto;font-size:11px;color:#6366F1;font-family:monospace" id="tagging-tour-id-label"></span>
   </div>
 
   <div class="card">
-    <div class="card-header"><h2>Discovery Tags & Interests</h2></div>
+    <div class="card-header"><h2 data-i18n="tour_config.tagging.title">Discovery Tags & Interests</h2></div>
     <div class="card-body">
-      <p class="taxonomy-inline-note">Tag the tour where you build it. These tags drive interest pages, discovery sorting, and search by destination or interest.</p>
+      <p class="taxonomy-inline-note" data-i18n="tour_config.tagging.note">Tag the tour where you build it. These tags drive interest pages, discovery sorting, and search by destination or interest.</p>
       <div class="taxonomy-grid">
         <div class="taxonomy-box">
-          <div class="taxonomy-box-title">Top-Level Interests</div>
+          <div class="taxonomy-box-title" data-i18n="tour_config.tagging.top_level">Top-Level Interests</div>
           <div id="tour-taxonomy-top" class="taxonomy-choice-grid"></div>
         </div>
         <div class="taxonomy-box">
-          <div class="taxonomy-box-title">Sub-Interests</div>
+          <div class="taxonomy-box-title" data-i18n="tour_config.tagging.sub_interests">Sub-Interests</div>
           <div id="tour-taxonomy-sub" class="taxonomy-choice-grid"></div>
         </div>
       </div>
       <div class="taxonomy-box" style="margin-top:14px">
-        <div class="taxonomy-box-title">Primary Interest</div>
+        <div class="taxonomy-box-title" data-i18n="tour_config.tagging.primary_interest">Primary Interest</div>
         <div id="tour-taxonomy-primary" class="taxonomy-choice-grid"></div>
       </div>
       <div class="btn-row" style="margin-top:14px">
-        <button type="button" class="btn btn-success" id="btn-save-tagging">Save Tags</button>
-        <button type="button" class="btn btn-ghost" id="btn-tagging-goto-content">Back to Content</button>
+        <button type="button" class="btn btn-success" id="btn-save-tagging" data-i18n="tour_config.tagging.save">Save Tags</button>
+        <button type="button" class="btn btn-ghost" id="btn-tagging-goto-content" data-i18n="tour_config.tagging.back_to_content">Back to Content</button>
       </div>
     </div>
   </div>
@@ -849,19 +841,19 @@
 
 <template id="market-skin-settings-template">
   <div class="card" style="margin-bottom:0">
-    <div class="card-header"><h2>Market Skin Settings</h2></div>
+    <div class="card-header"><h2></h2></div>
     <div class="card-body">
       <div class="field-row cols-2" style="align-items:end">
         <div class="field">
-          <label>Primary Market Skin</label>
+          <label></label>
           <select data-market-skin-select></select>
-          <div class="field-note" data-market-skin-hint>Market skin controls tenant default locale, authoritative booking currency, and non-editable storefront copy.</div>
+          <div class="field-note" data-market-skin-hint></div>
         </div>
         <div class="btn-row" style="justify-content:flex-end;margin-top:0">
-          <button type="button" class="btn btn-primary" data-market-skin-save>Save Market Skin</button>
+          <button type="button" class="btn btn-primary" data-market-skin-save></button>
         </div>
       </div>
-      <div data-market-skin-preview style="margin-top:12px;padding:12px 14px;border-radius:10px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:13px;font-weight:600">Preset preview appears here.</div>
+      <div data-market-skin-preview style="margin-top:12px;padding:12px 14px;border-radius:10px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:13px;font-weight:600"></div>
       <div data-market-skin-extra style="margin-top:10px;font-size:12px;line-height:1.6;color:#64748b"></div>
     </div>
   </div>
@@ -879,8 +871,8 @@
   <div class="card">
     <div class="card-body">
       <div class="selected-notice" style="margin-bottom:0;background:#f8fafc;border-color:#cbd5e1;color:#334155">
-        <span><strong>Discovery tags moved to their own tab.</strong> Use the <strong>Tagging</strong> tab to classify this tour by interest.</span>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-content-goto-tagging" style="margin-left:auto">Open Tagging</button>
+        <span><strong data-i18n="tour_config.content.notice_title">Discovery tags moved to their own tab.</strong> <span data-i18n="tour_config.content.notice_body">Use the Tagging tab to classify this tour by interest.</span></span>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-content-goto-tagging" style="margin-left:auto" data-i18n="tour_config.content.open_tagging">Open Tagging</button>
       </div>
     </div>
   </div>
@@ -910,11 +902,7 @@
           </div>
           <div class="field">
             <label data-i18n="language.label">Language</label>
-            <select id="meta-lang">
-              <option value="vi" data-i18n="language.vi">Vietnamese</option>
-              <option value="en" data-i18n="language.en">English</option>
-              <option value="zh" data-i18n="language.zh">Chinese</option>
-            </select>
+            <select id="meta-lang"></select>
           </div>
         </div>
         <div class="btn-row">
@@ -965,69 +953,69 @@
 
       <div class="field-row cols-2">
         <div class="field">
-          <label>Hero Summary</label>
-          <textarea id="cd-hero-desc" placeholder="Two or three lines that sell the journey in the preview hero." style="min-height:96px"></textarea>
+          <label data-i18n="tour_config.content.hero_summary">Hero Summary</label>
+          <textarea id="cd-hero-desc" placeholder="Two or three lines that sell the journey in the preview hero." style="min-height:96px" data-i18n-placeholder="tour_config.content.hero_summary_placeholder"></textarea>
         </div>
         <div class="field">
-          <label>Story / Long Description</label>
-          <textarea id="cd-tour-desc" placeholder="Longer editorial copy for the body of the tour page." style="min-height:96px"></textarea>
+          <label data-i18n="tour_config.content.story_description">Story / Long Description</label>
+          <textarea id="cd-tour-desc" placeholder="Longer editorial copy for the body of the tour page." style="min-height:96px" data-i18n-placeholder="tour_config.content.story_description_placeholder"></textarea>
         </div>
       </div>
 
       <div class="field-row cols-2">
         <div class="field media-field">
-          <label>Hero Image URL</label>
-          <input type="text" id="cd-hero-image" placeholder="https://..." spellcheck="false" />
+          <label data-i18n="tour_config.content.hero_image_url">Hero Image URL</label>
+          <input type="text" id="cd-hero-image" placeholder="https://..." spellcheck="false" data-i18n-placeholder="tour_config.content.image_url_placeholder" />
           <div class="asset-tools">
-            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-hero-image">Add hero image</button>
-            <span class="asset-note">Choose from local drive or tenant gallery. Hero stays explicit and is not inferred from gallery unless you set it.</span>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-hero-image" data-i18n="tour_config.content.asset_add_hero">Add hero image</button>
+            <span class="asset-note" data-i18n="tour_config.content.hero_image_note">Choose from local drive or tenant gallery. Hero stays explicit and is not inferred from gallery unless you set it.</span>
           </div>
-          <div id="cd-hero-image-preview" class="image-preview is-empty">Hero image preview appears here.</div>
+          <div id="cd-hero-image-preview" class="image-preview is-empty" data-i18n="tour_config.content.hero_image_preview_empty">Hero image preview appears here.</div>
         </div>
         <div class="field media-field">
-          <label>Gallery Images <small style="font-weight:400;text-transform:none">One URL per line</small></label>
-          <textarea id="cd-gallery-images" placeholder="https://...&#10;https://..." style="min-height:120px" spellcheck="false"></textarea>
+          <label><span data-i18n="tour_config.content.gallery_images">Gallery Images</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One URL per line</small></label>
+          <textarea id="cd-gallery-images" placeholder="https://...&#10;https://..." style="min-height:120px" spellcheck="false" data-i18n-placeholder="tour_config.content.gallery_images_placeholder"></textarea>
           <div class="asset-tools">
-            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-gallery-images" data-append="1">Add gallery image</button>
-            <span class="asset-note">Every uploaded or picked image is appended only to this gallery list. It does not flow into hero, destination, or accommodation unless you explicitly choose it there.</span>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-gallery-images" data-append="1" data-i18n="tour_config.content.asset_add_gallery">Add gallery image</button>
+            <span class="asset-note" data-i18n="tour_config.content.gallery_image_note">Every uploaded or picked image is appended only to this gallery list. It does not flow into hero, destination, or accommodation unless you explicitly choose it there.</span>
           </div>
-          <div id="cd-gallery-images-preview" class="gallery-preview-grid is-empty">Gallery previews appear here as soon as you paste or upload images.</div>
+          <div id="cd-gallery-images-preview" class="gallery-preview-grid is-empty" data-i18n="tour_config.content.gallery_preview_empty">Gallery previews appear here as soon as you paste or upload images.</div>
         </div>
       </div>
 
       <div class="field-row cols-2">
         <div class="field">
-          <label>Destination Name</label>
-          <input type="text" id="cd-destination-name" placeholder="e.g. Hoi An" />
+          <label data-i18n="tour_config.content.destination_name">Destination Name</label>
+          <input type="text" id="cd-destination-name" placeholder="e.g. Hoi An" data-i18n-placeholder="tour_config.content.destination_name_placeholder" />
         </div>
         <div class="field media-field">
-          <label>Destination Image URL</label>
-          <input type="text" id="cd-destination-image" placeholder="https://..." spellcheck="false" />
+          <label data-i18n="tour_config.content.destination_image_url">Destination Image URL</label>
+          <input type="text" id="cd-destination-image" placeholder="https://..." spellcheck="false" data-i18n-placeholder="tour_config.content.image_url_placeholder" />
           <div class="asset-tools">
-            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-destination-image">Add destination image</button>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-destination-image" data-i18n="tour_config.content.asset_add_destination">Add destination image</button>
           </div>
-          <div id="cd-destination-image-preview" class="image-preview is-empty">Destination image preview appears here.</div>
+          <div id="cd-destination-image-preview" class="image-preview is-empty" data-i18n="tour_config.content.destination_image_preview_empty">Destination image preview appears here.</div>
         </div>
       </div>
 
       <div class="field-row cols-2">
         <div class="field">
-          <label>Accommodation Title</label>
-          <input type="text" id="cd-accommodation-title" placeholder="e.g. Lotus Heritage Suites" />
+          <label data-i18n="tour_config.content.accommodation_title">Accommodation Title</label>
+          <input type="text" id="cd-accommodation-title" placeholder="e.g. Lotus Heritage Suites" data-i18n-placeholder="tour_config.content.accommodation_title_placeholder" />
         </div>
         <div class="field media-field">
-          <label>Accommodation Image URL</label>
-          <input type="text" id="cd-accommodation-image" placeholder="https://..." spellcheck="false" />
+          <label data-i18n="tour_config.content.accommodation_image_url">Accommodation Image URL</label>
+          <input type="text" id="cd-accommodation-image" placeholder="https://..." spellcheck="false" data-i18n-placeholder="tour_config.content.image_url_placeholder" />
           <div class="asset-tools">
-            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-accommodation-image">Add accommodation image</button>
+            <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-accommodation-image" data-i18n="tour_config.content.asset_add_accommodation">Add accommodation image</button>
           </div>
-          <div id="cd-accommodation-image-preview" class="image-preview is-empty">Accommodation image preview appears here.</div>
+          <div id="cd-accommodation-image-preview" class="image-preview is-empty" data-i18n="tour_config.content.accommodation_image_preview_empty">Accommodation image preview appears here.</div>
         </div>
       </div>
 
       <div class="field">
-        <label>Accommodation Summary</label>
-        <textarea id="cd-accommodation-summary" placeholder="Describe the stay, tone, and why it belongs on the tour page." style="min-height:88px"></textarea>
+        <label data-i18n="tour_config.content.accommodation_summary">Accommodation Summary</label>
+        <textarea id="cd-accommodation-summary" placeholder="Describe the stay, tone, and why it belongs on the tour page." style="min-height:88px" data-i18n-placeholder="tour_config.content.accommodation_summary_placeholder"></textarea>
       </div>
 
       <div style="margin-top:14px;padding:14px;border:1px solid #E5E7EB;border-radius:10px;background:#FAFAFA">
@@ -1045,11 +1033,15 @@
       <hr />
 
       <!-- Itinerary builder -->
+      <div>
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
         <strong style="font-size:13px" data-i18n="tour_config.content.itinerary">Itinerary</strong>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day" data-i18n="tour_config.content.add_day">+ Add Day</button>
       </div>
       <ul class="itin-list" id="itin-list"></ul>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day-bottom" data-i18n="tour_config.content.add_day">+ Add Day</button>
+      </div>
       <div id="add-day-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px">
         <div class="field-row cols-3">
           <div class="field">
@@ -1069,6 +1061,34 @@
           <button type="button" class="btn btn-primary btn-sm" id="btn-save-day" data-i18n="tour_config.content.save_day">+ Add</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-day" data-i18n="tour_config.tours.cancel">Cancel</button>
         </div>
+      </div>
+      </div><!-- end hidden itinerary builder -->
+
+      <hr />
+
+      <!-- Linked Destinations -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:13px">Linked Destinations</strong>
+        <a href="/product-modules.html?mode=destinations" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage catalog</a>
+      </div>
+      <div id="dest-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:16px">
+        <select id="dest-link-select" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="">— select destination —</option></select>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-link-dest">Link</button>
+      </div>
+
+      <hr style="margin:0 0 16px" />
+
+      <!-- Linked Hotels -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:13px">Linked Hotels</strong>
+        <a href="/product-modules.html?mode=hotels" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage catalog</a>
+      </div>
+      <div id="hotel-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <select id="hotel-link-select" style="flex:1;min-width:140px;font-size:12px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="">— select hotel —</option></select>
+        <input type="number" id="hotel-link-nights" min="0" value="1" style="width:64px;font-size:12px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px" placeholder="Nights" />
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-link-hotel">Link</button>
       </div>
 
       <div class="btn-row" style="margin-top:8px">
@@ -1117,6 +1137,9 @@
             <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">&times;</button>
           </div>
         </div>
+        <div class="btn-row" style="margin-top:10px;justify-content:flex-end">
+          <button class="btn btn-primary btn-sm" id="btn-show-add-stop-bottom" data-i18n="tour_config.stops.add_stop">+ Add Stop</button>
+        </div>
       </div>
 
     </div>
@@ -1133,6 +1156,9 @@
         </div>
         <div id="itin-preview-panel">
           <div class="empty-state" data-i18n="tour_config.stops.add_stops_preview">Add stops to see preview.</div>
+        </div>
+        <div class="btn-row" style="margin-top:12px;justify-content:flex-end">
+          <button class="btn btn-primary btn-sm" id="btn-show-add-stop-secondary" data-i18n="tour_config.stops.add_stop">+ Add Stop</button>
         </div>
       </div>
     </div>
@@ -1164,6 +1190,7 @@
               <option value="EUR" selected>EUR &mdash; &euro; (de-DE)</option>
               <option value="USD">USD &mdash; $ (en-US)</option>
               <option value="VND">VND &mdash; &#x20AB; (vi-VN)</option>
+              <option value="THB">THB &mdash; &#x0E3F; (th-TH)</option>
             </select>
           </div>
         </div>
@@ -1313,7 +1340,7 @@
 
             <!-- Pricing Tier tabs -->
             <div style="margin-bottom:12px">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif">Pricing Tier</div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:7px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.pricing_tier">Pricing Tier</div>
               <div id="seg-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
                 <span style="color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.select_tier_hint">Select a tour to see pricing tiers.</span>
               </div>
@@ -1331,7 +1358,7 @@
                   </tr>
                 </thead>
                 <tbody id="pax-rows-body">
-                  <tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif">Select a pricing tier above.</td></tr>
+                  <tr><td colspan="4" style="padding:16px 0;color:#94a3b8;font-size:13px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.select_pricing_tier">Select a pricing tier above.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1413,24 +1440,24 @@
   <div class="media-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="media-picker-title">
     <div class="media-picker-head">
       <div>
-        <h3 id="media-picker-title">Add image</h3>
-        <p id="media-picker-copy" class="media-picker-copy">Upload from local drive or reuse an image that already exists in this tenant gallery.</p>
+        <h3 id="media-picker-title" data-i18n="tour_config.media_picker.title">Add image</h3>
+        <p id="media-picker-copy" class="media-picker-copy" data-i18n="tour_config.media_picker.copy">Upload from local drive or reuse an image that already exists in this tenant gallery.</p>
       </div>
-      <button type="button" class="btn btn-ghost btn-sm" id="media-picker-close">Close</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="media-picker-close" data-i18n="tour_config.media_picker.close">Close</button>
     </div>
     <div class="media-picker-actions">
       <div class="btn-row">
-        <button type="button" class="btn btn-primary btn-sm" id="media-picker-upload-trigger">Upload from local drive</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="media-picker-refresh">Refresh gallery</button>
+        <button type="button" class="btn btn-primary btn-sm" id="media-picker-upload-trigger" data-i18n="tour_config.media_picker.upload">Upload from local drive</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="media-picker-refresh" data-i18n="tour_config.media_picker.refresh">Refresh gallery</button>
       </div>
       <input id="media-picker-file-input" type="file" accept="image/*" hidden />
     </div>
     <div class="media-picker-toolbar">
-      <strong style="font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#475569">Tenant Gallery</strong>
+      <strong style="font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#475569" data-i18n="tour_config.media_picker.gallery">Tenant Gallery</strong>
       <span id="media-picker-count" class="media-picker-count">0 images</span>
     </div>
     <div id="media-picker-library" class="media-picker-library"></div>
-    <div id="media-picker-note" class="asset-note">Selected images are inserted directly into the current field. Gallery photos stay at gallery level unless you choose them for another module field.</div>
+    <div id="media-picker-note" class="asset-note" data-i18n="tour_config.media_picker.note">Selected images are inserted directly into the current field. Gallery photos stay at gallery level unless you choose them for another module field.</div>
   </div>
 </div>
 
@@ -1450,6 +1477,7 @@ const S = {
   tours:    [],
   stops:    [],
   itinerary: [],     // local draft for content_data
+  hotelCards: [],    // legacy: kept for backward-compat content_data reads
   assets:   [],
   taxonomyCatalog: [],
   tourTaxonomy: null,
@@ -1460,23 +1488,50 @@ const S = {
     open: false,
     targetFieldId: '',
     appendMode: false,
-    title: 'Add image',
+    title: '',
   },
   uiLang: 'en',
   uiLocaleTag: localStorage.getItem('tc_ui_lang') || (navigator.language || 'en'),
   calcCurrency: 'EUR',
   tenantSettings: null,
   tenantCatalogs: {
-    locales: ['en', 'vi', 'zh'],
+    locales: ['en', 'en-GB', 'en-AU', 'vi', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'th'],
     currencies: [
       { code: 'EUR', label: 'Euro', locale: 'de-DE', symbol: '€' },
       { code: 'USD', label: 'US Dollar', locale: 'en-US', symbol: '$' },
       { code: 'VND', label: 'Vietnamese Dong', locale: 'vi-VN', symbol: '₫' },
+      { code: 'THB', label: 'Thai Baht', locale: 'th-TH', symbol: '฿' },
     ],
     market_skins: [],
   },
   activeMarketSkin: null,
 };
+
+const LOCALE_ALIASES = {
+  en: 'en',
+  'en-us': 'en',
+  'en-gb': 'en-GB',
+  'en-au': 'en-AU',
+  vi: 'vi',
+  'vi-vn': 'vi',
+  zh: 'zh',
+  'zh-cn': 'zh',
+  'zh-hans': 'zh',
+  ja: 'ja',
+  'ja-jp': 'ja',
+  ko: 'ko',
+  'ko-kr': 'ko',
+  de: 'de',
+  'de-de': 'de',
+  fr: 'fr',
+  'fr-fr': 'fr',
+  es: 'es',
+  'es-es': 'es',
+  th: 'th',
+  'th-th': 'th',
+};
+
+const SUPPORTED_UI_LOCALES = Object.freeze(['en', 'en-GB', 'en-AU', 'vi', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'th']);
 
 const LOCALE_LABELS = {
   en: 'English',
@@ -1497,6 +1552,8 @@ const LOCALE_LABELS = {
   'fr-FR': 'French',
   es: 'Spanish',
   'es-ES': 'Spanish',
+  th: 'Thai',
+  'th-TH': 'Thai',
 };
 
 const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -1520,13 +1577,15 @@ function ti(key, vars = {}) {
 
 function normalizeLocaleTag(tag, fallback = 'en') {
   const value = String(tag || '').trim();
-  return value || fallback;
+  if (!value) return fallback;
+  const alias = LOCALE_ALIASES[value.replace(/_/g, '-').toLowerCase()];
+  return alias || value;
 }
 
 function getLocaleOptions() {
   const locales = Array.isArray(S.tenantCatalogs?.locales) && S.tenantCatalogs.locales.length
     ? S.tenantCatalogs.locales
-    : ['en', 'vi', 'zh'];
+    : SUPPORTED_UI_LOCALES;
   return [...new Set(locales.map((entry) => normalizeLocaleTag(entry)))];
 }
 
@@ -1537,11 +1596,14 @@ function getCurrencyOptions() {
         { code: 'EUR', label: 'Euro', locale: 'de-DE', symbol: '€' },
         { code: 'USD', label: 'US Dollar', locale: 'en-US', symbol: '$' },
         { code: 'VND', label: 'Vietnamese Dong', locale: 'vi-VN', symbol: '₫' },
+        { code: 'THB', label: 'Thai Baht', locale: 'th-TH', symbol: '฿' },
       ];
 }
 
 function getUiLocaleDisplay(tag) {
   const exact = normalizeLocaleTag(tag);
+  const translated = getNestedValue(UI_MESSAGES, `language.${exact}`) ?? getNestedValue(UI_MESSAGES_FALLBACK, `language.${exact}`);
+  if (translated) return translated;
   if (LOCALE_LABELS[exact]) return LOCALE_LABELS[exact];
   try {
     const [languageCode, regionCode] = exact.split('-');
@@ -1798,7 +1860,10 @@ async function loadUiLocale(lang = S.uiLocaleTag || S.uiLang) {
   localStorage.setItem('tc_ui_lang', S.uiLocaleTag);
   document.documentElement.lang = requestedLocale;
   applyStaticTranslations();
+  syncTenantSelectors();
   renderMarketSkinSlots();
+  renderMediaPicker();
+  renderContentMediaPreviews();
 }
 
 async function loadTenantSettings() {
@@ -2105,7 +2170,7 @@ function renderTourTaxonomyEditor() {
       </label>
       <small>${esc(interest.description || '')}</small>
     `).join('')
-    : '<div class="taxonomy-inline-note">Taxonomy catalog unavailable.</div>';
+    : `<div class="taxonomy-inline-note">${esc(ti('tour_config.tagging.catalog_unavailable'))}</div>`;
 
   const subInterests = catalog.flatMap((interest) => Array.isArray(interest.sub_interests) ? interest.sub_interests.map((sub) => ({ ...sub, parent_label: interest.label })) : []);
   subNode.innerHTML = subInterests.length
@@ -2115,7 +2180,7 @@ function renderTourTaxonomyEditor() {
         <span>${esc(sub.label)} <small style="display:inline;color:#94a3b8;font-size:11px">${esc(sub.parent_label || sub.parent_key || '')}</small></span>
       </label>
     `).join('')
-    : '<div class="taxonomy-inline-note">No sub-interests configured yet.</div>';
+    : `<div class="taxonomy-inline-note">${esc(ti('tour_config.tagging.no_sub_interests'))}</div>`;
 
   const selectedTopNow = catalog.filter((interest) => selectedTop.has(interest.key));
   primaryNode.innerHTML = selectedTopNow.length
@@ -2125,7 +2190,7 @@ function renderTourTaxonomyEditor() {
         <span>${esc(interest.label)}</span>
       </label>
     `).join('')
-    : '<div class="taxonomy-inline-note">Choose at least one top-level interest first.</div>';
+    : `<div class="taxonomy-inline-note">${esc(ti('tour_config.tagging.choose_top_level_first'))}</div>`;
 
   document.querySelectorAll('[data-tour-interest-key]').forEach((node) => {
     node.addEventListener('change', () => {
@@ -2215,7 +2280,7 @@ function syncTaggingHeader() {
     return;
   }
   notice.style.display = '';
-  nameLabel.textContent = S.tour.title || 'Untitled tour';
+  nameLabel.textContent = S.tour.title || ti('tour_config.tours.untitled');
   idLabel.textContent = S.tour.id || '';
 }
 function collectTourTaxonomyPayload() {
@@ -2256,7 +2321,7 @@ function renderSingleImagePreview(previewId, imageUrl, emptyMessage) {
     'cd-destination-image-preview': 'cd-destination-image',
     'cd-accommodation-image-preview': 'cd-accommodation-image',
   })[previewId] || '';
-  node.innerHTML = `${fieldId ? `<button type="button" class="preview-remove-btn" data-clear-field="${esc(fieldId)}" aria-label="Remove image">Remove</button>` : ''}<img src="${esc(getOptimizedImageUrl(src, { width: 960, height: 720, quality: 74 }))}" alt="${esc(previewId)}" loading="lazy" onerror="${getBrokenPreviewOnError('Preview unavailable. Replace this image or pick another asset.')}" />`;
+  node.innerHTML = `${fieldId ? `<button type="button" class="preview-remove-btn" data-clear-field="${esc(fieldId)}" aria-label="${esc(ti('tour_config.content.remove_image'))}">${esc(ti('tour_config.content.remove_image'))}</button>` : ''}<img src="${esc(getOptimizedImageUrl(src, { width: 960, height: 720, quality: 74 }))}" alt="${esc(previewId)}" loading="lazy" onerror="${getBrokenPreviewOnError('Preview unavailable. Replace this image or pick another asset.')}" />`;
 }
 
 function renderGalleryPreview(previewId, images, emptyMessage) {
@@ -2270,7 +2335,7 @@ function renderGalleryPreview(previewId, images, emptyMessage) {
   node.className = 'gallery-preview-grid';
   node.innerHTML = images.map((item, index) => `
     <div class="gallery-preview-card">
-      <button type="button" class="preview-remove-btn" data-remove-gallery-index="${index}" aria-label="Remove gallery image">Remove</button>
+      <button type="button" class="preview-remove-btn" data-remove-gallery-index="${index}" aria-label="${esc(ti('tour_config.content.remove_gallery_image'))}">${esc(ti('tour_config.content.remove_image'))}</button>
       <img src="${esc(getOptimizedImageUrl(item.src, { width: 240, height: 240, quality: 72 }))}" alt="${esc(item.alt || `Gallery image ${index + 1}`)}" loading="lazy" onerror="${getBrokenPreviewOnError('Gallery preview unavailable.')}" />
       <span>${esc(item.caption || item.alt || `Gallery ${index + 1}`)}</span>
     </div>
@@ -2287,7 +2352,7 @@ function renderGalleryPreview(previewId, images, emptyMessage) {
       textarea.value = lines.join('\n');
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
       textarea.dispatchEvent(new Event('change', { bubbles: true }));
-      toast('Gallery image removed from this draft.');
+      toast(ti('tour_config.media_picker.gallery_removed'));
     });
   });
 }
@@ -2295,7 +2360,7 @@ function renderGalleryPreview(previewId, images, emptyMessage) {
 function buildMediaPickerCards() {
   const items = getRecentImageAssets();
   if (!items.length) {
-    return '<div class="empty-state" style="padding:20px">No tenant images yet. Upload one from local drive and it will become reusable immediately.</div>';
+    return `<div class="empty-state" style="padding:20px">${esc(ti('tour_config.media_picker.empty_gallery'))}</div>`;
   }
   return `<div class="media-picker-grid">${items.map((item, index) => `
     <button type="button" class="media-picker-card" data-media-picker-asset data-asset-url="${esc(item.url || '')}">
@@ -2311,15 +2376,18 @@ function renderMediaPicker() {
   if (!modal) return;
   modal.classList.toggle('open', S.mediaPicker.open === true);
   modal.setAttribute('aria-hidden', S.mediaPicker.open ? 'false' : 'true');
-  document.getElementById('media-picker-title').textContent = S.mediaPicker.title || 'Add image';
-  document.getElementById('media-picker-count').textContent = `${getRecentImageAssets().length} image${getRecentImageAssets().length === 1 ? '' : 's'}`;
+  const imageCount = getRecentImageAssets().length;
+  document.getElementById('media-picker-title').textContent = S.mediaPicker.title || ti('tour_config.media_picker.title');
+  document.getElementById('media-picker-count').textContent = imageCount === 1
+    ? ti('tour_config.media_picker.count_one', { count: imageCount })
+    : ti('tour_config.media_picker.count_other', { count: imageCount });
   document.getElementById('media-picker-library').innerHTML = buildMediaPickerCards();
 
   document.querySelectorAll('[data-media-picker-asset]').forEach((button) => {
     button.onclick = () => {
       applyAssetToField(S.mediaPicker.targetFieldId, button.dataset.assetUrl || '', S.mediaPicker.appendMode);
       closeMediaPicker();
-      toast('Image inserted from tenant gallery.');
+      toast(ti('tour_config.media_picker.inserted'));
     };
   });
 }
@@ -2329,7 +2397,7 @@ function openMediaPicker(config = {}) {
     open: true,
     targetFieldId: config.targetFieldId || '',
     appendMode: config.appendMode === true,
-    title: config.title || 'Add image',
+    title: config.title || ti('tour_config.media_picker.title'),
   };
   renderMediaPicker();
 }
@@ -2342,10 +2410,10 @@ function closeMediaPicker() {
 }
 
 function renderContentMediaPreviews() {
-  renderSingleImagePreview('cd-hero-image-preview', document.getElementById('cd-hero-image')?.value, 'Hero image preview appears here.');
-  renderSingleImagePreview('cd-destination-image-preview', document.getElementById('cd-destination-image')?.value, 'Destination image preview appears here.');
-  renderSingleImagePreview('cd-accommodation-image-preview', document.getElementById('cd-accommodation-image')?.value, 'Accommodation image preview appears here.');
-  renderGalleryPreview('cd-gallery-images-preview', collectGalleryImages(), 'Gallery previews appear here as soon as you paste or upload images.');
+  renderSingleImagePreview('cd-hero-image-preview', document.getElementById('cd-hero-image')?.value, ti('tour_config.content.hero_image_preview_empty'));
+  renderSingleImagePreview('cd-destination-image-preview', document.getElementById('cd-destination-image')?.value, ti('tour_config.content.destination_image_preview_empty'));
+  renderSingleImagePreview('cd-accommodation-image-preview', document.getElementById('cd-accommodation-image')?.value, ti('tour_config.content.accommodation_image_preview_empty'));
+  renderGalleryPreview('cd-gallery-images-preview', collectGalleryImages(), ti('tour_config.content.gallery_preview_empty'));
 
   document.querySelectorAll('[data-clear-field]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -2354,7 +2422,7 @@ function renderContentMediaPreviews() {
       field.value = '';
       field.dispatchEvent(new Event('input', { bubbles: true }));
       field.dispatchEvent(new Event('change', { bubbles: true }));
-      toast('Image removed from this module field.');
+      toast(ti('tour_config.media_picker.field_cleared'));
     });
   });
 }
@@ -2417,7 +2485,7 @@ function bindContentAssetInputs() {
       openMediaPicker({
         targetFieldId: button.dataset.targetField || '',
         appendMode: button.dataset.append === '1',
-        title: button.textContent.trim() || 'Add image',
+        title: button.textContent.trim() || ti('tour_config.media_picker.title'),
       });
     });
   });
@@ -2431,9 +2499,9 @@ function bindContentAssetInputs() {
     try {
       await refreshTenantAssets();
       renderMediaPicker();
-      toast('Tenant gallery refreshed.');
+      toast(ti('tour_config.media_picker.refreshed'));
     } catch (error) {
-      toast(error.message || 'Failed to refresh tenant gallery.', 'err');
+      toast(error.message || ti('tour_config.media_picker.refresh_failed'), 'err');
     }
   });
   document.getElementById('media-picker-file-input')?.addEventListener('change', async (event) => {
@@ -2441,7 +2509,7 @@ function bindContentAssetInputs() {
     const file = input.files && input.files[0];
     if (!file) return;
     try {
-      toast(`Uploading ${file.name}...`);
+      toast(ti('tour_config.media_picker.uploading', { name: file.name }));
       await validateImageUpload(file);
       const uploaded = await uploadTourAssetFile(file);
       applyAssetToField(S.mediaPicker.targetFieldId, uploaded.url || '', S.mediaPicker.appendMode);
@@ -2484,6 +2552,7 @@ function buildContentDraftPayload() {
     includes: lines(document.getElementById('cd-includes').value),
     excludes: lines(document.getElementById('cd-excludes').value),
     itinerary: S.itinerary,
+    hotel_cards: S.hotelCards?.length ? S.hotelCards : undefined,
     universal_modules: {
       featured_tours: document.getElementById('cd-flag-featured').checked,
       featured: document.getElementById('cd-flag-featured').checked,
@@ -2503,6 +2572,8 @@ async function saveContentDraft(showSuccessToast = true) {
   if (!S.tour) throw new Error(ti('tour_config.message.select_tour_first'));
   const contentData = buildContentDraftPayload();
   await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify({ content_data: contentData }) });
+  // Explicitly trigger universal page sync so the public storefront refreshes immediately
+  await api(`/api/universal/tours/${S.tour.id}/page/sync`, { method: 'POST' }).catch(() => {});
   S.tour.content_data = contentData;
   const listTour = S.tours.find((tour) => tour.id === S.tour.id);
   if (listTour) listTour.content_data = contentData;
@@ -2642,7 +2713,7 @@ function renderTourList() {
     return;
   }
   if (!tours.length) {
-    placeholder.textContent = 'No tours match the current tag filter or search.';
+    placeholder.textContent = ti('tour_config.tours.no_tours_match');
     placeholder.style.display = '';
     list.style.display = 'none';
     return;
@@ -2658,7 +2729,7 @@ function renderTourList() {
           const isPrimary = key && key === summary.primary_interest_key;
           return `<span class="tour-tag-chip ${isPrimary ? 'primary' : ''}">${esc(label)}</span>`;
         }).join('')
-      : '<span class="tour-tag-chip muted">No tags yet</span>';
+      : `<span class="tour-tag-chip muted">${esc(ti('tour_config.tours.no_tags_yet'))}</span>`;
     const li = document.createElement('li');
     li.className = 'tour-item' + (S.tour?.id === t.id ? ' selected' : '');
     li.innerHTML = `
@@ -2716,6 +2787,7 @@ function selectTour(t) {
 
   // Pre-fill content tab
   prefillContent(t);
+  loadTourLinks(t.id).catch((err) => console.warn('[tour-config] link load failed', err?.message));
   syncTaggingHeader();
   loadTourTaxonomy(t.id).catch((error) => console.warn('[tour-config taxonomy] select failed', error?.message || error));
   syncTaggingHeader();
@@ -2855,6 +2927,7 @@ function prefillContent(tour) {
 
   S.itinerary = cd.itinerary ?? [];
   renderItinerary();
+  S.hotelCards = Array.isArray(cd.hotel_cards) ? cd.hotel_cards : []; // legacy read only
   renderContentMediaPreviews();
 }
 
@@ -2881,6 +2954,12 @@ function renderItinerary() {
   });
 }
 
+function openAddDayForm() {
+  const form = document.getElementById('add-day-form');
+  form.style.display = '';
+  document.getElementById('day-num').value = (S.itinerary.length + 1).toString();
+  document.getElementById('day-title').focus();
+}
 document.getElementById('btn-add-day').addEventListener('click', () => {
   const form = document.getElementById('add-day-form');
   form.style.display = form.style.display === 'none' ? '' : 'none';
@@ -2888,6 +2967,7 @@ document.getElementById('btn-add-day').addEventListener('click', () => {
     document.getElementById('day-num').value = (S.itinerary.length + 1).toString();
   }
 });
+document.getElementById('btn-add-day-bottom').addEventListener('click', openAddDayForm);
 document.getElementById('btn-cancel-day').addEventListener('click', () => {
   document.getElementById('add-day-form').style.display = 'none';
 });
@@ -2904,6 +2984,156 @@ document.getElementById('btn-save-day').addEventListener('click', () => {
   document.getElementById('day-desc').value  = '';
   toast(ti('tour_config.message.day_added'));
 });
+
+// ---- Catalog link managers ----
+
+S.catalogHotels = [];
+S.catalogDestinations = [];
+S.hotelLinks = [];
+S.destLinks = [];
+
+async function loadCatalogs() {
+  try {
+    const [hotelsRes, destsRes] = await Promise.all([
+      api('/api/universal/site/hotels'),
+      api('/api/universal/destinations'),
+    ]);
+    S.catalogHotels = Array.isArray(hotelsRes.hotels) ? hotelsRes.hotels : [];
+    S.catalogDestinations = Array.isArray(destsRes.destinations) ? destsRes.destinations : [];
+    populateCatalogSelects();
+  } catch (err) {
+    console.warn('[tour-config] catalog load failed', err?.message);
+  }
+}
+
+function populateCatalogSelects() {
+  const hotelSel = document.getElementById('hotel-link-select');
+  const destSel = document.getElementById('dest-link-select');
+  if (hotelSel) {
+    hotelSel.innerHTML = '<option value="">— select hotel —</option>' +
+      S.catalogHotels.map((h) => `<option value="${esc(h.id)}">${esc(h.name || h.id)}</option>`).join('');
+  }
+  if (destSel) {
+    destSel.innerHTML = '<option value="">— select destination —</option>' +
+      S.catalogDestinations.map((d) => `<option value="${esc(d.id)}">${esc(d.name || d.id)}</option>`).join('');
+  }
+}
+
+async function loadTourLinks(tourId) {
+  try {
+    const [hotelLinksRes, destLinksRes] = await Promise.all([
+      api(`/api/universal/tours/${encodeURIComponent(tourId)}/hotel-links`),
+      api(`/api/universal/tours/${encodeURIComponent(tourId)}/destination-links`),
+    ]);
+    S.hotelLinks = Array.isArray(hotelLinksRes.links) ? hotelLinksRes.links : [];
+    S.destLinks = Array.isArray(destLinksRes.links) ? destLinksRes.links : [];
+    renderLinkedHotels();
+    renderLinkedDestinations();
+  } catch (err) {
+    console.warn('[tour-config] link load failed', err?.message);
+  }
+}
+
+function renderLinkedHotels() {
+  const list = document.getElementById('hotel-links-list');
+  if (!list) return;
+  list.innerHTML = S.hotelLinks.length
+    ? S.hotelLinks.map((link) => `
+      <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${esc(link.name || link.hotel_id)}</div>
+          <div style="font-size:12px;color:#64748b">${esc([link.address, link.nights ? link.nights + ' nights' : ''].filter(Boolean).join(' · '))}</div>
+        </div>
+        <button class="btn-icon-del" data-unlink-hotel="${esc(link.id)}" title="Remove link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>`).join('')
+    : '<p style="font-size:12px;color:#94a3b8;margin:0">No hotels linked yet. Select from catalog and click Link.</p>';
+  list.querySelectorAll('[data-unlink-hotel]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const linkId = btn.dataset.unlinkHotel;
+      try {
+        await api(`/api/universal/hotel-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+        S.hotelLinks = S.hotelLinks.filter((l) => l.id !== linkId);
+        renderLinkedHotels();
+        toast('Hotel unlinked');
+      } catch (err) {
+        toast(err.message || 'Failed to unlink hotel', 'err');
+      }
+    });
+  });
+}
+
+function renderLinkedDestinations() {
+  const list = document.getElementById('dest-links-list');
+  if (!list) return;
+  list.innerHTML = S.destLinks.length
+    ? S.destLinks.map((link) => `
+      <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${esc(link.name || link.destination_id)}</div>
+          <div style="font-size:12px;color:#64748b">${esc(link.region || link.description?.slice(0, 60) || '')}</div>
+        </div>
+        <button class="btn-icon-del" data-unlink-dest="${esc(link.id)}" title="Remove link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>`).join('')
+    : '<p style="font-size:12px;color:#94a3b8;margin:0">No destinations linked yet. Select from catalog and click Link.</p>';
+  list.querySelectorAll('[data-unlink-dest]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const linkId = btn.dataset.unlinkDest;
+      try {
+        await api(`/api/universal/destination-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+        S.destLinks = S.destLinks.filter((l) => l.id !== linkId);
+        renderLinkedDestinations();
+        toast('Destination unlinked');
+      } catch (err) {
+        toast(err.message || 'Failed to unlink destination', 'err');
+      }
+    });
+  });
+}
+
+document.getElementById('btn-link-hotel')?.addEventListener('click', async () => {
+  const hotelId = document.getElementById('hotel-link-select')?.value?.trim();
+  const nights = Number(document.getElementById('hotel-link-nights')?.value || 0);
+  if (!hotelId) { toast('Select a hotel first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
+  try {
+    const res = await api(`/api/universal/tours/${encodeURIComponent(S.tour.id)}/hotel-links`, {
+      method: 'POST',
+      body: JSON.stringify({ hotel_id: hotelId, nights }),
+    });
+    if (!S.hotelLinks.find((l) => l.id === res.link.id)) {
+      await loadTourLinks(S.tour.id);
+    }
+    document.getElementById('hotel-link-select').value = '';
+    toast('Hotel linked');
+  } catch (err) {
+    toast(err.message || 'Failed to link hotel', 'err');
+  }
+});
+
+document.getElementById('btn-link-dest')?.addEventListener('click', async () => {
+  const destId = document.getElementById('dest-link-select')?.value?.trim();
+  if (!destId) { toast('Select a destination first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
+  try {
+    const res = await api(`/api/universal/tours/${encodeURIComponent(S.tour.id)}/destination-links`, {
+      method: 'POST',
+      body: JSON.stringify({ destination_id: destId }),
+    });
+    if (!S.destLinks.find((l) => l.id === res.link.id)) {
+      await loadTourLinks(S.tour.id);
+    }
+    document.getElementById('dest-link-select').value = '';
+    toast('Destination linked');
+  } catch (err) {
+    toast(err.message || 'Failed to link destination', 'err');
+  }
+});
+
+loadCatalogs().catch(() => {});
 
 // Save metadata
 document.getElementById('meta-form').addEventListener('submit', async e => {
@@ -3192,11 +3422,8 @@ async function moveStop(stopId, dir) {
   S.stops.forEach((s, i) => { s.sort_order = i; });
   renderStopRows();
   renderItinPreview();
-  // Persist new order
-  await Promise.all([
-    patchStop(S.stops[idx].id, { sort_order: idx }),
-    patchStop(S.stops[nxt].id, { sort_order: nxt }),
-  ]);
+  // Persist full order for all stops so DB sort_order matches the UI array index
+  await Promise.all(S.stops.map((s, i) => patchStop(s.id, { sort_order: i })));
 }
 
 async function loadStops() {
@@ -3232,13 +3459,17 @@ async function deleteStop(stopId) {
 document.getElementById('btn-refresh-stops').addEventListener('click', loadStops);
 
 // -- Quick-add form --
-document.getElementById('btn-show-add-stop').addEventListener('click', () => {
+function openStopQuickForm() {
   const form = document.getElementById('stop-quick-form');
   form.style.display = '';
   document.getElementById('sq-label').focus();
   document.getElementById('sq-nights').value = '1';
   ['sq-b','sq-l','sq-d'].forEach(id => document.getElementById(id).classList.remove('active'));
-});
+}
+
+document.getElementById('btn-show-add-stop').addEventListener('click', openStopQuickForm);
+document.getElementById('btn-show-add-stop-secondary').addEventListener('click', openStopQuickForm);
+document.getElementById('btn-show-add-stop-bottom').addEventListener('click', openStopQuickForm);
 document.getElementById('btn-cancel-add-stop').addEventListener('click', () => {
   document.getElementById('stop-quick-form').style.display = 'none';
 });
