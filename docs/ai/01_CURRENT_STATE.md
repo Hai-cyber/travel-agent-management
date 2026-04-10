@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-07 (includes trust ladder enforcement, Cloudflare AI moderation, silent abuse-risk ledger, asset moderation, authenticated tenant editor route hardening, and remote D1 migration 0041 applied)
+Last updated: 2026-04-10 (includes day-tour pricing mode CHK-R50, full booking widget i18n for all 9 locales CHK-R51, and production deploy at version 3d1295cb)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -148,6 +148,10 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `public/index.html` — live SaaS pricing / trust landing page for 4 tiers
 - `public/login.html` / `public/signup.html` — localized auth entry points with product tier selection on signup; signup now also lets new tenants choose a curated market-skin preset before onboarding writes tenant defaults and starter content; login now includes a forgot-password path
 - Real locale packs are now present for `ja`, `ko`, `en-GB`, `en-AU`, `de`, `fr`, and `es`; `/api/i18n` resolves them exactly via Accept-Language instead of collapsing everything to base `en`
+- Booking widget (`public/tour-booking-view.js`) is fully localized across all 9 supported locales (en, vi, zh, th, de, fr, es, ja, ko): traveller-type labels (`traveller_adult`, `traveller_infant`, `traveller_adult_shared/private/triple`), phase-1 sentence fragments (`phase1_travel_on`, `phase1_we_are`, `phase1_adults_and`, `phase1_children`, `phase1_staying_in`, `phase1_double/triple_rooms_and`, `phase1_single_rooms`), tier/table labels (`pricing_tier`, `traveller_type`, `price_per_person`, `qty`, `subtotal`, `good_to_know`, `calculate_final_price`, `total_for_group`, `band_summary`), and live-price notice
+- Public pricing table column headers (`Segment`, `Season`, `Pax`, `Adult`, `Child`, `Infant`) are now localized via `systemCopy.pricing.*` — no hardcoded English strings remain in `renderPricing()`
+- `universal_site.pricing` locale section extended with `adult`, `child`, `infant`, `segment`, `season`, `pax` keys across all 9 locales
+- `DEFAULT_MESSAGES` in `tour-booking-view.js` includes English fallbacks for all traveller keys so no locale can display a raw technical key
 - `public/reset-password.html` — localized request/reset page for password recovery tokens
 - `public/dashboard.html` — tenant admin landing page with subdomain locking and guided launch sequence
 - `public/templates/default.html` — tour page template with all placeholders
