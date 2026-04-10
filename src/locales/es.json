@@ -349,7 +349,13 @@
       "shared_room": "Habitación compartida",
       "adult_price": "Adulto",
       "single_room": "Habitación individual",
-      "spotlight_body": "El precio destacado proviene directamente del motor de precios canónico."
+      "spotlight_body": "El precio destacado proviene directamente del motor de precios canónico.",
+      "adult": "Adulto",
+      "child": "Niño",
+      "infant": "Bebé",
+      "segment": "Segmento",
+      "season": "Temporada",
+      "pax": "Pax"
     },
     "channel": {
       "phone": "Llámanos",

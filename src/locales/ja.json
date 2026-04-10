@@ -353,7 +353,13 @@
       "shared_room": "相部屋料金",
       "adult_price": "大人",
       "single_room": "シングル料金",
-      "spotlight_body": "価格ハイライトは正規の料金エンジンから表示されます。"
+      "spotlight_body": "価格ハイライトは正規の料金エンジンから表示されます。",
+      "adult": "大人",
+      "child": "子供",
+      "infant": "乳幼児",
+      "segment": "セグメント",
+      "season": "シーズン",
+      "pax": "人数"
     },
     "channel": {
       "phone": "お電話",

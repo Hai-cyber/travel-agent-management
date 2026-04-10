@@ -472,7 +472,13 @@
       "single": "Single",
       "shared_room": "Shared room",
       "single_room": "Single room",
-      "spotlight_body": "Live price spotlight powered by canonical tour pricing."
+      "spotlight_body": "Live price spotlight powered by canonical tour pricing.",
+      "adult": "Adult",
+      "child": "Child",
+      "infant": "Infant",
+      "segment": "Segment",
+      "season": "Season",
+      "pax": "Pax"
     },
     "channel": {
       "phone": "Call us",

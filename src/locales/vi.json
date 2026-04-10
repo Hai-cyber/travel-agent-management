@@ -467,7 +467,13 @@
       "single": "Phòng riêng",
       "shared_room": "Phòng ghép",
       "single_room": "Phòng riêng",
-      "spotlight_body": "Giá nổi bật trực tiếp từ pricing engine chuẩn."
+      "spotlight_body": "Giá nổi bật trực tiếp từ pricing engine chuẩn.",
+      "adult": "Người lớn",
+      "child": "Trẻ em",
+      "infant": "Em bé",
+      "segment": "Phân khúc",
+      "season": "Mùa",
+      "pax": "Khách"
     },
     "channel": {
       "phone": "Gọi cho chúng tôi",

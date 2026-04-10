@@ -472,7 +472,13 @@
       "single": "单住",
       "shared_room": "拼房价格",
       "single_room": "单住价格",
-      "spotlight_body": "价格亮点直接来自标准定价引擎。"
+      "spotlight_body": "价格亮点直接来自标准定价引擎。",
+      "adult": "成人",
+      "child": "儿童",
+      "infant": "婴儿",
+      "segment": "档位",
+      "season": "季节",
+      "pax": "人数"
     },
     "channel": {
       "phone": "致电我们",

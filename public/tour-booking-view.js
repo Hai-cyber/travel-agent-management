@@ -492,8 +492,10 @@
 
     const PAX_TYPES = [
       { key: 'adult_shared_room_count', label: isDayTour ? t('public_booking.traveller_adult', {}, 'Adult') : t('public_booking.traveller_adult_shared'), priceField: 'adult_shared_room_price', step: isDayTour ? 1 : 2 },
-      { key: 'adult_triple_room_count', label: t('public_booking.traveller_adult_triple', {}, 'Triple room (per person)'), priceField: 'adult_triple_room_price', step: 3 },
-      { key: 'adult_single_room_count', label: t('public_booking.traveller_adult_private'), priceField: 'adult_single_room_price', step: 1 },
+      ...(!isDayTour ? [
+        { key: 'adult_triple_room_count', label: t('public_booking.traveller_adult_triple', {}, 'Triple room (per person)'), priceField: 'adult_triple_room_price', step: 3 },
+        { key: 'adult_single_room_count', label: t('public_booking.traveller_adult_private'), priceField: 'adult_single_room_price', step: 1 },
+      ] : []),
       { key: 'child_count', label: t('tour_config.pricing.child_with_parents'), priceField: 'child_shared_with_parents_price', step: 1 },
       { key: 'infant_count', label: t('public_booking.traveller_infant'), priceField: 'infant_price', step: 1 },
     ];

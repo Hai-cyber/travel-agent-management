@@ -349,7 +349,13 @@
       "shared_room": "Geteiltes Zimmer",
       "adult_price": "Erwachsener",
       "single_room": "Einzelzimmer",
-      "spotlight_body": "Preis-Highlights kommen direkt aus der kanonischen Preisengine."
+      "spotlight_body": "Preis-Highlights kommen direkt aus der kanonischen Preisengine.",
+      "adult": "Erwachsener",
+      "child": "Kind",
+      "infant": "Kleinkind",
+      "segment": "Segment",
+      "season": "Saison",
+      "pax": "Pax"
     },
     "channel": {
       "phone": "Anrufen",

@@ -371,6 +371,12 @@ export function getUniversalSystemCopy(groupKey = 'tour_operator', lang = 'en') 
       sharedRoom: t('pricing.shared_room'),
       singleRoom: t('pricing.single_room'),
       spotlightBody: t('pricing.spotlight_body'),
+      adult: t('pricing.adult'),
+      child: t('pricing.child'),
+      infant: t('pricing.infant'),
+      segment: t('pricing.segment'),
+      season: t('pricing.season'),
+      pax: t('pricing.pax'),
     },
     channel: Object.fromEntries(Object.entries(UNIVERSAL_CHANNEL_LABEL_KEYS).map(([key, translationKey]) => [key, getUniversalText(translationKey, locale)])),
   };

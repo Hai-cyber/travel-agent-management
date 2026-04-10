@@ -349,7 +349,13 @@
       "shared_room": "Chambre partagée",
       "adult_price": "Adulte",
       "single_room": "Chambre individuelle",
-      "spotlight_body": "Le focus tarifaire est alimenté par le moteur de prix canonique."
+      "spotlight_body": "Le focus tarifaire est alimenté par le moteur de prix canonique.",
+      "adult": "Adulte",
+      "child": "Enfant",
+      "infant": "Bébé",
+      "segment": "Segment",
+      "season": "Saison",
+      "pax": "Pax"
     },
     "channel": {
       "phone": "Téléphone",
