@@ -372,6 +372,17 @@
       "address": "주소"
     }
   },
+  "public_booking": {
+    "traveller_adult": "성인",
+    "traveller_adult_shared": "성인 (공유 객실)",
+    "traveller_adult_private": "성인 (싱글 객실)",
+    "traveller_adult_triple": "트리플 객실 (인당)",
+    "traveller_infant": "유아",
+    "def_infant": "유아: 0–2세 – 반드시 부모 또는 법정 보호자 동반 필요.",
+    "def_children": "어린이: 2–14세, 부모와 같은 방 사용.",
+    "def_teens": "청소년: 14세 이상은 성인 요금 적용.",
+    "def_note": "주의: 어린이가 별도 방을 사용하는 경우 성인 공유 요금이 적용됩니다."
+  },
   "tour_config": {
     "meta": {
       "title": "투어 설정 - 에이전트 대시보드"
@@ -466,6 +477,9 @@
       "refreshed": "테넌트 갤러리를 새로고침했습니다.",
       "refresh_failed": "테넌트 갤러리를 새로고침하지 못했습니다.",
       "uploading": "{{name}} 업로드 중..."
+    },
+    "pricing": {
+      "child_with_parents": "어린이 (부모 동반)"
     }
   },
   "dashboard_market_skin": {

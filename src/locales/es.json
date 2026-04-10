@@ -368,6 +368,17 @@
       "address": "Dirección"
     }
   },
+  "public_booking": {
+    "traveller_adult": "Adulto",
+    "traveller_adult_shared": "Adulto habitación compartida",
+    "traveller_adult_private": "Adulto habitación individual",
+    "traveller_adult_triple": "Habitación triple (por persona)",
+    "traveller_infant": "Bebé",
+    "def_infant": "Bebé: 0–2 años – debe ir acompañado de un padre o tutor legal.",
+    "def_children": "Niños: 2–14 años, compartiendo habitación con los padres.",
+    "def_teens": "Adolescentes: mayores de 14 años se tratan como adultos.",
+    "def_note": "Nota: si los niños se alojan en una habitación separada, se aplican las tarifas de adulto compartido."
+  },
   "tour_config": {
     "meta": {
       "title": "Configuración de tours - panel del agente"
@@ -462,6 +473,9 @@
       "refreshed": "Galería del tenant actualizada.",
       "refresh_failed": "No se pudo actualizar la galería del tenant.",
       "uploading": "Subiendo {{name}}..."
+    },
+    "pricing": {
+      "child_with_parents": "Niño (con los padres)"
     }
   },
   "dashboard_market_skin": {

@@ -372,6 +372,17 @@
       "address": "住所"
     }
   },
+  "public_booking": {
+    "traveller_adult": "大人",
+    "traveller_adult_shared": "大人（相部屋）",
+    "traveller_adult_private": "大人（シングル）",
+    "traveller_adult_triple": "トリプル（1人当たり）",
+    "traveller_infant": "乳幼児",
+    "def_infant": "乳幼児：0–2歳 – 保護者または法定後車人の同伴が必要。",
+    "def_children": "子供：2–14歳、親と同室。",
+    "def_teens": "ティーンエイジャー：14歳以上は大人料金。",
+    "def_note": "注意：子供が別室に泊まる場合、大人相部屋料金が適用されます。"
+  },
   "tour_config": {
     "meta": {
       "title": "ツアー設定 - エージェントダッシュボード"
@@ -466,6 +477,9 @@
       "refreshed": "テナントギャラリーを更新しました。",
       "refresh_failed": "テナントギャラリーを更新できませんでした。",
       "uploading": "{{name}} をアップロードしています..."
+    },
+    "pricing": {
+      "child_with_parents": "子供（親と同室）"
     }
   },
   "dashboard_market_skin": {

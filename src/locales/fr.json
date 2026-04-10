@@ -368,6 +368,17 @@
       "address": "Adresse"
     }
   },
+  "public_booking": {
+    "traveller_adult": "Adulte",
+    "traveller_adult_shared": "Adulte chambre partagée",
+    "traveller_adult_private": "Adulte chambre individuelle",
+    "traveller_adult_triple": "Chambre triple (par personne)",
+    "traveller_infant": "Bébé",
+    "def_infant": "Bébé : 0–2 ans – doit être accompagné d'un parent ou tuteur légal.",
+    "def_children": "Enfants : 2–14 ans, partageant la chambre avec les parents.",
+    "def_teens": "Adolescents : à partir de 14 ans, comptés comme adultes.",
+    "def_note": "Remarque : si les enfants logent dans une chambre séparée, les tarifs adulte partagé s'appliquent."
+  },
   "tour_config": {
     "meta": {
       "title": "Configuration des tours - tableau de bord agent"
@@ -462,6 +473,9 @@
       "refreshed": "Galerie du tenant actualisée.",
       "refresh_failed": "Impossible d'actualiser la galerie du tenant.",
       "uploading": "Téléversement de {{name}}..."
+    },
+    "pricing": {
+      "child_with_parents": "Enfant (avec les parents)"
     }
   },
   "dashboard_market_skin": {

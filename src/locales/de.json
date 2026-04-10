@@ -368,6 +368,17 @@
       "address": "Adresse"
     }
   },
+  "public_booking": {
+    "traveller_adult": "Erwachsener",
+    "traveller_adult_shared": "Erwachsener (Mehrbettzimmer)",
+    "traveller_adult_private": "Erwachsener (Einzelzimmer)",
+    "traveller_adult_triple": "Dreibettzimmer (pro Person)",
+    "traveller_infant": "Kleinkind",
+    "def_infant": "Kleinkind: 0–2 Jahre – muss von einem Erziehungsberechtigten begleitet werden.",
+    "def_children": "Kinder: 2–14 Jahre, im Zimmer der Eltern.",
+    "def_teens": "Teenager: ab 14 Jahren werden wie Erwachsene berechnet.",
+    "def_note": "Hinweis: Schlafen Kinder in einem eigenen Zimmer, gilt der Erwachsenenpreis."
+  },
   "tour_config": {
     "meta": {
       "title": "Tour-Konfiguration - Agenten-Dashboard"
@@ -462,6 +473,9 @@
       "refreshed": "Tenant-Galerie aktualisiert.",
       "refresh_failed": "Tenant-Galerie konnte nicht aktualisiert werden.",
       "uploading": "{{name}} wird hochgeladen..."
+    },
+    "pricing": {
+      "child_with_parents": "Kind (mit Eltern)"
     }
   },
   "dashboard_market_skin": {
