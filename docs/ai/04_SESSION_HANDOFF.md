@@ -20,8 +20,162 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-04-08
-Checkpoint: CHK-R48 — Product Modules catalog architecture (destinations + hotels + junction tables)
+Date: 2026-04-10
+Checkpoint: CHK-R50 — Day Tour pricing mode (per-person Adult/Child/Infant, no room columns)
+
+### What was completed
+
+**Migration:**
+- `db/migrations/0048_tour_type.sql` — `ALTER TABLE tours ADD COLUMN tour_type TEXT NOT NULL DEFAULT 'package'`  
+  Values: `'package'` | `'day_tour'`
+
+**Admin pricing UI (`public/tour-config.html` — `loadPricing()`):**
+- `isDayTour = S.tour?.tour_type === 'day_tour'` flag
+- Price table: hides Triple/Single Room columns; renames "Shared room" header → "Adult" for day tours
+- Add-price form: hides triple/single room input wrappers; renames "Shared room" label → "Adult" via `id="ap-shared-label"`
+- `adult_price` i18n key added to `en.json`, `vi.json`, `zh.json`, `th.json`
+
+**Public price table (`src/routes/universalSites.js`):**
+- `renderPricing`: `isDayTour` derived from `snapshot?.tour_type` OR `tourRuntime.tour_type_map[activeTourId]` (live DB fallback — old synced pages do not need re-sync)
+- Day tour columns: **Segment / Season / Pax / Adult / Child / Infant** (no Shared Room / Single Room)
+- Applies to both `profile.pricing === 'table'` and `sidebar/spotlight` layouts
+- `infant_price` added to `segmentGroups` aggregation
+
+**Booking conversation widget (`public/tour-booking-view.js`):**
+- `data-tour-type` now propagated from root element to dynamically created drawer
+- Room sentence row (`[data-tbv-room-row]`) hidden when `isDayTour`
+- `updateRoomStatusPill()` returns early (hidden) when `isDayTour`
+- `buildCompactSummary()` omits room part when `isDayTour`
+
+**Sync (`src/lib/universalSiteSync.js`):**
+- `syncUniversalTourPage` SELECT now includes `tour_type`
+- `buildTourSyncSnapshot` stores `tour_type` in snapshot
+- Pricing rows query now selects `tp.infant_price`; `buildPricingCards` includes `infant_price` in each card
+
+**Mount points (`src/routes/universalSites.js`):**
+- `bookingInlineMarkup` and `bookingViewMarkup` now emit `data-tour-type` using live `activeTourType` variable
+- `getSiteBundle` tours SELECT now includes `tour_type`; `tourRuntime.tour_type_map` built as `{ [tour_id]: tour_type }`
+
+### Files changed
+```
+db/migrations/0048_tour_type.sql                  (new — already applied to production)
+public/tour-config.html                           (isDayTour admin pricing UI)
+public/tour-booking-view.js                       (room row hide, status pill hide, compact summary, drawer attr)
+src/routes/universalSites.js                      (renderPricing day tour columns, tour_type_map, data-tour-type attrs)
+src/lib/universalSiteSync.js                      (tour_type in snapshot, infant_price in pricing cards)
+src/locales/en.json                               (adult_price key)
+src/locales/vi.json                               (adult_price key)
+src/locales/zh.json                               (adult_price key)
+src/locales/th.json                               (adult_price key)
+docs/ai/03_PROGRESS_LEDGER.md                     (CHK-R50 entry)
+docs/ai/04_SESSION_HANDOFF.md                     (this handoff)
+```
+
+### What is still not done
+- Booking widget `booking-widget.js` / `widget.js` still uses room-based pax inputs — day tour variant not yet implemented there
+- Public booking API `pricing.js` still requires `adult_shared_room_count` — no API-level day_tour shortcut yet
+- `pax_range_label` in the public price table does not show infant prices for legacy synced snapshots (need re-sync to populate `infant_price` in `pricing_cards`)
+
+### Known risks / TODOs
+- Old synced tour pages in `tenant_universal_tour_pages` do not have `tour_type` in `sync_snapshot` — the live `tour_type_map` fallback handles render-time, but a re-sync per tour will permanently fix the snapshot
+- `adult_triple_room_count` and `adult_single_room_count` pax types still show in the phase-2 price breakdown table for day tours (PAX_TYPES list not filtered) — they show $0.00 so cosmetic only for now
+
+### Suggested next prompt
+"Filter PAX_TYPES in tour-booking-view.js for day tours to only show Adult, Child, Infant rows in the phase-2 price-per-person breakdown table."
+
+---
+
+
+### What was completed
+
+**Migrations (apply both before deploy):**
+- `db/migrations/0043_hotel_star_region.sql` — `ALTER TABLE tenant_universal_hotels` adds `star_rating INTEGER DEFAULT NULL` and `region TEXT DEFAULT ''`
+- `db/migrations/0044_media_libraries.sql` — `tenant_media_libraries` (titled photo collections) + `tour_media_library_links` (tour → library junction with `section_hint`)
+
+**API (`src/routes/universalSites.js`):**
+- `normalizeHotel` now exposes `star_rating` and `region`
+- `listHotels` orders by `region ASC, star_rating DESC NULLS LAST, sort_order ASC`
+- `POST /site/hotels` and `PATCH /hotels/:hotelId` accept `star_rating` and `region`
+- New: `GET/POST /media-libraries`, `GET/PATCH/DELETE /media-libraries/:id`
+- New: `GET/POST /tours/:tourId/library-links`, `DELETE /library-links/:id`
+
+**UI (`public/product-modules.html`):**
+- Hotels list now shows `region` group headers + gold star display (`★★★☆☆`)
+- Hotel editor: two new fields — Region + Star Rating (1–5 select or Unrated)
+- New **Libraries** mode tab — list sidebar + full editor (title, description, cover, photos, status, delete)
+- `loadSourceData` fetches `/api/universal/media-libraries`
+- `getModeFromParams` accepts `libraries`; `init` selects first library on load
+
+**UI (`public/tour-config.html`):**
+- New **Linked Photo Libraries** section in Content tab — select picker + section_hint dropdown (`gallery` / `hero` / `itinerary`) + Link button + unlink list
+- `loadCatalogs` now also fetches `/api/universal/media-libraries`
+- `loadTourLinks` now also fetches library links and calls `renderLinkedLibraries()`
+- `renderLinkedLibraries()` renders linked items with section hint + photo count + × unlink
+
+**Sync (`src/lib/universalSiteSync.js`):**
+- `syncTourPage` batches a third query: `tour_media_library_links JOIN tenant_media_libraries`
+- `buildTourSyncSnapshot` accepts `gallerySections = []` (6th arg), stores in `snapshot.gallery_sections`
+- Gallery block in `buildTourDetailBlocks` emits `{ sections: [...], images: [...] }` when library links exist (backward-compat flat `images[]` always present); falls back to `gallery_images` when no libraries linked
+
+### Files changed
+```
+db/migrations/0043_hotel_star_region.sql         (new)
+db/migrations/0044_media_libraries.sql            (new)
+src/routes/universalSites.js                      (normalizeHotel, listHotels, hotel PATCH/POST, + library routes)
+src/lib/universalSiteSync.js                      (library batch query, gallery_sections in snapshot+blocks)
+public/product-modules.html                       (Hotels grouped UI, Libraries tab)
+public/tour-config.html                           (Linked Photo Libraries section)
+docs/ai/03_PROGRESS_LEDGER.md                     (CHK-R49 entry)
+```
+
+### What is still not done
+- Photo library items have no individual `alt`/`caption` editing in the Libraries tab UI (all items get the library title as alt) — deferred
+- `section_hint` is stored but not yet used by public renderers to differentiate hero vs gallery vs itinerary slots
+- Hotel junction `tour_hotel_links.nights` editing is exposed at link-time only; in-place nights editing on linked items is not in the UI yet
+
+### Known risks / TODOs
+- **Migrations must be applied before deploy.** Otherwise `star_rating`/`region` columns are missing and hotels PATCH will fail silently (UPDATE proceeds, columns ignored).
+- `json_each(ml.items_json)` in the library-links list query requires SQLite JSON extension — Cloudflare D1 supports this but verify locally first if count shows 0.
+- `gallery_sections` fallback: if no libraries are linked, blocks still use the flat `gallery_images` from `content_data` — no regression.
+
+### Suggested next prompt
+"Use `section_hint` in the public renderer: when a gallery block has `sections`, render named section headings above each photo group. Fall back to a flat grid when `sections` is absent (current renderers unchanged)."
+
+---
+
+
+### What was completed
+
+**`src/lib/universalSiteSync.js`** — three focused changes:
+
+1. **New builder function** `buildDestinationCatalogCards(destinationRows)` — mirrors `buildHotelCardsFromRows`; normalizes `gallery_json` to `images[]`, exposes `name`, `region`, `description`, `image`.
+
+2. **Snapshot** — `buildTourSyncSnapshot` now accepts `destinationRows = []` (5th arg) and emits `destination_catalog_cards[]` using the builder above.
+
+3. **Blocks** — `buildTourDetailBlocks` now prefers `destination_catalog_cards` for the `destination_carousel` block when junction links exist; falls back to stop-based `destination_stops` when no catalog links are present (existing behavior preserved).
+
+4. **Query** — the two separate `.prepare().all()` calls for hotel links were batched with a new parallel query for `tour_destination_links JOIN tenant_destinations` (status = `active`, ordered by `sort_order`). `destinationRows` is passed through to the snapshot.
+
+### Files changed
+```
+src/lib/universalSiteSync.js    (buildDestinationCatalogCards added, syncTourPage updated)
+docs/ai/03_PROGRESS_LEDGER.md   (CHK-R48 follow-up entry + curl/smoke instructions)
+```
+
+### What is still not done
+- Taxonomy/interest tagging on `tenant_destinations` is still deferred
+- `tour_destination_links` sort_order reordering UI is not exposed in tour-config.html
+- Destination catalog cards do not yet contribute to SEO meta
+
+### Known risks / TODOs
+- If a tenant has applied the catalog migration (`migrate-catalog-tables.sql`) but no links yet, the fallback to `destination_stops` fires automatically — no regression
+- `tenant_destinations` must have `status = 'active'` to appear in sync; drafts are silently excluded (intentional)
+
+### Suggested next prompt
+"Add SEO meta contribution from destination catalog cards — when `destination_catalog_cards` are present, include the first destination name and region in `seo_json.description` of the synced tour page."
+
+---
+
 Goal of session: Decouple destinations and hotels from tours into reusable catalog tables with junction links. Replace inline hotel cards in Tour Content with catalog pickers.
 
 ### What was completed

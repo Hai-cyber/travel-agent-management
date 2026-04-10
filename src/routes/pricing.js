@@ -1,4 +1,4 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { enrichPrice, enrichPricesObject, formatMoney, toUserDate, translate, dualPrice } from '../utils/formatter.js';
 import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
@@ -12,32 +12,32 @@ const TABLE_MAP = {
   'tour-prices': 'tour_prices'
 };
 
-// [SEC] Whitelist tÃªn cá»™t cho INSERT.
-// D1 bind() chá»‰ báº£o vá»‡ VALUES (?), KHÃ”NG báº£o vá»‡ tÃªn cá»™t trong SQL string.
-// Object.keys(userInput) trá»±c tiáº¿p vÃ o SQL = SQL Injection qua column name.
+// [SEC] Whitelist tên cột cho INSERT.
+// D1 bind() chỉ bảo vệ VALUES (?), KHÔNG bảo vệ tên cột trong SQL string.
+// Object.keys(userInput) trực tiếp vào SQL = SQL Injection qua column name.
 const ALLOWED_INSERT_COLUMNS = {
   tenant_seasons:   ['tenant_id', 'name', 'start_month', 'start_day', 'end_month', 'end_day', 'sort_order', 'is_active', 'notes'],
   pricing_segments: ['tenant_id', 'code', 'name', 'description', 'sort_order', 'is_active'],
   pax_bands:        ['tenant_id', 'name', 'min_pax', 'max_pax', 'sort_order', 'is_active'],
   tour_prices:      ['tenant_id', 'tour_id', 'season_id', 'segment_id', 'pax_band_id', 'base_currency',
-                     'adult_shared_room_price', 'adult_single_room_price', 'child_shared_with_parents_price',
-                     'infant_price', 'notes', 'is_active'],
+                     'adult_shared_room_price', 'adult_single_room_price', 'adult_triple_room_price',
+                     'child_shared_with_parents_price', 'infant_price', 'notes', 'is_active'],
 };
 
-// [SEC] Whitelist tÃªn cá»™t cho UPDATE.
-// id, tenant_id, created_at lÃ  báº¥t biáº¿n â€” khÃ´ng Ä‘Æ°á»£c phÃ©p cáº­p nháº­t tá»« client.
+// [SEC] Whitelist tên cột cho UPDATE.
+// id, tenant_id, created_at là bất biến — không được phép cập nhật từ client.
 const ALLOWED_UPDATE_COLUMNS = {
   tenant_seasons:   ['name', 'start_month', 'start_day', 'end_month', 'end_day', 'sort_order', 'is_active', 'notes'],
   pricing_segments: ['code', 'name', 'description', 'sort_order', 'is_active'],
   pax_bands:        ['name', 'min_pax', 'max_pax', 'sort_order', 'is_active'],
   tour_prices:      ['tour_id', 'season_id', 'segment_id', 'pax_band_id', 'base_currency',
-                     'adult_shared_room_price', 'adult_single_room_price', 'child_shared_with_parents_price',
-                     'infant_price', 'notes', 'is_active'],
+                     'adult_shared_room_price', 'adult_single_room_price', 'adult_triple_room_price',
+                     'child_shared_with_parents_price', 'infant_price', 'notes', 'is_active'],
 };
 
-// [SEC-FIX] Bá» 'tenant_id' khá»i táº¥t cáº£ requiredFields.
-// tenant_id luÃ´n Ä‘áº¿n tá»« X-Tenant-ID header (khÃ´ng tin body).
-// Giá»¯ 'tenant_id' á»Ÿ Ä‘Ã¢y sáº½ khiáº¿n má»i request há»£p lá»‡ bá»‹ tá»« chá»‘i vá»›i lá»—i "Missing required fields: tenant_id".
+// [SEC-FIX] Bỏ 'tenant_id' khỏi tất cả requiredFields.
+// tenant_id luôn đến từ X-Tenant-ID header (không tin body).
+// Giữ 'tenant_id' ở đây sẽ khiến mọi request hợp lệ bị từ chối với lỗi "Missing required fields: tenant_id".
 const requiredFields = {
   'tenant-seasons':   ['name', 'start_month', 'start_day', 'end_month', 'end_day'],
   'pricing-segments': ['code', 'name'],
@@ -45,22 +45,22 @@ const requiredFields = {
   'tour-prices':      ['tour_id', 'season_id', 'segment_id', 'pax_band_id'],
 };
 
-// Validate month (1â€“12) vÃ  day (1â€“31) cho tenant-seasons.
-// Chá»‰ kiá»ƒm tra cÃ¡c trÆ°á»ng cÃ³ máº·t trong data (dÃ¹ng chung cho CREATE vÃ  PATCH).
+// Validate month (1–12) và day (1–31) cho tenant-seasons.
+// Chỉ kiểm tra các trường có mặt trong data (dùng chung cho CREATE và PATCH).
 function validateSeasonDates(data) {
   const errors = [];
   const { start_month, end_month, start_day, end_day } = data;
   if (start_month !== undefined && (start_month < 1 || start_month > 12)) {
-    errors.push('start_month pháº£i tá»« 1 Ä‘áº¿n 12');
+    errors.push('start_month phải từ 1 đến 12');
   }
   if (end_month !== undefined && (end_month < 1 || end_month > 12)) {
-    errors.push('end_month pháº£i tá»« 1 Ä‘áº¿n 12');
+    errors.push('end_month phải từ 1 đến 12');
   }
   if (start_day !== undefined && (start_day < 1 || start_day > 31)) {
-    errors.push('start_day pháº£i tá»« 1 Ä‘áº¿n 31');
+    errors.push('start_day phải từ 1 đến 31');
   }
   if (end_day !== undefined && (end_day < 1 || end_day > 31)) {
-    errors.push('end_day pháº£i tá»« 1 Ä‘áº¿n 31');
+    errors.push('end_day phải từ 1 đến 31');
   }
   return errors;
 }
@@ -109,8 +109,8 @@ function validateChildRoomingCapacity(sharedAdults, singleAdults, children) {
   };
 }
 
-// Whitelist cá»™t cáº§n Ã©p kiá»ƒu sá»‘ trÆ°á»›c khi bind vÃ o D1.
-// D1 strict-type: cá»™t REAL/INTEGER nháº­n string sáº½ throw SQLITE_MISMATCH (1031).
+// Whitelist cột cần ép kiểu số trước khi bind vào D1.
+// D1 strict-type: cột REAL/INTEGER nhận string sẽ throw SQLITE_MISMATCH (1031).
 const NUMERIC_COLUMNS = {
   tenant_seasons:   {
     start_month: 'int', start_day: 'int',
@@ -128,7 +128,7 @@ const NUMERIC_COLUMNS = {
   },
 };
 
-// Ã‰p kiá»ƒu in-place trÃªn safeData. Tráº£ null náº¿u giÃ¡ trá»‹ khÃ´ng parse Ä‘Æ°á»£c.
+// Ép kiểu in-place trên safeData. Trả null nếu giá trị không parse được.
 function coerceNumeric(table, safeData) {
   const cols = NUMERIC_COLUMNS[table] ?? {};
   for (const [col, type] of Object.entries(cols)) {
@@ -139,8 +139,8 @@ function coerceNumeric(table, safeData) {
   }
 }
 
-// [SEC] Helper: log lá»—i DB Ä‘áº§y Ä‘á»§ phÃ­a server, tráº£ thÃ´ng bÃ¡o chung cho client.
-// KHÃ”NG tráº£ err.message cho client vÃ¬ cÃ³ thá»ƒ lá»™ tÃªn báº£ng, cá»™t, constraint.
+// [SEC] Helper: log lỗi DB đầy đủ phía server, trả thông báo chung cho client.
+// KHÔNG trả err.message cho client vì có thể lộ tên bảng, cột, constraint.
 function dbError(err, context = '') {
   console.error(`[PRICING_ERROR]${context ? ' ' + context : ''}`, err);
   return Response.json({ error: 'Internal server error. Please try again later.' }, { status: 500 });
@@ -156,8 +156,8 @@ function schedulePricingUniversalSync(executionCtx, env, tenantId, tourIds) {
   );
 }
 
-// â”€â”€ buildPriceResponse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Maps a calculateTourPrice result â†’ itemized invoice response.
+// ── buildPriceResponse ────────────────────────────────────────────────────────
+// Maps a calculateTourPrice result → itemized invoice response.
 // Labels are resolved via translate() using the client's Accept-Language-
 // derived lang code (tenantConfig.lang, default 'en').
 // USD is always primary (source of truth); local currency is appended when
@@ -174,19 +174,21 @@ function buildPriceResponse(result, tenantConfig) {
 
   const { pax_breakdown, totals, prices, base_currency } = result;
   const {
-    adult_shared_room_count = 0,
-    adult_single_room_count = 0,
-    adult_count             = 0,  // legacy compat
-    child_count             = 0,
-    infant_count            = 0,
+    adult_shared_room_count  = 0,
+    adult_single_room_count  = 0,
+    adult_triple_room_count  = 0,
+    adult_count              = 0,  // legacy compat
+    child_count              = 0,
+    infant_count             = 0,
   } = pax_breakdown ?? {};
 
   const sharedCount  = adult_shared_room_count > 0 ? adult_shared_room_count : adult_count;
   const privateCount = adult_single_room_count;
+  const tripleCount  = adult_triple_room_count;
 
   const grandTotal = totals?.grand_total ?? (prices.adult_shared_room ?? 0);
 
-  // Line items â€” only include types with qty > 0; labels from locale files
+  // Line items — only include types with qty > 0; labels from locale files
   const line_items = [];
   if (sharedCount > 0) {
     line_items.push({
@@ -195,6 +197,15 @@ function buildPriceResponse(result, tenantConfig) {
       qty:        sharedCount,
       unit_price: dualPrice(prices.adult_shared_room ?? 0, cfg),
       subtotal:   dualPrice(totals?.shared_room_subtotal ?? 0, cfg),
+    });
+  }
+  if (tripleCount > 0) {
+    line_items.push({
+      type:       'adult_triple_room',
+      label:      translate('invoice.adult_triple_room', lang),
+      qty:        tripleCount,
+      unit_price: dualPrice(prices.adult_triple_room ?? 0, cfg),
+      subtotal:   dualPrice(totals?.triple_room_subtotal ?? 0, cfg),
     });
   }
   if (privateCount > 0) {
@@ -234,6 +245,7 @@ function buildPriceResponse(result, tenantConfig) {
 
   const unit_prices = {
     adult_shared_room: prices.adult_shared_room ?? 0,
+    adult_triple_room: prices.adult_triple_room ?? 0,
     adult_single_room: prices.adult_single_room ?? 0,
     child_shared_with_parents: prices.child_shared_with_parents ?? 0,
     infant: prices.infant ?? 0,
@@ -256,6 +268,7 @@ function buildPriceResponse(result, tenantConfig) {
     prices:        enrichPricesObject(
       {
         adult_shared_room:         prices.adult_shared_room,
+        adult_triple_room:         prices.adult_triple_room,
         adult_single_room:         prices.adult_single_room,
         child_shared_with_parents: prices.child_shared_with_parents,
         infant:                    prices.infant,
@@ -276,10 +289,18 @@ function buildPriceResponse(result, tenantConfig) {
     response.infant_disclaimer = result.infant_policy_text;
   }
 
+  if (result.pricing_notes_text) {
+    const notes = result.pricing_notes_text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (notes.length) response.pricing_notes = notes;
+  }
+
   return response;
 }
 
-// 1. HÃ m Xá»­ lÃ½ POST
+// 1. Hàm Xử lý POST
 export async function handleCreatePricing(req, env, { group }, executionCtx) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group: ${group}` }, { status: 400 });
@@ -294,12 +315,12 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
     if (group === 'tenant-seasons') {
       const dateErrors = validateSeasonDates(data);
       if (dateErrors.length > 0) {
-        return Response.json({ error: 'Dá»¯ liá»‡u ngÃ y thÃ¡ng khÃ´ng há»£p lá»‡', details: dateErrors }, { status: 400 });
+        return Response.json({ error: 'Dữ liệu ngày tháng không hợp lệ', details: dateErrors }, { status: 400 });
       }
     }
 
-    // [SEC-FIX] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header, khÃ´ng pháº£i body
-    // TODO: thay báº±ng JWT/session khi auth middleware Ä‘Æ°á»£c triá»ƒn khai
+    // [SEC-FIX] tenant_id đến từ X-Tenant-ID header, không phải body
+    // TODO: thay bằng JWT/session khi auth middleware được triển khai
     const tenantFromHeader = req.headers.get('X-Tenant-ID')?.trim();
     if (!tenantFromHeader) {
       return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
@@ -309,11 +330,11 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
     const safeData = Object.fromEntries(
       Object.entries(data).filter(([k]) => allowed.includes(k))
     );
-    // Ghi Ä‘Ã¨ tenant_id báº±ng giÃ¡ trá»‹ tá»« header â€” khÃ´ng tin body
+    // Ghi đè tenant_id bằng giá trị từ header — không tin body
     safeData.tenant_id = tenantFromHeader;
 
-    // Default cÃ¡c trÆ°á»ng giÃ¡ vá» 0 thay vÃ¬ null cho group tour-prices
-    // TrÃ¡nh lá»—i tÃ­nh toÃ¡n phÃ­a sau khi cÃ¡c trÆ°á»ng nÃ y bá»‹ bá» qua trong request body
+    // Default các trường giá về 0 thay vì null cho group tour-prices
+    // Tránh lỗi tính toán phía sau khi các trường này bị bỏ qua trong request body
     if (group === 'tour-prices') {
       const PRICE_FIELDS = [
         'adult_shared_room_price',
@@ -328,7 +349,7 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
       }
     }
 
-    // Ã‰p kiá»ƒu REAL/INTEGER â€” trÃ¡nh SQLITE_MISMATCH (1031) khi client gá»­i string
+    // Ép kiểu REAL/INTEGER — tránh SQLITE_MISMATCH (1031) khi client gửi string
     coerceNumeric(table, safeData);
 
     if (group === 'pax-bands') {
@@ -338,7 +359,7 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
       }
     }
 
-    console.log('[CREATE_PRICING] Dá»¯ liá»‡u sau khi Ã©p kiá»ƒu:', safeData);
+    console.log('[CREATE_PRICING] Dữ liệu sau khi ép kiểu:', safeData);
 
     const id = nanoid();
     const now = Math.floor(Date.now() / 1000);
@@ -368,20 +389,20 @@ export async function handleCreatePricing(req, env, { group }, executionCtx) {
       if (msg.includes('tour_prices')) {
         return Response.json({ error: 'A price row already exists for this season / segment / pax band combination' }, { status: 409 });
       }
-      return Response.json({ error: 'Duplicate entry — this record already exists' }, { status: 409 });
+      return Response.json({ error: 'Duplicate entry � this record already exists' }, { status: 409 });
     }
     if (msg.includes('CHECK constraint failed')) {
       if (msg.includes('pax_bands') || msg.includes('min_pax')) {
         return Response.json({ error: 'Invalid pax band: min pax must be less than or equal to max pax' }, { status: 400 });
       }
-      return Response.json({ error: 'Validation failed — check your input values' }, { status: 400 });
+      return Response.json({ error: 'Validation failed � check your input values' }, { status: 400 });
     }
     return Response.json({ error: 'Internal server error. Please try again later.' }, { status: 500 });
   }
 }
 // GET /api/pricing/metadata
-// Tráº£ vá» pricing_segments + pax_bands cá»§a tenant trong 1 request.
-// DÃ¹ng Ä‘á»ƒ populate dropdown khi táº¡o/sá»­a tour_prices trÃªn UI.
+// Trả về pricing_segments + pax_bands của tenant trong 1 request.
+// Dùng để populate dropdown khi tạo/sửa tour_prices trên UI.
 export async function handleGetPricingMetadata(req, env) {
   const tenantId = req.headers.get('X-Tenant-ID')?.trim();
   if (!tenantId) {
@@ -408,13 +429,13 @@ export async function handleGetPricingMetadata(req, env) {
   }
 }
 
-// 2. HÃ m Xá»­ lÃ½ GET (Chá»‰ giá»¯ láº¡i 1 Ä‘á»‹nh nghÄ©a duy nháº¥t)
+// 2. Hàm Xử lý GET (Chỉ giữ lại 1 định nghĩa duy nhất)
 export async function handleGetPricing(req, env, { group }) {
   const table = TABLE_MAP[group];
   if (!table) return Response.json({ error: `Invalid group: ${group}` }, { status: 400 });
 
-  // [SEC-FIX] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header â€” khÃ´ng tin query param
-  // TODO: thay báº±ng JWT/session khi auth middleware Ä‘Æ°á»£c triá»ƒn khai
+  // [SEC-FIX] tenant_id đến từ X-Tenant-ID header — không tin query param
+  // TODO: thay bằng JWT/session khi auth middleware được triển khai
   const tenant_id = req.headers.get('X-Tenant-ID')?.trim();
   if (!tenant_id) {
     return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
@@ -455,15 +476,15 @@ export async function handleGetPricing(req, env, { group }) {
 }
 
 // 3. Handlers cho Hono
-// QUAN TRá»ŒNG: Route cá»¥ thá»ƒ /calculate pháº£i Ä‘á»©ng TRÆ¯á»šC route Ä‘á»™ng /:group
-// Ä‘á»ƒ trÃ¡nh bá»‹ Hono match nháº§m 'calculate' vÃ o group handler
+// QUAN TRỌNG: Route cụ thể /calculate phải đứng TRƯỚC route động /:group
+// để tránh bị Hono match nhầm 'calculate' vào group handler
 pricing.post('/calculate', async (c) => {
   const contentType = c.req.header('content-type') ?? '';
   if (!contentType.includes('application/json')) {
-    return c.json({ error: 'Content-Type pháº£i lÃ  application/json' }, 400);
+    return c.json({ error: 'Content-Type phải là application/json' }, 400);
   }
 
-  // [SEC] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header â€” khÃ´ng tin body
+  // [SEC] tenant_id đến từ X-Tenant-ID header — không tin body
   const tenantFromHeader = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantFromHeader) {
     return c.json({ error: 'X-Tenant-ID header is required' }, 400);
@@ -477,7 +498,7 @@ pricing.post('/calculate', async (c) => {
   }
 
   if (!params.tour_id || !(params.travel_date ?? params.date)) {
-    return c.json({ error: 'Thiáº¿u trÆ°á»ng báº¯t buá»™c: tour_id, travel_date' }, 400);
+    return c.json({ error: 'Thiếu trường bắt buộc: tour_id, travel_date' }, 400);
   }
 
   const tenantConfig   = c.get('tenantConfig') ?? {};
@@ -494,9 +515,10 @@ pricing.post('/calculate', async (c) => {
     timezone:                tenantConfig.timezone           ?? 'Asia/Ho_Chi_Minh',
     pricing_policy:          tenantConfig.pricing_policy     ?? 'PRIORITY_HIGH_SEASON',
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
+    pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
 
-  // Compare mode: no segment_id â†’ return all segments
+  // Compare mode: no segment_id ? return all segments
   if (!params.segment_id) {
     const allResult = await calculateAllSegmentsPrice(c.env, commonParams);
     if (!allResult.ok) return c.json(allResult, 422);
@@ -514,9 +536,9 @@ pricing.post('/calculate', async (c) => {
 });
 
 // GET /api/pricing/calculate?tour_id=&date=YYYY-MM-DD&adult_shared_room_count=&[segment_id=]
-// segment_id optional â€” omit to get compare table for ALL segments
+// segment_id optional — omit to get compare table for ALL segments
 pricing.get('/calculate', async (c) => {
-  // [SEC] tenant_id tá»« X-Tenant-ID header
+  // [SEC] tenant_id từ X-Tenant-ID header
   const tenantFromHeader = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantFromHeader) {
     return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
@@ -556,9 +578,10 @@ pricing.get('/calculate', async (c) => {
     timezone:                tenantConfig.timezone           ?? 'Asia/Ho_Chi_Minh',
     pricing_policy:          tenantConfig.pricing_policy     ?? 'PRIORITY_HIGH_SEASON',
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
+    pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
 
-  // Compare mode: no segment_id â†’ return all segments sorted cheapest-first
+  // Compare mode: no segment_id ? return all segments sorted cheapest-first
   if (!segment_id) {
     const allResult = await calculateAllSegmentsPrice(c.env, commonParams);
     if (!allResult.ok) return c.json(allResult, 422);
@@ -575,13 +598,13 @@ pricing.get('/calculate', async (c) => {
   return c.json(buildPriceResponse(result, tenantConfig));
 });
 
-// Pháº£i Ä‘á»©ng TRÆ¯á»šC /:group â€” trÃ¡nh Hono match 'tenant-seasons' vÃ o group handler
+// Phải đứng TRƯỚC /:group — tránh Hono match 'tenant-seasons' vào group handler
 pricing.post('/tenant-seasons/:sourceSeasonId/copy', async (c) => {
   const sourceSeasonId = c.req.param('sourceSeasonId');
   return handleCopySeason(c.req.raw, c.env, { sourceSeasonId });
 });
 
-// Pháº£i Ä‘á»©ng TRÆ¯á»šC /:group Ä‘á»ƒ khÃ´ng bá»‹ Hono match nháº§m
+// Phải đứng TRƯỚC /:group để không bị Hono match nhầm
 pricing.post('/duplicate-season', async (c) => {
   return handleDuplicateSeason(c.req.raw, c.env);
 });
@@ -620,8 +643,8 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
   try {
     const data = await req.json();
 
-    // [SEC-FIX] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header â€” khÃ´ng tin body
-    // TODO: thay báº±ng JWT/session khi auth middleware Ä‘Æ°á»£c triá»ƒn khai
+    // [SEC-FIX] tenant_id đến từ X-Tenant-ID header — không tin body
+    // TODO: thay bằng JWT/session khi auth middleware được triển khai
     const tenant_id = req.headers.get('X-Tenant-ID')?.trim();
     if (!tenant_id) {
       return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
@@ -636,11 +659,11 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
     if (group === 'tenant-seasons') {
       const dateErrors = validateSeasonDates(data);
       if (dateErrors.length > 0) {
-        return Response.json({ error: 'Dá»¯ liá»‡u ngÃ y thÃ¡ng khÃ´ng há»£p lá»‡', details: dateErrors }, { status: 400 });
+        return Response.json({ error: 'Dữ liệu ngày tháng không hợp lệ', details: dateErrors }, { status: 400 });
       }
     }
 
-    // [SEC-FIX] Whitelist column names â€” loáº¡i bá» id, tenant_id, created_at (báº¥t biáº¿n)
+    // [SEC-FIX] Whitelist column names — loại bỏ id, tenant_id, created_at (bất biến)
     const allowed = ALLOWED_UPDATE_COLUMNS[table] ?? [];
     const safeData = Object.fromEntries(
       Object.entries(data).filter(([k]) => allowed.includes(k))
@@ -662,11 +685,11 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
     }
 
     if (Object.keys(safeData).length === 0) {
-      return Response.json({ error: 'KhÃ´ng cÃ³ trÆ°á»ng há»£p lá»‡ Ä‘á»ƒ cáº­p nháº­t' }, { status: 400 });
+      return Response.json({ error: 'Không có trường hợp lệ để cập nhật' }, { status: 400 });
     }
 
     const setClause = Object.keys(safeData).map(col => `${col} = ?`).join(', ');
-    // [SEC-FIX] WHERE id = ? AND tenant_id = ? â€” ngÄƒn cáº­p nháº­t record cá»§a tenant khÃ¡c
+    // [SEC-FIX] WHERE id = ? AND tenant_id = ? — ngăn cập nhật record của tenant khác
     const values = [...Object.values(safeData), itemId, tenant_id];
     const result = await env.DB
       .prepare(`UPDATE ${table} SET ${setClause} WHERE id = ? AND tenant_id = ?`)
@@ -687,7 +710,7 @@ export async function handleUpdatePricing(req, env, { group, itemId }, execution
   }
 }
 
-// ThÃªm route vÃ o Ä‘á»‘i tÆ°á»£ng pricing (Hono) phÃ­a cuá»‘i file
+// Thêm route vào đối tượng pricing (Hono) phía cuối file
 pricing.patch('/:group/:itemId', async (c) => {
   const { group, itemId } = c.req.param();
   return handleUpdatePricing(c.req.raw, c.env, { group, itemId });
@@ -743,13 +766,13 @@ export async function handleDeletePricing(req, env, { group, itemId }, execution
 }
 
 // =============================================================================
-// handleCopySeason â€” Táº¡o báº£n sao cá»§a má»™t season (cÃ¹ng cáº¥u trÃºc, tÃªn má»›i)
+// handleCopySeason — Tạo bản sao của một season (cùng cấu trúc, tên mới)
 // =============================================================================
 
 /**
- * Sao chÃ©p má»™t tenant_season cÃ¹ng toÃ n bá»™ tour_prices sang season má»›i.
- * Season má»›i káº¿ thá»«a Ä‘áº§y Ä‘á»§ start_month/day, end_month/day, sort_order, notes
- * cá»§a season gá»‘c; chá»‰ thay name báº±ng new_name tá»« request body.
+ * Sao chép một tenant_season cùng toàn bộ tour_prices sang season mới.
+ * Season mới kế thừa đầy đủ start_month/day, end_month/day, sort_order, notes
+ * của season gốc; chỉ thay name bằng new_name từ request body.
  *
  * Route: POST /api/pricing/tenant-seasons/:sourceSeasonId/copy
  * Body:  { new_name: string }
@@ -759,7 +782,7 @@ export async function handleDeletePricing(req, env, { group, itemId }, execution
  * @param {{ sourceSeasonId: string }} params
  */
 export async function handleCopySeason(req, env, { sourceSeasonId }) {
-  // [SEC] tenant_id tá»« X-Tenant-ID header â€” khÃ´ng tin body
+  // [SEC] tenant_id từ X-Tenant-ID header — không tin body
   const tenantId = req.headers.get('X-Tenant-ID')?.trim();
   if (!tenantId) {
     return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
@@ -769,16 +792,16 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
   try {
     body = await req.json();
   } catch {
-    return Response.json({ error: 'Request body khÃ´ng pháº£i JSON há»£p lá»‡' }, { status: 400 });
+    return Response.json({ error: 'Request body không phải JSON hợp lệ' }, { status: 400 });
   }
 
   const new_name = body?.new_name?.toString().trim();
   if (!new_name) {
-    return Response.json({ error: 'new_name lÃ  báº¯t buá»™c' }, { status: 400 });
+    return Response.json({ error: 'new_name là bắt buộc' }, { status: 400 });
   }
 
   try {
-    // --- BÆ°á»›c A: Láº¥y season gá»‘c â€” liá»‡t kÃª tÆ°á»ng minh, scoped theo tenant_id ---
+    // --- Bước A: Lấy season gốc — liệt kê tường minh, scoped theo tenant_id ---
     const source = await env.DB
       .prepare(`SELECT id, tenant_id, name, start_month, start_day, end_month, end_day,
                        sort_order, is_active, notes
@@ -788,12 +811,12 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
       .first();
     if (!source) {
       return Response.json(
-        { error: 'Season khÃ´ng tá»“n táº¡i hoáº·c khÃ´ng thuá»™c tenant nÃ y' },
+        { error: 'Season không tồn tại hoặc không thuộc tenant này' },
         { status: 404 }
       );
     }
 
-    // --- BÆ°á»›c 1: SELECT toÃ n bá»™ price rows â€” liá»‡t kÃª tÆ°á»ng minh, KHÃ”NG dÃ¹ng SELECT * ---
+    // --- Bước 1: SELECT toàn bộ price rows — liệt kê tường minh, KHÔNG dùng SELECT * ---
     const { results: sourcePrices } = await env.DB
       .prepare(`SELECT tenant_id, tour_id, segment_id, pax_band_id, base_currency,
                        adult_shared_room_price, adult_single_room_price,
@@ -806,7 +829,7 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
     const newSeasonId = nanoid();
     const now = Math.floor(Date.now() / 1000);
 
-    // --- stmtSeason: INSERT season má»›i â€” káº¿ thá»«a cáº¥u trÃºc, chá»‰ Ä‘á»•i id, name, created_at ---
+    // --- stmtSeason: INSERT season mới — kế thừa cấu trúc, chỉ đổi id, name, created_at ---
     const stmtSeason = env.DB
       .prepare(`INSERT INTO tenant_seasons
                   (id, tenant_id, name, start_month, start_day, end_month, end_day,
@@ -826,9 +849,9 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
         now
       );
 
-    // --- BÆ°á»›c 2: map() táº¡o stmtPrices â€” má»—i row nháº­n nanoid() má»›i tá»« JS ---
-    // ?? null trÃªn tá»«ng giÃ¡ trá»‹ Ä‘áº£m báº£o D1 nháº­n NULL thay vÃ¬ undefined (trÃ¡nh bind error)
-    console.log('Sá»‘ lÆ°á»£ng giÃ¡ sáº½ copy:', sourcePrices.length);
+    // --- Bước 2: map() tạo stmtPrices — mỗi row nhận nanoid() mới từ JS ---
+    // ?? null trên từng giá trị đảm bảo D1 nhận NULL thay vì undefined (tránh bind error)
+    console.log('Số lượng giá sẽ copy:', sourcePrices.length);
 
     const stmtPrices = sourcePrices.map(p => env.DB
       .prepare(`INSERT INTO tour_prices
@@ -853,8 +876,8 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
       )
     );
 
-    // --- BÆ°á»›c 3: náº¿u khÃ´ng cÃ³ giÃ¡, chá»‰ cháº¡y stmtSeason Ä‘Æ¡n láº» ---
-    // env.DB.batch([]) vá»›i máº£ng rá»—ng gÃ¢y lá»—i 1031 trÃªn D1 local
+    // --- Bước 3: nếu không có giá, chỉ chạy stmtSeason đơn lẻ ---
+    // env.DB.batch([]) với mảng rỗng gây lỗi 1031 trên D1 local
     if (stmtPrices.length === 0) {
       await stmtSeason.run();
     } else {
@@ -882,18 +905,18 @@ export async function handleCopySeason(req, env, { sourceSeasonId }) {
 }
 
 // =============================================================================
-// handleDuplicateSeason â€” Clone má»™t season vÃ  toÃ n bá»™ tour_prices cá»§a nÃ³
+// handleDuplicateSeason — Clone một season và toàn bộ tour_prices của nó
 // =============================================================================
 
 /**
- * Táº¡o season má»›i tá»« newSeasonData, sau Ä‘Ã³ sao chÃ©p táº¥t cáº£ tour_prices
- * cá»§a sourceSeasonId sang season má»›i â€” toÃ n bá»™ trong má»™t D1 batch (transaction).
+ * Tạo season mới từ newSeasonData, sau đó sao chép tất cả tour_prices
+ * của sourceSeasonId sang season mới — toàn bộ trong một D1 batch (transaction).
  *
  * Body JSON: { sourceSeasonId: string, newSeasonData: { tenant_id, name,
  *   start_month, start_day, end_month, end_day, [sort_order], [notes] } }
  *
- * D1 batch Ä‘áº£m báº£o tÃ­nh nguyÃªn tá»­: náº¿u báº¥t ká»³ INSERT nÃ o tháº¥t báº¡i,
- * toÃ n bá»™ batch bá»‹ rollback â€” khÃ´ng Ä‘á»ƒ láº¡i dá»¯ liá»‡u rÃ¡c.
+ * D1 batch đảm bảo tính nguyên tử: nếu bất kỳ INSERT nào thất bại,
+ * toàn bộ batch bị rollback — không để lại dữ liệu rác.
  *
  * @param {Request} req
  * @param {object}  env - Cloudflare Workers env (env.DB = D1)
@@ -905,52 +928,52 @@ export async function handleDuplicateSeason(req, env) {
   try {
     body = await req.json();
   } catch {
-    return Response.json({ error: 'Request body khÃ´ng pháº£i JSON há»£p lá»‡' }, { status: 400 });
+    return Response.json({ error: 'Request body không phải JSON hợp lệ' }, { status: 400 });
   }
 
   const { sourceSeasonId, newSeasonData } = body ?? {};
 
-  // --- Validate Ä‘áº§u vÃ o ---
+  // --- Validate đầu vào ---
   if (!sourceSeasonId || typeof sourceSeasonId !== 'string') {
-    return Response.json({ error: 'sourceSeasonId lÃ  báº¯t buá»™c vÃ  pháº£i lÃ  string' }, { status: 400 });
+    return Response.json({ error: 'sourceSeasonId là bắt buộc và phải là string' }, { status: 400 });
   }
   if (!newSeasonData || typeof newSeasonData !== 'object') {
-    return Response.json({ error: 'newSeasonData lÃ  báº¯t buá»™c vÃ  pháº£i lÃ  object' }, { status: 400 });
+    return Response.json({ error: 'newSeasonData là bắt buộc và phải là object' }, { status: 400 });
   }
 
-  // [SEC-FIX] tenant_id Ä‘áº¿n tá»« X-Tenant-ID header
-  // TODO: thay báº±ng JWT/session khi auth middleware Ä‘Æ°á»£c triá»ƒn khai
+  // [SEC-FIX] tenant_id đến từ X-Tenant-ID header
+  // TODO: thay bằng JWT/session khi auth middleware được triển khai
   const headerTenantId = req.headers.get('X-Tenant-ID')?.trim();
   if (!headerTenantId) {
     return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
   }
   if (newSeasonData.tenant_id && newSeasonData.tenant_id !== headerTenantId) {
-    return Response.json({ error: 'tenant_id trong body khÃ´ng khá»›p vá»›i X-Tenant-ID header' }, { status: 400 });
+    return Response.json({ error: 'tenant_id trong body không khớp với X-Tenant-ID header' }, { status: 400 });
   }
-  // Ghi Ä‘Ã¨ tenant_id trong payload báº±ng giÃ¡ trá»‹ tá»« header
+  // Ghi đè tenant_id trong payload bằng giá trị từ header
   newSeasonData.tenant_id = headerTenantId;
 
   const requiredSeasonFields = ['name', 'start_month', 'start_day', 'end_month', 'end_day'];
   const missing = requiredSeasonFields.filter(f => newSeasonData[f] == null);
   if (missing.length > 0) {
-    return Response.json({ error: `newSeasonData thiáº¿u trÆ°á»ng báº¯t buá»™c: ${missing.join(', ')}` }, { status: 400 });
+    return Response.json({ error: `newSeasonData thiếu trường bắt buộc: ${missing.join(', ')}` }, { status: 400 });
   }
 
   try {
-    // --- BÆ°á»›c 1: Láº¥y táº¥t cáº£ tour_prices cá»§a sourceSeasonId ---
-    // Thá»±c hiá»‡n TRÆ¯á»šC batch Ä‘á»ƒ dÃ¹ng káº¿t quáº£ build INSERT statements
+    // --- Bước 1: Lấy tất cả tour_prices của sourceSeasonId ---
+    // Thực hiện TRƯỚC batch để dùng kết quả build INSERT statements
     const tenantId = headerTenantId;
     const { results: sourcePrices } = await env.DB
       .prepare('SELECT * FROM tour_prices WHERE season_id = ? AND tenant_id = ? AND is_active = 1')
       .bind(sourceSeasonId, tenantId)
       .all();
 
-    // --- BÆ°á»›c 2: Chuáº©n bá»‹ INSERT season má»›i ---
+    // --- Bước 2: Chuẩn bị INSERT season mới ---
     const newSeasonId = nanoid();
     const now = Math.floor(Date.now() / 1000);
 
     const allowedSeasonFields = ['tenant_id', 'name', 'start_month', 'start_day', 'end_month', 'end_day', 'sort_order', 'notes', 'is_active'];
-    // Chá»‰ láº¥y cÃ¡c cá»™t Ä‘Æ°á»£c phÃ©p â€” trÃ¡nh SQL injection qua tÃªn cá»™t
+    // Chỉ lấy các cột được phép — tránh SQL injection qua tên cột
     const filteredSeason = Object.fromEntries(
       Object.entries(newSeasonData).filter(([k]) => allowedSeasonFields.includes(k))
     );
@@ -962,7 +985,7 @@ export async function handleDuplicateSeason(req, env) {
       .prepare(`INSERT INTO tenant_seasons (${seasonCols.join(', ')}) VALUES (${seasonPlaceholders})`)
       .bind(...seasonVals);
 
-    // --- BÆ°á»›c 3: Chuáº©n bá»‹ INSERT tá»«ng price row vá»›i season_id má»›i ---
+    // --- Bước 3: Chuẩn bị INSERT từng price row với season_id mới ---
     const insertPriceStmts = sourcePrices.map(price => {
       const newPriceId = nanoid();
       return env.DB
@@ -975,7 +998,7 @@ export async function handleDuplicateSeason(req, env) {
           newPriceId,
           price.tenant_id,
           price.tour_id,
-          newSeasonId,                           // â† season má»›i
+          newSeasonId,                           // ← season mới
           price.segment_id,
           price.pax_band_id,
           price.base_currency ?? 'USD',
@@ -988,8 +1011,8 @@ export async function handleDuplicateSeason(req, env) {
         );
     });
 
-    // --- BÆ°á»›c 4: Cháº¡y toÃ n bá»™ trong D1 batch (atomic transaction) ---
-    // Náº¿u báº¥t ká»³ statement nÃ o tháº¥t báº¡i, D1 rollback toÃ n bá»™
+    // --- Bước 4: Chạy toàn bộ trong D1 batch (atomic transaction) ---
+    // Nếu bất kỳ statement nào thất bại, D1 rollback toàn bộ
     await env.DB.batch([insertSeasonStmt, ...insertPriceStmts]);
 
     return Response.json({
@@ -1005,23 +1028,23 @@ export async function handleDuplicateSeason(req, env) {
 }
 
 // =============================================================================
-// calculateTourPrice â€” Pricing Engine vá»›i xá»­ lÃ½ giao mÃ¹a + Infant support
+// calculateTourPrice — Pricing Engine với xử lý giao mùa + Infant support
 // =============================================================================
 
 /**
- * TÃ­nh giÃ¡ tour cho má»™t booking request cá»¥ thá»ƒ.
+ * Tính giá tour cho một booking request cụ thể.
  *
  * Pax model:
- *  - adult_count  : ngÆ°á»i lá»›n (báº¯t buá»™c >= 1)
- *  - child_count  : tráº» em (máº·c Ä‘á»‹nh 0)
- *  - infant_count : tráº» sÆ¡ sinh 0-2 tuá»•i (máº·c Ä‘á»‹nh 0, khÃ´ng tÃ­nh gháº¿)
- *  - pax_count    : legacy alias cá»§a adult_count (backward compat)
+ *  - adult_count  : người lớn (bắt buộc >= 1)
+ *  - child_count  : trẻ em (mặc định 0)
+ *  - infant_count : trẻ sơ sinh 0-2 tuổi (mặc định 0, không tính ghế)
+ *  - pax_count    : legacy alias của adult_count (backward compat)
  *
- * Pax Band matching dÃ¹ng adult_count + child_count (infants khÃ´ng tÃ­nh gháº¿).
+ * Pax Band matching dùng adult_count + child_count (infants không tính ghế).
  *
- * Total = (adults Ã— adult_shared_room_price)
- *       + (children Ã— child_shared_with_parents_price)
- *       + (infants  Ã— infant_price)
+ * Total = (adults × adult_shared_room_price)
+ *       + (children × child_shared_with_parents_price)
+ *       + (infants  × infant_price)
  *
  * @param {object} env
  * @param {{ tenant_id, tour_id, date, pax_count?, adult_count?, child_count?,
@@ -1032,33 +1055,37 @@ export async function calculateTourPrice(env, {
   tenant_id,
   tour_id,
   date,
-  pax_count,                           // legacy â€” backward compat
-  adult_count,                         // legacy â€” all adults in shared rooms
+  pax_count,                           // legacy — backward compat
+  adult_count,                         // legacy — all adults in shared rooms
   adult_shared_room_count,             // adults in shared occupancy
   adult_single_room_count = 0,         // adults in single occupancy (pays single supplement)
+  adult_triple_room_count = 0,         // adults in triple occupancy
   child_count             = 0,
   infant_count            = 0,
   segment_id,
   timezone                = 'Asia/Ho_Chi_Minh',
   pricing_policy          = 'PRIORITY_HIGH_SEASON',
   infant_policy_text      = null,
+  pricing_notes_text      = null,
 }) {
   // --- Validate required ---
   if (!tenant_id || !tour_id || !date || !segment_id) {
     return { ok: false, error: 'Missing required fields: tenant_id, tour_id, date, segment_id.' };
   }
 
-  // Rooming model (cascade: explicit rooming â†’ adult_count â†’ pax_count)
+  // Rooming model (cascade: explicit rooming → adult_count → pax_count)
   const sharedAdults = adult_shared_room_count != null
     ? Number(adult_shared_room_count)
     : (adult_count != null ? Number(adult_count) : Number(pax_count ?? 1));
   const singleAdults = Number(adult_single_room_count ?? 0);
-  const totalAdults  = sharedAdults + singleAdults;
+  const tripleAdults = Number(adult_triple_room_count ?? 0);
+  const totalAdults  = sharedAdults + singleAdults + tripleAdults;
   const children     = Number(child_count  ?? 0);
   const infants      = Number(infant_count ?? 0);
 
   if (!Number.isInteger(sharedAdults) || sharedAdults < 0) return { ok: false, error: 'adult_shared_room_count must be a non-negative integer.' };
   if (!Number.isInteger(singleAdults) || singleAdults < 0) return { ok: false, error: 'adult_single_room_count must be a non-negative integer.' };
+  if (!Number.isInteger(tripleAdults) || tripleAdults < 0) return { ok: false, error: 'adult_triple_room_count must be a non-negative integer.' };
   if (totalAdults < 1) return { ok: false, error: 'At least 1 adult is required.' };
   if (!Number.isInteger(children) || children < 0) return { ok: false, error: 'child_count must be a non-negative integer.' };
   if (!Number.isInteger(infants)  || infants  < 0) return { ok: false, error: 'infant_count must be a non-negative integer.' };
@@ -1068,19 +1095,19 @@ export async function calculateTourPrice(env, {
     return { ok: false, error: childRoomingValidation.error, max_children: childRoomingValidation.max_children };
   }
 
-  // effectivePax: dÃ¹ng Ä‘á»ƒ khá»›p pax_band â€” infants khÃ´ng chiáº¿m gháº¿
+  // effectivePax: dùng để khớp pax_band — infants không chiếm ghế
   const effectivePax = totalAdults + children;
 
-  // Chuyá»ƒn date â†’ { month, day } theo mÃºi giá» Tenant
+  // Chuyển date → { month, day } theo múi giờ Tenant
   let monthDay;
   try {
     const { month, day } = toUserDate(date, timezone);
     monthDay = month * 100 + day; // VD: 325
   } catch {
-    return { ok: false, error: `Invalid date format â€” expected YYYY-MM-DD (received: "${date}").` };
+    return { ok: false, error: `Invalid date format — expected YYYY-MM-DD (received: "${date}").` };
   }
 
-  // --- Truy váº¥n JOIN â€” láº¥y Táº¤T Cáº¢ Season há»£p lá»‡ Ä‘á»ƒ xá»­ lÃ½ giao mÃ¹a ---
+  // --- Truy vấn JOIN — lấy TẤT CẢ Season hợp lệ để xử lý giao mùa ---
   const sql = `
     SELECT
       tp.id                             AS price_id,
@@ -1090,6 +1117,7 @@ export async function calculateTourPrice(env, {
       tp.base_currency,
       tp.adult_shared_room_price,
       tp.adult_single_room_price,
+      tp.adult_triple_room_price,
       tp.child_shared_with_parents_price,
       tp.infant_price,
       tp.notes                          AS price_notes,
@@ -1161,19 +1189,20 @@ export async function calculateTourPrice(env, {
       };
     }
 
-    // --- Xá»­ lÃ½ giao mÃ¹a: chá»n báº£n ghi tá»‘t nháº¥t theo pricing_policy ---
+    // --- Xử lý giao mùa: chọn bản ghi tốt nhất theo pricing_policy ---
     const row = pricing_policy === 'PRIORITY_HIGH_SEASON'
       ? results.reduce((best, r) =>
           (r.adult_shared_room_price ?? 0) > (best.adult_shared_room_price ?? 0) ? r : best
         , results[0])
       : results[0];
 
-    // --- TÃ­nh sub-totals theo Rooming Model ---
+    // --- Tính sub-totals theo Rooming Model ---
     const sharedSubtotal   = sharedAdults * (row.adult_shared_room_price         ?? 0);
     const singleSubtotal   = singleAdults * (row.adult_single_room_price         ?? 0);
+    const tripleSubtotal   = tripleAdults * (row.adult_triple_room_price ?? row.adult_shared_room_price ?? 0);
     const childrenSubtotal = children     * (row.child_shared_with_parents_price ?? 0);
     const infantsSubtotal  = infants      * (row.infant_price                    ?? 0);
-    const grandTotal       = sharedSubtotal + singleSubtotal + childrenSubtotal + infantsSubtotal;
+    const grandTotal       = sharedSubtotal + singleSubtotal + tripleSubtotal + childrenSubtotal + infantsSubtotal;
 
     return {
       ok:                  true,
@@ -1191,12 +1220,14 @@ export async function calculateTourPrice(env, {
       base_currency:       row.base_currency,
       pax_breakdown: {
         adult_shared_room_count: sharedAdults,
+        adult_triple_room_count: tripleAdults,
         adult_single_room_count: singleAdults,
         child_count:             children,
         infant_count:            infants,
       },
       totals: {
         shared_room_subtotal:  sharedSubtotal,
+        triple_room_subtotal:  tripleSubtotal,
         single_room_subtotal:  singleSubtotal,
         children_subtotal:     childrenSubtotal,
         infants_subtotal:      infantsSubtotal,
@@ -1204,11 +1235,13 @@ export async function calculateTourPrice(env, {
       },
       prices: {
         adult_shared_room:         row.adult_shared_room_price,
+        adult_triple_room:         row.adult_triple_room_price ?? row.adult_shared_room_price,
         adult_single_room:         row.adult_single_room_price,
         child_shared_with_parents: row.child_shared_with_parents_price,
         infant:                    row.infant_price ?? 0,
       },
       infant_policy_text,
+      pricing_notes_text,
       notes:      row.price_notes,
       matched_on: {
         date, month_day: monthDay,
@@ -1226,15 +1259,15 @@ export async function calculateTourPrice(env, {
 }
 
 // =============================================================================
-// calculateAllSegmentsPrice â€” Compare-mode: táº¥t cáº£ segments trong 1 query
+// calculateAllSegmentsPrice — Compare-mode: tất cả segments trong 1 query
 // =============================================================================
 
 /**
- * Truy váº¥n giÃ¡ cho Táº¤T Cáº¢ pricing_segments Ä‘ang active cá»§a tour â€” dÃ¹ng khi
- * khÃ¡ch muá»‘n so sÃ¡nh Standard/Boutique/Premium trÆ°á»›c khi chá»n.
+ * Truy vấn giá cho TẤT CẢ pricing_segments đang active của tour — dùng khi
+ * khách muốn so sánh Standard/Boutique/Premium trước khi chọn.
  *
- * SQL: giá»‘ng calculateTourPrice nhÆ°ng KHÃ”NG cÃ³ `AND tp.segment_id = ?`.
- * JS:  group by segment_id, Ã¡p pricing_policy per group, sort cheapest-first.
+ * SQL: giống calculateTourPrice nhưng KHÔNG có `AND tp.segment_id = ?`.
+ * JS:  group by segment_id, áp pricing_policy per group, sort cheapest-first.
  *
  * @returns {{ ok: true, segments: object[], matched_on: object } | { ok: false, error }}
  */
@@ -1246,6 +1279,7 @@ export async function calculateAllSegmentsPrice(env, {
   adult_count,
   adult_shared_room_count,
   adult_single_room_count = 0,
+  adult_triple_room_count = 0,
   child_count             = 0,
   infant_count            = 0,
   timezone                = 'Asia/Ho_Chi_Minh',
@@ -1261,7 +1295,8 @@ export async function calculateAllSegmentsPrice(env, {
     ? Number(adult_shared_room_count)
     : (adult_count != null ? Number(adult_count) : Number(pax_count ?? 1));
   const singleAdults = Number(adult_single_room_count ?? 0);
-  const totalAdults  = sharedAdults + singleAdults;
+  const tripleAdults = Number(adult_triple_room_count ?? 0);
+  const totalAdults  = sharedAdults + singleAdults + tripleAdults;
   const children     = Number(child_count  ?? 0);
   const infants      = Number(infant_count ?? 0);
 
@@ -1277,10 +1312,10 @@ export async function calculateAllSegmentsPrice(env, {
     const { month, day } = toUserDate(date, timezone);
     monthDay = month * 100 + day;
   } catch {
-    return { ok: false, error: `Invalid date format â€” expected YYYY-MM-DD.` };
+    return { ok: false, error: `Invalid date format — expected YYYY-MM-DD.` };
   }
 
-  // Same JOIN as calculateTourPrice â€” WITHOUT the segment_id filter in WHERE
+  // Same JOIN as calculateTourPrice — WITHOUT the segment_id filter in WHERE
   const sql = `
     SELECT
       tp.id                             AS price_id,
@@ -1290,6 +1325,7 @@ export async function calculateAllSegmentsPrice(env, {
       tp.base_currency,
       tp.adult_shared_room_price,
       tp.adult_single_room_price,
+      tp.adult_triple_room_price,
       tp.child_shared_with_parents_price,
       tp.infant_price,
       tp.notes                          AS price_notes,
@@ -1366,11 +1402,12 @@ export async function calculateAllSegmentsPrice(env, {
           , rows[0])
         : rows[0];
 
-      const sharedSubtotal   = sharedAdults * (row.adult_shared_room_price         ?? 0);
-      const singleSubtotal   = singleAdults * (row.adult_single_room_price         ?? 0);
-      const childrenSubtotal = children     * (row.child_shared_with_parents_price ?? 0);
-      const infantsSubtotal  = infants      * (row.infant_price                    ?? 0);
-      const grandTotal       = sharedSubtotal + singleSubtotal + childrenSubtotal + infantsSubtotal;
+      const sharedSubtotal   = sharedAdults * (row.adult_shared_room_price                              ?? 0);
+      const tripleSubtotal   = tripleAdults * (row.adult_triple_room_price ?? row.adult_shared_room_price ?? 0);
+      const singleSubtotal   = singleAdults * (row.adult_single_room_price                              ?? 0);
+      const childrenSubtotal = children     * (row.child_shared_with_parents_price                      ?? 0);
+      const infantsSubtotal  = infants      * (row.infant_price                                         ?? 0);
+      const grandTotal       = sharedSubtotal + tripleSubtotal + singleSubtotal + childrenSubtotal + infantsSubtotal;
 
       segments.push({
         ok:                  true,
@@ -1388,12 +1425,14 @@ export async function calculateAllSegmentsPrice(env, {
         base_currency:       row.base_currency,
         pax_breakdown: {
           adult_shared_room_count: sharedAdults,
+          adult_triple_room_count: tripleAdults,
           adult_single_room_count: singleAdults,
           child_count:             children,
           infant_count:            infants,
         },
         totals: {
           shared_room_subtotal:  sharedSubtotal,
+          triple_room_subtotal:  tripleSubtotal,
           single_room_subtotal:  singleSubtotal,
           children_subtotal:     childrenSubtotal,
           infants_subtotal:      infantsSubtotal,
@@ -1401,6 +1440,7 @@ export async function calculateAllSegmentsPrice(env, {
         },
         prices: {
           adult_shared_room:         row.adult_shared_room_price,
+          adult_triple_room:         row.adult_triple_room_price ?? row.adult_shared_room_price,
           adult_single_room:         row.adult_single_room_price,
           child_shared_with_parents: row.child_shared_with_parents_price,
           infant:                    row.infant_price ?? 0,
@@ -1410,6 +1450,7 @@ export async function calculateAllSegmentsPrice(env, {
         matched_on: {
           date, month_day: monthDay,
           adult_shared_room_count: sharedAdults,
+          adult_triple_room_count: tripleAdults,
           adult_single_room_count: singleAdults,
           child_count: children, infant_count: infants, timezone,
         },
@@ -1425,6 +1466,7 @@ export async function calculateAllSegmentsPrice(env, {
       matched_on: {
         date, month_day: monthDay,
         adult_shared_room_count: sharedAdults,
+        adult_triple_room_count: tripleAdults,
         adult_single_room_count: singleAdults,
         child_count: children, infant_count: infants, timezone,
       },

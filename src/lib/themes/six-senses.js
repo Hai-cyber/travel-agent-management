@@ -129,7 +129,7 @@ export function createSixSensesTheme(helpers = {}) {
       card,
       targetPage,
       className: 'universal-entity-card luxury-entity-shell luxury-carousel-item',
-      contentHtml: `<a href="${escapeHtml(href)}" class="luxury-collection-card"><div class="luxury-collection-media ${portrait || card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', imageSizes)}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || kicker)}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>`,
+      contentHtml: `<a href="${escapeHtml(href)}" class="luxury-collection-card"><div class="luxury-collection-media ${portrait || card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', imageSizes)}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || kicker)}</p><h3>${escapeHtml(card.title)}</h3><p class="luxury-card-body">${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>`,
     });
   }
 

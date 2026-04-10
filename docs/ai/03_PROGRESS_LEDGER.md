@@ -51,7 +51,34 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R45 | Taxonomy Discovery Foundation | done | Added tenant-scoped taxonomy profile/tag tables for tours and destinations, canonical interest catalog in code, protected taxonomy APIs, auto-generated universal interest collection pages, and rule-driven listing bindings for taxonomy-first discovery. | 2026-04-04 | Canonical interests today: `adventure`, `culture`, `beach`, `sport`, `food`, `nature`; sub-interests are scaffolded in code, while search/ranking UI is still future work. |
 | CHK-R46 | Tenant Booking Currency + Market Skin Foundation | done | Added curated tenant currency and market-skin catalogs, opened tenant settings for `booking_currency` / `default_locale` / `market_skin_key` / `primary_market`, migrated booking drafts and booking orders to snapshot authoritative amount+currency fields, and updated pricing calculate responses to publish tenant booking-currency totals while keeping legacy compatibility fields. | 2026-04-05 | Full storefront locale-pack wiring and full removal of USD-centric compatibility fields remain follow-up work. |
 | CHK-R47 | Broken-Asset Diagnostic + Itinerary/Hotel/Price Layout Polish | done | Added `GET /api/admin/tenants/:id/broken-assets` scanning 5 D1 surfaces with optional R2 HEAD validation. Fixed pricing layout to compact pill + full-width table; copied missing tour price rows via junction SQL; unhid itinerary builder so sync uses `content.itinerary` only; updated `renderHotelCarousel` to use `tenant_universal_hotels` with per-photo slides; added gallery count badges. | 2026-04-08 | All verified live. Admin broken-asset endpoint is admin-secret protected and never sources tenantId from body. |
+| CHK-R49 | Hotel sorting + Named Photo Libraries | done | `0043_hotel_star_region.sql` adds `star_rating`+`region` to hotels. `0044_media_libraries.sql` adds `tenant_media_libraries` + `tour_media_library_links`. Hotels tab groups by region, sorted by star rating. New Libraries tab in Product Modules for CRUD of named photo collections. Tour Config exposes library picker alongside hotel/destination pickers. Sync queries library links and builds `gallery_sections[]` (named groups) + flat `images[]` in the gallery block. | 2026-04-10 | Apply both migrations locally and to production before deploying. |
+| CHK-R50 | Day Tour pricing mode | done | `tour_type TEXT DEFAULT 'package'` on tours (migration 0048). Admin pricing tab hides triple/single room columns and inputs when `tour_type=day_tour`; renames "Shared room" label to "Adult". Public pricing table renders Segment/Season/Pax/Adult/Child/Infant columns (no room columns) for day tours. Booking view conversation hides room sentence and status pill; compact summary omits room info. `adult_price` i18n key added to all 4 locales. `tour_type_map` built live from DB at render time so old synced pages do not need re-sync. | 2026-04-10 | Triple/single room inputs cleared to 0/null when day_tour form saves. |
+- CHK-R49 completed: `src/routes/universalSites.js` adds `normalizeMediaLibrary()`, full CRUD routes (`GET/POST /media-libraries`, `GET/PATCH/DELETE /media-libraries/:id`), and junction routes (`GET/POST /tours/:tourId/library-links`, `DELETE /library-links/:id`). Hotel PATCH/POST routes now accept `star_rating` (1–5, nullable) and `region`. `listHotels` orders by `region ASC, star_rating DESC NULLS LAST, sort_order ASC`.
+
+```powershell
+# Apply migrations
+npx wrangler d1 execute travel_agent_db --local --file=db/migrations/0043_hotel_star_region.sql
+npx wrangler d1 execute travel_agent_db --local --file=db/migrations/0044_media_libraries.sql
+# Create a library
+POST http://127.0.0.1:8787/api/universal/media-libraries  { "title": "Ha Long Bay" }
+# Link to tour
+POST http://127.0.0.1:8787/api/universal/tours/{tourId}/library-links  { "library_id": "{libId}", "section_hint": "gallery" }
+# Sync tour and verify gallery block has sections[]
+POST http://127.0.0.1:8787/api/universal/sync/{tenantId}/{tourId}
+```
+
 | CHK-R48 | Product Modules Catalog Architecture | done | Created 3 new D1 tables (`tenant_destinations`, `tour_destination_links`, `tour_hotel_links`). Added full CRUD REST API for destination catalog and both junction tables in `universalSites.js`. Rewrote Product Modules Destinations tab to use own catalog (not ghost tours). Renamed Properties→Hotels tab, removed Linked Tour dropdown. Replaced inline hotel-card form in Tour Content with catalog link pickers for both hotels and destinations. Sync now JOINs junction tables (with legacy `tour_id` fallback). | 2026-04-08 | All deployed and verified live. |
+- CHK-R48 follow-up completed: `src/lib/universalSiteSync.js` now queries `tour_destination_links JOIN tenant_destinations` (batched with the hotel links query) and builds `destination_catalog_cards` in the sync snapshot via `buildDestinationCatalogCards()`. `buildTourDetailBlocks` now inserts a `destination_carousel` block from catalog cards when junction links exist, falling back to stop-based `destination_stops` when no links are present. No schema or API changes required — catalog migration already applied (CHK-R48). Smoke: trigger a tour sync with linked destinations → tour page `blocks_json` should contain `destination_carousel` with `region`, `description`, and `images` fields sourced from `tenant_destinations.gallery_json`.
+
+```powershell
+# Link a destination, then sync tour and inspect the block
+POST http://127.0.0.1:8787/api/universal/tours/{tourId}/destination-links
+{ "destination_id": "{destId}" }
+POST http://127.0.0.1:8787/api/universal/sync/{tenantId}/{tourId}
+GET  http://127.0.0.1:8787/api/universal/pages/{tenantId}/{pageKey}
+# → blocks_json should include { "id": "destination_carousel", "content": { "items": [...] } }
+```
+
 - CHK-R46 follow-up completed: signup now exposes a public curated market-skin catalog, onboarding persists `market_skin_key` on new tenants, starter bootstrap uses the selected market preset to seed tenant booking currency / default locale / starter site variant, and Website Design System Panel now edits tenant market settings through `/api/tenants/settings` alongside site-config saves.
 - CHK-R46 follow-up completed: real locale packs now exist for `ja`, `ko`, `en-GB`, and `en-AU`, `/api/i18n` resolves those variants exactly, and `target_currency` is now explicitly treated as secondary display currency storage while `booking_currency` remains storefront truth.
 - CHK-R46 follow-up completed: support expanded further to `de`, `fr`, and `es`, with new EUR market-skin presets for Germany, France, and Spain flowing through signup, bootstrap, and the shared locale registry.

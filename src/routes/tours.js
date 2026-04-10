@@ -413,7 +413,7 @@ tours.get('/', async (c) => {
 
   const { results } = await c.env.DB
     .prepare(
-      `SELECT id, title, slug, template_id, status, category_id,
+      `SELECT id, title, slug, template_id, status, category_id, tour_type,
               published_at, published_url, lang, duration_text, start_date, created_at, content_data
        FROM tours WHERE tenant_id = ? ORDER BY created_at DESC`
     )
@@ -465,8 +465,8 @@ tours.post('/', async (c) => {
     .prepare(
       `INSERT INTO tours
          (id, tenant_id, title, lang, duration_text, start_date, status,
-          slug, content_data, template_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          slug, content_data, template_id, tour_type, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id, tenantId, body.title,
@@ -474,7 +474,9 @@ tours.post('/', async (c) => {
       body.duration_text ?? null,
       body.start_date    ?? null,
       body.status        ?? 'draft',
-      slug, contentData, tmplId, now
+      slug, contentData, tmplId,
+      body.tour_type === 'day_tour' ? 'day_tour' : 'package',
+      now
     )
     .run();
 
@@ -538,7 +540,7 @@ tours.patch('/:id', async (c) => {
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
   // Whitelist prevents column-injection; tenant_id / id / created_at are immutable
-  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug', 'category_id'];
+  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug', 'category_id', 'tour_type'];
   const updates  = {};
   for (const key of ALLOWED) {
     if (!(key in body)) continue;
@@ -797,8 +799,8 @@ tours.post('/:id/copy', async (c) => {
   const stmtTour = c.env.DB.prepare(
     `INSERT INTO tours
        (id, tenant_id, title, lang, duration_text, start_date, status,
-        slug, content_data, template_id, category_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`
+        slug, content_data, template_id, category_id, tour_type, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`
   ).bind(
     newId, tenantId, newTitle,
     source.lang          ?? 'vi',
@@ -808,6 +810,7 @@ tours.post('/:id/copy', async (c) => {
     source.content_data  ?? null,
     source.template_id   ?? 'default',
     source.category_id   ?? null,
+    source.tour_type     ?? 'package',
     now
   );
 

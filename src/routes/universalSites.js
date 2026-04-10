@@ -133,6 +133,14 @@ function normalizeContacts(row) {
   return parseJsonSafe(row?.channels_json, buildDefaultContacts());
 }
 
+function truncateSentences(text, max) {
+  if (!text) return '';
+  const sentences = String(text).match(/[^.!?]*[.!?]+["')\s]*/g) || [];
+  if (!sentences.length) return String(text).trim();
+  if (sentences.length <= max) return String(text).trim();
+  return sentences.slice(0, max).join('').trim();
+}
+
 function normalizeHotel(row) {
   return {
     id: row.id,
@@ -142,8 +150,11 @@ function normalizeHotel(row) {
     name: row.name,
     description: row.description || '',
     address: row.address || '',
+    region: row.region || '',
+    star_rating: row.star_rating != null ? Number(row.star_rating) : null,
     gallery: parseJsonSafe(row.gallery_json, []),
     status: row.status || 'draft',
+    show_on_home: row.show_on_home ? 1 : 0,
     sort_order: Number(row.sort_order || 0),
     created_at: Number(row.created_at || 0),
     updated_at: Number(row.updated_at || 0),
@@ -330,7 +341,7 @@ function deriveAccommodationTitle(item, index) {
   return fallbacks[index % fallbacks.length];
 }
 
-function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], priceLookup = new Map()) {
+function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], priceLookup = new Map(), catalogDestinations = []) {
   const syncedByTourId = new Map(
     (syncedRows || []).map((row) => {
       const override = parseJsonSafe(row.content_override_json, {});
@@ -392,7 +403,12 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
 
   const sortedItems = [...items].sort((left, right) => right.created_at - left.created_at);
   const featuredBase = sortedItems.filter((item) => item.flags.featured);
-  const featuredItems = (featuredBase.length ? featuredBase : sortedItems).slice(0, HOME_FEATURED_TOUR_CARD_LIMIT);
+  // Only fall back to all tours if no tour has ever had a featured flag explicitly configured
+  const anyFeaturedConfigured = sortedItems.some((item) => {
+    const mod = item.content?.universal_modules || {};
+    return 'featured_tours' in mod || 'featured' in mod;
+  });
+  const featuredItems = (anyFeaturedConfigured ? featuredBase : (featuredBase.length ? featuredBase : sortedItems)).slice(0, HOME_FEATURED_TOUR_CARD_LIMIT);
   const heroItem = sortedItems.find((item) => item.flags.hero) || featuredItems[0] || sortedItems[0] || null;
   const destinationItems = uniqueBy(
     (sortedItems.filter((item) => item.flags.destination).length ? sortedItems.filter((item) => item.flags.destination) : sortedItems)
@@ -412,12 +428,68 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       })),
     (item) => item.title.toLowerCase()
   ).slice(0, 4);
-  const homeDestinationItems = destinationItems.filter((item) => {
+  // Use catalog destination entries with show_on_home=1 when available; fall back to tour-flag-based list
+  const catalogHomeDestItems = Array.isArray(catalogDestinations)
+    ? catalogDestinations
+        .filter((d) => d.show_on_home === 1)
+        .map((d) => {
+          // Try to link to a tour that references this destination (via tour destination_title match or just use destinations page)
+          const relatedTour = sortedItems.find((item) =>
+            String(item.destination_title || '').toLowerCase() === String(d.name || '').toLowerCase()
+          );
+          const image = (Array.isArray(d.gallery) && d.gallery[0]?.src) ? d.gallery[0].src : LUXURY_SAMPLE_HERO_URL;
+          return {
+            eyebrow: 'Destination',
+            title: d.name || '',
+            body: truncateSentences(d.description || '', 3),
+            image,
+            href: relatedTour?.href || buildUniversalPublicPath(tenantId, 'destinations'),
+            entity_id: d.id,
+            entity_type: 'destination',
+            entity_label: d.name || '',
+            entity_title: d.name || '',
+            entity_body: d.description || '',
+            entity_image: image,
+            public_slug: relatedTour?.public_slug || '',
+          };
+        })
+    : [];
+  const tourFlaggedDestItems = destinationItems.filter((item) => {
     const source = sortedItems.find((entry) => String(entry.tour_id) === String(item.entity_id));
     return Boolean(source?.flags.homeDestination);
   });
+  const homeDestinationItems = catalogHomeDestItems.length ? catalogHomeDestItems : tourFlaggedDestItems;
 
   const accommodationBase = sortedItems.filter((item) => item.flags.accommodation);
+  // Build home accommodation directly from hotels flagged show_on_home=1 — do NOT filter from accommodationItems
+  // because those are capped and only include tours with the accommodation flag
+  const homeAccommodationFromCatalog = (hotels || [])
+    .filter((hotel) => hotel.show_on_home === 1)
+    .map((hotel, index) => {
+      const linkedTour = hotel.tour_id
+        ? sortedItems.find((item) => String(item.tour_id) === String(hotel.tour_id))
+        : null;
+      const image = (Array.isArray(hotel.gallery) && hotel.gallery[0]?.src)
+        ? hotel.gallery[0].src
+        : LUXURY_SAMPLE_ACCOMMODATION_IMAGES[index % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length];
+      return {
+        eyebrow: 'Stay',
+        title: hotel.name || '',
+        body: truncateSentences(hotel.description || 'Design-led rooms, calmer pacing, and hotel partnerships tuned to the route.', 3),
+        image,
+        href: linkedTour?.href || buildUniversalPublicPath(tenantId, 'accommodation'),
+        image_layout: 'portrait',
+        address: hotel.address || '',
+        entity_id: hotel.id,
+        entity_type: 'hotel',
+        entity_label: hotel.name || '',
+        entity_title: hotel.name || '',
+        entity_body: hotel.description || '',
+        entity_image: image,
+        public_slug: linkedTour?.public_slug || '',
+      };
+    });
+
   const accommodationItems = (accommodationBase.length ? accommodationBase : sortedItems.slice(0, HOME_HOTEL_CARD_LIMIT)).slice(0, HOME_HOTEL_CARD_LIMIT).map((item, index) => ({
     eyebrow: 'Stay',
     title: normalizeStringValue(
@@ -472,10 +544,13 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
     ),
     public_slug: item.public_slug,
   }));
-  const homeAccommodationItems = accommodationItems.filter((item) => {
+  // Tour-flag fallback: tours explicitly marked homeAccommodation
+  const homeAccommodationFromTours = accommodationItems.filter((item) => {
     const source = sortedItems.find((entry) => String((entry.hotel?.id || entry.tour_id)) === String(item.entity_id));
     return Boolean(source?.flags.homeAccommodation);
   });
+  // Prefer catalog-based (hotels with show_on_home=1) over tour-flag fallback
+  const homeAccommodationItems = homeAccommodationFromCatalog.length ? homeAccommodationFromCatalog : homeAccommodationFromTours;
 
   const selectedHomeGalleryImages = uniqueBy(
     featuredItems
@@ -514,10 +589,27 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
 
   return {
     featured_tour: heroItem,
+    has_explicit_featured_tours: anyFeaturedConfigured,
     featured_tours: featuredItems.map((item) => ({
       eyebrow: item.duration_text || 'Featured itinerary',
       title: item.title,
       body: item.summary,
+      image: item.hero_image,
+      href: item.href,
+      destination_title: item.destination_title,
+      meta: item.price_from != null ? `From $${item.price_from}` : item.destination_title,
+      entity_id: item.tour_id,
+      entity_type: 'tour',
+      entity_label: item.title,
+      entity_title: item.title,
+      entity_body: item.summary,
+      entity_image: item.hero_image,
+      public_slug: item.public_slug,
+    })),
+    home_featured_tours: featuredItems.map((item) => ({
+      eyebrow: item.duration_text || 'Featured itinerary',
+      title: item.title,
+      body: truncateSentences(item.summary, 2),
       image: item.hero_image,
       href: item.href,
       destination_title: item.destination_title,
@@ -635,6 +727,7 @@ function annotateTourRuntimeWithTaxonomy(tourRuntime = {}, tagRows = []) {
     ...tourRuntime,
     featured_tour: tourRuntime.featured_tour ? annotateCardWithTaxonomy(tourRuntime.featured_tour, taxonomyLookup) : tourRuntime.featured_tour,
     featured_tours: annotateCards(tourRuntime.featured_tours),
+    home_featured_tours: annotateCards(tourRuntime.home_featured_tours),
     tour_listing: annotateCards(tourRuntime.tour_listing),
     destination_listing: annotateCards(tourRuntime.destination_listing),
     home_destination_listing: annotateCards(tourRuntime.home_destination_listing),
@@ -975,13 +1068,15 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
 
     if (String(source || '').includes('featured_tours')) {
-      const cards = tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage);
+      const homeCards = page.page_key === 'home' && tourRuntime.home_featured_tours?.length ? tourRuntime.home_featured_tours : null;
+      const cards = homeCards ?? (tourRuntime.featured_tours?.length ? tourRuntime.featured_tours : buildFallbackListingCards(source, targetPage));
       const filtered = applySearchFilter(cards, searchState);
       return page.page_key === 'home' ? filtered.slice(0, HOME_FEATURED_TOUR_CARD_LIMIT) : filtered;
     }
 
     if (String(source || '').includes('destination_listing')) {
-      return applySearchFilter(tourRuntime.destination_listing?.length ? tourRuntime.destination_listing : buildFallbackListingCards(source, targetPage), searchState);
+      const homeList = page.page_key === 'home' && tourRuntime.home_destination_listing?.length ? tourRuntime.home_destination_listing : null;
+      return applySearchFilter(homeList ?? (tourRuntime.destination_listing?.length ? tourRuntime.destination_listing : buildFallbackListingCards(source, targetPage)), searchState);
     }
 
     if (String(source || '').includes('tour_listing')) {
@@ -993,7 +1088,8 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
 
     if (String(source || '').includes('accommodation_listing')) {
-      const cards = tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage);
+      const homeList = page.page_key === 'home' && tourRuntime.home_accommodation_listing?.length ? tourRuntime.home_accommodation_listing : null;
+      const cards = homeList ?? (tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage));
       const filtered = applySearchFilter(cards, searchState);
       return page.page_key === 'home' ? filtered.slice(0, HOME_HOTEL_CARD_LIMIT) : filtered;
     }
@@ -1342,6 +1438,8 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   };
 
   const renderPricing = (block) => {
+    const activeTourId = normalizeStringValue(snapshot?.tour_id, activeBookingTourId);
+    const isDayTour = snapshot?.tour_type === 'day_tour' || tourRuntime.tour_type_map?.[activeTourId] === 'day_tour';
     const cards = Array.isArray(block.content?.price_cards) ? block.content.price_cards : priceCards;
     const priceFromVal = snapshot?.price_from;
     if (!cards.length && priceFromVal == null) return '';
@@ -1350,7 +1448,14 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const bookingCtaAttrs = bookingPageHref ? ' data-open-public-booking="1"' : '';
     const bookingCtaMarkup = `<div class="mt-6 flex justify-start"><a href="${escapeHtml(bookingCtaHref)}"${bookingCtaAttrs} class="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(bookingCtaLabel)}</a></div>`;
     if (profile.pricing === 'table') {
-      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th><th class="px-6 py-3">Child</th></tr></thead><tbody>${cards.map((card) => `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(card.child_shared_with_parents_price != null ? String(card.child_shared_with_parents_price) : '—')}</td></tr>`).join('')}</tbody></table></div><div class="px-6 pb-6">${bookingCtaMarkup}</div></section>`;
+      const thead = isDayTour
+        ? `<tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Adult</th><th class="px-6 py-3">Child</th><th class="px-6 py-3">Infant</th></tr>`
+        : `<tr><th class="px-6 py-3">Segment</th><th class="px-6 py-3">Season</th><th class="px-6 py-3">Pax</th><th class="px-6 py-3">Shared</th><th class="px-6 py-3">Single</th><th class="px-6 py-3">Child</th></tr>`;
+      const tbody = cards.map((card) => isDayTour
+        ? `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(card.adult_shared_room_price != null ? String(card.adult_shared_room_price) : '—')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(card.child_shared_with_parents_price != null ? String(card.child_shared_with_parents_price) : '—')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(card.infant_price != null ? String(card.infant_price) : '—')}</td></tr>`
+        : `<tr class="border-t border-slate-100"><td class="px-6 py-4 font-medium text-slate-900">${escapeHtml(card.segment_name || card.segment_code || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.season_name || '')}</td><td class="px-6 py-4 text-slate-600">${escapeHtml(card.pax_range_label || '')}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_shared_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(String(card.adult_single_room_price ?? 'n/a'))}</td><td class="px-6 py-4 text-slate-900">${escapeHtml(card.child_shared_with_parents_price != null ? String(card.child_shared_with_parents_price) : '—')}</td></tr>`
+      ).join('');
+      return `<section id="pricing" class="overflow-hidden rounded-[26px] bg-white shadow-sm"><div class="border-b border-slate-200 px-6 py-5"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2></div><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500">${thead}</thead><tbody>${tbody}</tbody></table></div><div class="px-6 pb-6">${bookingCtaMarkup}</div></section>`;
     }
     if (profile.pricing === 'sidebar' || profile.pricing === 'spotlight') {
       const segmentGroups = Array.from(cards.reduce((map, card, index) => {
@@ -1363,6 +1468,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
           : null;
         const candidateRank = Math.min(sharedPrice ?? Number.POSITIVE_INFINITY, singlePrice ?? Number.POSITIVE_INFINITY);
         const current = map.get(key);
+        const infantPriceVal = typeof card.infant_price === 'number' && Number.isFinite(card.infant_price) && card.infant_price > 0 ? card.infant_price : null;
         if (!current) {
           map.set(key, {
             segment_name: card.segment_name || card.segment_code || 'Segment',
@@ -1371,6 +1477,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
             shared_price: sharedPrice,
             single_price: singlePrice,
             child_price: typeof card.child_shared_with_parents_price === 'number' && Number.isFinite(card.child_shared_with_parents_price) && card.child_shared_with_parents_price > 0 ? card.child_shared_with_parents_price : null,
+            infant_price: infantPriceVal,
             rank: candidateRank,
           });
           return map;
@@ -1379,6 +1486,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
         if (singlePrice != null && (current.single_price == null || singlePrice < current.single_price)) current.single_price = singlePrice;
         const childPrice = typeof card.child_shared_with_parents_price === 'number' && Number.isFinite(card.child_shared_with_parents_price) && card.child_shared_with_parents_price > 0 ? card.child_shared_with_parents_price : null;
         if (childPrice != null && (current.child_price == null || childPrice < current.child_price)) current.child_price = childPrice;
+        if (infantPriceVal != null && (current.infant_price == null || infantPriceVal < current.infant_price)) current.infant_price = infantPriceVal;
         if (candidateRank < current.rank) {
           current.rank = candidateRank;
           current.season_name = card.season_name || current.season_name;
@@ -1388,7 +1496,9 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       }, new Map()).values()).sort((left, right) => left.rank - right.rank);
 
       const priceChip = priceFromVal != null ? `<span class="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(block.content?.price_from_label || systemCopy.pricing.from)} $${priceFromVal}</span>` : '';
-      const pricingTableHtml = segmentGroups.length ? `<div class="mt-5 overflow-x-auto rounded-[18px] border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-4 py-3 font-medium">Segment</th><th class="px-4 py-3 font-medium">Season</th><th class="px-4 py-3 font-medium">Pax</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.sharedRoom)}</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.singleRoom)}</th><th class="px-4 py-3 font-medium">Child</th></tr></thead><tbody>${segmentGroups.map((card) => `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-medium text-slate-900">${escapeHtml(card.segment_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.season_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.pax_range_label)}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.shared_price ?? '—'))}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.single_price ?? '—'))}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(card.child_price != null ? String(card.child_price) : '—')}</td></tr>`).join('')}</tbody></table></div>` : '';
+      const pricingTableHtml = segmentGroups.length ? (isDayTour
+        ? `<div class="mt-5 overflow-x-auto rounded-[18px] border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-4 py-3 font-medium">Segment</th><th class="px-4 py-3 font-medium">Season</th><th class="px-4 py-3 font-medium">Pax</th><th class="px-4 py-3 font-medium">Adult</th><th class="px-4 py-3 font-medium">Child</th><th class="px-4 py-3 font-medium">Infant</th></tr></thead><tbody>${segmentGroups.map((card) => `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-medium text-slate-900">${escapeHtml(card.segment_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.season_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.pax_range_label)}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(card.shared_price != null ? String(card.shared_price) : '\u2014')}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(card.child_price != null ? String(card.child_price) : '\u2014')}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(card.infant_price != null ? String(card.infant_price) : '\u2014')}</td></tr>`).join('')}</tbody></table></div>`
+        : `<div class="mt-5 overflow-x-auto rounded-[18px] border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-slate-500"><tr><th class="px-4 py-3 font-medium">Segment</th><th class="px-4 py-3 font-medium">Season</th><th class="px-4 py-3 font-medium">Pax</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.sharedRoom)}</th><th class="px-4 py-3 font-medium">${escapeHtml(systemCopy.pricing.singleRoom)}</th><th class="px-4 py-3 font-medium">Child</th></tr></thead><tbody>${segmentGroups.map((card) => `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-medium text-slate-900">${escapeHtml(card.segment_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.season_name)}</td><td class="px-4 py-3 text-slate-600">${escapeHtml(card.pax_range_label)}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.shared_price ?? '\u2014'))}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(String(card.single_price ?? '\u2014'))}</td><td class="px-4 py-3 text-slate-900">${escapeHtml(card.child_price != null ? String(card.child_price) : '\u2014')}</td></tr>`).join('')}</tbody></table></div>`) : '';
       return `<section id="pricing" class="rounded-[26px] bg-white p-6 shadow-sm overflow-hidden"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-2xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Pricing')}</h2>${priceChip}</div>${pricingTableHtml}${bookingCtaMarkup}</section>`;
     }
     const priceFromDisplay = priceFromVal != null ? `$${priceFromVal}` : null;
@@ -1527,10 +1637,68 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     }
   }
 
+  const activeTourType = snapshot?.tour_type || tourRuntime.tour_type_map?.[activeBookingTourId] || 'package';
   const bookingInlineMarkup = page.page_key === (groupConfig.reservationPageKey || 'booking') && requestedBookingTourId
-    ? `<section data-public-booking-view="1" data-mode="inline" data-tour-id="${escapeHtml(requestedBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}" data-auto-open="1"></section>`
+    ? `<section data-public-booking-view="1" data-mode="inline" data-tour-id="${escapeHtml(requestedBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}" data-tour-type="${escapeHtml(activeTourType)}" data-auto-open="1"></section>`
     : '';
   const renderedBlocks = `${bookingInlineMarkup}${renderBlocksList(blocks, page)}`;
+
+  // Luxury home: inject featured tours, destination and accommodation sections
+  // These are not in the home page's blocks_json, so they must be injected here.
+  let luxuryHomeCatalogSections = '';
+  if (isLuxuryShell && isHomePage) {
+    const featuredTourCards = tourRuntime.featured_tours || [];
+    const homeDestCards = tourRuntime.home_destination_listing || [];
+    const homeHotelCards = tourRuntime.home_accommodation_listing || [];
+    const featuredToursPage = pageMap.get('featured-tours') || pageMap.get('tours') || { page_key: 'tours', slug: 'tours', title: 'Tours', blocks: [], seo: {} };
+    const destinationsPage = pageMap.get('destinations') || { page_key: 'destinations', slug: 'destinations', title: 'Destinations', blocks: [], seo: {} };
+    const accommodationPage = pageMap.get('accommodation') || { page_key: 'accommodation', slug: 'accommodation', title: 'Accommodation', blocks: [], seo: {} };
+
+    // Inject featured tours only if the operator has explicitly toggled tours as featured
+    // Use title:'' on fake pages so the theme kicker falls back to block.label (preventing kicker == heading duplication)
+    if (tourRuntime.has_explicit_featured_tours && featuredTourCards.length) {
+      const fakeFeaturedBlock = {
+        id: 'home-featured-tours',
+        type: 'listing',
+        label: 'Explore',
+        content: { heading: 'Featured Tours', body: '' },
+        data_bindings: { cards: { source: 'tour_runtime.featured_tours' } },
+      };
+      const featuredSection = renderListing(fakeFeaturedBlock, { page_key: 'featured-tours', slug: 'featured-tours', title: '', blocks: [], seo: {} });
+      if (featuredSection) {
+        luxuryHomeCatalogSections += `<div id="section-featured-tours" class="scroll-mt-28">${featuredSection}</div>`;
+      }
+    }
+
+    if (homeDestCards.length) {
+      const fakeDestBlock = {
+        id: 'home-destinations',
+        type: 'listing',
+        label: 'Where we go',
+        content: { heading: 'Destinations', body: '' },
+        data_bindings: { cards: { source: 'tour_runtime.destination_listing' } },
+      };
+      const destSection = renderListing(fakeDestBlock, { page_key: 'destinations', slug: 'destinations', title: '', blocks: [], seo: {} });
+      if (destSection) {
+        luxuryHomeCatalogSections += `<div id="section-destinations" class="scroll-mt-28">${destSection}</div>`;
+      }
+    }
+
+    if (homeHotelCards.length) {
+      const fakeHotelBlock = {
+        id: 'home-accommodation',
+        type: 'listing',
+        label: 'Where we stay',
+        content: { heading: 'Accommodation', body: '' },
+        data_bindings: { cards: { source: 'tour_runtime.accommodation_listing' } },
+      };
+      const hotelSection = renderListing(fakeHotelBlock, { page_key: 'accommodation', slug: 'accommodation', title: '', blocks: [], seo: {} });
+      if (hotelSection) {
+        luxuryHomeCatalogSections += `<div id="section-accommodation" class="scroll-mt-28">${hotelSection}</div>`;
+      }
+    }
+  }
+
   const renderedEmbeddedSections = embeddedPages.map(({ page: embeddedPage, menuItem }) => {
     const embeddedBlocks = Array.isArray(embeddedPage.blocks) ? embeddedPage.blocks : [];
     const embeddedBody = renderBlocksList(embeddedBlocks, embeddedPage) || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(getPageTitle(embeddedPage))}</h2><p class="mt-4 text-slate-600">${escapeHtml(getPageDescription(embeddedPage))}</p></section>`;
@@ -1557,7 +1725,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     : '';
   const adminPreviewScript = '';
   const bookingViewMarkup = site.group_key === 'tour_operator' && activeBookingTourId
-    ? `<div data-public-booking-host="drawer" data-tour-id="${escapeHtml(activeBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}"></div>
+    ? `<div data-public-booking-host="drawer" data-tour-id="${escapeHtml(activeBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}" data-tour-type="${escapeHtml(activeTourType)}"></div>
   <script src="/tour-booking-view.js"></script>`
     : '';
   const shellScript = isLuxuryShell
@@ -2089,6 +2257,13 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       text-transform: uppercase;
       color: rgba(90,59,39,0.68);
     }
+    .luxury-card-body {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 0;
+    }
     .luxury-collection-grid {
       display: grid;
       gap: 18px;
@@ -2483,6 +2658,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   ${floatingBookNowMarkup}
   <main class="${isLuxuryShell ? 'luxury-main-shell mx-auto max-w-[1380px] px-4 pt-0 pb-0 sm:px-6' : 'mx-auto max-w-6xl px-4 py-8 sm:px-6'}">
     ${renderedBlocks || `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h1 class="text-3xl font-semibold text-slate-950">${escapeHtml(title)}</h1><p class="mt-4 text-slate-600">${escapeHtml(description)}</p></section>`}
+    ${luxuryHomeCatalogSections ? `<div class="luxury-home-catalog-sections">${luxuryHomeCatalogSections}</div>` : ''}
     ${renderedEmbeddedSections ? `<div class="h-10"></div>${renderedEmbeddedSections}` : ''}
   </main>
   ${footerMarkup}
@@ -2537,7 +2713,11 @@ async function listHotels(tenantId, db) {
       `SELECT *
        FROM tenant_universal_hotels
        WHERE tenant_id = ?
-       ORDER BY sort_order ASC, created_at ASC`
+       ORDER BY region ASC,
+                CASE WHEN star_rating IS NULL THEN 1 ELSE 0 END ASC,
+                star_rating DESC,
+                sort_order ASC,
+                created_at ASC`
     )
     .bind(tenantId)
     .all();
@@ -2724,7 +2904,7 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
   if (site.group_key === 'tour_operator') {
     const [{ results: tours }, { results: priceRows }] = await db.batch([
       db.prepare(
-        `SELECT id, title, slug, duration_text, start_date, status, content_data, category_id, created_at
+        `SELECT id, title, slug, duration_text, start_date, status, content_data, category_id, tour_type, created_at
          FROM tours
          WHERE tenant_id = ?
          ORDER BY created_at DESC`
@@ -2749,7 +2929,21 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
 
     hotels = await ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows);
     const priceLookup = new Map(priceRows.map((row) => [row.tour_id, row.price_from]));
-    tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels, priceLookup);
+    // Fetch active destinations PLUS any draft/inactive destinations that are flagged show_on_home
+    const catalogDestinations = (await db
+      .prepare('SELECT id, tenant_id, name, description, region, gallery_json, status, show_on_home FROM tenant_destinations WHERE tenant_id = ? AND (status = ? OR show_on_home = 1) ORDER BY sort_order ASC, created_at ASC')
+      .bind(tenantId, 'active')
+      .all()
+    ).results?.map((r) => ({
+      id: r.id,
+      name: r.name || '',
+      description: r.description || '',
+      region: r.region || '',
+      gallery: parseJsonSafe(r.gallery_json, []),
+      show_on_home: r.show_on_home ? 1 : 0,
+    })) || [];
+    tourRuntime = buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels, priceLookup, catalogDestinations);
+    tourRuntime.tour_type_map = Object.fromEntries(tours.map((t) => [String(t.id), t.tour_type || 'package']));
 
     const interestTagRows = (await db.prepare(
       `SELECT tour_id, interest_key, tag_level
@@ -3481,9 +3675,11 @@ router.post('/site/hotels', async (c) => {
   const tourId = String(body.tour_id || '').trim();
   const name = String(body.name || '').trim();
   const address = String(body.address || '').trim();
+  const region = String(body.region || '').trim();
   const description = String(body.description || '').trim();
   const gallery = Array.isArray(body.gallery) ? body.gallery : [];
   const status = String(body.status || 'draft').trim() || 'draft';
+  const starRating = body.star_rating != null ? Math.min(5, Math.max(1, Number(body.star_rating))) : null;
 
   if (!name) return jsonError(c, 400, 'name is required');
 
@@ -3502,8 +3698,8 @@ router.post('/site/hotels', async (c) => {
   await c.env.DB
     .prepare(
       `INSERT INTO tenant_universal_hotels
-        (id, tenant_id, hotel_key, tour_id, name, description, address, gallery_json, status, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (id, tenant_id, hotel_key, tour_id, name, description, address, region, star_rating, gallery_json, status, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       hotelId,
@@ -3513,6 +3709,8 @@ router.post('/site/hotels', async (c) => {
       name,
       description,
       address,
+      region,
+      starRating,
       JSON.stringify(gallery),
       status,
       now,
@@ -3577,6 +3775,13 @@ router.patch('/hotels/:hotelId', async (c) => {
   if ('address' in body) {
     setValue('address', String(body.address || '').trim());
   }
+  if ('region' in body) {
+    setValue('region', String(body.region || '').trim());
+  }
+  if ('star_rating' in body) {
+    const sr = body.star_rating;
+    setValue('star_rating', sr != null ? Math.min(5, Math.max(1, Number(sr))) : null);
+  }
   if ('gallery' in body) {
     if (!Array.isArray(body.gallery)) return jsonError(c, 400, 'gallery must be an array');
     setValue('gallery_json', JSON.stringify(body.gallery));
@@ -3596,6 +3801,9 @@ router.patch('/hotels/:hotelId', async (c) => {
   }
   if ('status' in body) {
     setValue('status', String(body.status || 'draft').trim() || 'draft');
+  }
+  if ('show_on_home' in body) {
+    setValue('show_on_home', body.show_on_home ? 1 : 0);
   }
 
   if (!updates.length) {
@@ -3636,6 +3844,7 @@ function normalizeDestination(row) {
     region: row.region || '',
     gallery: parseJsonSafe(row.gallery_json, []),
     status: row.status || 'draft',
+    show_on_home: row.show_on_home ? 1 : 0,
     sort_order: Number(row.sort_order || 0),
     created_at: Number(row.created_at || 0),
     updated_at: Number(row.updated_at || 0),
@@ -3691,6 +3900,7 @@ router.patch('/destinations/:destId', async (c) => {
   if ('gallery' in body) { if (!Array.isArray(body.gallery)) return jsonError(c, 400, 'gallery must be array'); sv('gallery_json', JSON.stringify(body.gallery)); }
   if ('status' in body) sv('status', String(body.status || 'draft').trim() || 'draft');
   if ('sort_order' in body) sv('sort_order', Number(body.sort_order || 0));
+  if ('show_on_home' in body) sv('show_on_home', body.show_on_home ? 1 : 0);
   if (!updates.length) return jsonError(c, 400, 'No valid fields provided');
   const now = Math.floor(Date.now() / 1000);
   updates.push('updated_at = ?');
@@ -3804,6 +4014,148 @@ router.delete('/hotel-links/:linkId', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
   const result = await c.env.DB.prepare('DELETE FROM tour_hotel_links WHERE id = ? AND tenant_id = ?').bind(c.req.param('linkId'), ctx.tenantId).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Link not found');
+  return c.json({ ok: true });
+});
+
+// ── Media libraries ───────────────────────────────────────────────────────────
+
+function normalizeMediaLibrary(row) {
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    title: row.title || '',
+    description: row.description || '',
+    cover_image: row.cover_image || '',
+    items: parseJsonSafe(row.items_json, []),
+    status: row.status || 'active',
+    sort_order: Number(row.sort_order || 0),
+    created_at: Number(row.created_at || 0),
+    updated_at: Number(row.updated_at || 0),
+  };
+}
+
+router.get('/media-libraries', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const { results } = await c.env.DB
+    .prepare('SELECT * FROM tenant_media_libraries WHERE tenant_id = ? ORDER BY sort_order ASC, created_at ASC')
+    .bind(ctx.tenantId)
+    .all();
+  return c.json({ ok: true, libraries: (results || []).map(normalizeMediaLibrary) });
+});
+
+router.post('/media-libraries', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const title = String(body.title || '').trim();
+  if (!title) return jsonError(c, 400, 'title is required');
+  const now = Math.floor(Date.now() / 1000);
+  const id = nanoid();
+  await c.env.DB
+    .prepare('INSERT INTO tenant_media_libraries (id, tenant_id, title, description, cover_image, items_json, status, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, ctx.tenantId, title, String(body.description || '').trim(), String(body.cover_image || '').trim(), JSON.stringify(Array.isArray(body.items) ? body.items : []), 'active', Number(body.sort_order || 0), now, now)
+    .run();
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_media_libraries WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, id).first();
+  return c.json({ ok: true, library: normalizeMediaLibrary(row) }, 201);
+});
+
+router.get('/media-libraries/:libraryId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_media_libraries WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, c.req.param('libraryId')).first();
+  if (!row) return jsonError(c, 404, 'Library not found');
+  return c.json({ ok: true, library: normalizeMediaLibrary(row) });
+});
+
+router.patch('/media-libraries/:libraryId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const updates = [];
+  const binds = [];
+  const sv = (col, val) => { updates.push(`${col} = ?`); binds.push(val); };
+  if ('title' in body) {
+    const t = String(body.title || '').trim();
+    if (!t) return jsonError(c, 400, 'title cannot be empty');
+    sv('title', t);
+  }
+  if ('description' in body) sv('description', String(body.description || '').trim());
+  if ('cover_image' in body) sv('cover_image', String(body.cover_image || '').trim());
+  if ('items' in body) {
+    if (!Array.isArray(body.items)) return jsonError(c, 400, 'items must be an array');
+    sv('items_json', JSON.stringify(body.items));
+  }
+  if ('status' in body) sv('status', String(body.status || 'active').trim() || 'active');
+  if ('sort_order' in body) sv('sort_order', Number(body.sort_order || 0));
+  if (!updates.length) return jsonError(c, 400, 'No valid fields provided');
+  const now = Math.floor(Date.now() / 1000);
+  updates.push('updated_at = ?');
+  binds.push(now, ctx.tenantId, c.req.param('libraryId'));
+  const result = await c.env.DB
+    .prepare(`UPDATE tenant_media_libraries SET ${updates.join(', ')} WHERE tenant_id = ? AND id = ?`)
+    .bind(...binds).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Library not found');
+  const row = await c.env.DB.prepare('SELECT * FROM tenant_media_libraries WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, c.req.param('libraryId')).first();
+  return c.json({ ok: true, library: normalizeMediaLibrary(row) });
+});
+
+router.delete('/media-libraries/:libraryId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  await c.env.DB.prepare('DELETE FROM tour_media_library_links WHERE library_id = ? AND tenant_id = ?').bind(c.req.param('libraryId'), ctx.tenantId).run();
+  const result = await c.env.DB.prepare('DELETE FROM tenant_media_libraries WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, c.req.param('libraryId')).run();
+  if (!result.meta?.changes) return jsonError(c, 404, 'Library not found');
+  return c.json({ ok: true });
+});
+
+router.get('/tours/:tourId/library-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const { results } = await c.env.DB
+    .prepare(`SELECT tml.id, tml.library_id, tml.section_hint, tml.sort_order, tml.created_at,
+                     ml.title, ml.cover_image, ml.description,
+                     (SELECT COUNT(*) FROM json_each(ml.items_json)) AS item_count
+              FROM tour_media_library_links tml
+              JOIN tenant_media_libraries ml ON ml.id = tml.library_id
+              WHERE tml.tour_id = ? AND tml.tenant_id = ? AND ml.status = 'active'
+              ORDER BY tml.sort_order ASC, tml.created_at ASC`)
+    .bind(c.req.param('tourId'), ctx.tenantId)
+    .all();
+  return c.json({ ok: true, links: (results || []).map((r) => ({
+    id: r.id, library_id: r.library_id, title: r.title || '', description: r.description || '',
+    cover_image: r.cover_image || '', section_hint: r.section_hint || '',
+    sort_order: Number(r.sort_order || 0), item_count: Number(r.item_count || 0),
+  })) });
+});
+
+router.post('/tours/:tourId/library-links', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  let body;
+  try { body = await c.req.json(); } catch { return jsonError(c, 400, 'Invalid JSON body'); }
+  const libraryId = String(body.library_id || '').trim();
+  if (!libraryId) return jsonError(c, 400, 'library_id is required');
+  const lib = await c.env.DB.prepare('SELECT id FROM tenant_media_libraries WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, libraryId).first();
+  if (!lib) return jsonError(c, 404, 'Library not found');
+  const tour = await c.env.DB.prepare('SELECT id FROM tours WHERE tenant_id = ? AND id = ?').bind(ctx.tenantId, c.req.param('tourId')).first();
+  if (!tour) return jsonError(c, 404, 'Tour not found');
+  const now = Math.floor(Date.now() / 1000);
+  const id = nanoid();
+  await c.env.DB
+    .prepare('INSERT OR IGNORE INTO tour_media_library_links (id, tenant_id, tour_id, library_id, section_hint, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, ctx.tenantId, c.req.param('tourId'), libraryId, String(body.section_hint || '').trim(), Number(body.sort_order || 0), now)
+    .run();
+  return c.json({ ok: true, link: { id, library_id: libraryId, tour_id: c.req.param('tourId') } }, 201);
+});
+
+router.delete('/library-links/:linkId', async (c) => {
+  const ctx = await requireTenant(c);
+  if (ctx.error) return ctx.error;
+  const result = await c.env.DB.prepare('DELETE FROM tour_media_library_links WHERE id = ? AND tenant_id = ?').bind(c.req.param('linkId'), ctx.tenantId).run();
   if (!result.meta?.changes) return jsonError(c, 404, 'Link not found');
   return c.json({ ok: true });
 });

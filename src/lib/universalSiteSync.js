@@ -116,6 +116,7 @@ function buildPricingCards(rows) {
       adult_shared_room_price: row.adult_shared_room_price,
       adult_single_room_price: row.adult_single_room_price,
       child_shared_with_parents_price: row.child_shared_with_parents_price,
+      infant_price: row.infant_price,
     });
   }
 
@@ -161,7 +162,26 @@ function buildHotelCardsFromRows(hotelRows) {
     .filter((h) => h.name);
 }
 
-function buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows = []) {
+function buildDestinationCatalogCards(destinationRows) {
+  return destinationRows
+    .filter((d) => d && d.name)
+    .map((d) => {
+      const gallery = parseJsonSafe(d.gallery_json, []);
+      const images = Array.isArray(gallery)
+        ? gallery.filter((img) => img?.src).map((img) => ({ src: img.src, alt: img.alt || d.name, caption: img.caption || '' }))
+        : [];
+      return {
+        name: String(d.name || '').trim(),
+        region: String(d.region || '').trim(),
+        description: String(d.description || '').trim(),
+        images,
+        image: images[0]?.src || '',
+      };
+    })
+    .filter((d) => d.name);
+}
+
+function buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows = [], destinationRows = [], gallerySections = []) {
   const content = parseJsonSafe(tour.content_data, {});
   const ctaDefaults = getDefaultCtaLabels('tour_operator');
   const title = content.tour_name || tour.title;
@@ -184,8 +204,11 @@ function buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows = []) {
     excludes: Array.isArray(content.excludes) ? content.excludes.filter(Boolean) : [],
     itinerary_stops: itineraryStops,
     destination_stops: buildDestinationStops(stops, images),
+    destination_catalog_cards: destinationRows.length ? buildDestinationCatalogCards(destinationRows) : [],
     hotel_cards: hotelRows.length ? buildHotelCardsFromRows(hotelRows) : [],
+    gallery_sections: gallerySections,
     hotel_cards_fallback: [],  // kept for schema compat
+    tour_type: tour.tour_type || 'package',
     pricing_cards: pricing.cards,
     price_from: pricing.priceFrom ?? (typeof content.base_price === 'number' && content.base_price > 0 ? content.base_price : null),
     booking_cta_label: ctaDefaults.booking,
@@ -210,7 +233,13 @@ function buildTourDetailBlocks(snapshot, variantRuntime) {
       block.content.primary_cta_href = '#booking-engine';
       block.content.secondary_cta_href = '#itinerary';
     } else if (block.id === 'gallery') {
-      block.content.images = snapshot.gallery_images;
+      if (snapshot.gallery_sections?.length) {
+        const flatImages = snapshot.gallery_sections.flatMap((s) => s.items);
+        block.content.sections = snapshot.gallery_sections;
+        block.content.images = flatImages;
+      } else {
+        block.content.images = snapshot.gallery_images;
+      }
     } else if (block.id === 'about') {
       block.content.body = snapshot.about_section;
     } else if (block.id === 'features') {
@@ -233,7 +262,14 @@ function buildTourDetailBlocks(snapshot, variantRuntime) {
     });
   }
 
-  if (snapshot.destination_stops?.length > 1) {
+  if (snapshot.destination_catalog_cards?.length) {
+    blocks.push({
+      id: 'destination_carousel',
+      type: 'destination_carousel',
+      label: 'Destinations',
+      content: { items: snapshot.destination_catalog_cards },
+    });
+  } else if (snapshot.destination_stops?.length > 1) {
     blocks.push({
       id: 'destination_carousel',
       type: 'destination_carousel',
@@ -382,7 +418,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
 
   const tour = await env.DB
     .prepare(
-      `SELECT id, tenant_id, title, slug, lang, duration_text, start_date, status, content_data
+      `SELECT id, tenant_id, title, slug, lang, duration_text, start_date, status, content_data, tour_type
        FROM tours
        WHERE id = ? AND tenant_id = ?`
     )
@@ -403,6 +439,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
     env.DB.prepare(
       `SELECT tp.season_id, tp.segment_id, tp.pax_band_id,
               tp.adult_shared_room_price, tp.adult_single_room_price, tp.child_shared_with_parents_price,
+              tp.infant_price,
               ts.name AS season_name,
               ps.code AS segment_code,
               ps.name AS segment_name,
@@ -421,14 +458,33 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
     ).bind(tenantId, tourId),
   ]);
 
-  const { results: hotelLinkRows } = await env.DB
-    .prepare(`SELECT h.id, h.name, h.description, h.address, h.gallery_json
+  const [{ results: hotelLinkRows }, { results: destinationLinkRows }, { results: libraryLinkRows }] = await env.DB.batch([
+    env.DB.prepare(`SELECT h.id, h.name, h.description, h.address, h.gallery_json
               FROM tour_hotel_links thl
               JOIN tenant_universal_hotels h ON h.id = thl.hotel_id
               WHERE thl.tour_id = ? AND thl.tenant_id = ? AND h.status = 'active'
               ORDER BY thl.sort_order ASC, thl.created_at ASC`)
-    .bind(tourId, tenantId)
-    .all();
+      .bind(tourId, tenantId),
+    env.DB.prepare(`SELECT d.id, d.name, d.description, d.region, d.gallery_json
+              FROM tour_destination_links tdl
+              JOIN tenant_destinations d ON d.id = tdl.destination_id
+              WHERE tdl.tour_id = ? AND tdl.tenant_id = ? AND d.status = 'active'
+              ORDER BY tdl.sort_order ASC, tdl.created_at ASC`)
+      .bind(tourId, tenantId),
+    env.DB.prepare(`SELECT tml.section_hint, tml.sort_order, ml.title, ml.items_json
+              FROM tour_media_library_links tml
+              JOIN tenant_media_libraries ml ON ml.id = tml.library_id
+              WHERE tml.tour_id = ? AND tml.tenant_id = ? AND ml.status = 'active'
+              ORDER BY tml.sort_order ASC, tml.created_at ASC`)
+      .bind(tourId, tenantId),
+  ]);
+
+  const destinationRows = destinationLinkRows || [];
+  const gallerySections = (libraryLinkRows || []).map((row) => ({
+    title: row.title || '',
+    section_hint: row.section_hint || '',
+    items: parseJsonSafe(row.items_json, []).filter((img) => img?.src),
+  })).filter((s) => s.items.length > 0);
 
   // Fallback: use legacy tour_id-linked hotels if no junction links exist
   let hotelRows = hotelLinkRows || [];
@@ -441,7 +497,7 @@ export async function syncUniversalTourPage(env, tenantId, tourId) {
   }
 
   const variantRuntime = buildVariantRuntimeConfig(site.group_key, site.variant_key);
-  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows || []);
+  const snapshot = buildTourSyncSnapshot(tour, stops, pricingRows, hotelRows || [], destinationRows, gallerySections);
   const slotMapping = syncTourToUniversalPageSlots(snapshot);
   const blocks = buildTourDetailBlocks(snapshot, variantRuntime);
   const now = Math.floor(Date.now() / 1000);

@@ -751,7 +751,7 @@
                 <input type="text" id="new-duration" placeholder="3 days 2 nights" data-i18n-placeholder="tour_config.tours.duration_placeholder" />
               </div>
             </div>
-            <div class="field-row cols-2">
+            <div class="field-row cols-3">
               <div class="field">
                 <label data-i18n="language.label">Language</label>
                 <select id="new-lang"></select>
@@ -761,6 +761,13 @@
                 <select id="new-status">
                   <option value="draft" data-i18n="common.draft">draft</option>
                   <option value="on_sale" data-i18n="common.on_sale">on_sale</option>
+                </select>
+              </div>
+              <div class="field">
+                <label data-i18n="tour_config.tours.tour_type">Tour Type</label>
+                <select id="new-tour-type">
+                  <option value="package" data-i18n="tour_config.tours.tour_type_package">Multi-day Package</option>
+                  <option value="day_tour" data-i18n="tour_config.tours.tour_type_day_tour">Day Tour (no overnight)</option>
                 </select>
               </div>
             </div>
@@ -892,7 +899,7 @@
             <input type="text" id="meta-duration" placeholder="e.g. 3 days 2 nights" data-i18n-placeholder="tour_config.tours.duration_placeholder" />
           </div>
         </div>
-        <div class="field-row cols-2">
+        <div class="field-row cols-3">
           <div class="field">
             <label data-i18n="tour_config.tours.status">Status</label>
             <select id="meta-status">
@@ -903,6 +910,13 @@
           <div class="field">
             <label data-i18n="language.label">Language</label>
             <select id="meta-lang"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="tour_config.tours.tour_type">Tour Type</label>
+            <select id="meta-tour-type">
+              <option value="package" data-i18n="tour_config.tours.tour_type_package">Multi-day Package</option>
+              <option value="day_tour" data-i18n="tour_config.tours.tour_type_day_tour">Day Tour (no overnight)</option>
+            </select>
           </div>
         </div>
         <div class="btn-row">
@@ -1095,6 +1109,24 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btn-link-hotel">Link</button>
       </div>
 
+      <hr style="margin:0 0 16px" />
+
+      <!-- Linked Photo Libraries -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:13px">Linked Photo Libraries</strong>
+        <a href="/product-modules.html?mode=libraries" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage libraries</a>
+      </div>
+      <div id="library-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <select id="library-link-select" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="">— select library —</option></select>
+        <select id="library-link-hint" style="width:110px;font-size:12px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px">
+          <option value="">gallery</option>
+          <option value="hero">hero</option>
+          <option value="itinerary">itinerary</option>
+        </select>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-link-library">Link</button>
+      </div>
+
       <div class="btn-row" style="margin-top:8px">
         <button type="button" class="btn btn-success" id="btn-save-content" data-i18n="tour_config.content.save_content">Save Content</button>
       </div>
@@ -1261,8 +1293,9 @@
             <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.segment">Segment</label><select id="ap-segment" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
             <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.pax_band">Pax Band</label><select id="ap-paxband" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px"><option value="">&mdash;</option></select></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.shared_room">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+            <div><label id="ap-shared-label" style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.shared_room">Shared room</label><input id="ap-shared" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
+            <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.triple_room">Triple room</label><input id="ap-triple" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
             <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.private_room">Private room</label><input id="ap-single" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
             <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.child">Child</label><input id="ap-child"  type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
             <div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.infant">Infant</label><input id="ap-infant" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" /></div>
@@ -1324,12 +1357,14 @@
               <input type="number" id="bv-adult-count" class="bv-conv-input" min="0" value="" placeholder="0" />
               <span data-i18n="tour_config.pricing.phase1_adults_and">adults and</span>
               <input type="number" id="bv-child-count" class="bv-conv-input" min="0" value="0" />
-              <span data-i18n="tour_config.pricing.phase1_children">children,</span><br>
+              <span data-i18n="tour_config.pricing.phase1_children">children,</span><span id="bv-room-row"><br>
               <span data-i18n="tour_config.pricing.phase1_staying_in">staying in</span>
               <input type="number" id="bv-double-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
               <span data-i18n="tour_config.pricing.phase1_double_rooms_and">double rooms and</span>
+              <input type="number" id="bv-triple-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="0" placeholder="0" />
+              <span data-i18n="tour_config.pricing.phase1_triple_rooms_and">triple rooms and</span>
               <input type="number" id="bv-single-rooms" class="bv-conv-input bv-conv-input--sm" min="0" value="" placeholder="0" />
-              <span data-i18n="tour_config.pricing.phase1_single_rooms">single rooms.</span>
+              <span data-i18n="tour_config.pricing.phase1_single_rooms">single rooms.</span></span>
             </p>
             <div id="bv-room-hint" style="display:none;font-size:11.5px;font-family:'Inter',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px"></div>
             <button id="btn-calc-price" class="btn btn-primary" disabled
@@ -2653,6 +2688,14 @@ async function connectWithCurrentTenant() {
   status.textContent = ti('tour_config.message.reconnecting');
   try {
     await loadTenantSettings();
+    if (S.tenantSettings?.pricing_notes_text) {
+      const ta = document.getElementById('pricing-defs-editor');
+      if (ta) {
+        _pricingDefs = S.tenantSettings.pricing_notes_text.split('\n').map(l => l.trim()).filter(Boolean);
+        ta.value = S.tenantSettings.pricing_notes_text;
+        try { localStorage.setItem('bv_pricing_defs', JSON.stringify(_pricingDefs)); } catch(_e) {}
+      }
+    }
     await loadUiLocale(S.uiLocaleTag);
     await ensureTaxonomyCatalog();
     const [data, assets] = await Promise.all([
@@ -2800,6 +2843,10 @@ function selectTour(t) {
   document.getElementById('publish-tour-label').textContent = t.title;
   document.getElementById('btn-publish').disabled          = false;
   document.getElementById('btn-switch-template').disabled  = false;
+
+  // Show/hide room inputs in BV simulator based on tour type
+  const roomRow = document.getElementById('bv-room-row');
+  if (roomRow) roomRow.style.display = t.tour_type === 'day_tour' ? 'none' : '';
 }
 
 document.getElementById('btn-new-tour').addEventListener('click', () => {
@@ -2820,6 +2867,7 @@ document.getElementById('create-tour-form').addEventListener('submit', async e =
     duration_text: document.getElementById('new-duration').value.trim() || undefined,
     lang:          document.getElementById('new-lang').value,
     status:        document.getElementById('new-status').value,
+    tour_type:     document.getElementById('new-tour-type').value,
   };
   try {
     const data = await api('/api/tours', { method: 'POST', body: JSON.stringify(body) });
@@ -2904,6 +2952,7 @@ function prefillContent(tour) {
   document.getElementById('meta-duration').value    = tour.duration_text ?? '';
   document.getElementById('meta-status').value      = tour.status    ?? 'draft';
   document.getElementById('meta-lang').value        = tour.lang      ?? normalizeLocaleTag(S.tenantSettings?.default_locale || 'en', 'en');
+  document.getElementById('meta-tour-type').value   = tour.tour_type ?? 'package';
 
   // content_data
   const cd = parseContentData(tour);
@@ -3003,12 +3052,14 @@ S.destLinks = [];
 
 async function loadCatalogs() {
   try {
-    const [hotelsRes, destsRes] = await Promise.all([
+    const [hotelsRes, destsRes, librariesRes] = await Promise.all([
       api('/api/universal/site/hotels'),
       api('/api/universal/destinations'),
+      api('/api/universal/media-libraries'),
     ]);
     S.catalogHotels = Array.isArray(hotelsRes.hotels) ? hotelsRes.hotels : [];
     S.catalogDestinations = Array.isArray(destsRes.destinations) ? destsRes.destinations : [];
+    S.catalogLibraries = Array.isArray(librariesRes.libraries) ? librariesRes.libraries : [];
     populateCatalogSelects();
   } catch (err) {
     console.warn('[tour-config] catalog load failed', err?.message);
@@ -3018,6 +3069,7 @@ async function loadCatalogs() {
 function populateCatalogSelects() {
   const hotelSel = document.getElementById('hotel-link-select');
   const destSel = document.getElementById('dest-link-select');
+  const libSel = document.getElementById('library-link-select');
   if (hotelSel) {
     hotelSel.innerHTML = '<option value="">— select hotel —</option>' +
       S.catalogHotels.map((h) => `<option value="${esc(h.id)}">${esc(h.name || h.id)}</option>`).join('');
@@ -3026,18 +3078,25 @@ function populateCatalogSelects() {
     destSel.innerHTML = '<option value="">— select destination —</option>' +
       S.catalogDestinations.map((d) => `<option value="${esc(d.id)}">${esc(d.name || d.id)}</option>`).join('');
   }
+  if (libSel) {
+    libSel.innerHTML = '<option value="">— select library —</option>' +
+      (S.catalogLibraries || []).map((l) => `<option value="${esc(l.id)}">${esc(l.title || l.id)} (${Array.isArray(l.items) ? l.items.length : 0} photos)</option>`).join('');
+  }
 }
 
 async function loadTourLinks(tourId) {
   try {
-    const [hotelLinksRes, destLinksRes] = await Promise.all([
+    const [hotelLinksRes, destLinksRes, libLinksRes] = await Promise.all([
       api(`/api/universal/tours/${encodeURIComponent(tourId)}/hotel-links`),
       api(`/api/universal/tours/${encodeURIComponent(tourId)}/destination-links`),
+      api(`/api/universal/tours/${encodeURIComponent(tourId)}/library-links`),
     ]);
     S.hotelLinks = Array.isArray(hotelLinksRes.links) ? hotelLinksRes.links : [];
     S.destLinks = Array.isArray(destLinksRes.links) ? destLinksRes.links : [];
+    S.libraryLinks = Array.isArray(libLinksRes.links) ? libLinksRes.links : [];
     renderLinkedHotels();
     renderLinkedDestinations();
+    renderLinkedLibraries();
   } catch (err) {
     console.warn('[tour-config] link load failed', err?.message);
   }
@@ -3142,6 +3201,56 @@ document.getElementById('btn-link-dest')?.addEventListener('click', async () => 
   }
 });
 
+function renderLinkedLibraries() {
+  const list = document.getElementById('library-links-list');
+  if (!list) return;
+  list.innerHTML = (S.libraryLinks || []).length
+    ? (S.libraryLinks).map((link) => `
+      <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${esc(link.title || link.library_id)}</div>
+          <div style="font-size:12px;color:#64748b">${esc([link.section_hint ? 'section: ' + link.section_hint : '', link.item_count ? link.item_count + ' photos' : ''].filter(Boolean).join(' · '))}</div>
+        </div>
+        <button class="btn-icon-del" data-unlink-library="${esc(link.id)}" title="Remove link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>`).join('')
+    : '<p style="font-size:12px;color:#94a3b8;margin:0">No libraries linked yet. Select from the list above and click Link.</p>';
+  list.querySelectorAll('[data-unlink-library]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const linkId = btn.dataset.unlinkLibrary;
+      try {
+        await api(`/api/universal/library-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+        S.libraryLinks = S.libraryLinks.filter((l) => l.id !== linkId);
+        renderLinkedLibraries();
+        toast('Library unlinked');
+      } catch (err) {
+        toast(err.message || 'Failed to unlink library', 'err');
+      }
+    });
+  });
+}
+
+document.getElementById('btn-link-library')?.addEventListener('click', async () => {
+  const libId = document.getElementById('library-link-select')?.value?.trim();
+  const sectionHint = document.getElementById('library-link-hint')?.value?.trim() || '';
+  if (!libId) { toast('Select a library first', 'err'); return; }
+  if (!S.tour) { toast(ti('tour_config.message.select_tour_first'), 'err'); return; }
+  try {
+    const res = await api(`/api/universal/tours/${encodeURIComponent(S.tour.id)}/library-links`, {
+      method: 'POST',
+      body: JSON.stringify({ library_id: libId, section_hint: sectionHint }),
+    });
+    if (!S.libraryLinks?.find((l) => l.id === res.link.id)) {
+      await loadTourLinks(S.tour.id);
+    }
+    document.getElementById('library-link-select').value = '';
+    toast('Library linked');
+  } catch (err) {
+    toast(err.message || 'Failed to link library', 'err');
+  }
+});
+
 loadCatalogs().catch(() => {});
 
 // Save metadata
@@ -3155,6 +3264,7 @@ document.getElementById('meta-form').addEventListener('submit', async e => {
   if (dur)    body.duration_text = dur;
   body.status     = document.getElementById('meta-status').value;
   body.lang       = document.getElementById('meta-lang').value;
+  body.tour_type  = document.getElementById('meta-tour-type').value;
   try {
     await api(`/api/tours/${S.tour.id}`, { method: 'PATCH', body: JSON.stringify(body) });
     Object.assign(S.tour, body);
@@ -3558,6 +3668,7 @@ async function deletePricingItem(group, id) {
 /* ----------------------------  TAB 4: PRICE CONFIG (BOOKING VIEW)  --------- */
 const PAX_TYPES = [
   { key: 'adult_shared_room_count', labelKey: 'pricing.adult_shared',  priceField: 'adult_shared_room_price' },
+  { key: 'adult_triple_room_count', labelKey: 'pricing.adult_triple',  priceField: 'adult_triple_room_price' },
   { key: 'adult_single_room_count', labelKey: 'pricing.adult_single',  priceField: 'adult_single_room_price' },
   { key: 'child_count',             labelKey: 'tour_config.pricing.child_with_parents', priceField: 'child_shared_with_parents_price' },
   { key: 'infant_count',            labelKey: 'tour_config.pricing.infant', priceField: 'infant_price' },
@@ -3565,7 +3676,7 @@ const PAX_TYPES = [
 let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
 let _calcState   = {
   segmentId: null,
-  pax: { adult_shared_room_count: 2, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
+  pax: { adult_shared_room_count: 2, adult_triple_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
   date: new Date().toISOString().slice(0, 10),
 };
 let _bvRevealed   = false;
@@ -3632,10 +3743,19 @@ function buildCompactSummary() {
   const adults  = parseInt(document.getElementById('bv-adult-count')?.value)  || 0;
   const children= parseInt(document.getElementById('bv-child-count')?.value)  || 0;
   const doubles = parseInt(document.getElementById('bv-double-rooms')?.value) || 0;
+  const triples = parseInt(document.getElementById('bv-triple-rooms')?.value) || 0;
   const singles = parseInt(document.getElementById('bv-single-rooms')?.value) || 0;
+  const isDayTour = S.tour?.tour_type === 'day_tour';
   const dateLocale = normalizeLocaleTag(S.uiLocaleTag || S.tenantSettings?.default_locale || 'en-GB', 'en-GB');
   const datePart = d ? new Date(d).toLocaleDateString(dateLocale, { day:'numeric', month:'short', year:'numeric' }) : ti('common.no_date');
-  return `${datePart} · ${adults} adult${adults !== 1 ? 's' : ''}, ${children} child${children !== 1 ? 'ren' : ''} · ${doubles} dbl + ${singles} sgl`;
+  if (isDayTour) {
+    return `${datePart} · ${adults} adult${adults !== 1 ? 's' : ''}, ${children} child${children !== 1 ? 'ren' : ''}`;
+  }
+  const roomParts = [];
+  if (doubles > 0) roomParts.push(`${doubles} dbl`);
+  if (triples > 0) roomParts.push(`${triples} tpl`);
+  if (singles > 0) roomParts.push(`${singles} sgl`);
+  return `${datePart} · ${adults} adult${adults !== 1 ? 's' : ''}, ${children} child${children !== 1 ? 'ren' : ''} · ${roomParts.join(' + ') || '0 rooms'}`;
 }
 
 function showCompact() {
@@ -3653,21 +3773,26 @@ function showExpanded() {
 function syncTableToPax(key, newQty) {
   // Shared room qty must stay even (rooms come in pairs of 2 occupants).
   if (key === 'adult_shared_room_count') newQty = Math.max(0, Math.floor(newQty / 2) * 2);
+  // Triple room qty must stay a multiple of 3.
+  if (key === 'adult_triple_room_count') newQty = Math.max(0, Math.floor(newQty / 3) * 3);
   _calcState.pax[key] = Math.max(0, newQty);
 
   const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const triplePax  = _calcState.pax.adult_triple_room_count || 0;
   const privatePax = _calcState.pax.adult_single_room_count || 0;
-  const totalAdults = sharedPax + privatePax;
+  const totalAdults = sharedPax + triplePax + privatePax;
 
-  // Canonical sentence view: fully-occupied doubles + one room per private adult.
-  const doubles = sharedPax / 2;   // always integer (sharedPax is always even)
-  const singles = privatePax;       // each private adult counts as a sole-occupancy room
+  const doubles = sharedPax / 2;
+  const tripleRooms = triplePax / 3;
+  const singles = privatePax;
 
   const dEl = document.getElementById('bv-double-rooms');
+  const tEl = document.getElementById('bv-triple-rooms');
   const sEl = document.getElementById('bv-single-rooms');
   const aEl = document.getElementById('bv-adult-count');
   const cEl = document.getElementById('bv-child-count');
   if (dEl) dEl.value = doubles;
+  if (tEl) tEl.value = tripleRooms;
   if (sEl) sEl.value = singles;
   if (aEl) aEl.value = totalAdults;
   if (cEl) cEl.value = _calcState.pax.child_count;
@@ -3678,17 +3803,21 @@ function syncTableToPax(key, newQty) {
 }
 
 function updateRoomStatusPill() {
-  const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
-  const privatePax = _calcState.pax.adult_single_room_count || 0;
-  const adults     = sharedPax + privatePax;
-  const doubles    = sharedPax / 2;  // always integer
-  const pill       = document.getElementById('bv-room-status');
+  const pill = document.getElementById('bv-room-status');
   if (!pill) return;
+  if (S.tour?.tour_type === 'day_tour') { pill.style.display = 'none'; return; }
+  const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const triplePax  = _calcState.pax.adult_triple_room_count || 0;
+  const privatePax = _calcState.pax.adult_single_room_count || 0;
+  const adults     = sharedPax + triplePax + privatePax;
+  const doubles    = sharedPax / 2;
+  const tripleRooms = triplePax / 3;
   if (adults < 1) { pill.style.display = 'none'; return; }
   pill.style.cssText = 'display:block;font-size:11px;font-family:\'Inter\',sans-serif;padding:4px 10px;border-radius:6px;margin-bottom:8px;text-align:center;background:#F0FDF4;border:1px solid #BBF7D0;color:#15803D';
   const parts = [];
-  if (doubles    > 0) parts.push(`${doubles} shared double${doubles > 1 ? 's' : ''}`);
-  if (privatePax > 0) parts.push(`${privatePax} private room${privatePax > 1 ? 's' : ''}`);
+  if (doubles     > 0) parts.push(`${doubles} shared double${doubles > 1 ? 's' : ''}`);
+  if (tripleRooms > 0) parts.push(`${tripleRooms} triple room${tripleRooms > 1 ? 's' : ''}`);
+  if (privatePax  > 0) parts.push(`${privatePax} private room${privatePax > 1 ? 's' : ''}`);
   pill.textContent = `\u2713 ${parts.join(' + ')} \u2192 ${adults} adult${adults > 1 ? 's' : ''} confirmed`;
 }
 
@@ -3696,12 +3825,14 @@ function updateSurplusHint() {
   const hint = document.getElementById('bv-surplus-hint');
   if (!hint) return;
   const sharedPax  = _calcState.pax.adult_shared_room_count || 0;
+  const triplePax  = _calcState.pax.adult_triple_room_count || 0;
   const privatePax = _calcState.pax.adult_single_room_count || 0;
-  const adults     = sharedPax + privatePax;
+  const adults     = sharedPax + triplePax + privatePax;
   if (adults < 1) { hint.style.display = 'none'; return; }
-  const doubles    = sharedPax / 2;
-  const totalRooms = doubles + privatePax;
-  const minRooms   = Math.ceil(adults / 2);
+  const doubles     = sharedPax / 2;
+  const tripleRooms = triplePax / 3;
+  const totalRooms  = doubles + tripleRooms + privatePax;
+  const minRooms    = Math.ceil(adults / 2);
   if (privatePax > 0 && totalRooms > minRooms) {
     hint.style.display = '';
     hint.textContent = '\u2139\uFE0F Note: Single supplement applied for rooms with sole occupancy.';
@@ -3712,20 +3843,29 @@ function updateSurplusHint() {
 
 // Auto-suggest rooms when adult count changes; also used on page load
 function autoSuggestRooms(adults) {
+  if (S.tour?.tour_type === 'day_tour') return;
   if (adults < 1) return;
   const doubles = Math.floor(adults / 2);
   const singles = adults % 2; // odd adult gets a single
   const dEl = document.getElementById('bv-double-rooms');
+  const tEl = document.getElementById('bv-triple-rooms');
   const sEl = document.getElementById('bv-single-rooms');
   if (dEl && !dEl.dataset.userOverride) dEl.value = doubles;
+  if (tEl && !tEl.dataset.userOverride) tEl.value = 0;
   if (sEl && !sEl.dataset.userOverride) sEl.value = singles;
 }
 
 function validateRooms() {
+  if (S.tour?.tour_type === 'day_tour') {
+    const hint = document.getElementById('bv-room-hint');
+    if (hint) hint.style.display = 'none';
+    return true;
+  }
   const adults  = Math.max(0, parseInt(document.getElementById('bv-adult-count')?.value)  || 0);
   const doubles = Math.max(0, parseInt(document.getElementById('bv-double-rooms')?.value) || 0);
+  const triples = Math.max(0, parseInt(document.getElementById('bv-triple-rooms')?.value) || 0);
   const singles = Math.max(0, parseInt(document.getElementById('bv-single-rooms')?.value) || 0);
-  const capacity = doubles * 2 + singles;
+  const capacity = doubles * 2 + triples * 3 + singles;
   const hint = document.getElementById('bv-room-hint');
   if (!hint) return true;
   if (adults === 0) { hint.style.display = 'none'; return true; }
@@ -3741,7 +3881,11 @@ function validateRooms() {
     hint.textContent = `\u2139\uFE0F ${surplus} extra room${surplus > 1 ? 's' : ''} booked \u2014 sole-occupancy supplement will apply.`;
   } else {
     hint.style.cssText = 'display:block;font-size:11.5px;font-family:\'Inter\',sans-serif;padding:6px 10px;border-radius:6px;margin-bottom:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#15803D';
-    hint.textContent = `\u2713 ${doubles} double + ${singles} single = exactly ${capacity} adults.`;
+    const parts = [];
+    if (doubles > 0) parts.push(`${doubles} double`);
+    if (triples > 0) parts.push(`${triples} triple`);
+    if (singles > 0) parts.push(`${singles} single`);
+    hint.textContent = `\u2713 ${parts.join(' + ')} = exactly ${capacity} adults.`;
   }
   return true;
 }
@@ -3749,37 +3893,55 @@ function validateRooms() {
 function syncPhase1ToPax() {
   const adults   = Math.max(0, parseInt(document.getElementById('bv-adult-count')?.value)  || 0);
   const children = Math.max(0, parseInt(document.getElementById('bv-child-count')?.value)  || 0);
-  const doubles  = Math.max(0, parseInt(document.getElementById('bv-double-rooms')?.value) || 0);
-  const singles  = Math.max(0, parseInt(document.getElementById('bv-single-rooms')?.value) || 0);
-  const totalRooms = doubles + singles;
 
-  // Surplus Rule: a double is only priced at 'Shared' rate when FULLY occupied by 2 people.
-  // Any double with sole occupancy → private/single supplement rate.
-  //
-  // Case A (totalRooms >= adults): every adult can have their own room → 0 sharing.
-  // Case B (adults > totalRooms):  doubles must be fully packed to fit everyone.
-  let sharedPax, privatePax;
+  if (S.tour?.tour_type === 'day_tour') {
+    _calcState.pax = {
+      adult_shared_room_count: adults,
+      adult_triple_room_count: 0,
+      adult_single_room_count: 0,
+      child_count:             children,
+      infant_count:            0,
+    };
+    const upd = (k, v) => { const el = document.getElementById(`qv-${k}`); if (el) el.textContent = v; };
+    upd('adult_shared_room_count', adults);
+    upd('adult_triple_room_count', 0);
+    upd('adult_single_room_count', 0);
+    upd('child_count', children);
+    upd('infant_count', 0);
+    return;
+  }
+
+  const doubles  = Math.max(0, parseInt(document.getElementById('bv-double-rooms')?.value) || 0);
+  const triples  = Math.max(0, parseInt(document.getElementById('bv-triple-rooms')?.value) || 0);
+  const singles  = Math.max(0, parseInt(document.getElementById('bv-single-rooms')?.value) || 0);
+  const totalRooms = doubles + triples + singles;
+
+  let sharedPax, triplePax, privatePax;
   if (adults <= 0) {
-    sharedPax = 0; privatePax = 0;
+    sharedPax = 0; triplePax = 0; privatePax = 0;
   } else if (totalRooms >= adults) {
-    // Enough rooms for sole occupancy — no one needs to share a double.
     sharedPax  = 0;
+    triplePax  = 0;
     privatePax = adults;
   } else {
-    // Pack doubles first; remaining adults overflow to private (single supplement).
     const fullyOccupied = Math.min(doubles, adults - totalRooms);
     sharedPax  = fullyOccupied * 2;
-    privatePax = adults - sharedPax;
+    const afterDoubles = adults - sharedPax;
+    const fullyOccupiedTriples = Math.min(triples, Math.max(0, afterDoubles - (totalRooms - fullyOccupied - triples)));
+    triplePax  = fullyOccupiedTriples * 3;
+    privatePax = adults - sharedPax - triplePax;
   }
 
   _calcState.pax = {
     adult_shared_room_count: sharedPax,
+    adult_triple_room_count: triplePax,
     adult_single_room_count: privatePax,
     child_count:             children,
     infant_count:            0,
   };
   const upd = (k, v) => { const el = document.getElementById(`qv-${k}`); if (el) el.textContent = v; };
   upd('adult_shared_room_count', sharedPax);
+  upd('adult_triple_room_count', triplePax);
   upd('adult_single_room_count', privatePax);
   upd('child_count', children);
   upd('infant_count', 0);
@@ -3919,6 +4081,7 @@ async function loadPricing() {
   const paxBands = toArr(paxRes);
   const prices   = toArr(pricesRes).filter(p => p.tour_id === S.tour.id);
   _pricingData   = { seasons, segments, paxBands, prices };
+  const isDayTour = S.tour?.tour_type === 'day_tour';
 
   // Segment tabs
   const tabsEl = document.getElementById('seg-tabs');
@@ -3991,25 +4154,36 @@ async function loadPricing() {
   const segmentMap = Object.fromEntries(segments.map(g => [g.id, g.name]));
   const paxMap     = Object.fromEntries(paxBands.map(p => [p.id, `${p.name} (${p.min_pax} - ${p.max_pax})`]));
   const pBody = document.getElementById('pricing-prices-body');
+  const adultHdr = isDayTour ? esc(ti('tour_config.pricing.adult_price', {}, 'Adult')) : esc(ti('tour_config.pricing.shared_room'));
   pBody.innerHTML = !prices.length
     ? `<div class="empty-state">${esc(ti('tour_config.pricing.no_prices_yet'))}</div>`
     : `<div style="overflow-x:auto"><table class="price-matrix">
-      <thead><tr><th>${esc(ti('tour_config.pricing.season'))}</th><th>${esc(ti('tour_config.pricing.segment'))}</th><th>${esc(ti('tour_config.pricing.pax_band'))}</th><th>${esc(ti('tour_config.pricing.shared_room'))}</th><th>${esc(ti('tour_config.pricing.private_room'))}</th><th>${esc(ti('tour_config.pricing.child'))}</th><th>${esc(ti('tour_config.pricing.infant'))}</th><th></th></tr></thead>
+      <thead><tr><th>${esc(ti('tour_config.pricing.season'))}</th><th>${esc(ti('tour_config.pricing.segment'))}</th><th>${esc(ti('tour_config.pricing.pax_band'))}</th><th>${adultHdr}</th>${isDayTour ? '' : `<th>${esc(ti('tour_config.pricing.triple_room', {}, 'Triple'))}</th><th>${esc(ti('tour_config.pricing.private_room'))}</th>`}<th>${esc(ti('tour_config.pricing.child'))}</th><th>${esc(ti('tour_config.pricing.infant'))}</th><th></th></tr></thead>
         <tbody>${prices.map(p => `<tr>
           <td>${esc(seasonMap[p.season_id]  ?? p.season_id)}</td>
           <td>${esc(segmentMap[p.segment_id] ?? p.segment_id)}</td>
           <td style="font-size:11px">${esc(paxMap[p.pax_band_id] ?? p.pax_band_id)}</td>
           <td class="num">${fmtMoney(p.adult_shared_room_price ?? 0)}</td>
-          <td class="num">${fmtMoney(p.adult_single_room_price ?? 0)}</td>
+          ${isDayTour ? '' : `<td class="num">${fmtMoney(p.adult_triple_room_price ?? 0)}</td>
+          <td class="num">${fmtMoney(p.adult_single_room_price ?? 0)}</td>`}
           <td class="num">${fmtMoney(p.child_shared_with_parents_price ?? 0)}</td>
           <td class="num">${fmtMoney(p.infant_price ?? 0)}</td>
-          <td class="del-col"><span style="display:inline-flex;align-items:center;gap:2px"><button class="btn-icon-copy" onclick="copyPriceRow('${esc(p.season_id)}','${esc(p.segment_id)}','${esc(p.pax_band_id)}',${p.adult_shared_room_price??0},${p.adult_single_room_price??0},${p.child_shared_with_parents_price??0},${p.infant_price??0})" title="${esc(ti('tour_config.pricing.copy_to_form'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="btn-icon-del" onclick="deletePricingItem('tour-prices','${esc(p.id)}')" title="${esc(ti('tour_config.pricing.delete_price'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></span></td>
+          <td class="del-col"><span style="display:inline-flex;align-items:center;gap:2px"><button class="btn-icon-copy" onclick="copyPriceRow('${esc(p.season_id)}','${esc(p.segment_id)}','${esc(p.pax_band_id)}',${p.adult_shared_room_price??0},${p.adult_triple_room_price??0},${p.adult_single_room_price??0},${p.child_shared_with_parents_price??0},${p.infant_price??0})" title="${esc(ti('tour_config.pricing.copy_to_form'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="btn-icon-del" onclick="deletePricingItem('tour-prices','${esc(p.id)}')" title="${esc(ti('tour_config.pricing.delete_price'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></span></td>
         </tr>`).join('')}
         </tbody></table></div>`;
 
   // Populate add-price selects
   const addForm = document.getElementById('pricing-add-form');
   addForm.style.display = (seasons.length && segments.length && paxBands.length) ? '' : 'none';
+  // Day tour: update add-price form labels and visibility
+  const apSharedLabel = document.querySelector('label[for="ap-shared"], #pricing-add-form label[data-i18n="tour_config.pricing.shared_room"]');
+  if (apSharedLabel) apSharedLabel.setAttribute('data-i18n', isDayTour ? 'tour_config.pricing.adult_price' : 'tour_config.pricing.shared_room');
+  const apSharedLabelEl = document.querySelector('#pricing-add-form [data-i18n="tour_config.pricing.shared_room"], #pricing-add-form [data-i18n="tour_config.pricing.adult_price"]');
+  if (apSharedLabelEl) apSharedLabelEl.textContent = isDayTour ? ti('tour_config.pricing.adult_price', {}, 'Adult') : ti('tour_config.pricing.shared_room');
+  const apTripleWrap = document.getElementById('ap-triple')?.closest('div');
+  const apSingleWrap = document.getElementById('ap-single')?.closest('div');
+  if (apTripleWrap) apTripleWrap.style.display = isDayTour ? 'none' : '';
+  if (apSingleWrap) apSingleWrap.style.display = isDayTour ? 'none' : '';
   const setSel = (id, items, labelFn) => {
     const el = document.getElementById(id);
     el.innerHTML = '<option value="">&mdash;</option>' + items.map(i => `<option value="${esc(i.id)}">${esc(labelFn(i))}</option>`).join('');
@@ -4033,11 +4207,12 @@ document.getElementById('price-currency-sel').addEventListener('change', e => {
   loadPricing();
 });
 
-function copyPriceRow(seasonId, segmentId, paxBandId, shared, single, child, infant) {
+function copyPriceRow(seasonId, segmentId, paxBandId, shared, triple, single, child, infant) {
   document.getElementById('ap-season').value  = seasonId;
   document.getElementById('ap-segment').value = segmentId;
   document.getElementById('ap-paxband').value = paxBandId;
   document.getElementById('ap-shared').value  = shared;
+  document.getElementById('ap-triple').value  = triple || '';
   document.getElementById('ap-single').value  = single;
   document.getElementById('ap-child').value   = child;
   document.getElementById('ap-infant').value  = infant;
@@ -4127,6 +4302,7 @@ document.getElementById('btn-save-defs').addEventListener('click', () => {
   const ta = document.getElementById('pricing-defs-editor');
   _pricingDefs = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
   try { localStorage.setItem('bv_pricing_defs', JSON.stringify(_pricingDefs)); } catch(_e) {}
+  api('/api/tenants/settings', { method: 'PATCH', body: JSON.stringify({ pricing_notes_text: ta.value }) }).catch(() => {});
   if (_bvRevealed) renderDefs();
   toast(ti('tour_config.message.pricing_definitions_updated'));
 });
@@ -4188,13 +4364,14 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
     tour_id:   S.tour.id,
     season_id, segment_id, pax_band_id,
     adult_shared_room_price:         Number(document.getElementById('ap-shared').value)  || 0,
+    adult_triple_room_price:          Number(document.getElementById('ap-triple').value)  || null,
     adult_single_room_price:         Number(document.getElementById('ap-single').value)  || 0,
     child_shared_with_parents_price: Number(document.getElementById('ap-child').value)   || 0,
     infant_price:                    Number(document.getElementById('ap-infant').value)  || 0,
   };
   try {
     await api('/api/pricing/tour-prices', { method: 'POST', body: JSON.stringify(body) });
-    ['ap-shared','ap-single','ap-child','ap-infant'].forEach(id => document.getElementById(id).value = '');
+    ['ap-shared','ap-triple','ap-single','ap-child','ap-infant'].forEach(id => document.getElementById(id).value = '');
     toast(ti('tour_config.message.price_row_saved'));
     loadPricing();
   } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }

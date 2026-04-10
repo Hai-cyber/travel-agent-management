@@ -54,7 +54,7 @@ const tenants = new Hono();
 // [SEC] Whitelist các cột Agent được phép tự cập nhật.
 // Không được cập nhật: id, slug, name, created_at (bất biến)
 const ALLOWED_SETTINGS_COLUMNS = [
-  'exchange_rate', 'target_currency', 'booking_currency', 'default_locale', 'market_skin_key', 'primary_market', 'pricing_policy', 'infant_policy_text',
+  'exchange_rate', 'target_currency', 'booking_currency', 'default_locale', 'market_skin_key', 'primary_market', 'pricing_policy', 'infant_policy_text', 'pricing_notes_text',
   'custom_domain', 'subscription_status', 'payment_config_json', 'notification_config',
   // publish-gate fields (migration 0025)
   'subdomain', 'stripe_customer_id',
@@ -414,7 +414,7 @@ tenants.patch('/settings', async (c) => {
   try {
     // [AUDIT] Đọc giá trị hiện tại trước khi cập nhật để log thay đổi
     const current = await c.env.DB
-      .prepare('SELECT name, exchange_rate, target_currency, booking_currency, default_locale, market_skin_key, primary_market, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
+      .prepare('SELECT name, exchange_rate, target_currency, booking_currency, default_locale, market_skin_key, primary_market, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -544,7 +544,7 @@ tenants.patch('/settings', async (c) => {
 
     // Trả về settings mới để UI có thể cập nhật hiển thị ngay
     const updated = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -581,7 +581,7 @@ tenants.get('/settings', async (c) => {
 
   try {
     const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 

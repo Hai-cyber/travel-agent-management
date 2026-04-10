@@ -378,12 +378,14 @@
               <input type="number" min="0" value="" placeholder="0" class="tbv-input" data-tbv-adults="1" />
               ${esc(t('tour_config.pricing.phase1_adults_and'))}
               <input type="number" min="0" value="0" class="tbv-input tiny" data-tbv-children="1" />
-              ${esc(t('tour_config.pricing.phase1_children'))}<br>
+              ${esc(t('tour_config.pricing.phase1_children'))}<span data-tbv-room-row="1"><br>
               ${esc(t('tour_config.pricing.phase1_staying_in'))}
               <input type="number" min="0" value="" placeholder="0" class="tbv-input tiny" data-tbv-doubles="1" />
               ${esc(t('tour_config.pricing.phase1_double_rooms_and'))}
+              <input type="number" min="0" value="0" placeholder="0" class="tbv-input tiny" data-tbv-triples="1" />
+              ${esc(t('tour_config.pricing.phase1_triple_rooms_and', {}, 'triple rooms and'))}
               <input type="number" min="0" value="" placeholder="0" class="tbv-input tiny" data-tbv-singles="1" />
-              ${esc(t('tour_config.pricing.phase1_single_rooms'))}
+              ${esc(t('tour_config.pricing.phase1_single_rooms'))}</span>
             </p>
             <div class="tbv-hint" data-tbv-room-hint="1"></div>
             <button type="button" class="tbv-primary" data-tbv-calc-button="1" disabled>${esc(t('tour_config.pricing.calculate_final_price'))}</button>
@@ -407,7 +409,7 @@
             <div class="tbv-surplus tbv-warn" data-tbv-surplus="1"></div>
             <div style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(212,175,115,0.3)">
               <div class="tbv-tier-label">${esc(t('tour_config.pricing.good_to_know'))}</div>
-              <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;color:#6b625a;font-size:12px;line-height:1.65">${defsMarkup}</ul>
+              <ul data-tbv-defs style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;color:#6b625a;font-size:12px;line-height:1.65">${defsMarkup}</ul>
             </div>
           </div>
         </div>
@@ -438,6 +440,7 @@
     drawer.setAttribute('data-tour-id', root.getAttribute('data-tour-id') || '');
     drawer.setAttribute('data-tenant-id', root.getAttribute('data-tenant-id') || '');
     drawer.setAttribute('data-currency', root.getAttribute('data-currency') || 'EUR');
+    drawer.setAttribute('data-tour-type', root.getAttribute('data-tour-type') || 'package');
     drawer.innerHTML = buildViewMarkup('drawer', t, pricingDefinitions);
 
     document.body.appendChild(overlay);
@@ -452,6 +455,8 @@
     const currency = root.getAttribute('data-currency') || 'EUR';
     const tourId = root.getAttribute('data-tour-id') || '';
     const tenantId = root.getAttribute('data-tenant-id') || '';
+    const tourType = root.getAttribute('data-tour-type') || 'package';
+    const isDayTour = tourType === 'day_tour';
     const t = (key, vars, fallback) => applyVars(getNestedValue(messages, key) ?? fallback ?? getNestedValue(DEFAULT_MESSAGES, key) ?? key, vars);
     const pricingDefinitions = [
       t('public_booking.def_infant'),
@@ -465,6 +470,8 @@
     const compact = root.querySelector('[data-tbv-compact]');
     const compactText = root.querySelector('[data-tbv-compact-text]');
     const roomHint = root.querySelector('[data-tbv-room-hint]');
+    const roomRow = root.querySelector('[data-tbv-room-row]');
+    if (isDayTour && roomRow) roomRow.style.display = 'none';
     const roomStatus = root.querySelector('[data-tbv-room-status]');
     const surplusHint = root.querySelector('[data-tbv-surplus]');
     const segTabs = root.querySelector('[data-tbv-seg-tabs]');
@@ -480,10 +487,12 @@
     const adultsInput = root.querySelector('[data-tbv-adults]');
     const childrenInput = root.querySelector('[data-tbv-children]');
     const doublesInput = root.querySelector('[data-tbv-doubles]');
+    const triplesInput = root.querySelector('[data-tbv-triples]');
     const singlesInput = root.querySelector('[data-tbv-singles]');
 
     const PAX_TYPES = [
-      { key: 'adult_shared_room_count', label: t('public_booking.traveller_adult_shared'), priceField: 'adult_shared_room_price', step: 2 },
+      { key: 'adult_shared_room_count', label: isDayTour ? t('public_booking.traveller_adult', {}, 'Adult') : t('public_booking.traveller_adult_shared'), priceField: 'adult_shared_room_price', step: isDayTour ? 1 : 2 },
+      { key: 'adult_triple_room_count', label: t('public_booking.traveller_adult_triple', {}, 'Triple room (per person)'), priceField: 'adult_triple_room_price', step: 3 },
       { key: 'adult_single_room_count', label: t('public_booking.traveller_adult_private'), priceField: 'adult_single_room_price', step: 1 },
       { key: 'child_count', label: t('tour_config.pricing.child_with_parents'), priceField: 'child_shared_with_parents_price', step: 1 },
       { key: 'infant_count', label: t('public_booking.traveller_infant'), priceField: 'infant_price', step: 1 },
@@ -496,7 +505,7 @@
       paymentSettings: null,
       calcState: {
         segmentId: null,
-        pax: { adult_shared_room_count: 2, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
+        pax: { adult_shared_room_count: 2, adult_triple_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
         date: new Date().toISOString().slice(0, 10),
       },
       lastQuote: null,
@@ -526,6 +535,7 @@
         seasonName: '',
         unitPrices: {
           adult_shared_room: 0,
+          adult_triple_room: 0,
           adult_single_room: 0,
           child_shared_with_parents: 0,
           infant: 0,
@@ -540,6 +550,7 @@
       const activeSegment = state.pricingData.segments.find((segment) => String(segment.id) === String(state.calcState.segmentId)) || null;
       const unitPrices = {
         adult_shared_room: Number(priceData.adult_shared_room ?? priceData.adult_shared_room_price ?? 0),
+        adult_triple_room: Number(priceData.adult_triple_room ?? priceData.adult_triple_room_price ?? 0),
         adult_single_room: Number(priceData.adult_single_room ?? priceData.adult_single_room_price ?? 0),
         child_shared_with_parents: Number(priceData.child_shared_with_parents ?? priceData.child_shared_with_parents_price ?? 0),
         infant: Number(priceData.infant ?? priceData.infant_price ?? 0),
@@ -825,9 +836,16 @@
       const adults = clampInt(adultsInput?.value);
       const children = clampInt(childrenInput?.value);
       const doubles = clampInt(doublesInput?.value);
+      const triples = clampInt(triplesInput?.value);
       const singles = clampInt(singlesInput?.value);
       const datePart = travelDate ? new Date(travelDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'no date';
-      return `${datePart} · ${adults} adults, ${children} children · ${doubles} dbl + ${singles} sgl`;
+      const roomParts = [];
+      if (doubles > 0) roomParts.push(`${doubles} dbl`);
+      if (triples > 0) roomParts.push(`${triples} tpl`);
+      if (singles > 0) roomParts.push(`${singles} sgl`);
+      return isDayTour
+        ? `${datePart} · ${adults} adults, ${children} children`
+        : `${datePart} · ${adults} adults, ${children} children · ${roomParts.join(' + ') || '0 rooms'}`;
     }
 
     function showCompact() {
@@ -846,14 +864,20 @@
       const doubles = Math.floor(adults / 2);
       const singles = adults % 2;
       if (doublesInput && !doublesInput.dataset.userOverride) doublesInput.value = String(doubles);
+      if (triplesInput && !triplesInput.dataset.userOverride) triplesInput.value = '0';
       if (singlesInput && !singlesInput.dataset.userOverride) singlesInput.value = String(singles);
     }
 
     function validateRooms() {
+      if (isDayTour) {
+        if (roomHint) roomHint.style.display = 'none';
+        return true;
+      }
       const adults = clampInt(adultsInput?.value);
       const doubles = clampInt(doublesInput?.value);
+      const triples = clampInt(triplesInput?.value);
       const singles = clampInt(singlesInput?.value);
-      const capacity = doubles * 2 + singles;
+      const capacity = doubles * 2 + triples * 3 + singles;
       if (adults === 0) {
         roomHint.style.display = 'none';
         return true;
@@ -872,30 +896,53 @@
         return true;
       }
       roomHint.className = 'tbv-hint tbv-good';
-      roomHint.textContent = `${doubles} double + ${singles} single = exactly ${capacity} adults.`;
+      const parts = [];
+      if (doubles > 0) parts.push(`${doubles} double`);
+      if (triples > 0) parts.push(`${triples} triple`);
+      if (singles > 0) parts.push(`${singles} single`);
+      roomHint.textContent = `${parts.join(' + ')} = exactly ${capacity} adults.`;
       return true;
     }
 
     function syncPhase1ToPax() {
       const adults = clampInt(adultsInput?.value);
       const children = clampInt(childrenInput?.value);
+
+      if (isDayTour) {
+        state.calcState.pax = {
+          adult_shared_room_count: adults,
+          adult_triple_room_count: 0,
+          adult_single_room_count: 0,
+          child_count: children,
+          infant_count: 0,
+        };
+        return;
+      }
+
       const doubles = clampInt(doublesInput?.value);
+      const triples = clampInt(triplesInput?.value);
       const singles = clampInt(singlesInput?.value);
-      const totalRooms = doubles + singles;
+      const totalRooms = doubles + triples + singles;
       let sharedPax = 0;
+      let triplePax = 0;
       let privatePax = 0;
       if (adults > 0) {
         if (totalRooms >= adults) {
           sharedPax = 0;
+          triplePax = 0;
           privatePax = adults;
         } else {
           const fullyOccupied = Math.min(doubles, adults - totalRooms);
           sharedPax = fullyOccupied * 2;
-          privatePax = adults - sharedPax;
+          const afterDoubles = adults - sharedPax;
+          const fullyOccupiedTriples = Math.min(triples, Math.max(0, afterDoubles - (totalRooms - fullyOccupied - triples)));
+          triplePax = fullyOccupiedTriples * 3;
+          privatePax = adults - sharedPax - triplePax;
         }
       }
       state.calcState.pax = {
         adult_shared_room_count: sharedPax,
+        adult_triple_room_count: triplePax,
         adult_single_room_count: privatePax,
         child_count: children,
         infant_count: 0,
@@ -904,11 +951,14 @@
 
     function syncTableToPax(key, newQty) {
       if (key === 'adult_shared_room_count') newQty = Math.max(0, Math.floor(newQty / 2) * 2);
+      if (key === 'adult_triple_room_count') newQty = Math.max(0, Math.floor(newQty / 3) * 3);
       state.calcState.pax[key] = Math.max(0, newQty);
       const sharedPax = state.calcState.pax.adult_shared_room_count || 0;
+      const triplePax = state.calcState.pax.adult_triple_room_count || 0;
       const privatePax = state.calcState.pax.adult_single_room_count || 0;
-      const totalAdults = sharedPax + privatePax;
+      const totalAdults = sharedPax + triplePax + privatePax;
       if (doublesInput) doublesInput.value = String(sharedPax / 2);
+      if (triplesInput) triplesInput.value = String(triplePax / 3);
       if (singlesInput) singlesInput.value = String(privatePax);
       if (adultsInput) adultsInput.value = String(totalAdults);
       if (childrenInput) childrenInput.value = String(state.calcState.pax.child_count || 0);
@@ -918,16 +968,20 @@
     }
 
     function updateRoomStatusPill() {
+      if (isDayTour) { roomStatus.style.display = 'none'; return; }
       const sharedPax = state.calcState.pax.adult_shared_room_count || 0;
+      const triplePax = state.calcState.pax.adult_triple_room_count || 0;
       const privatePax = state.calcState.pax.adult_single_room_count || 0;
-      const adults = sharedPax + privatePax;
+      const adults = sharedPax + triplePax + privatePax;
       if (adults < 1) {
         roomStatus.style.display = 'none';
         return;
       }
       const doubles = sharedPax / 2;
+      const tripleRooms = triplePax / 3;
       const parts = [];
       if (doubles > 0) parts.push(`${doubles} shared double${doubles > 1 ? 's' : ''}`);
+      if (tripleRooms > 0) parts.push(`${tripleRooms} triple room${tripleRooms > 1 ? 's' : ''}`);
       if (privatePax > 0) parts.push(`${privatePax} private room${privatePax > 1 ? 's' : ''}`);
       roomStatus.style.display = 'block';
       roomStatus.className = 'tbv-status tbv-good';
@@ -936,14 +990,16 @@
 
     function updateSurplusHint() {
       const sharedPax = state.calcState.pax.adult_shared_room_count || 0;
+      const triplePax = state.calcState.pax.adult_triple_room_count || 0;
       const privatePax = state.calcState.pax.adult_single_room_count || 0;
-      const adults = sharedPax + privatePax;
+      const adults = sharedPax + triplePax + privatePax;
       if (adults < 1) {
         surplusHint.style.display = 'none';
         return;
       }
       const doubles = sharedPax / 2;
-      const totalRooms = doubles + privatePax;
+      const tripleRooms = triplePax / 3;
+      const totalRooms = doubles + tripleRooms + privatePax;
       const minRooms = Math.ceil(adults / 2);
       if (privatePax > 0 && totalRooms > minRooms) {
         surplusHint.style.display = 'block';
@@ -1012,6 +1068,7 @@
         pax_band_name: localBand?.name || '',
       }, {
         adult_shared_room_price: priceRow?.adult_shared_room_price,
+        adult_triple_room_price: priceRow?.adult_triple_room_price,
         adult_single_room_price: priceRow?.adult_single_room_price,
         child_shared_with_parents_price: priceRow?.child_shared_with_parents_price,
         infant_price: priceRow?.infant_price,
@@ -1036,12 +1093,14 @@
         const authoritativeTotal = result.invoice?.grand_total ?? localTotal;
         const authoritativeUnitPrices = result.unit_prices || {
           adult_shared_room: result.prices?.adult_shared_room?.price_usd,
+          adult_triple_room: result.prices?.adult_triple_room?.price_usd,
           adult_single_room: result.prices?.adult_single_room?.price_usd,
           child_shared_with_parents: result.prices?.child_shared_with_parents?.price_usd,
           infant: result.prices?.infant?.price_usd,
         };
         renderPaxRows({
           adult_shared_room_price: authoritativeUnitPrices.adult_shared_room ?? 0,
+          adult_triple_room_price: authoritativeUnitPrices.adult_triple_room ?? 0,
           adult_single_room_price: authoritativeUnitPrices.adult_single_room ?? 0,
           child_shared_with_parents_price: authoritativeUnitPrices.child_shared_with_parents ?? 0,
           infant_price: authoritativeUnitPrices.infant ?? 0,
@@ -1056,6 +1115,14 @@
         if (labels.length) {
           rateStatusEl.textContent = labels.join(' | ');
           rateStatusEl.style.display = 'inline-block';
+        }
+        if (result.pricing_notes?.length) {
+          const defsList = root.querySelector('[data-tbv-defs]');
+          if (defsList) {
+            defsList.innerHTML = result.pricing_notes
+              .map((item) => `<li style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--color-secondary,#d4af73);font-weight:700">•</span><span>${esc(item)}</span></li>`)
+              .join('');
+          }
         }
       } catch {
         // Keep local total as source of truth for the visible total.
@@ -1157,6 +1224,12 @@
     });
 
     if (dateInput && !dateInput.value) dateInput.value = state.calcState.date;
+    if (isDayTour) {
+      const roomRow = root.querySelector('[data-tbv-room-row]');
+      if (roomRow) roomRow.style.display = 'none';
+      if (roomHint) roomHint.style.display = 'none';
+      if (roomStatus) roomStatus.style.display = 'none';
+    }
     validateRooms();
     syncPaymentHook(buildPaymentPayload(null));
 

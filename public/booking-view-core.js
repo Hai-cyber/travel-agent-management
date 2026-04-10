@@ -41,48 +41,59 @@
     };
   }
 
-  function allocateRooms(adults, doubles, singles) {
+  function allocateRooms(adults, doubles, triples, singles) {
     const safeAdults = clampNonNegativeInt(adults);
     const safeDoubles = clampNonNegativeInt(doubles);
+    const safeTriples = clampNonNegativeInt(triples);
     const safeSingles = clampNonNegativeInt(singles);
-    const totalRooms = safeDoubles + safeSingles;
+    const totalRooms = safeDoubles + safeTriples + safeSingles;
 
     let sharedPax = 0;
+    let triplePax = 0;
     let privatePax = 0;
     if (safeAdults > 0) {
       if (totalRooms >= safeAdults) {
         sharedPax = 0;
+        triplePax = 0;
         privatePax = safeAdults;
       } else {
-        const fullyOccupied = Math.min(safeDoubles, safeAdults - totalRooms);
-        sharedPax = fullyOccupied * 2;
-        privatePax = safeAdults - sharedPax;
+        // Pack doubles first, then triples, rest overflow to private
+        const fullyOccupiedDoubles = Math.min(safeDoubles, Math.max(0, safeAdults - totalRooms));
+        sharedPax = fullyOccupiedDoubles * 2;
+        const remaining = safeAdults - sharedPax;
+        const fullyOccupiedTriples = Math.min(safeTriples, Math.max(0, remaining - (safeSingles + safeTriples - fullyOccupiedDoubles)));
+        triplePax = fullyOccupiedTriples * 3;
+        privatePax = safeAdults - sharedPax - triplePax;
       }
     }
 
     return {
       adult_shared_room_count: sharedPax,
+      adult_triple_room_count: triplePax,
       adult_single_room_count: privatePax,
     };
   }
 
   function paxToSentenceInputs(pax) {
     const sharedPax = clampNonNegativeInt(pax?.adult_shared_room_count);
+    const triplePax = clampNonNegativeInt(pax?.adult_triple_room_count);
     const privatePax = clampNonNegativeInt(pax?.adult_single_room_count);
     return {
-      adults: sharedPax + privatePax,
+      adults: sharedPax + triplePax + privatePax,
       doubles: sharedPax / 2,
+      triples: triplePax / 3,
       singles: privatePax,
       children: clampNonNegativeInt(pax?.child_count),
       infants: clampNonNegativeInt(pax?.infant_count),
     };
   }
 
-  function roomValidation(adults, doubles, singles) {
+  function roomValidation(adults, doubles, triples, singles) {
     const safeAdults = clampNonNegativeInt(adults);
     const safeDoubles = clampNonNegativeInt(doubles);
+    const safeTriples = clampNonNegativeInt(triples);
     const safeSingles = clampNonNegativeInt(singles);
-    const capacity = safeDoubles * 2 + safeSingles;
+    const capacity = safeDoubles * 2 + safeTriples * 3 + safeSingles;
 
     if (safeAdults === 0) {
       return { type: 'none', message: '' };
@@ -107,11 +118,13 @@
     };
   }
 
-  function childShareValidation(doubles, singles, children) {
+  function childShareValidation(doubles, triples, singles, children) {
     const safeDoubles = clampNonNegativeInt(doubles);
+    const safeTriples = clampNonNegativeInt(triples);
     const safeSingles = clampNonNegativeInt(singles);
     const safeChildren = clampNonNegativeInt(children);
-    const maxSharedChildren = safeDoubles + (safeSingles * 2);
+    // Triple rooms: allow 1 child per triple room (same rule as double)
+    const maxSharedChildren = safeDoubles + safeTriples + (safeSingles * 2);
 
     if ((safeDoubles + safeSingles) < 1 || safeChildren === 0) {
       return { type: 'none', message: '', maxSharedChildren };
@@ -134,25 +147,30 @@
 
   function roomStatus(pax) {
     const sharedPax = clampNonNegativeInt(pax?.adult_shared_room_count);
+    const triplePax = clampNonNegativeInt(pax?.adult_triple_room_count);
     const privatePax = clampNonNegativeInt(pax?.adult_single_room_count);
-    const adults = sharedPax + privatePax;
+    const adults = sharedPax + triplePax + privatePax;
     if (adults < 1) return '';
 
     const doubles = sharedPax / 2;
+    const tripleRooms = triplePax / 3;
     const parts = [];
     if (doubles > 0) parts.push(text('roomStatusShared', { count: doubles, suffix: doubles > 1 ? 's' : '' }));
+    if (tripleRooms > 0) parts.push(`${tripleRooms} triple room${tripleRooms > 1 ? 's' : ''}`);
     if (privatePax > 0) parts.push(text('roomStatusPrivate', { count: privatePax, suffix: privatePax > 1 ? 's' : '' }));
     return text('roomStatusConfirmed', { parts: parts.join(' + '), adults, suffix: adults > 1 ? 's' : '' });
   }
 
   function surplusHint(pax) {
     const sharedPax = clampNonNegativeInt(pax?.adult_shared_room_count);
+    const triplePax = clampNonNegativeInt(pax?.adult_triple_room_count);
     const privatePax = clampNonNegativeInt(pax?.adult_single_room_count);
-    const adults = sharedPax + privatePax;
+    const adults = sharedPax + triplePax + privatePax;
     if (adults < 1) return '';
 
     const doubles = sharedPax / 2;
-    const totalRooms = doubles + privatePax;
+    const tripleRooms = triplePax / 3;
+    const totalRooms = doubles + tripleRooms + privatePax;
     const minRooms = Math.ceil(adults / 2);
     if (privatePax > 0 && totalRooms > minRooms) {
       return text('soleOccupancyHint');
@@ -162,6 +180,7 @@
 
   function effectivePaxCount(pax) {
     return clampNonNegativeInt(pax?.adult_shared_room_count)
+      + clampNonNegativeInt(pax?.adult_triple_room_count)
       + clampNonNegativeInt(pax?.adult_single_room_count)
       + clampNonNegativeInt(pax?.child_count);
   }

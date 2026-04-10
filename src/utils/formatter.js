@@ -250,6 +250,7 @@ export function enrichPrice(amountUSD, tenantConfig) {
 export function enrichPricesObject(prices, tenantConfig) {
   return {
     adult_shared_room:         enrichPrice(prices.adult_shared_room, tenantConfig),
+    adult_triple_room:         enrichPrice(prices.adult_triple_room, tenantConfig),
     adult_single_room:         enrichPrice(prices.adult_single_room, tenantConfig),
     child_shared_with_parents: enrichPrice(prices.child_shared_with_parents, tenantConfig),
   };

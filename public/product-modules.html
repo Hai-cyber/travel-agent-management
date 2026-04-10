@@ -801,6 +801,7 @@
     <div class="mode-tabs">
       <a class="pill" data-mode-link="destinations" href="#">Destinations</a>
       <a class="pill" data-mode-link="hotels" href="#">Hotels</a>
+      <a class="pill" data-mode-link="libraries" href="#">Libraries</a>
       <a class="pill" data-mode-link="gallery" href="#">Gallery</a>
     </div>
 
@@ -989,7 +990,7 @@
     function getModeFromParams() {
       const params = getParams();
       const mode = String(params.get('mode') || 'destinations').trim().toLowerCase();
-      return ['destinations', 'hotels', 'gallery'].includes(mode) ? mode : 'destinations';
+      return ['destinations', 'hotels', 'gallery', 'libraries'].includes(mode) ? mode : 'destinations';
     }
 
     function api(path, options = {}) {
@@ -1549,9 +1550,16 @@
       };
     }
 
+    function getHotelStarLabel(hotel) {
+      const sr = hotel?.star_rating;
+      if (!sr) return '';
+      return '★'.repeat(Number(sr)) + '☆'.repeat(Math.max(0, 5 - Number(sr)));
+    }
+
     function getHotelFlags(hotel) {
       return {
         status: String(hotel?.status || 'draft'),
+        home: Boolean(hotel?.show_on_home),
       };
     }
 
@@ -1566,10 +1574,11 @@
 
     async function loadSourceData() {
       await ensureTaxonomyCatalog();
-      const [toursResult, hotelsResult, destinationsResult, assetsResult] = await Promise.allSettled([
+      const [toursResult, hotelsResult, destinationsResult, librariesResult, assetsResult] = await Promise.allSettled([
         api('/api/tours'),
         api('/api/universal/site/hotels'),
         api('/api/universal/destinations'),
+        api('/api/universal/media-libraries'),
         api('/api/tenant/assets'),
       ]);
       if (toursResult.status !== 'fulfilled') throw toursResult.reason;
@@ -1579,12 +1588,16 @@
       state.destinations = destinationsResult.status === 'fulfilled' && Array.isArray(destinationsResult.value.destinations)
         ? destinationsResult.value.destinations
         : [];
+      state.libraries = librariesResult.status === 'fulfilled' && Array.isArray(librariesResult.value.libraries)
+        ? librariesResult.value.libraries
+        : [];
       state.assets = assetsResult.status === 'fulfilled' && Array.isArray(assetsResult.value.items)
         ? assetsResult.value.items
         : [];
       if (!state.selectedTourId && state.tours[0]) state.selectedTourId = state.tours[0].id;
       if (!state.selectedHotelId && state.hotels[0]) state.selectedHotelId = state.hotels[0].id;
       if (!state.selectedDestinationId && state.destinations[0]) state.selectedDestinationId = state.destinations[0].id;
+      if (!state.selectedLibraryId && state.libraries[0]) state.selectedLibraryId = state.libraries[0].id;
     }
 
     function applyAssetToField(targetInputId, assetUrl, appendMode = false) {
@@ -1753,6 +1766,7 @@
     async function selectHotel(hotelId) {
       state.selectedHotelId = hotelId;
       state.selectedDestinationId = '';
+      state.selectedLibraryId = '';
       const hotelPayload = await api(`/api/universal/hotels/${encodeURIComponent(hotelId)}`);
       state.currentHotel = hotelPayload.hotel || null;
       state.currentTour = null;
@@ -1776,6 +1790,13 @@
         });
         return;
       }
+      if (state.mode === 'libraries') {
+        node.innerHTML = '<button id="btn-add-library" class="button primary small" type="button">Add Library</button>';
+        $('btn-add-library').addEventListener('click', () => {
+          createLibrary().catch((error) => setStatus(error.message || 'Failed to create library', 'error'));
+        });
+        return;
+      }
       node.innerHTML = '<div class="hint">Open a gallery source, then use the image-level Add button inside the editor.</div>';
     }
 
@@ -1784,26 +1805,44 @@
       const list = $('entity-list');
       const mode = state.mode;
       if (mode === 'hotels') {
-        $('list-title').textContent = 'Properties';
-        $('list-note').textContent = 'Each property belongs to the separate hotel engine. It can link to a tour, but it does not overwrite tour-side accommodation storytelling.';
-        list.innerHTML = state.hotels.length
-          ? state.hotels.map((hotel) => {
-              const flags = getHotelFlags(hotel);
-              return `
-                <button type="button" class="entity-item ${state.selectedHotelId === hotel.id ? 'active' : ''}" data-hotel-id="${esc(hotel.id)}">
-                  <div class="entity-item-main">
-                    <div class="entity-thumb">
-                      ${getHotelPreviewUrl(hotel) ? `<img src="${esc(getHotelPreviewUrl(hotel))}" alt="${esc(getHotelLabel(hotel))}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
-                    </div>
-                    <div class="entity-copy">
-                      <strong>${esc(getHotelLabel(hotel))}</strong>
-                      <span class="entity-meta">${esc(hotel.address || 'No address yet')}</span>
-                      <div class="entity-flags">
-                        <span class="flag ${flags.status === 'active' ? 'active' : ''}">${esc(flags.status)}</span>
+        $('list-title').textContent = 'Hotels';
+        $('list-note').textContent = 'Grouped by region, sorted by star rating. Link hotels to tours from the Tour Content tab.';
+        // Group by region
+        const grouped = {};
+        const UNGROUPED = '(No region)';
+        state.hotels.forEach((hotel) => {
+          const key = hotel.region || UNGROUPED;
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(hotel);
+        });
+        const regionKeys = Object.keys(grouped).sort((a, b) => {
+          if (a === UNGROUPED) return 1;
+          if (b === UNGROUPED) return -1;
+          return a.localeCompare(b);
+        });
+        list.innerHTML = regionKeys.length
+          ? regionKeys.map((region) => {
+              const items = grouped[region].map((hotel) => {
+                const flags = getHotelFlags(hotel);
+                const stars = getHotelStarLabel(hotel);
+                return `
+                  <button type="button" class="entity-item ${state.selectedHotelId === hotel.id ? 'active' : ''}" data-hotel-id="${esc(hotel.id)}">
+                    <div class="entity-item-main">
+                      <div class="entity-thumb">
+                        ${getHotelPreviewUrl(hotel) ? `<img src="${esc(getHotelPreviewUrl(hotel))}" alt="${esc(getHotelLabel(hotel))}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No image</div>'}
+                      </div>
+                      <div class="entity-copy">
+                        <strong>${esc(getHotelLabel(hotel))}</strong>
+                        ${stars ? `<span class="entity-meta" style="color:#f59e0b;font-size:13px">${esc(stars)}</span>` : ''}
+                        <span class="entity-meta">${esc(hotel.address || 'No address yet')}</span>
+                        <div class="entity-flags">
+                          <span class="flag ${flags.status === 'active' ? 'active' : ''}">${esc(flags.status)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>`;
+                  </button>`;
+              }).join('');
+              return `<div style="padding:10px 18px 4px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)">${esc(region)}</div>${items}`;
             }).join('')
           : '<p class="empty" style="padding:18px">No hotel found yet.</p>';
         list.querySelectorAll('[data-hotel-id]').forEach((button) => {
@@ -1840,6 +1879,34 @@
         list.querySelectorAll('[data-dest-id]').forEach((button) => {
           button.addEventListener('click', () => {
             selectDestination(button.dataset.destId).catch((error) => setStatus(error.message || 'Failed to open destination', 'error'));
+          });
+        });
+        return;
+      }
+
+      if (mode === 'libraries') {
+        $('list-title').textContent = 'Photo Libraries';
+        $('list-note').textContent = 'Named photo collections. Assign them to tours from the Tour Content tab to build grouped gallery sections.';
+        list.innerHTML = state.libraries.length
+          ? state.libraries.map((lib) => `
+              <button type="button" class="entity-item ${state.selectedLibraryId === lib.id ? 'active' : ''}" data-library-id="${esc(lib.id)}">
+                <div class="entity-item-main">
+                  <div class="entity-thumb">
+                    ${lib.cover_image ? `<img src="${esc(lib.cover_image)}" alt="${esc(lib.title)}" loading="lazy" />` : '<div class="entity-thumb-placeholder">No cover</div>'}
+                  </div>
+                  <div class="entity-copy">
+                    <strong>${esc(lib.title || 'Untitled library')}</strong>
+                    <span class="entity-meta">${lib.item_count != null ? lib.item_count : (Array.isArray(lib.items) ? lib.items.length : 0)} photo(s)</span>
+                    <div class="entity-flags">
+                      <span class="flag ${lib.status === 'active' ? 'active' : ''}">${esc(lib.status || 'active')}</span>
+                    </div>
+                  </div>
+                </div>
+              </button>`).join('')
+          : '<p class="empty" style="padding:18px">No libraries yet. Click Add Library to create one.</p>';
+        list.querySelectorAll('[data-library-id]').forEach((button) => {
+          button.addEventListener('click', () => {
+            selectLibrary(button.dataset.libraryId).catch((error) => setStatus(error.message || 'Failed to open library', 'error'));
           });
         });
         return;
@@ -1906,6 +1973,9 @@
         <label class="field"><span>Description</span><textarea id="destination-description">${esc(dest.description || '')}</textarea></label>
         <label class="field"><span>Photos (one URL per line)</span><textarea id="destination-gallery" placeholder="One image URL per line" data-preview-target="destination-gallery-preview" data-preview-mode="multi" data-preview-label="Destination photo" data-preview-empty="Photos appear here once you add URLs or upload.">${esc(galleryUrls.join('\n'))}</textarea>${buildFieldPreview('destination-gallery-preview')}${buildAssetTools('destination-gallery', { append: true, uploadLabel: 'Upload destination photo', note: 'Each upload is appended as a new line.' })}</label>
         <label class="field"><span>Status</span><select id="destination-status"><option value="draft" ${dest.status === 'draft' ? 'selected' : ''}>Draft</option><option value="active" ${dest.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${dest.status === 'archived' ? 'selected' : ''}>Archived</option></select></label>
+        <div class="toggle-grid">
+          <label class="toggle"><input id="destination-home-toggle" type="checkbox" ${dest.show_on_home ? 'checked' : ''} /><strong>Show on Homepage (Destinations Section)</strong></label>
+        </div>
         <div class="actions">
           <button id="save-destination" class="button primary" type="button">Save Destination</button>
           <button id="delete-destination" class="button ghost" type="button" style="color:var(--red,#dc2626)">Delete</button>
@@ -1935,14 +2005,23 @@
       const flags = getHotelFlags(hotel);
       $('editor-title').textContent = hotel.name || 'Hotel';
       $('editor-note').textContent = 'Hotel catalog item. Link it to tours from the Tour Content tab.';
+      const starOptions = ['', '1', '2', '3', '4', '5'].map((v) =>
+        `<option value="${v}" ${String(hotel.star_rating || '') === v ? 'selected' : ''}>${v ? `${v} star${v !== '1' ? 's' : ''}` : 'Unrated'}</option>`).join('');
       body.innerHTML = `
         <div class="grid two">
           <label class="field"><span>Hotel Name</span><input id="hotel-name" type="text" value="${esc(hotel.name || '')}" /></label>
+          <label class="field"><span>Region</span><input id="hotel-region" type="text" placeholder="e.g. Ha Long Bay, Hoi An, Da Nang" value="${esc(hotel.region || '')}" /></label>
+        </div>
+        <div class="grid two">
           <label class="field"><span>Address / Location</span><input id="hotel-address" type="text" value="${esc(hotel.address || '')}" /></label>
+          <label class="field"><span>Star Rating</span><select id="hotel-star-rating">${starOptions}</select></label>
         </div>
         <label class="field"><span>Description</span><textarea id="hotel-description">${esc(hotel.description || '')}</textarea></label>
         <label class="field"><span>Photos (one URL per line)</span><textarea id="hotel-gallery" placeholder="One image URL per line" data-preview-target="hotel-gallery-preview" data-preview-mode="multi" data-preview-label="Hotel photo" data-preview-empty="Hotel photo previews appear here line by line.">${esc(buildGalleryObjects(hotel.gallery || [], hotel.name || 'Hotel').map((entry) => entry.src).join('\n'))}</textarea>${buildFieldPreview('hotel-gallery-preview')}${buildAssetTools('hotel-gallery', { append: true, uploadLabel: 'Upload hotel photo', note: 'Each upload is appended as a new line.' })}</label>
         <label class="field"><span>Status</span><select id="hotel-status"><option value="draft" ${flags.status === 'draft' ? 'selected' : ''}>Draft</option><option value="active" ${flags.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${flags.status === 'archived' ? 'selected' : ''}>Archived</option></select></label>
+        <div class="toggle-grid">
+          <label class="toggle"><input id="hotel-home-toggle" type="checkbox" ${flags.home ? 'checked' : ''} /><strong>Show on Homepage (Accommodation Section)</strong></label>
+        </div>
         <div class="actions">
           <button id="save-hotel" class="button primary" type="button">Save Hotel</button>
         </div>`;
@@ -2059,6 +2138,10 @@
         renderGalleryEditor();
         return;
       }
+      if (state.mode === 'libraries') {
+        renderLibraryEditor();
+        return;
+      }
       renderDestinationEditor();
     }
 
@@ -2109,10 +2192,11 @@
         alt: name || `Destination photo ${index + 1}`,
         caption: '',
       }));
+      const showOnHome = Boolean($('destination-home-toggle')?.checked);
       setStatus('Saving destination...');
       const payload = await api(`/api/universal/destinations/${encodeURIComponent(state.currentDestination.id)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name, description, region, gallery, status }),
+        body: JSON.stringify({ name, description, region, gallery, status, show_on_home: showOnHome }),
       });
       state.currentDestination = payload.destination;
       await loadSourceData();
@@ -2124,6 +2208,9 @@
       if (!state.currentHotel) return;
       const hotelName = $('hotel-name').value.trim();
       const address = $('hotel-address').value.trim();
+      const region = $('hotel-region').value.trim();
+      const starRatingRaw = $('hotel-star-rating').value;
+      const star_rating = starRatingRaw ? Number(starRatingRaw) : null;
       const description = $('hotel-description').value.trim();
       const gallery = $('hotel-gallery').value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).map((src, index) => ({
         id: `${state.currentHotel.id}-gallery-${index + 1}`,
@@ -2132,10 +2219,11 @@
         caption: index === 0 ? (hotelName || '') : '',
       }));
       const status = $('hotel-status').value;
+      const showOnHome = Boolean($('hotel-home-toggle')?.checked);
       setStatus('Saving hotel...');
       const payload = await api(`/api/universal/hotels/${encodeURIComponent(state.currentHotel.id)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: hotelName, address, description, gallery, status }),
+        body: JSON.stringify({ name: hotelName, address, region, star_rating, description, gallery, status, show_on_home: showOnHome }),
       });
       state.currentHotel = payload.hotel;
       await loadSourceData();
@@ -2205,6 +2293,91 @@
       await selectHotel(hotelId);
     }
 
+    async function selectLibrary(libraryId) {
+      state.selectedLibraryId = libraryId;
+      state.selectedHotelId = '';
+      state.selectedDestinationId = '';
+      const payload = await api(`/api/universal/media-libraries/${encodeURIComponent(libraryId)}`);
+      state.currentLibrary = payload.library || null;
+      state.currentTour = null;
+      state.currentTourTaxonomy = emptyTaxonomyState();
+      render();
+    }
+
+    function renderLibraryEditor() {
+      const lib = state.currentLibrary;
+      const body = $('editor-body');
+      if (!lib) {
+        body.innerHTML = '<p class="empty">Choose a photo library from the left.</p>';
+        return;
+      }
+      $('editor-title').textContent = lib.title || 'Photo Library';
+      $('editor-note').textContent = 'Reusable photo collection. Assign it to one or more tours from the Tour Content tab.';
+      const items = Array.isArray(lib.items) ? lib.items : [];
+      const itemUrls = items.map((i) => (typeof i === 'string' ? i : i?.src || '')).filter(Boolean).join('\n');
+      body.innerHTML = `
+        <div class="grid two">
+          <label class="field"><span>Library Title</span><input id="library-title" type="text" value="${esc(lib.title || '')}" placeholder="e.g. Ha Long Bay Sunrise" /></label>
+          <label class="field"><span>Cover Image URL</span><input id="library-cover" type="text" value="${esc(lib.cover_image || '')}" data-preview-target="library-cover-preview" data-preview-mode="single" data-preview-label="Cover" data-preview-empty="Cover image preview." />${buildFieldPreview('library-cover-preview')}${buildAssetTools('library-cover', { uploadLabel: 'Upload cover' })}</label>
+        </div>
+        <label class="field"><span>Description</span><textarea id="library-description" rows="2">${esc(lib.description || '')}</textarea></label>
+        <label class="field"><span>Photos (one URL per line)</span><textarea id="library-items" rows="8" placeholder="One image URL per line" data-preview-target="library-items-preview" data-preview-mode="multi" data-preview-label="Photo" data-preview-empty="Photos appear here as you add URLs.">${esc(itemUrls)}</textarea>${buildFieldPreview('library-items-preview')}${buildAssetTools('library-items', { append: true, uploadLabel: 'Upload photo', note: 'Each upload is appended as a new line.' })}</label>
+        <label class="field"><span>Status</span><select id="library-status"><option value="active" ${lib.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${lib.status === 'archived' ? 'selected' : ''}>Archived</option></select></label>
+        <div class="actions">
+          <button id="save-library" class="button primary" type="button">Save Library</button>
+          <button id="delete-library" class="button ghost" type="button" style="color:var(--danger)">Delete Library</button>
+        </div>`;
+      bindAssetToolActions();
+      bindPreviewInputs();
+      $('save-library').addEventListener('click', saveLibrary);
+      $('delete-library').addEventListener('click', async () => {
+        if (!confirm(`Delete library "${lib.title}"? This will also remove it from any linked tours.`)) return;
+        setStatus('Deleting library...');
+        await api(`/api/universal/media-libraries/${encodeURIComponent(lib.id)}`, { method: 'DELETE' });
+        state.currentLibrary = null;
+        state.selectedLibraryId = '';
+        await loadSourceData();
+        render();
+        setStatus('Library deleted.', 'ok');
+      });
+    }
+
+    async function createLibrary() {
+      setStatus('Creating library...');
+      const payload = await api('/api/universal/media-libraries', {
+        method: 'POST',
+        body: JSON.stringify({ title: `New Library ${state.libraries.length + 1}` }),
+      });
+      await loadSourceData();
+      await selectLibrary(payload.library.id);
+      setStatus('Library created.', 'ok');
+    }
+
+    async function saveLibrary() {
+      if (!state.currentLibrary) return;
+      const title = $('library-title').value.trim();
+      if (!title) { setStatus('Library title is required.', 'error'); return; }
+      const description = $('library-description').value.trim();
+      const cover_image = $('library-cover').value.trim();
+      const status = $('library-status').value;
+      const rawUrls = $('library-items').value.split(/\r?\n/).map((v) => v.trim()).filter(Boolean);
+      const items = rawUrls.map((src, index) => ({
+        id: `${state.currentLibrary.id}-photo-${index + 1}`,
+        src,
+        alt: title || `Photo ${index + 1}`,
+        caption: '',
+      }));
+      setStatus('Saving library...');
+      const payload = await api(`/api/universal/media-libraries/${encodeURIComponent(state.currentLibrary.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title, description, cover_image, items, status }),
+      });
+      state.currentLibrary = payload.library;
+      await loadSourceData();
+      render();
+      setStatus('Library saved.', 'ok');
+    }
+
     async function init() {
       state.tenantId = getTenantIdFromParams();
       state.mode = getModeFromParams();
@@ -2225,6 +2398,8 @@
         await selectDestination(state.selectedDestinationId);
       } else if (state.mode === 'gallery' && state.selectedTourId) {
         await selectTour(state.selectedTourId);
+      } else if (state.mode === 'libraries' && state.selectedLibraryId) {
+        await selectLibrary(state.selectedLibraryId);
       } else {
         render();
       }

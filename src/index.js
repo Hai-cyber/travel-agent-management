@@ -118,7 +118,7 @@ app.use('*', async (c, next) => {
       .prepare(
         `SELECT t.default_locale, t.base_currency,
                 t.target_currency AS secondary_display_currency, t.booking_currency, t.market_skin_key, t.primary_market, t.exchange_rate,
-                t.pricing_policy, t.infant_policy_text,
+                t.pricing_policy, t.infant_policy_text, t.pricing_notes_text,
                 COALESCE(tcc.timezone, 'Asia/Ho_Chi_Minh') AS timezone
          FROM tenants t
          LEFT JOIN tenant_calendar_configs tcc ON tcc.tenant_id = t.id
@@ -143,6 +143,7 @@ app.use('*', async (c, next) => {
         timezone:           tenant.timezone           ?? 'Asia/Ho_Chi_Minh',
         pricing_policy:     tenant.pricing_policy     ?? 'PRIORITY_HIGH_SEASON',
         infant_policy_text: tenant.infant_policy_text ?? null,
+        pricing_notes_text: tenant.pricing_notes_text ?? null,
         market_skin_key:    tenant.market_skin_key    ?? 'global-default',
         primary_market:     tenant.primary_market     ?? 'GLOBAL',
         lang:               uiLang,
