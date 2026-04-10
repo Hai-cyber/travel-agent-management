@@ -475,7 +475,36 @@
       "uploading": "{{name}} wird hochgeladen..."
     },
     "pricing": {
-      "child_with_parents": "Kind (mit Eltern)"
+      "booking_view": "Buchungsansicht",
+      "live_price_calculator": "Live-Preisrechner",
+      "live_price_notice": "Preise werden live auf Basis Ihres Reisedatums und der Gruppengröße berechnet.",
+      "edit": "Bearbeiten",
+      "pricing_tier": "Preiskategorie",
+      "select_pricing_tier": "Wählen Sie eine Preiskategorie oben.",
+      "traveller_type": "Reisenden-Typ",
+      "price_per_person": "Preis / Person",
+      "qty": "Anz.",
+      "subtotal": "Zwischensumme",
+      "good_to_know": "Gut zu wissen",
+      "calculate_final_price": "Endpreis für meine Gruppe berechnen",
+      "phase1_travel_on": "Wir planen zu reisen am",
+      "phase1_we_are": "Wir sind",
+      "phase1_adults_and": "Erwachsene und",
+      "phase1_children": "Kinder,",
+      "phase1_staying_in": "untergebracht in",
+      "phase1_double_rooms_and": "Doppelzimmern und",
+      "phase1_triple_rooms_and": "Dreibettzimmern und",
+      "phase1_single_rooms": "Einzelzimmern.",
+      "calculating": "Wird berechnet...",
+      "room_hint_single_supplement": "Hinweis: Einzelzimmerzuschlag gilt für Alleinnutzung.",
+      "child_with_parents": "Kind (mit Eltern)",
+      "add_travellers_above": "Reisende oben hinzufügen, um zu berechnen",
+      "select_pricing_tier_short": "Preiskategorie wählen",
+      "total_for_group": "Gesamt für Ihre Gruppe",
+      "band_summary": "Band: {{name}} ({{min}}–{{max}} Pers.)",
+      "band_current": "Band: {{name}}",
+      "current_rate": "Aktueller Tarif: {{season}}",
+      "no_segments_configured": "Keine Preisklassen konfiguriert."
     }
   },
   "dashboard_market_skin": {

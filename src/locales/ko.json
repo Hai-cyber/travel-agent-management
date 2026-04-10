@@ -479,7 +479,36 @@
       "uploading": "{{name}} 업로드 중..."
     },
     "pricing": {
-      "child_with_parents": "어린이 (부모 동반)"
+      "booking_view": "예약 뷰",
+      "live_price_calculator": "실시간 가격 계산기",
+      "live_price_notice": "요금은 여행 날짜와 그룹 규모에 따라 실시간으로 계산됩니다.",
+      "edit": "편집",
+      "pricing_tier": "요금 등급",
+      "select_pricing_tier": "위에서 요금 등급을 선택하세요.",
+      "traveller_type": "여행자 유형",
+      "price_per_person": "인당 가격",
+      "qty": "수량",
+      "subtotal": "소계",
+      "good_to_know": "알아두면 좋은 정보",
+      "calculate_final_price": "우리 그룹의 최종 가격 계산",
+      "phase1_travel_on": "대상 여행 날짜는",
+      "phase1_we_are": "인원은",
+      "phase1_adults_and": "성인과",
+      "phase1_children": "아동,",
+      "phase1_staying_in": "객실 구성은",
+      "phase1_double_rooms_and": "더블 객실와",
+      "phase1_triple_rooms_and": "트리플 객실와",
+      "phase1_single_rooms": "싱글 객실.",
+      "calculating": "계산 중...",
+      "room_hint_single_supplement": "주의: 1인 사용 시 싱글 추가 요금이 적용됩니다.",
+      "child_with_parents": "어린이 (부모 동반)",
+      "add_travellers_above": "위에 여행자를 추가하여 계산하세요",
+      "select_pricing_tier_short": "요금 등급 선택",
+      "total_for_group": "그룹 합계 가격",
+      "band_summary": "밴드: {{name}} ({{min}}–{{max}}명)",
+      "band_current": "밴드: {{name}}",
+      "current_rate": "현재 요금: {{season}}",
+      "no_segments_configured": "설정된 요금 등급이 없습니다."
     }
   },
   "dashboard_market_skin": {

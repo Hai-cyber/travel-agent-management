@@ -479,7 +479,36 @@
       "uploading": "{{name}} をアップロードしています..."
     },
     "pricing": {
-      "child_with_parents": "子供（親と同室）"
+      "booking_view": "予約ビュー",
+      "live_price_calculator": "ライブ料金計算",
+      "live_price_notice": "料金は出発日とグループ規模に応じてリアルタイムで計算されます。",
+      "edit": "編集",
+      "pricing_tier": "料金プラン",
+      "select_pricing_tier": "上から料金プランを選んでください。",
+      "traveller_type": "旅行者タイプ",
+      "price_per_person": "料金／人",
+      "qty": "人数",
+      "subtotal": "小計",
+      "good_to_know": "お役立ち情報",
+      "calculate_final_price": "グループの最終料金を計算",
+      "phase1_travel_on": "出発予定日：",
+      "phase1_we_are": "人数：",
+      "phase1_adults_and": "大人、",
+      "phase1_children": "子供、",
+      "phase1_staying_in": "部屋構成：",
+      "phase1_double_rooms_and": "デュアルと",
+      "phase1_triple_rooms_and": "トリプルと",
+      "phase1_single_rooms": "シングル。",
+      "calculating": "計算中...",
+      "room_hint_single_supplement": "注意：1人利用の場合、シングル追加料金が適用されます。",
+      "child_with_parents": "子供（親と同室）",
+      "add_travellers_above": "上に旅行者を追加して料金を計算",
+      "select_pricing_tier_short": "料金プランを選択",
+      "total_for_group": "グループ合計料金",
+      "band_summary": "バンド：{{name}}（{{min}}–{{max}}人）",
+      "band_current": "バンド：{{name}}",
+      "current_rate": "現在のレート：{{season}}",
+      "no_segments_configured": "料金プランが設定されていません。"
     }
   },
   "dashboard_market_skin": {

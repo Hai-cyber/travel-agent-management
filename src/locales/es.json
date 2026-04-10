@@ -475,7 +475,36 @@
       "uploading": "Subiendo {{name}}..."
     },
     "pricing": {
-      "child_with_parents": "Niño (con los padres)"
+      "booking_view": "Vista de reserva",
+      "live_price_calculator": "calculadora de precios en vivo",
+      "live_price_notice": "Los precios son en vivo y se calculan según su fecha de viaje y tamaño del grupo.",
+      "edit": "Editar",
+      "pricing_tier": "Nivel de precio",
+      "select_pricing_tier": "Seleccione un nivel de precio arriba.",
+      "traveller_type": "Tipo de viajero",
+      "price_per_person": "Precio / persona",
+      "qty": "Cant.",
+      "subtotal": "Subtotal",
+      "good_to_know": "Bueno saber",
+      "calculate_final_price": "Calcular precio final para mi grupo",
+      "phase1_travel_on": "Planeamos viajar el",
+      "phase1_we_are": "Somos",
+      "phase1_adults_and": "adultos y",
+      "phase1_children": "niños,",
+      "phase1_staying_in": "alojados en",
+      "phase1_double_rooms_and": "habitaciones dobles y",
+      "phase1_triple_rooms_and": "habitaciones triples y",
+      "phase1_single_rooms": "habitaciones individuales.",
+      "calculating": "Calculando...",
+      "room_hint_single_supplement": "Nota: suplemento de habitación individual aplicado para ocupación simple.",
+      "child_with_parents": "Niño (con los padres)",
+      "add_travellers_above": "Añada viajeros arriba para calcular",
+      "select_pricing_tier_short": "Seleccionar un nivel de precio",
+      "total_for_group": "Total para su grupo",
+      "band_summary": "Banda: {{name}} ({{min}}–{{max}} pax)",
+      "band_current": "Banda: {{name}}",
+      "current_rate": "Tarifa actual: {{season}}",
+      "no_segments_configured": "No hay niveles de precio configurados."
     }
   },
   "dashboard_market_skin": {

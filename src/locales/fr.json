@@ -475,7 +475,36 @@
       "uploading": "Téléversement de {{name}}..."
     },
     "pricing": {
-      "child_with_parents": "Enfant (avec les parents)"
+      "booking_view": "Vue de réservation",
+      "live_price_calculator": "calculateur de prix en direct",
+      "live_price_notice": "Les prix sont en direct et calculés en fonction de votre date de voyage et de la taille du groupe.",
+      "edit": "Modifier",
+      "pricing_tier": "Niveau tarifaire",
+      "select_pricing_tier": "Sélectionnez un niveau tarifaire ci-dessus.",
+      "traveller_type": "Type de voyageur",
+      "price_per_person": "Prix / personne",
+      "qty": "Qté",
+      "subtotal": "Sous-total",
+      "good_to_know": "À savoir",
+      "calculate_final_price": "Calculer le prix final pour mon groupe",
+      "phase1_travel_on": "Nous prévoyons de voyager le",
+      "phase1_we_are": "Nous sommes",
+      "phase1_adults_and": "adultes et",
+      "phase1_children": "enfants,",
+      "phase1_staying_in": "logés dans",
+      "phase1_double_rooms_and": "chambres doubles et",
+      "phase1_triple_rooms_and": "chambres triples et",
+      "phase1_single_rooms": "chambres individuelles.",
+      "calculating": "Calcul en cours...",
+      "room_hint_single_supplement": "Remarque : supplément chambre individuelle appliqué pour occupation simple.",
+      "child_with_parents": "Enfant (avec les parents)",
+      "add_travellers_above": "Ajoutez des voyageurs ci-dessus pour calculer",
+      "select_pricing_tier_short": "Sélectionner un niveau tarifaire",
+      "total_for_group": "Total pour votre groupe",
+      "band_summary": "Tranche : {{name}} ({{min}}–{{max}} pax)",
+      "band_current": "Tranche : {{name}}",
+      "current_rate": "Tarif actuel : {{season}}",
+      "no_segments_configured": "Aucun niveau tarifaire configuré."
     }
   },
   "dashboard_market_skin": {
