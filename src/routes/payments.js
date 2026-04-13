@@ -82,10 +82,16 @@ const E_GATEWAY_METHOD_IDS = new Set(['STRIPE', 'CREDIT_CARD', 'MOMO', 'ZALOPAY'
  * @param {Array} payment_methods — tenant's payment_methods JSON array
  * @returns {boolean}
  */
+const MANUAL_METHOD_IDS = new Set(['BANK_TRANSFER', 'PAY_ON_ARRIVAL', 'CASH_AT_OFFICE']);
+
 export function checkTenantCompliance(payment_methods) {
   if (!Array.isArray(payment_methods) || !payment_methods.length) return false;
+  // Compliant if tenant has ANY enabled payment method — either an electronic
+  // gateway (Stripe, MoMo, etc.) OR a manual method (bank transfer, on-arrival).
+  // Manual methods create real orders and trigger booking emails without a gateway.
   return payment_methods.some(
-    m => m.enabled === true && E_GATEWAY_METHOD_IDS.has((m.id ?? '').toUpperCase())
+    m => m.enabled === true &&
+      (E_GATEWAY_METHOD_IDS.has((m.id ?? '').toUpperCase()) || MANUAL_METHOD_IDS.has((m.id ?? '').toUpperCase()))
   );
 }
 
