@@ -776,6 +776,85 @@ admin.post('/tenants/:tenantId/tours/:tourId/sync', async (c) => {
   return c.json({ ok: true, tour_id: tourId, tenant_id: tenantId, message: 'Tour page synced.' });
 });
 
+// [SEC] Admin-only via X-Admin-Secret middleware above.
+// POST /api/admin/test-email  — fire a test email through the configured webhook.
+// Body: { "to": "saophuongbac@gmail.com" }
+admin.post('/test-email', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const to = String(body?.to || '').trim().toLowerCase();
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return c.json({ error: 'Provide a valid "to" email address.' }, 400);
+  }
+
+  const webhookUrl = String(c.env.PASSWORD_RESET_WEBHOOK_URL || '').trim();
+  if (!webhookUrl) {
+    return c.json({ error: 'PASSWORD_RESET_WEBHOOK_URL secret is not configured.' }, 503);
+  }
+
+  const webhookSecret = String(c.env.PASSWORD_RESET_WEBHOOK_SECRET || '').trim();
+  const eventId = crypto.randomUUID();
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  const payload = {
+    event:      'password_reset.requested',          // reuse the same event the mailer already handles
+    event_id:   eventId,
+    occurred_at: timestamp,
+    tenant_id:  null,
+    locale:     'vi',
+    recipient:  { email: to },
+    reset: {
+      url:        'https://tours-market.com/reset-password.html?token=TEST_TOKEN_IGNORE',
+      expires_at: new Date((timestamp + 3600) * 1000).toISOString(),
+    },
+    email_content: {
+      subject: '[TEST] TravelAgent email test',
+      text: 'This is a test email from the TravelAgent platform. If you received this, email delivery is working correctly.',
+      html: '<p>This is a <strong>test email</strong> from the <a href="https://tours-market.com">TravelAgent</a> platform.</p><p>If you received this, email delivery is working correctly. <strong>No action needed.</strong></p>',
+    },
+    source: {
+      app:      'travel-agent-management',
+      base_url: String(c.env.PLATFORM_BASE_URL || '').trim() || null,
+    },
+  };
+
+  const payloadText = JSON.stringify(payload);
+  const headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'travel-agent-test-email/1.0',
+    'X-TravelAgent-Event':    payload.event,
+    'X-TravelAgent-Event-Id': eventId,
+    'X-TravelAgent-Timestamp': String(timestamp),
+  };
+
+  try {
+    const destinationUrl = new URL(webhookUrl);
+    destinationUrl.searchParams.set('ta_event', payload.event);
+    destinationUrl.searchParams.set('ta_event_id', eventId);
+    destinationUrl.searchParams.set('ta_ts', String(timestamp));
+
+    if (webhookSecret) {
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey('raw', encoder.encode(webhookSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const signature = Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${payloadText}`)))).map(b => b.toString(16).padStart(2, '0')).join('');
+      headers['X-TravelAgent-Signature'] = `v1=${signature}`;
+      // GAS Web Apps cannot read custom headers — pass signature via query params too
+      destinationUrl.searchParams.set('ta_sig_v', 'v1');
+      destinationUrl.searchParams.set('ta_sig', signature);
+    }
+
+    const res = await fetch(destinationUrl.toString(), { method: 'POST', headers, body: payloadText });
+    const text = await res.text().catch(() => '');
+    if (!res.ok) {
+      return c.json({ ok: false, error: `Webhook returned HTTP ${res.status}`, body: text.slice(0, 500) }, 502);
+    }
+
+    console.info(`[TEST_EMAIL_SENT] to=${to} event_id=${eventId} webhook_status=${res.status}`);
+    return c.json({ ok: true, to, event_id: eventId, webhook_status: res.status, message: 'Test email dispatched to webhook. Check your inbox.' });
+  } catch (err) {
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
 export default function registerAdminRoutes(app) {
   app.route('/api/admin', admin);
 }

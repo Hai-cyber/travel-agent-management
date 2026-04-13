@@ -11,9 +11,14 @@ https://script.google.com/macros/s/AKfycbwtLvd8sI-81R3V4e9B1kcZ4iAC7zCnBZqAbDFSQ
 ```
 
 Verified on 2026-04-03:
-
 - direct signed POST to the hook returned `Success`
 - `POST https://tours-market.com/api/auth/forgot-password` returned `200 OK`
+
+Updated on 2026-04-13 (GAS Version 5 / gas-password-reset-v3):
+- Added `from: 'info@tours-market.com'` — email now sends from the `tours-market.com` domain alias
+- `SENDER_NAME` updated to `'Tours Market'`
+- `info@tours-market.com` is a verified "Send As" alias in the `info@quan-esskultur.de` Gmail account that runs the script
+- `POST /api/admin/test-email` endpoint added to Worker for smoke testing; bug fixed: `ta_sig` + `ta_sig_v` now correctly passed as query params (GAS Web Apps cannot read custom HTTP headers)
 
 ## Worker-side production secrets
 
@@ -39,8 +44,9 @@ If you want the inline version directly here, use this:
 
 ```javascript
 const WEBHOOK_SECRET = 'NZiL9CL0HKSW+ZM2d2O2zIdB1wFi/g3q++jp/k8R1qvMBvtU+5v+RZoJbPIONZE1';
-const SENDER_NAME = 'Tours Market Support';
-const VERSION_TAG = 'gas-password-reset-v2';
+const SENDER_NAME = 'Tours Market';
+const SENDER_EMAIL = 'info@tours-market.com'; // must be a verified "Send As" alias
+const VERSION_TAG = 'gas-password-reset-v3';
 
 function doPost(e) {
   const rawBody = e && e.postData && e.postData.contents ? e.postData.contents : '';
@@ -77,10 +83,9 @@ function doPost(e) {
       return textResponse_('Invalid payload');
   }
 
-  GmailApp.sendEmail(recipient, subject, textBody || 'Please open the HTML version of this email.', {
-      htmlBody: htmlBody || textBody,
-      name: SENDER_NAME,
-  });
+  const mailOptions = { htmlBody: htmlBody || textBody, name: SENDER_NAME };
+  if (SENDER_EMAIL) { mailOptions.from = SENDER_EMAIL; }
+  GmailApp.sendEmail(recipient, subject, textBody || 'Please open the HTML version of this email.', mailOptions);
 
     console.log(JSON.stringify({ ok: true, version: VERSION_TAG, event: payload.event || null, event_id: payload.event_id || null, recipient: recipient }));
     return textResponse_('Success');
@@ -132,3 +137,5 @@ That means your Apps Script receiver can verify the request without relying on c
 - The old `/a/macros/<domain>/...` URL variant was not suitable for the Worker because Google redirected it through domain login
 - The production outage during initial live testing was partly due to a missing remote D1 migration; `0034_password_reset_tokens.sql` had to be applied remotely before forgot-password could work on live
 - The first several Apps Script deployments failed because the live Web App version did not actually match the editor code; creating a brand-new Apps Script project and deploying a fresh `/macros/s/.../exec` Web App was the clean fix
+- 2026-04-13: Worker's `test-email` endpoint was correctly returning HTTP 200 from GAS but no email arrived. Root cause: GAS Web Apps cannot read custom HTTP headers, so `ta_sig` was not being received. Fix: pass `ta_sig` + `ta_sig_v` as URL query params (matching how `onboarding.js` already works).
+- 2026-04-13: Email sender updated from `info@quan-esskultur.de` to `info@tours-market.com` by adding `from:` field in `GmailApp.sendEmail()` options. Requires `info@tours-market.com` to be a verified alias in the running account's Gmail "Send As" settings.

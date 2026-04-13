@@ -10,8 +10,11 @@
  */
 
 const WEBHOOK_SECRET = 'NZiL9CL0HKSW+ZM2d2O2zIdB1wFi/g3q++jp/k8R1qvMBvtU+5v+RZoJbPIONZE1';
-const SENDER_NAME = 'Tours Market Support';
-const VERSION_TAG = 'gas-password-reset-v2';
+const SENDER_NAME = 'Tours Market';
+// SENDER_EMAIL: must be a verified "Send As" alias in the account running this script,
+// OR leave as '' to send from the default account email.
+const SENDER_EMAIL = 'info@tours-market.com';
+const VERSION_TAG = 'gas-password-reset-v3';
 
 function doPost(e) {
   try {
@@ -43,14 +46,18 @@ function doPost(e) {
       return textResponse_('Invalid payload');
     }
 
+    const mailOptions = {
+      htmlBody: htmlBody || textBody,
+      name: SENDER_NAME,
+    };
+    if (SENDER_EMAIL) {
+      mailOptions.from = SENDER_EMAIL;
+    }
     GmailApp.sendEmail(
       recipient,
       subject,
       textBody || 'Please open the HTML version of this email.',
-      {
-        htmlBody: htmlBody || textBody,
-        name: SENDER_NAME,
-      }
+      mailOptions
     );
 
     console.log(JSON.stringify({
