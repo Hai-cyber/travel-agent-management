@@ -679,7 +679,7 @@
       if (quote?.segmentName) lines.push(`<div><strong>${esc(t('tour_config.pricing.pricing_tier'))}</strong>: ${esc(quote.segmentName)}</div>`);
       if (quote?.seasonName) lines.push(`<div>${esc(t('tour_config.pricing.current_rate', { season: quote.seasonName }))}</div>`);
       if (quote?.paxBandName) lines.push(`<div>${esc(t('tour_config.pricing.band_current', { name: quote.paxBandName }))}</div>`);
-      lines.push(`<div><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote?.pax?.adult_shared_room_count || 0) + (quote?.pax?.adult_single_room_count || 0)), children: String(quote?.pax?.child_count || 0) }))}</div>`);
+      lines.push(`<div><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote?.pax?.adult_shared_room_count || 0) + (quote?.pax?.adult_triple_room_count || 0) + (quote?.pax?.adult_single_room_count || 0)), children: String(quote?.pax?.child_count || 0) }))}</div>`);
       lines.push(`<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote?.total, quote?.currency || currency))}</div>`);
 
       const priceLines = [

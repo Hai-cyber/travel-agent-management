@@ -8,6 +8,7 @@ import { notifyAgent } from '../lib/notifications.js';
 import { isInstantProvider, ALL_PROVIDERS, checkTenantCompliance } from './payments.js';
 import {
   dispatchBookingCreatedEmail,
+  dispatchNewBookingAgentEmail,
   dispatchProofUploadedEmail,
   dispatchBookingConfirmedEmail,
 } from '../lib/bookingEmails.js';
@@ -20,10 +21,12 @@ const DRAFT_TTL_SECONDS = 24 * 60 * 60; // 24 giờ
 function buildPaxSummary(pax = {}) {
   const parts = [];
   const shared   = pax.adult_shared_room_count ?? pax.shared   ?? pax.adult_count ?? 0;
+  const triple   = pax.adult_triple_room_count ?? 0;
   const priv     = pax.adult_single_room_count ?? pax.private  ?? 0;
   const children = pax.child_count   ?? pax.children ?? 0;
   const infants  = pax.infant_count  ?? pax.infants  ?? 0;
   if (shared   > 0) parts.push(`${shared} adult${shared   > 1 ? 's' : ''} (shared room)`);
+  if (triple   > 0) parts.push(`${triple} adult${triple   > 1 ? 's' : ''} (triple room)`);
   if (priv     > 0) parts.push(`${priv} adult${priv     > 1 ? 's' : ''} (private room)`);
   if (children > 0) parts.push(`${children} child${children > 1 ? 'ren' : ''}`);
   if (infants  > 0) parts.push(`${infants} infant${infants  > 1 ? 's' : ''}`);
@@ -63,6 +66,7 @@ bookings.post('/draft', async (c) => {
     tour_id,
     date:                    travel_date,
     adult_shared_room_count: pax?.adult_shared_room_count,
+    adult_triple_room_count: pax?.adult_triple_room_count ?? 0,
     adult_single_room_count: pax?.adult_single_room_count ?? 0,
     adult_count:             pax?.adult_count,
     child_count:             pax?.child_count   ?? 0,
@@ -323,6 +327,7 @@ bookings.post('/order', async (c) => {
     tour_id,
     date:                    travel_date,
     adult_shared_room_count: pax.adult_shared_room_count ?? pax.shared,
+    adult_triple_room_count: pax.adult_triple_room_count ?? 0,
     adult_single_room_count: pax.adult_single_room_count ?? pax.private ?? 0,
     adult_count:             pax.adult_count,
     child_count:             pax.child_count   ?? pax.children ?? 0,
@@ -336,7 +341,6 @@ bookings.post('/order', async (c) => {
   if (!priceResult.ok) {
     return c.json({ error: priceResult.error, hint: priceResult.hint }, 422);
   }
-
   const orderId     = nanoid();
   const secureToken = nanoid(32);
   const now         = Math.floor(Date.now() / 1000);
@@ -394,34 +398,56 @@ bookings.post('/order', async (c) => {
       )
     );
 
-    // Fire booking.created email to guest — non-blocking
+    // Fire booking.created email to guest + new booking notification to agent — non-blocking
     c.executionCtx.waitUntil((async () => {
       try {
-        const [tourRow, tenantRow] = await Promise.all([
+        const [tourRow, tenantRow, agentRow] = await Promise.all([
           c.env.DB.prepare('SELECT title FROM tours WHERE id = ? LIMIT 1').bind(tour_id).first(),
           c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+          c.env.DB.prepare(`SELECT u.email FROM users u JOIN memberships m ON m.user_id = u.id WHERE m.tenant_id = ? AND m.role = 'owner' LIMIT 1`).bind(tenantId).first(),
         ]);
         const platformBase   = String(c.env.PLATFORM_BASE_URL || '').trim();
         const guestPortalUrl = `${platformBase}/bookings/public/${secureToken}`;
-        await dispatchBookingCreatedEmail(c.env, {
-          orderId, tenantId,
-          tenantName:   tenantRow?.name   || null,
-          tourTitle:    tourRow?.title    || null,
-          travelDate:   travel_date,
-          segmentName:  priceResult.segment_name || null,
-          paxSummary:   buildPaxSummary(pax),
-          grandTotal:   priceResult.totals.grand_total,
-          currency:     null,
-          paymentMethod: rawMethod,
-          deadlineUnix:  deadline,
-          deadlineHours,
-          guestName:    guest.name,
-          guestEmail:   guest.email,
-          guestPortalUrl,
-          platformBaseUrl: platformBase,
-        });
+        const dashboardUrl   = `${platformBase}/dashboard.html`;
+        const paxSummary     = buildPaxSummary(pax);
+        await Promise.all([
+          dispatchBookingCreatedEmail(c.env, {
+            orderId, tenantId,
+            tenantName:   tenantRow?.name   || null,
+            tourTitle:    tourRow?.title    || null,
+            travelDate:   travel_date,
+            segmentName:  priceResult.segment_name || null,
+            paxSummary,
+            grandTotal:   priceResult.totals.grand_total,
+            currency:     null,
+            paymentMethod: rawMethod,
+            deadlineUnix:  deadline,
+            deadlineHours,
+            guestName:    guest.name,
+            guestEmail:   guest.email,
+            guestPortalUrl,
+            platformBaseUrl: platformBase,
+          }),
+          dispatchNewBookingAgentEmail(c.env, {
+            orderId, tenantId,
+            tenantName:   tenantRow?.name   || null,
+            agentEmail:   agentRow?.email   || null,
+            tourTitle:    tourRow?.title    || null,
+            travelDate:   travel_date,
+            segmentName:  priceResult.segment_name || null,
+            paxSummary,
+            grandTotal:   priceResult.totals.grand_total,
+            currency:     null,
+            paymentMethod: rawMethod,
+            guestName:    guest.name,
+            guestEmail:   guest.email,
+            guestPhone:   guest.phone || null,
+            dashboardUrl,
+            platformBaseUrl: platformBase,
+          }),
+        ]);
       } catch (err) {
-        console.warn('[BOOKING_EMAIL] booking.created error:', err.message);
+        console.warn('[BOOKING_EMAIL] booking.created/new_booking error:', err.message);
       }
     })());
 

@@ -5,8 +5,8 @@
     roomShortage: 'Room shortage: {{capacity}} capacity < {{adults}} adults. {{shortage}} traveller{{travellerSuffix}} will be charged at single room rate.',
     extraRooms: '{{surplus}} extra room{{roomSuffix}} booked - sole occupancy supplement will apply.',
     exactAdults: '{{doubles}} double + {{singles}} single = exactly {{capacity}} adults.',
-    childCapacityExceeded: 'The chosen rooming capacity cannot accommodate the given number of children. Your current rooming allows up to {{max}} child{{childSuffix}}: 1 per shared double room and 2 per private room. Please increase the room count or contact our staff for a family-room/manual quote.',
-    childCapacityFits: '{{children}} child{{childSuffix}} fit within the current rooming rule: 1 per shared double room and 2 per private room.',
+    childCapacityExceeded: 'The chosen rooming capacity cannot accommodate the given number of children. Your current rooming allows up to {{max}} child{{childSuffix}}: 1 per shared double room, 2 per triple room, and 2 per private room. Please increase the room count or contact our staff for a family-room/manual quote.',
+    childCapacityFits: '{{children}} child{{childSuffix}} fit within the current rooming rule: 1 per shared double room, 2 per triple room, and 2 per private room.',
     roomStatusShared: '{{count}} shared double{{suffix}}',
     roomStatusPrivate: '{{count}} private room{{suffix}}',
     roomStatusConfirmed: '{{parts}} -> {{adults}} adult{{suffix}} confirmed',
@@ -123,8 +123,8 @@
     const safeTriples = clampNonNegativeInt(triples);
     const safeSingles = clampNonNegativeInt(singles);
     const safeChildren = clampNonNegativeInt(children);
-    // Triple rooms: allow 1 child per triple room (same rule as double)
-    const maxSharedChildren = safeDoubles + safeTriples + (safeSingles * 2);
+    // Triple rooms: allow 2 children per triple room (same as private room — larger capacity)
+    const maxSharedChildren = safeDoubles + (safeTriples * 2) + (safeSingles * 2);
 
     if ((safeDoubles + safeSingles) < 1 || safeChildren === 0) {
       return { type: 'none', message: '', maxSharedChildren };

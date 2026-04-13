@@ -90,14 +90,15 @@ function validatePaxBandRange(data) {
   return errors;
 }
 
-function getMaxChildrenForRooming(sharedAdults, singleAdults) {
+function getMaxChildrenForRooming(sharedAdults, singleAdults, tripleAdults) {
   const sharedDoubleRooms = Math.floor(Math.max(0, Number(sharedAdults) || 0) / 2);
-  const privateRooms = Math.max(0, Number(singleAdults) || 0);
-  return sharedDoubleRooms + (privateRooms * 2);
+  const tripleRooms       = Math.floor(Math.max(0, Number(tripleAdults) || 0) / 3);
+  const privateRooms      = Math.max(0, Number(singleAdults) || 0);
+  return sharedDoubleRooms + (tripleRooms * 2) + (privateRooms * 2);
 }
 
-function validateChildRoomingCapacity(sharedAdults, singleAdults, children) {
-  const maxChildren = getMaxChildrenForRooming(sharedAdults, singleAdults);
+function validateChildRoomingCapacity(sharedAdults, singleAdults, tripleAdults, children) {
+  const maxChildren = getMaxChildrenForRooming(sharedAdults, singleAdults, tripleAdults);
   if (Number(children) <= maxChildren) {
     return { ok: true, max_children: maxChildren };
   }
@@ -105,7 +106,7 @@ function validateChildRoomingCapacity(sharedAdults, singleAdults, children) {
   return {
     ok: false,
     max_children: maxChildren,
-    error: `The chosen rooming capacity cannot accommodate the given number of children. Your current rooming allows up to ${maxChildren} child${maxChildren === 1 ? '' : 'ren'}: 1 per shared double room and 2 per private room. Please increase the room count or contact our staff for a family-room/manual quote.`,
+    error: `The chosen rooming capacity cannot accommodate the given number of children. Your current rooming allows up to ${maxChildren} child${maxChildren === 1 ? '' : 'ren'}: 1 per shared double room, 2 per triple room, and 2 per private room. Please increase the room count or contact our staff for a family-room/manual quote.`,
   };
 }
 
@@ -509,6 +510,7 @@ pricing.post('/calculate', async (c) => {
     pax_count:               params.pax_count,
     adult_count:             params.adult_count,
     adult_shared_room_count: params.adult_shared_room_count ?? params.adult_shared_count,
+    adult_triple_room_count: params.adult_triple_room_count ?? 0,
     adult_single_room_count: params.adult_single_room_count ?? params.adult_private_count ?? 0,
     child_count:             params.child_count   ?? 0,
     infant_count:            params.infant_count  ?? 0,
@@ -1090,7 +1092,7 @@ export async function calculateTourPrice(env, {
   if (!Number.isInteger(children) || children < 0) return { ok: false, error: 'child_count must be a non-negative integer.' };
   if (!Number.isInteger(infants)  || infants  < 0) return { ok: false, error: 'infant_count must be a non-negative integer.' };
 
-  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, children);
+  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, tripleAdults, children);
   if (!childRoomingValidation.ok) {
     return { ok: false, error: childRoomingValidation.error, max_children: childRoomingValidation.max_children };
   }
@@ -1301,7 +1303,7 @@ export async function calculateAllSegmentsPrice(env, {
   const infants      = Number(infant_count ?? 0);
 
   if (totalAdults < 1) return { ok: false, error: 'At least 1 adult is required.' };
-  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, children);
+  const childRoomingValidation = validateChildRoomingCapacity(sharedAdults, singleAdults, tripleAdults, children);
   if (!childRoomingValidation.ok) {
     return { ok: false, error: childRoomingValidation.error, max_children: childRoomingValidation.max_children };
   }

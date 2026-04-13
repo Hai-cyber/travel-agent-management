@@ -65,6 +65,7 @@ import {
 import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
 import {
   dispatchBookingCreatedEmail,
+  dispatchNewBookingAgentEmail,
   dispatchProofUploadedEmail,
   dispatchBookingConfirmedEmail,
 } from '../lib/bookingEmails.js';
@@ -872,7 +873,7 @@ admin.post('/test-booking-emails', async (c) => {
   const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
   const fakeOrderId  = 'TEST0001';
 
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r1b, r2, r3] = await Promise.all([
     dispatchBookingCreatedEmail(c.env, {
       orderId:      fakeOrderId,
       tenantId:     'test-tenant',
@@ -889,6 +890,24 @@ admin.post('/test-booking-emails', async (c) => {
       guestName:    'Test Guest',
       guestEmail:   to,
       guestPortalUrl: `${platformBase}/bookings/public/TEST_TOKEN_PORTAL`,
+      platformBaseUrl: platformBase,
+    }),
+    dispatchNewBookingAgentEmail(c.env, {
+      orderId:      fakeOrderId,
+      tenantId:     'test-tenant',
+      tenantName:   'Tours Market (TEST)',
+      agentEmail:   to,
+      tourTitle:    'BEST OF VIETNAM: ART & CULTURE (8 DAYS)',
+      travelDate:   '2026-06-15',
+      segmentName:  '4-star hotel',
+      paxSummary:   '2 adults (shared room), 1 child',
+      grandTotal:   1980.00,
+      currency:     'USD',
+      paymentMethod: 'BANK_TRANSFER',
+      guestName:    'Test Guest',
+      guestEmail:   'guest@example.com',
+      guestPhone:   '+84 123 456 789',
+      dashboardUrl: `${platformBase}/dashboard.html`,
       platformBaseUrl: platformBase,
     }),
     dispatchProofUploadedEmail(c.env, {
@@ -920,10 +939,11 @@ admin.post('/test-booking-emails', async (c) => {
   ]);
 
   return c.json({ ok: true, to,
-    booking_created:       r1,
-    proof_uploaded:        r2,
-    booking_confirmed:     r3,
-    note: 'Sent 3 test emails: booking.created + booking.proof_uploaded + booking.confirmed. Check your inbox.',
+    booking_created:            r1,
+    new_booking_agent:          r1b,
+    proof_uploaded:             r2,
+    booking_confirmed:          r3,
+    note: 'Sent 4 test emails: booking.created + new_booking (agent) + booking.proof_uploaded + booking.confirmed. Check your inbox.',
   });
 });
 

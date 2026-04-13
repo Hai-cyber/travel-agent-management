@@ -229,6 +229,109 @@ export async function dispatchBookingCreatedEmail(env, {
 }
 
 /**
+ * Email 2a — booking.new_booking (agent notification)
+ * Sent to the AGENT/OWNER immediately after a new booking order is placed.
+ */
+export async function dispatchNewBookingAgentEmail(env, {
+  orderId, tenantId, tenantName,
+  agentEmail,
+  tourTitle, travelDate, segmentName, paxSummary,
+  grandTotal, currency,
+  paymentMethod,
+  guestName, guestEmail, guestPhone,
+  dashboardUrl,
+  platformBaseUrl,
+}) {
+  if (!agentEmail) {
+    console.warn(`[BOOKING_EMAIL] No agent email for tenant=${tenantId}, new_booking notification skipped`);
+    return { ok: false, reason: 'no_agent_email' };
+  }
+
+  const agent    = tenantName || 'Tours Market';
+  const tour     = tourTitle  || `Order #${String(orderId).slice(0, 8).toUpperCase()}`;
+  const total    = `${fmtAmount(grandTotal)} ${currency || 'USD'}`;
+  const ordShort = String(orderId).slice(0, 8).toUpperCase();
+  const manageUrl = dashboardUrl || '#';
+  const isBankTransfer = paymentMethod === 'BANK_TRANSFER';
+
+  const subject = `New booking received — ${tour} | ${ordShort}`;
+
+  const text = [
+    `Hi ${agent} team,`,
+    ``,
+    `A new booking has been placed on your platform. Here are the details:`,
+    ``,
+    `  Order ID:     ${ordShort}`,
+    `  Tour:         ${tour}`,
+    `  Travel date:  ${travelDate || 'TBD'}`,
+    `  Segment:      ${segmentName || 'N/A'}`,
+    `  Passengers:   ${paxSummary || 'See dashboard'}`,
+    `  Total:        ${total}`,
+    `  Payment:      ${paymentMethod}`,
+    ``,
+    `Guest details:`,
+    `  Name:         ${guestName || 'N/A'}`,
+    `  Email:        ${guestEmail || 'N/A'}`,
+    `  Phone:        ${guestPhone || 'N/A'}`,
+    ``,
+    isBankTransfer
+      ? `The guest will upload their bank transfer proof within 48 hours. You will receive another email when the proof is uploaded.`
+      : `Please follow up with the guest to complete the booking process.`,
+    ``,
+    `View and manage this booking:`,
+    manageUrl,
+    ``,
+    `– Tours Market Platform`,
+  ].join('\n');
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+<div style="background:#1d4ed8;padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:20px">New Booking Received</h1>
+  <p style="color:#bfdbfe;margin:4px 0 0">${esc(agent)}</p>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(agent)}</strong> team,</p>
+  <p>A new booking has been placed. Here are the details:</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b;width:40%">Order ID</td><td style="padding:8px 0;font-family:monospace;font-weight:600">${esc(ordShort)}</td></tr>
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Tour</td><td style="padding:8px 0;font-weight:600">${esc(tour)}</td></tr>
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Travel date</td><td style="padding:8px 0">${esc(travelDate || 'TBD')}</td></tr>
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Segment</td><td style="padding:8px 0">${esc(segmentName || 'N/A')}</td></tr>
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Passengers</td><td style="padding:8px 0">${esc(paxSummary || 'See dashboard')}</td></tr>
+    <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Total</td><td style="padding:8px 0;font-weight:600;font-size:18px;color:#1d4ed8">${esc(total)}</td></tr>
+    <tr><td style="padding:8px 0;color:#64748b">Payment</td><td style="padding:8px 0">${esc(paymentMethod)}</td></tr>
+  </table>
+  <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 8px;font-weight:600;color:#0f172a">Guest information</p>
+    <p style="margin:0;color:#475569">Name: <strong>${esc(guestName || 'N/A')}</strong></p>
+    <p style="margin:4px 0 0;color:#475569">Email: <strong>${esc(guestEmail || 'N/A')}</strong></p>
+    <p style="margin:4px 0 0;color:#475569">Phone: <strong>${esc(guestPhone || 'N/A')}</strong></p>
+  </div>
+  ${isBankTransfer
+    ? `<p style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:12px;color:#854d0e">⏳ Awaiting bank transfer proof from guest (48h deadline). You will be notified when they upload it.</p>`
+    : `<p>Please follow up with the guest to complete the booking process.</p>`}
+  <p><a href="${esc(manageUrl)}" style="background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">View booking dashboard</a></p>
+</div>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: 'booking.new_booking',
+    tenantId,
+    recipientEmail: agentEmail,
+    emailContent:   { subject, text, html },
+    bookingData: {
+      order_id:       orderId,
+      tour_title:     tourTitle,
+      travel_date:    travelDate,
+      grand_total:    grandTotal,
+      payment_method: paymentMethod,
+    },
+    platformBaseUrl,
+  });
+}
+
+/**
  * Email 2 — booking.proof_uploaded
  * Sent to the AGENT when a guest uploads proof of bank transfer.
  */
