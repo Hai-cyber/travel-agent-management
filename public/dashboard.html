@@ -1300,6 +1300,7 @@ window.addEventListener('dashboard:langchange', () => {
       || Boolean(menuItems.length);
     const tours = Array.isArray(onboardingState.tours) ? onboardingState.tours : [];
     const toursCount = tours.length || (Array.isArray(runtime.featured_tours) ? runtime.featured_tours.length : 0);
+    const publishedToursCount = tours.filter((t) => t.status === 'published' || Boolean(t.published_at)).length;
     const destinationCount = toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0;
     const accommodationsCount = Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0;
     const propertiesCount = 0;
@@ -1421,6 +1422,26 @@ window.addEventListener('dashboard:langchange', () => {
           : i18n.t('dashboard_launch.system_desc_empty'),
         href: withTenant('universal-admin.html?panel=system&onboarding=system'),
         label: hasSystemSettings ? i18n.t('dashboard_launch.system_label_ready') : i18n.t('dashboard_launch.system_label_empty'),
+      },
+      {
+        key: 'pricing',
+        complete: publishedToursCount > 0,
+        title: 'Publish & Price Your First Tour',
+        description: publishedToursCount > 0
+          ? `${publishedToursCount} published tour${publishedToursCount > 1 ? 's' : ''} — guests can now discover and book.`
+          : 'Set pricing segments and publish at least one tour so guests can browse and book.',
+        href: withTenant('tour-config.html'),
+        label: publishedToursCount > 0 ? 'Manage Tours' : 'Go to Tour Config',
+      },
+      {
+        key: 'go_live',
+        complete: hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0,
+        title: 'Ready to Go Live',
+        description: (hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0)
+          ? '🎉 Your site is configured and ready. Public indexing is under platform review.'
+          : 'Complete all steps above, then your site will be queued for public discovery.',
+        href: '#launch-guide',
+        label: (hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0) ? '✅ All done!' : 'Complete above steps',
       },
     ];
 
