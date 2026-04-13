@@ -417,6 +417,7 @@
               <ul class="nav-list">
                 <li><a href="dashboard.html" class="active"><span class="icon">📊</span> <span data-i18n="nav.dashboard">Dashboard</span></a></li>
                 <li><a href="#"><span class="icon">📅</span> <span data-i18n="sidebar.booking_calendar">Booking Calendar</span></a></li>
+                <li><a href="#" id="sidebar-reports"><span class="icon">📈</span> <span>Reports</span></a></li>
                 <li><a href="#"><span class="icon">💰</span> <span data-i18n="sidebar.revenue">Revenue</span></a></li>
               </ul>
             </div>
@@ -1092,6 +1093,8 @@ window.addEventListener('dashboard:langchange', () => {
   if (sidebarAccommodations) sidebarAccommodations.href = withTenant('product-modules.html?mode=hotels#hotel');
   if (sidebarGallery) sidebarGallery.href = withTenant('product-modules.html?mode=gallery');
   if (sidebarProperties) sidebarProperties.href = withTenant('properties-engine.html?tier=hotel_operator_pro');
+  const sidebarReports = document.getElementById('sidebar-reports');
+  if (sidebarReports) sidebarReports.href = withTenant('reports.html');
   if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
   if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
   if (sidebarPayment) sidebarPayment.href = `#payments`;

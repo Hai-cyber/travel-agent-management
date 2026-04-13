@@ -1,0 +1,460 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Reports & Analytics — Travel Agent Management</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    body {
+      background: radial-gradient(circle at top left, rgba(96,165,250,.16), transparent 24%),
+                  linear-gradient(145deg,#0f172a 0%,#1d4ed8 100%) fixed !important;
+      background-color: #0f172a !important;
+    }
+    #page-wrapper { background: transparent; }
+    #header-wrapper { background: transparent; padding-top: 3.5em; }
+    #main-wrapper {
+      background: rgba(255,255,255,.96);
+      border-top-left-radius: 24px; border-top-right-radius: 24px;
+      box-shadow: 0 20px 48px rgba(15,23,42,.18);
+    }
+    #footer-wrapper { background: rgba(248,250,252,.96); }
+    #logo h1 a { font-size:18px; }
+    #logo span  { font-size:12px; color:rgba(226,232,240,.9); }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+      gap: 14px; margin-bottom: 28px;
+    }
+    .sum-card {
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 18px 20px; text-align: center;
+    }
+    .sum-card.accent { background: linear-gradient(135deg,#1d4ed8,#3b82f6); border-color: transparent; color:#fff; }
+    .sum-card.accent .sum-label { color: rgba(255,255,255,.8); }
+    .sum-value { font-size: 28px; font-weight: 800; line-height: 1.1; color: #0f172a; margin-bottom: 4px; }
+    .sum-card.accent .sum-value { color:#fff; }
+    .sum-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; }
+    .sum-value.green { color:#16a34a; }
+    .sum-value.amber { color:#d97706; }
+    .sum-value.red   { color:#dc2626; }
+
+    /* ── Period selector ── */
+    .period-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .period-bar label { font-size:13px; font-weight:700; color:#374151; }
+    .period-bar select {
+      padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db;
+      font-size: 13px; background:#fff; color:#111827; cursor:pointer;
+    }
+    .period-bar .refresh-btn {
+      margin-left: auto; padding: 8px 18px;
+    }
+
+    /* ── Month chart ── */
+    .chart-section { margin-bottom: 28px; }
+    .chart-section h3 { margin-bottom: 12px; }
+    .bar-chart {
+      display: flex; align-items: flex-end; gap: 8px;
+      height: 140px; border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 0; overflow-x: auto;
+    }
+    .bar-col {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      flex: 1 1 40px; min-width: 40px;
+    }
+    .bar-fill {
+      width: 100%; min-height: 2px; border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg,#3b82f6,#1d4ed8);
+      transition: height .4s ease;
+    }
+    .bar-label { font-size: 10px; color: #94a3b8; font-weight: 600; white-space: nowrap; }
+    .bar-amount { font-size: 10px; color: #374151; font-weight: 700; }
+
+    /* ── Tables ── */
+    .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .report-table th {
+      background: #f8fafc; color: #374151; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+      padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0;
+    }
+    .report-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color:#111827; }
+    .report-table tbody tr:hover { background: #f8fafc; }
+    .report-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-green  { background:#dcfce7; color:#166534; }
+    .badge-amber  { background:#fef3c7; color:#92400e; }
+    .badge-blue   { background:#dbeafe; color:#1e40af; }
+    .badge-red    { background:#fee2e2; color:#991b1b; }
+    .badge-gray   { background:#f3f4f6; color:#374151; }
+
+    /* ── Section layout ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+    @media screen and (max-width:900px) { .two-col { grid-template-columns: 1fr; } }
+
+    .section-box {
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 12px; padding: 20px; overflow: hidden;
+    }
+    .section-box h3 { margin: 0 0 14px; font-size:15px; color:#111827; }
+
+    /* skeleton */
+    .skeleton { background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation: shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .loading-row td { padding:14px; }
+
+    /* hide default sections */
+    #banner-wrapper,#features-wrapper { display:none; }
+  </style>
+</head>
+<body class="is-preload left-sidebar">
+<div id="page-wrapper">
+
+  <div id="header-wrapper">
+    <header id="header" class="container">
+      <div id="logo">
+        <h1><a href="dashboard.html">🧭 TravelAgent</a></h1>
+        <span>Reports &amp; Analytics</span>
+      </div>
+      <nav id="nav">
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li class="current"><a href="reports.html">Reports</a></li>
+          <li><a id="nav-tours" href="#">Tours</a></li>
+          <li><a href="#" id="nav-logout">Logout</a></li>
+        </ul>
+      </nav>
+    </header>
+  </div>
+
+  <div id="main-wrapper">
+    <div class="container">
+      <div class="row gtr-200">
+
+        <!-- Sidebar -->
+        <div class="col-3 col-12-medium">
+          <div id="sidebar">
+            <div class="sidebar-section">
+              <h4>Reports</h4>
+              <ul class="nav-list">
+                <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+                <li><a href="reports.html" class="active"><span class="icon">📈</span> Reports</a></li>
+              </ul>
+            </div>
+            <div class="sidebar-section">
+              <h4>Period</h4>
+              <ul class="nav-list" id="period-nav">
+                <li><a href="?period=30d" class="period-link" data-period="30d">Last 30 days</a></li>
+                <li><a href="?period=90d" class="period-link" data-period="90d">Last 90 days</a></li>
+                <li><a href="?period=12m" class="period-link" data-period="12m">Last 12 months</a></li>
+                <li><a href="?period=all" class="period-link" data-period="all">All time</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-9 col-12-medium imp-medium">
+          <div id="content">
+
+            <h2 id="report-heading" style="margin-bottom:6px">Reports</h2>
+            <p id="report-subheading" style="color:#64748b;font-size:13px;margin-bottom:20px;"></p>
+
+            <div id="error-banner" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#b91c1c;font-size:13px;"></div>
+
+            <!-- Summary KPI cards -->
+            <div class="summary-grid" id="summary-cards">
+              <!-- filled by JS -->
+              <div class="sum-card"><div class="sum-value skeleton" style="height:36px;width:80px;margin:0 auto 6px">&nbsp;</div><div class="sum-label skeleton" style="height:14px;width:100px;margin:0 auto">&nbsp;</div></div>
+              <div class="sum-card"><div class="sum-value skeleton" style="height:36px;width:80px;margin:0 auto 6px">&nbsp;</div><div class="sum-label skeleton" style="height:14px;width:100px;margin:0 auto">&nbsp;</div></div>
+              <div class="sum-card"><div class="sum-value skeleton" style="height:36px;width:80px;margin:0 auto 6px">&nbsp;</div><div class="sum-label skeleton" style="height:14px;width:100px;margin:0 auto">&nbsp;</div></div>
+              <div class="sum-card"><div class="sum-value skeleton" style="height:36px;width:80px;margin:0 auto 6px">&nbsp;</div><div class="sum-label skeleton" style="height:14px;width:100px;margin:0 auto">&nbsp;</div></div>
+            </div>
+
+            <!-- Monthly revenue chart -->
+            <div class="chart-section section-box" id="chart-section" style="margin-bottom:24px;">
+              <h3>Revenue — last 6 months (confirmed bookings)</h3>
+              <div class="bar-chart" id="bar-chart">
+                <div style="color:#94a3b8;font-size:13px;padding:20px">Loading chart…</div>
+              </div>
+            </div>
+
+            <!-- Two-col: top tours + status breakdown -->
+            <div class="two-col">
+              <div class="section-box">
+                <h3>Top Tours (all time, by confirmed bookings)</h3>
+                <table class="report-table" id="top-tours-table">
+                  <thead><tr><th>Tour</th><th class="num">Bookings</th><th class="num">Revenue</th></tr></thead>
+                  <tbody><tr class="loading-row"><td colspan="3"><div class="skeleton" style="height:14px"></div></td></tr></tbody>
+                </table>
+              </div>
+              <div class="section-box">
+                <h3>Status Breakdown (selected period)</h3>
+                <table class="report-table" id="status-table">
+                  <thead><tr><th>Status</th><th class="num">Count</th></tr></thead>
+                  <tbody><tr class="loading-row"><td colspan="2"><div class="skeleton" style="height:14px"></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Recent orders -->
+            <div class="section-box">
+              <h3>Recent 10 Orders</h3>
+              <div style="overflow-x:auto">
+                <table class="report-table" id="recent-table">
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Tour</th>
+                      <th>Guest</th>
+                      <th>Travel Date</th>
+                      <th class="num">Total</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody><tr class="loading-row"><td colspan="7"><div class="skeleton" style="height:14px"></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-wrapper">
+    <div class="container">
+      <footer id="footer">
+        <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;padding:12px 0">
+          Travel Agent Management Platform
+        </p>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/jquery.min.js"></script>
+<script src="assets/js/browser.min.js"></script>
+<script src="assets/js/breakpoints.min.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/main.js"></script>
+<script>
+(async () => {
+  'use strict';
+
+  // ── Auth check ────────────────────────────────────────────────────────────
+  let tenantId = '';
+  try {
+    const sessRes = await fetch('/api/auth/session', { credentials: 'include' });
+    const sess    = await sessRes.json();
+    if (!sess?.ok || !sess.session?.tenant_id) {
+      window.location.href = '/login.html';
+      return;
+    }
+    tenantId = sess.session.tenant_id;
+  } catch {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  // ── Wiring ────────────────────────────────────────────────────────────────
+  const params = new URLSearchParams(window.location.search);
+  const period = params.get('period') ?? '30d';
+
+  // Highlight active period in sidebar
+  document.querySelectorAll('.period-link').forEach(a => {
+    if (a.dataset.period === period) a.style.fontWeight = '800';
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const p = a.dataset.period;
+      const url = new URL(window.location.href);
+      url.searchParams.set('period', p);
+      window.location.href = url.toString();
+    });
+  });
+
+  // Set tid on nav links
+  function withTenant(path) {
+    const u = new URL(path, window.location.origin);
+    u.searchParams.set('tid', tenantId);
+    return u.toString();
+  }
+  document.getElementById('nav-tours').href  = withTenant('tour-config.html');
+  document.getElementById('nav-logout').addEventListener('click', async e => {
+    e.preventDefault();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    window.location.href = '/login.html';
+  });
+
+  const PERIOD_LABELS = { '30d': 'Last 30 days', '90d': 'Last 90 days', '12m': 'Last 12 months', 'all': 'All time' };
+  document.getElementById('report-heading').textContent    = 'Reports & Analytics';
+  document.getElementById('report-subheading').textContent = PERIOD_LABELS[period] ?? period;
+
+  // ── Load data ─────────────────────────────────────────────────────────────
+  let data;
+  try {
+    const res = await fetch(`/api/reports/overview?period=${encodeURIComponent(period)}`, {
+      headers: { 'X-Tenant-ID': tenantId },
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+    if (!data.ok) throw new Error(data.error ?? 'API error');
+  } catch (err) {
+    const eb = document.getElementById('error-banner');
+    eb.textContent = `Failed to load reports: ${err.message}`;
+    eb.style.display = 'block';
+    document.getElementById('summary-cards').innerHTML = '';
+    return;
+  }
+
+  const s = data.summary;
+
+  // ── Formatters ────────────────────────────────────────────────────────────
+  function fmtMoney(amount, currency) {
+    if (!amount) return '—';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: currency ?? 'USD',
+        minimumFractionDigits: 0, maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `${currency} ${Number(amount).toLocaleString()}`;
+    }
+  }
+
+  function fmtMoneyCompact(amount, currency) {
+    if (!amount) return '—';
+    const n = Number(amount);
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: currency ?? 'USD',
+        notation: 'compact', maximumSignificantDigits: 3,
+      }).format(n);
+    } catch {
+      return fmtMoney(amount, currency);
+    }
+  }
+
+  function fmtDate(unixSec) {
+    if (!unixSec) return '—';
+    return new Date(unixSec * 1000).toLocaleDateString(undefined, { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function esc(v) {
+    return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Render KPI cards ──────────────────────────────────────────────────────
+  const cur = s.revenue_currency;
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="sum-card accent">
+      <div class="sum-value">${esc(fmtMoneyCompact(s.revenue_period, cur))}</div>
+      <div class="sum-label">Revenue (period)</div>
+    </div>
+    <div class="sum-card accent">
+      <div class="sum-value">${esc(fmtMoneyCompact(s.revenue_month, cur))}</div>
+      <div class="sum-label">This Month</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-value">${s.total_orders}</div>
+      <div class="sum-label">Total Orders</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-value green">${s.confirmed}</div>
+      <div class="sum-label">Confirmed</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-value amber">${s.awaiting_proof + s.proof_uploaded}</div>
+      <div class="sum-label">Pending</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-value red">${s.expired}</div>
+      <div class="sum-label">Expired</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-value">${esc(fmtMoneyCompact(s.revenue_all_time, cur))}</div>
+      <div class="sum-label">All-time Revenue</div>
+    </div>
+  `;
+
+  // ── Render bar chart ──────────────────────────────────────────────────────
+  const monthly = data.monthly ?? [];
+  if (monthly.length > 0) {
+    const maxRev = Math.max(...monthly.map(m => m.revenue), 1);
+    const bars = monthly.map(m => {
+      const pct = Math.max(4, Math.round((m.revenue / maxRev) * 120));
+      return `
+        <div class="bar-col">
+          <div class="bar-amount">${esc(fmtMoneyCompact(m.revenue, cur))}</div>
+          <div class="bar-fill" style="height:${pct}px"></div>
+          <div class="bar-label">${esc(m.month)}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('bar-chart').innerHTML = bars;
+  } else {
+    document.getElementById('bar-chart').innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:20px">No confirmed bookings in the last 6 months yet.</p>';
+  }
+
+  // ── Render top tours ──────────────────────────────────────────────────────
+  const topTours = data.top_tours ?? [];
+  document.querySelector('#top-tours-table tbody').innerHTML = topTours.length
+    ? topTours.map(r => `
+        <tr>
+          <td>${esc(r.tour_name)}</td>
+          <td class="num">${r.booking_count}</td>
+          <td class="num">${esc(fmtMoney(r.confirmed_revenue, cur))}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px">No confirmed bookings yet.</td></tr>`;
+
+  // ── Render status breakdown ───────────────────────────────────────────────
+  const statusMeta = [
+    { key:'CONFIRMED',     label:'Confirmed',      cls:'badge-green' },
+    { key:'AWAITING_PROOF',label:'Awaiting Proof', cls:'badge-amber' },
+    { key:'PROOF_UPLOADED',label:'Proof Uploaded', cls:'badge-blue'  },
+    { key:'EXPIRED',       label:'Expired',        cls:'badge-red'   },
+    { key:'CANCELLED',     label:'Cancelled',      cls:'badge-gray'  },
+  ];
+  document.querySelector('#status-table tbody').innerHTML = statusMeta
+    .map(sm => `
+      <tr>
+        <td><span class="badge ${sm.cls}">${sm.label}</span></td>
+        <td class="num">${s[sm.key.toLowerCase()] ?? 0}</td>
+      </tr>`)
+    .join('');
+
+  // ── Render recent orders ──────────────────────────────────────────────────
+  const recent = data.recent_orders ?? [];
+  const statusClsMap = {
+    CONFIRMED: 'badge-green', AWAITING_PROOF: 'badge-amber',
+    PROOF_UPLOADED: 'badge-blue', EXPIRED: 'badge-red', CANCELLED: 'badge-gray',
+  };
+  document.querySelector('#recent-table tbody').innerHTML = recent.length
+    ? recent.map(r => `
+        <tr>
+          <td><code>${esc(r.id.slice(0,10))}</code></td>
+          <td>${esc(r.tour_name ?? r.tour_id)}</td>
+          <td>${r.guest_name ? esc(r.guest_name) : '<span style="color:#94a3b8">—</span>'}</td>
+          <td>${esc(r.travel_date ?? '—')}</td>
+          <td class="num">${esc(fmtMoney(r.total, r.currency))}</td>
+          <td><span class="badge ${statusClsMap[r.status] ?? 'badge-gray'}">${esc(r.status)}</span></td>
+          <td>${esc(fmtDate(r.created_at))}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="7" style="color:#94a3b8;text-align:center;padding:16px">No orders yet.</td></tr>`;
+
+})();
+</script>
+</body>
+</html>

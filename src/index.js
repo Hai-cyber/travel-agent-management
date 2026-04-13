@@ -25,6 +25,7 @@ import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
 import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes from './routes/universalSites.js';
+import registerReportsRoutes from './routes/reports.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -231,6 +232,7 @@ registerAdminRoutes && registerAdminRoutes(app);
 registerBillingRoutes && registerBillingRoutes(app);
 registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
+registerReportsRoutes && registerReportsRoutes(app);
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
 const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];
