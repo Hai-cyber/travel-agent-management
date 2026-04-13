@@ -2664,6 +2664,120 @@ publicConfig.post('/soft-publish', async (c) => {
   });
 });
 
+// ─── Custom-domain DNS verification ──────────────────────────────────────────
+// Token value tenants must add as a DNS TXT record to prove ownership.
+// Derived from the tenant ID so no extra DB column is needed.
+function buildDomainVerifyToken(tenantId) {
+  // e.g.  tours-market-verify=abc123tenant
+  return `tours-market-verify=${tenantId.toLowerCase()}`;
+}
+
+// GET /api/tenants/custom-domain-verify
+// Returns current domain + verification token + status.
+tenants.get('/custom-domain-verify', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const { error: authError } = await requireTenantActor(c, tenantId);
+  if (authError) return authError;
+
+  const row = await c.env.DB
+    .prepare('SELECT custom_domain, custom_domain_verified_at FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!row) return c.json({ error: 'Tenant not found' }, 404);
+
+  const domain = row.custom_domain ? String(row.custom_domain).trim().toLowerCase() : null;
+  const token  = buildDomainVerifyToken(tenantId);
+
+  return c.json({
+    ok: true,
+    domain,
+    verified: Boolean(Number(row.custom_domain_verified_at) > 0),
+    verified_at: row.custom_domain_verified_at ? new Date(Number(row.custom_domain_verified_at) * 1000).toISOString() : null,
+    token,
+    instructions: domain ? {
+      step1: `Log in to your DNS provider (e.g. Cloudflare, GoDaddy).`,
+      step2: `Add a TXT record: name = "_tm-verify.${domain}", value = "${token}"`,
+      step3: `Add a CNAME record: name = "${domain}", target = "square-wind-2594.divine-shape-9f0a.workers.dev"`,
+      step4: `Click "Check DNS" below once the records have propagated (may take up to 24 h).`,
+    } : null,
+  });
+});
+
+// POST /api/tenants/custom-domain-verify
+// Performs a live DNS TXT lookup. Marks verified on success.
+tenants.post('/custom-domain-verify', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const { error: authError } = await requireTenantActor(c, tenantId);
+  if (authError) return authError;
+
+  const row = await c.env.DB
+    .prepare('SELECT custom_domain, custom_domain_verified_at FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!row) return c.json({ error: 'Tenant not found' }, 404);
+
+  const domain = row.custom_domain ? String(row.custom_domain).trim().toLowerCase() : null;
+  if (!domain) {
+    return c.json({ error: 'No custom domain set. Save a custom domain first.', code: 'NO_DOMAIN' }, 400);
+  }
+
+  const expectedToken = buildDomainVerifyToken(tenantId);
+  const txtName = `_tm-verify.${domain}`;
+
+  // DNS-over-HTTPS lookup via Cloudflare public resolver
+  let dnsAnswer = null;
+  try {
+    const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(txtName)}&type=TXT`;
+    const dohRes = await fetch(dohUrl, {
+      headers: { Accept: 'application/dns-json' },
+      cf: { cacheEverything: false },
+    });
+    if (dohRes.ok) {
+      const dohJson = await dohRes.json();
+      // Answers are arrays of { data: '"value"' } — Cloudflare wraps TXT data in quotes
+      dnsAnswer = dohJson?.Answer ?? [];
+    }
+  } catch (dnsErr) {
+    console.warn('[DOMAIN_VERIFY_DNS_FETCH_ERR]', dnsErr?.message);
+  }
+
+  const verified = Array.isArray(dnsAnswer) && dnsAnswer.some((record) => {
+    const val = String(record?.data ?? '').replace(/^"|"$/g, '').trim();
+    return val === expectedToken;
+  });
+
+  if (!verified) {
+    return c.json({
+      ok: false,
+      verified: false,
+      domain,
+      expected_txt_name: txtName,
+      expected_txt_value: expectedToken,
+      message: 'TXT record not found yet. DNS changes can take up to 24 hours to propagate.',
+    }, 200);
+  }
+
+  // Mark as verified
+  const now = Math.floor(Date.now() / 1000);
+  await c.env.DB
+    .prepare('UPDATE tenants SET custom_domain_verified_at = ? WHERE id = ?')
+    .bind(now, tenantId)
+    .run();
+
+  console.info(`[DOMAIN_VERIFIED] tenant=${tenantId} domain=${domain}`);
+  return c.json({
+    ok: true,
+    verified: true,
+    domain,
+    verified_at: new Date(now * 1000).toISOString(),
+    message: `Domain ${domain} successfully verified!`,
+  });
+});
+
 export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
   // Public config endpoint — registered separately to keep URL path clean.

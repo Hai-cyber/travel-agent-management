@@ -235,6 +235,62 @@
     .market-skin-hint.is-error {
       color: #b91c1c;
     }
+    .custom-domain-section {
+      display: none;
+      margin-top: 18px;
+      padding: 16px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+    }
+    .custom-domain-section.visible { display: block; }
+    .custom-domain-section h4 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+    .custom-domain-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .custom-domain-row input {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1px solid #93c5fd;
+      border-radius: 6px;
+      background: #fff;
+      color: #111827;
+    }
+    .custom-domain-instructions {
+      margin-top: 12px;
+      background: #fff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #374151;
+    }
+    .custom-domain-instructions code {
+      background: #eff6ff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .custom-domain-status {
+      margin-top: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      min-height: 18px;
+    }
+    .custom-domain-status.verified { color: #059669; }
+    .custom-domain-status.pending  { color: #d97706; }
     @media screen and (max-width: 980px) {
       .launch-settings-toolbar {
         gap: 10px;
@@ -521,6 +577,18 @@
                 </div>
               </div>
               <div class="launch-steps" id="launch-steps"></div>
+
+              <!-- Custom Domain (TRUSTED tenants only) -->
+              <div class="custom-domain-section" id="custom-domain-section">
+                <h4>🌐 Custom Domain</h4>
+                <div class="custom-domain-row">
+                  <input id="custom-domain-input" type="text" placeholder="tours.mycompany.com" autocomplete="off" spellcheck="false" />
+                  <a href="#" id="btn-save-custom-domain" class="button small">Save</a>
+                  <a href="#" id="btn-verify-custom-domain" class="button alt small" style="display:none">Check DNS</a>
+                </div>
+                <div id="custom-domain-instructions" class="custom-domain-instructions" style="display:none"></div>
+                <div id="custom-domain-status" class="custom-domain-status"></div>
+              </div>
             </section>
 
             <!-- Stat Cards -->
@@ -1504,6 +1572,117 @@ window.addEventListener('dashboard:langchange', () => {
     });
   }
 
+  // ── Custom Domain verification UI ─────────────────────────────────────────
+  const customDomainSection  = document.getElementById('custom-domain-section');
+  const customDomainInput    = document.getElementById('custom-domain-input');
+  const btnSaveCustomDomain  = document.getElementById('btn-save-custom-domain');
+  const btnVerifyCustomDomain = document.getElementById('btn-verify-custom-domain');
+  const customDomainInstructions = document.getElementById('custom-domain-instructions');
+  const customDomainStatus   = document.getElementById('custom-domain-status');
+
+  function setDomainStatus(msg, kind = '') {
+    if (!customDomainStatus) return;
+    customDomainStatus.textContent = msg;
+    customDomainStatus.className = `custom-domain-status ${kind}`;
+  }
+
+  async function loadCustomDomainStatus() {
+    const settings = onboardingState.settings || {};
+    const trustStatus = String(settings.trust_status || '').toUpperCase();
+    if (!customDomainSection) return;
+    if (trustStatus !== 'TRUSTED') {
+      customDomainSection.classList.remove('visible');
+      return;
+    }
+    customDomainSection.classList.add('visible');
+
+    try {
+      const res = await fetch('/api/tenants/custom-domain-verify', { headers: buildTenantHeaders() });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.ok) return;
+
+      if (customDomainInput && !customDomainInput.value) {
+        customDomainInput.value = payload.domain || '';
+      }
+
+      if (payload.verified) {
+        setDomainStatus(`✅ Verified: ${payload.domain}`, 'verified');
+        if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = 'none';
+        if (customDomainInstructions) customDomainInstructions.style.display = 'none';
+      } else if (payload.domain) {
+        setDomainStatus('⏳ Pending DNS verification', 'pending');
+        if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = '';
+        if (payload.instructions && customDomainInstructions) {
+          customDomainInstructions.style.display = '';
+          const inst = payload.instructions;
+          customDomainInstructions.innerHTML = `
+            <strong>DNS Setup Instructions</strong><br>
+            1. ${inst.step1}<br>
+            2. Add <strong>TXT</strong>: name <code>${'_tm-verify.' + payload.domain}</code> → value <code>${payload.token}</code><br>
+            3. Add <strong>CNAME</strong>: name <code>${payload.domain}</code> → target <code>square-wind-2594.divine-shape-9f0a.workers.dev</code><br>
+            4. Click <strong>Check DNS</strong> below once propagated (may take up to 24 h).
+          `;
+        }
+      } else {
+        setDomainStatus('Enter your custom domain above and save.', 'pending');
+      }
+    } catch (_) {}
+  }
+
+  if (btnSaveCustomDomain) {
+    btnSaveCustomDomain.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const domain = String(customDomainInput?.value || '').trim().toLowerCase();
+      const HOSTNAME_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+      if (domain && !HOSTNAME_RE.test(domain)) {
+        return setDomainStatus('Invalid hostname — use format: tours.mycompany.com', 'pending');
+      }
+      btnSaveCustomDomain.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/tenants/settings', {
+          method: 'PATCH',
+          headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ custom_domain: domain || null }),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Save failed.');
+        onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
+        setDomainStatus(domain ? '⏳ Domain saved. Add DNS records and click Check DNS.' : 'Custom domain removed.', 'pending');
+        await loadCustomDomainStatus();
+      } catch (err) {
+        setDomainStatus(err.message || 'Save failed.', 'pending');
+      } finally {
+        btnSaveCustomDomain.textContent = 'Save';
+      }
+    });
+  }
+
+  if (btnVerifyCustomDomain) {
+    btnVerifyCustomDomain.addEventListener('click', async (event) => {
+      event.preventDefault();
+      btnVerifyCustomDomain.textContent = 'Checking...';
+      try {
+        const res = await fetch('/api/tenants/custom-domain-verify', {
+          method: 'POST',
+          headers: buildTenantHeaders(),
+        });
+        const payload = await res.json().catch(() => null);
+        if (payload?.verified) {
+          setDomainStatus(`✅ ${payload.message}`, 'verified');
+          if (customDomainInstructions) customDomainInstructions.style.display = 'none';
+          btnVerifyCustomDomain.style.display = 'none';
+          onboardingState.settings = { ...(onboardingState.settings || {}), custom_domain_verified_at: Math.floor(Date.now() / 1000) };
+        } else {
+          setDomainStatus(payload?.message || 'TXT record not found yet. Try again after propagation.', 'pending');
+        }
+      } catch (err) {
+        setDomainStatus('DNS check failed. Please try again.', 'pending');
+      } finally {
+        if (btnVerifyCustomDomain.style.display !== 'none') btnVerifyCustomDomain.textContent = 'Check DNS';
+      }
+    });
+  }
+
   const logoutLink = document.getElementById('nav-logout');
   if (logoutLink) {
     logoutLink.addEventListener('click', async (event) => {
@@ -1545,6 +1724,7 @@ window.addEventListener('dashboard:langchange', () => {
       renderMarketSkinControl();
       renderLaunchGuide();
       renderDashboardStats();
+      loadCustomDomainStatus();
 
       let daysLeft = null;
       try {
