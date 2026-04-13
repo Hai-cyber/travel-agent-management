@@ -20,6 +20,67 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
+Date: 2026-04-13
+Checkpoint: CHK-R53 — Booking pipeline fixes + dashboard live data + guest portal
+
+### What was completed
+
+**Triple room fixes:**
+- `pricing.js` `getMaxChildrenForRooming` accepts `tripleAdults` param; adds `Math.floor(tripleAdults/3) * 2` to max children
+- Both `POST /bookings/draft` and `POST /bookings/order` now pass `adult_triple_room_count` to pricing engine
+- `buildPaxSummary` + `buildQuoteSummaryHtml` include triple room adults in pax display
+
+**Guest booking portal (was 404):**
+- `public/booking-portal.html` created — status badge, booking details, countdown, drag-and-drop proof upload, per-status sections
+- `GET /bookings/public/:token` → 302 redirect to `/booking-portal.html?token=TOKEN`
+- `GET /api/bookings/public/:token` JOIN expanded to include `tour_title`, `tenant_name`, `pax_triple`
+
+**Live dashboard orders:**
+- `public/dashboard.html` bookings section replaces hardcoded dummy rows with `loadOrders()` using `GET /api/bookings/orders`
+- All orders fetched client-side; status filter applied in JS so sidebar counts are always accurate
+- Left sidebar order links wired to live counts + click-to-filter; `active-filter` CSS class highlights active selection
+- Stat cards (Awaiting Proof, Proof Uploaded, Confirmed, Revenue) update from live data on each load
+
+**Identity masking:**
+- `dispatchNewBookingAgentEmail` email no longer includes guest name/email/phone — replaced with 🔒 amber locked-notice box
+- `guestDisplay(order)` in dashboard reads `order.guest.name/email/phone` (maskOrder structure) and reveals only after `identity_unlocked = 1`
+- `maskOrder` now returns `secure_token` and `price_snapshot_json`
+
+**Proof streaming endpoint:**
+- `GET /api/bookings/order/:id/proof-url` — streams R2 `BOOKING_PROOFS` object directly; tenant-scoped; 300s private cache
+- Endpoint confirmed working: `Status=200, Content-Type=image/png, Length=40662`
+- `actionBtn` in dashboard uses `data-order-id` attribute (old broken `CSS.escape` DOM-search removed)
+- **Known issue: proof image still does not load in the browser modal** — deferred to next session
+
+### Files changed
+```
+public/booking-portal.html                       (new — guest portal page)
+public/dashboard.html                            (live orders, sidebar counts, identity display, proof button fix)
+src/routes/bookings.js                           (maskOrder fields, proof-url endpoint, public redirect, JOIN)
+src/lib/bookingEmails.js                         (agent email identity masking)
+db/migrations/0046_triple_room_price.sql         (applied to production)
+db/migrations/0047_pricing_notes.sql             (applied to production)
+db/migrations/0048_tour_type.sql                 (applied to production, carried from prior session)
+docs/ai/01_CURRENT_STATE.md                      (updated to 2026-04-13)
+docs/ai/03_PROGRESS_LEDGER.md                    (CHK-R53 full entry)
+docs/ai/04_SESSION_HANDOFF.md                    (this handoff)
+```
+
+### What is still not done
+- Proof image modal (`🖼 Proof` button) still does not render the image in browser — endpoint returns 200/image/png but image does not appear in `<img>` tag; possibly a CORS, blob-URL, or response-handling issue in the dashboard JS
+- Booking widget (`booking-widget.js` / `widget.js`) still uses room-based pax inputs for day tours — not yet adapted
+- Public booking API pricing.js still requires `adult_shared_room_count` — no API-level day_tour shortcut
+
+### Known risks / TODOs
+- Proof image viewer needs debugging: check whether response needs `blob()` conversion or whether the fetch is hitting an auth/CORS barrier
+- Old synced tour pages in `tenant_universal_tour_pages` do not have `tour_type` in snapshot — `tour_type_map` fallback handles render-time but a re-sync per tour will permanently fix it
+
+### Suggested next prompt
+"Let's debug the proof image modal — the fetch to `/api/bookings/order/:id/proof-url` returns 200/image/png but the `<img>` in the modal never shows the image. Investigate the dashboard JS proof-viewer handler and fix it."
+
+---
+
+## Previous Handoff
 Date: 2026-04-10
 Checkpoint: CHK-R50 — Day Tour pricing mode (per-person Adult/Child/Infant, no room columns)
 

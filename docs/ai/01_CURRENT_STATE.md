@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-10 (includes day-tour pricing mode CHK-R50, full booking widget i18n for all 9 locales CHK-R51, and production deploy at version 3d1295cb)
+Last updated: 2026-04-13 (includes booking pipeline fixes CHK-R53: triple room child capacity, guest portal page, live dashboard orders, identity masking, R2 proof streaming, sidebar wiring; production deploy at version ec18dc87)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -34,7 +34,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0041; local runtime verified against current dev DB, and remote production D1 verified through 0041)
+### D1 Tables (repo migrations 0001–0048; local runtime verified against current dev DB, and remote production D1 verified through 0048; 0046 = triple_room_price, 0047 = pricing_notes, 0048 = tour_type)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -134,15 +134,21 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/bookings/draft` — server-side reprice, 24h TTL, authoritative quote snapshot now includes quoted amount/currency/base-currency/rate fields
 - `GET /api/bookings/draft/:draftId`
 
-**Booking Orders — Bank Transfer (CHK-R18)**
-- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; now snapshots authoritative `grand_total_amount` + `booking_currency` alongside legacy USD compatibility fields; returns `guest_portal_token`
-- `GET /api/bookings/order/:id` — agent view; guest object is present but masked as `***` until identity unlock
-- `POST /api/bookings/order/:id/proof` — agent-side upload; MIME allowlist, 10 MB cap, stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm step
-- `POST /api/bookings/order/:id/confirm-receipt` — unlocks identity, increments `total_revenue_tracked`, and now writes a compatible `tenant_audit_log` row with `changed_at`/`changed_by`; verified locally on 2026-04-02
+**Booking Orders — Bank Transfer (CHK-R18 / CHK-R53)**
+- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; snapshots `grand_total_amount` + `booking_currency`; returns `guest_portal_token`; `adult_triple_room_count` included in both pricing and `buildPaxSummary`; triggers `dispatchNewBookingAgentEmail` (guest identity hidden in email until agent confirms)
+- `GET /api/bookings/orders` — agent order list; accepts `?status=` filter + `?limit=`; returns masked orders (tenant-scoped)
+- `GET /api/bookings/order/:id` — agent view; `maskOrder` now also exposes `secure_token` and `price_snapshot_json`; guest fields `name/email/phone` are masked until `identity_unlocked = 1`
+- `GET /api/bookings/order/:id/proof-url` — streams R2 proof image directly from `BOOKING_PROOFS` bucket with tenant-scope check; returns `Content-Type` from r2 `httpMetadata`; `Cache-Control: private, max-age=300`
+- `POST /api/bookings/order/:id/proof` — stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm
+- `POST /api/bookings/order/:id/confirm-receipt` — sets `identity_unlocked = 1`, increments `total_revenue_tracked`, writes `tenant_audit_log` row
 
-**Guest Portal — no auth required (CHK-R19)**
-- `GET /api/bookings/public/:token` — guest views own booking status, pax, total, upload link; verified locally on 2026-03-30
-- `POST /api/bookings/public/:token/proof` — guest uploads bank slip via token URL; present in runtime, not re-tested in the 2026-03-30 pass
+**Guest Portal — no auth required (CHK-R19 / CHK-R53)**
+- `GET /bookings/public/:token` — HTTP 302 redirect to `/booking-portal.html?token=TOKEN`
+- `GET /api/bookings/public/:token` — guest views booking status, pax, total; JOINs `tours` + `tenants` to return `tour_title`, `tenant_name`, `pax_triple`; verified in production on 2026-04-13
+- `POST /api/bookings/public/:token/proof` — guest uploads bank slip via secure token; MIME allowlist + 10 MB cap; moves order to `PROOF_UPLOADED`
+
+**Booking Emails (CHK-R53)**
+- `src/lib/bookingEmails.js` — `dispatchNewBookingAgentEmail(env, agentEmail, order)` fires on new booking creation; guest identity (name/email/phone) is omitted from the email body and replaced with an amber 🔒 locked notice; revealed only after agent confirms receipt in dashboard
 
 ### Frontend Assets
 - `public/index.html` — live SaaS pricing / trust landing page for 4 tiers
@@ -153,7 +159,8 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `universal_site.pricing` locale section extended with `adult`, `child`, `infant`, `segment`, `season`, `pax` keys across all 9 locales
 - `DEFAULT_MESSAGES` in `tour-booking-view.js` includes English fallbacks for all traveller keys so no locale can display a raw technical key
 - `public/reset-password.html` — localized request/reset page for password recovery tokens
-- `public/dashboard.html` — tenant admin landing page with subdomain locking and guided launch sequence
+- `public/booking-portal.html` — guest-facing booking status portal (no auth); shows status badge, booking details table, deadline countdown, drag-and-drop proof upload; per-status sections (awaiting/uploaded/confirmed/expired/cancelled); fetches `GET /api/bookings/public/:token`
+- `public/dashboard.html` — tenant admin dashboard; bookings section shows live orders from `GET /api/bookings/orders` (client-side filtered); stat cards show real counts; left sidebar order links (`All Orders`, `Awaiting Payment`, `Awaiting Proof`, `Proof Uploaded`, `Confirmed`, `Pending Arrival`) are wired to live status counts and filter the table on click; confirm-receipt flow unlocks guest identity in-page; known issue: `🖼 Proof` image viewer button returns error (deferred)
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)

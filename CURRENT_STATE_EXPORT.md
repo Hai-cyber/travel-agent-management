@@ -1,6 +1,6 @@
 # CURRENT_STATE_EXPORT.md
 
-> **Generated:** 2026-04-02 | **Branch:** `rescue-minimum` | **Last local verification:** 2026-04-02
+> **Generated:** 2026-04-13 | **Branch:** `rescue-minimum` | **Last verified (production):** 2026-04-13 (deploy ec18dc87)
 > Source of truth: `docs/ai/01_CURRENT_STATE.md` + `docs/ai/03_PROGRESS_LEDGER.md`
 > This export is a convenience snapshot. If any section here conflicts with those docs, those docs win.
 
@@ -12,7 +12,7 @@
 src/
   index.js                    — Hono app + URLPattern router + tenant middleware + CORS
   routes/
-    bookings.js               — Drafts, orders, proof upload, guest portal, cron purge
+    bookings.js               — Drafts, orders (list + order + proof-url stream), guest portal page+API, agent email dispatch, cron purge
     categories.js             — Tour categories CRUD
     payments.js               — Payment webhooks, notify settings, payment methods toggle
     pricing.js                — Pricing engine (seasons, segments, pax bands, tour prices, calculate)
@@ -22,6 +22,7 @@ src/
     tours.js                  — Tour CRUD + stops CRUD + publish/preview/switch-template
   lib/
     notifications.js          — notifyAgent() — Telegram + webhook push (non-blocking)
+    bookingEmails.js          — dispatchNewBookingAgentEmail() — email agent on new booking; identity locked until confirm
     publishGuard.js           — checkPublishPermission(), preview/live render helpers
     siteStudio.js             — resolveTenantByHost(), serveSitePage() HTMLRewriter pipeline
   services/
@@ -68,11 +69,14 @@ src/
 ## Key Files
 - docs/ai/01_CURRENT_STATE.md — Source of runtime truth
 - docs/ai/03_PROGRESS_LEDGER.md — Progress and checkpoint log
+- docs/ai/04_SESSION_HANDOFF.md — Latest session handoff (2026-04-13 CHK-R53)
 - src/lib/themes/index.js — Theme registry/resolver for the universal storefront runtime
 - src/lib/themes/six-senses.js — First committed premium storefront skin module
+- public/booking-portal.html — Guest booking status portal (no auth required); proof upload, status view
+- public/dashboard.html — Tenant admin dashboard with live orders table, sidebar counts, confirm flow
 - public/universal-admin.html — Preview-first Website Design admin with contextual edit + expanded system panel
 - scripts/apply-local-migrations.mjs — local D1 reconcile + migrate wrapper for Windows-friendly setups
-- scripts/smoke-local.mjs — Node smoke runner used by `npm test` for task patch, pricing calculate, and booking confirm coverage
+- scripts/smoke-local.mjs — Node smoke runner used by `npm test`
 - src/routes/serviceItems.js — Service item API handlers
 - src/routes/tasks.js — Task API handlers
 - src/services/serviceItems.js — Service item logic
