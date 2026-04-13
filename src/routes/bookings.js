@@ -6,10 +6,29 @@ import { calculateTourPrice } from './pricing.js';
 import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { notifyAgent } from '../lib/notifications.js';
 import { isInstantProvider, ALL_PROVIDERS, checkTenantCompliance } from './payments.js';
+import {
+  dispatchBookingCreatedEmail,
+  dispatchProofUploadedEmail,
+  dispatchBookingConfirmedEmail,
+} from '../lib/bookingEmails.js';
 
 const bookings = new Hono();
 
 const DRAFT_TTL_SECONDS = 24 * 60 * 60; // 24 giờ
+
+// ── Pax summary string for email content ─────────────────────────────────────
+function buildPaxSummary(pax = {}) {
+  const parts = [];
+  const shared   = pax.adult_shared_room_count ?? pax.shared   ?? pax.adult_count ?? 0;
+  const priv     = pax.adult_single_room_count ?? pax.private  ?? 0;
+  const children = pax.child_count   ?? pax.children ?? 0;
+  const infants  = pax.infant_count  ?? pax.infants  ?? 0;
+  if (shared   > 0) parts.push(`${shared} adult${shared   > 1 ? 's' : ''} (shared room)`);
+  if (priv     > 0) parts.push(`${priv} adult${priv     > 1 ? 's' : ''} (private room)`);
+  if (children > 0) parts.push(`${children} child${children > 1 ? 'ren' : ''}`);
+  if (infants  > 0) parts.push(`${infants} infant${infants  > 1 ? 's' : ''}`);
+  return parts.join(', ') || 'See booking details';
+}
 
 // POST /api/bookings/draft
 // [SEC] Giá được tính server-side — không tin giá từ client.
@@ -375,6 +394,37 @@ bookings.post('/order', async (c) => {
       )
     );
 
+    // Fire booking.created email to guest — non-blocking
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const [tourRow, tenantRow] = await Promise.all([
+          c.env.DB.prepare('SELECT title FROM tours WHERE id = ? LIMIT 1').bind(tour_id).first(),
+          c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+        ]);
+        const platformBase   = String(c.env.PLATFORM_BASE_URL || '').trim();
+        const guestPortalUrl = `${platformBase}/bookings/public/${secureToken}`;
+        await dispatchBookingCreatedEmail(c.env, {
+          orderId, tenantId,
+          tenantName:   tenantRow?.name   || null,
+          tourTitle:    tourRow?.title    || null,
+          travelDate:   travel_date,
+          segmentName:  priceResult.segment_name || null,
+          paxSummary:   buildPaxSummary(pax),
+          grandTotal:   priceResult.totals.grand_total,
+          currency:     null,
+          paymentMethod: rawMethod,
+          deadlineUnix:  deadline,
+          deadlineHours,
+          guestName:    guest.name,
+          guestEmail:   guest.email,
+          guestPortalUrl,
+          platformBaseUrl: platformBase,
+        });
+      } catch (err) {
+        console.warn('[BOOKING_EMAIL] booking.created error:', err.message);
+      }
+    })());
+
     if (isArrival) {
       // Group C: PAY_ON_ARRIVAL — identity locked until agent calls manual-unlock
       return c.json({
@@ -580,6 +630,35 @@ bookings.post('/order/:orderId/proof', async (c) => {
 
   console.info(`[PROOF_UPLOADED] order=${orderId} tenant=${tenantId} identity_locked=STRICT at=${new Date(now * 1000).toISOString()}`);
 
+  // Notify agent via email — non-blocking
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const [orderRow, agentRow, tenantRow] = await Promise.all([
+        c.env.DB.prepare(`SELECT o.tour_id, o.travel_date, o.grand_total_usd, t.title as tour_title
+                          FROM booking_orders o LEFT JOIN tours t ON t.id = o.tour_id
+                          WHERE o.id = ? LIMIT 1`).bind(orderId).first(),
+        c.env.DB.prepare(`SELECT u.email FROM users u
+                          JOIN memberships m ON m.user_id = u.id
+                          WHERE m.tenant_id = ? AND m.role = 'owner' LIMIT 1`).bind(tenantId).first(),
+        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+      ]);
+      const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
+      await dispatchProofUploadedEmail(c.env, {
+        orderId, tenantId,
+        agentEmail:   agentRow?.email    || null,
+        agentName:    tenantRow?.name    || null,
+        tourTitle:    orderRow?.tour_title || null,
+        travelDate:   orderRow?.travel_date || null,
+        grandTotal:   orderRow?.grand_total_usd || null,
+        currency:     null,
+        dashboardUrl: `${platformBase}/dashboard.html`,
+        platformBaseUrl: platformBase,
+      });
+    } catch (err) {
+      console.warn('[BOOKING_EMAIL] booking.proof_uploaded (agent upload) error:', err.message);
+    }
+  })());
+
   return c.json({
     ok:               true,
     order_id:         orderId,
@@ -669,6 +748,41 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
   console.info(
     `[IDENTITY_UNLOCK_CONFIRM_RECEIPT] order=${orderId} tenant=${tenantId} amount_usd=${order.grand_total_usd} at=${new Date(now * 1000).toISOString()}`
   );
+
+  // Send booking.confirmed email to guest — non-blocking
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const [fullOrder, tenantRow] = await Promise.all([
+        c.env.DB.prepare(`SELECT o.tour_id, o.travel_date, o.pax_shared, o.pax_private, o.pax_children, o.pax_infants,
+                                 t.title as tour_title
+                          FROM booking_orders o LEFT JOIN tours t ON t.id = o.tour_id
+                          WHERE o.id = ? LIMIT 1`).bind(orderId).first(),
+        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+      ]);
+      const paxSummary = buildPaxSummary({
+        adult_shared_room_count: fullOrder?.pax_shared,
+        adult_single_room_count: fullOrder?.pax_private,
+        child_count:  fullOrder?.pax_children,
+        infant_count: fullOrder?.pax_infants,
+      });
+      const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
+      await dispatchBookingConfirmedEmail(c.env, {
+        orderId, tenantId,
+        tenantName:  tenantRow?.name || null,
+        guestName:   order.guest_name,
+        guestEmail:  order.guest_email,
+        tourTitle:   fullOrder?.tour_title  || null,
+        travelDate:  fullOrder?.travel_date || null,
+        segmentName: null,
+        paxSummary,
+        grandTotal:  order.grand_total_usd,
+        currency:    null,
+        platformBaseUrl: platformBase,
+      });
+    } catch (err) {
+      console.warn('[BOOKING_EMAIL] booking.confirmed error:', err.message);
+    }
+  })());
 
   return c.json({
     ok:                true,
@@ -867,14 +981,44 @@ bookings.post('/public/:secure_token/proof', async (c) => {
 
   console.info(`[GUEST_PROOF_UPLOADED] order=${order.id} tenant=${order.tenant_id} identity_locked=STRICT at=${new Date(now * 1000).toISOString()}`);
 
-  // Notify agent — non-blocking
+  // Notify agent via Telegram/webhook — non-blocking
   c.executionCtx.waitUntil(
     notifyAgent(c.env, order.tenant_id, 'PROOF_UPLOADED', {
       order_id:    order.id,
       provider:    order.payment_method,
-      grand_total: null, // not fetched in this query for performance
+      grand_total: null,
     })
   );
+
+  // Notify agent via email — non-blocking
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const [orderRow, agentRow, tenantRow] = await Promise.all([
+        c.env.DB.prepare(`SELECT o.tour_id, o.travel_date, o.grand_total_usd, t.title as tour_title
+                          FROM booking_orders o LEFT JOIN tours t ON t.id = o.tour_id
+                          WHERE o.id = ? LIMIT 1`).bind(order.id).first(),
+        c.env.DB.prepare(`SELECT u.email FROM users u
+                          JOIN memberships m ON m.user_id = u.id
+                          WHERE m.tenant_id = ? AND m.role = 'owner' LIMIT 1`).bind(order.tenant_id).first(),
+        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(order.tenant_id).first(),
+      ]);
+      const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
+      await dispatchProofUploadedEmail(c.env, {
+        orderId:      order.id,
+        tenantId:     order.tenant_id,
+        agentEmail:   agentRow?.email    || null,
+        agentName:    tenantRow?.name    || null,
+        tourTitle:    orderRow?.tour_title || null,
+        travelDate:   orderRow?.travel_date || null,
+        grandTotal:   orderRow?.grand_total_usd || null,
+        currency:     null,
+        dashboardUrl: `${platformBase}/dashboard.html`,
+        platformBaseUrl: platformBase,
+      });
+    } catch (err) {
+      console.warn('[BOOKING_EMAIL] booking.proof_uploaded (guest portal) error:', err.message);
+    }
+  })());
 
   return c.json({
     ok:      true,

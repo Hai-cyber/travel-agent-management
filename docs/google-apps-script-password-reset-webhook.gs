@@ -1,5 +1,6 @@
 /**
- * TravelAgent password reset webhook receiver for Google Apps Script.
+ * TravelAgent webhook receiver for Google Apps Script.
+ * Handles: password_reset.requested, booking.created, booking.proof_uploaded, booking.confirmed
  *
  * Deploy as a Web App with:
  * - Execute as: Me
@@ -14,7 +15,7 @@ const SENDER_NAME = 'Tours Market';
 // SENDER_EMAIL: must be a verified "Send As" alias in the account running this script,
 // OR leave as '' to send from the default account email.
 const SENDER_EMAIL = 'info@tours-market.com';
-const VERSION_TAG = 'gas-password-reset-v3';
+const VERSION_TAG = 'gas-booking-mailer-v1';
 
 function doPost(e) {
   try {
@@ -36,13 +37,14 @@ function doPost(e) {
     }
 
     const data = JSON.parse(rawBody);
+    const event = stringOrEmpty_(data && data.event);
     const recipient = stringOrEmpty_(data && data.recipient && data.recipient.email);
-    const subject = stringOrEmpty_(data && data.email_content && data.email_content.subject) || 'Reset your TravelAgent password';
+    const subject = stringOrEmpty_(data && data.email_content && data.email_content.subject);
     const textBody = stringOrEmpty_(data && data.email_content && data.email_content.text);
     const htmlBody = stringOrEmpty_(data && data.email_content && data.email_content.html);
 
     if (!recipient || !subject || (!textBody && !htmlBody)) {
-      console.log(JSON.stringify({ ok: false, version: VERSION_TAG, reason: 'invalid_payload' }));
+      console.log(JSON.stringify({ ok: false, version: VERSION_TAG, reason: 'invalid_payload', event: event }));
       return textResponse_('Invalid payload');
     }
 
@@ -53,6 +55,7 @@ function doPost(e) {
     if (SENDER_EMAIL) {
       mailOptions.from = SENDER_EMAIL;
     }
+
     GmailApp.sendEmail(
       recipient,
       subject,
@@ -63,7 +66,7 @@ function doPost(e) {
     console.log(JSON.stringify({
       ok: true,
       version: VERSION_TAG,
-      event: stringOrEmpty_(data.event),
+      event: event,
       event_id: stringOrEmpty_(data.event_id),
       recipient: recipient,
     }));

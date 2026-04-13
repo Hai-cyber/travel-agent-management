@@ -63,6 +63,11 @@ import {
   sendTelegramModerationAlert,
 } from '../lib/aiModeration.js';
 import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
+import {
+  dispatchBookingCreatedEmail,
+  dispatchProofUploadedEmail,
+  dispatchBookingConfirmedEmail,
+} from '../lib/bookingEmails.js';
 
 const admin = new Hono();
 
@@ -853,6 +858,73 @@ admin.post('/test-email', async (c) => {
   } catch (err) {
     return c.json({ ok: false, error: err.message }, 500);
   }
+});
+
+// POST /api/admin/test-booking-emails  — smoke test all 3 booking email types.
+// Body: { "to": "email@example.com" }
+admin.post('/test-booking-emails', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const to = String(body?.to || '').trim().toLowerCase();
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return c.json({ error: 'Provide a valid "to" email address.' }, 400);
+  }
+
+  const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
+  const fakeOrderId  = 'TEST0001';
+
+  const [r1, r2, r3] = await Promise.all([
+    dispatchBookingCreatedEmail(c.env, {
+      orderId:      fakeOrderId,
+      tenantId:     'test-tenant',
+      tenantName:   'Tours Market (TEST)',
+      tourTitle:    'BEST OF VIETNAM: ART & CULTURE (8 DAYS)',
+      travelDate:   '2026-06-15',
+      segmentName:  '4-star hotel',
+      paxSummary:   '2 adults (shared room), 1 child',
+      grandTotal:   1980.00,
+      currency:     'USD',
+      paymentMethod: 'BANK_TRANSFER',
+      deadlineUnix:  Math.floor(Date.now() / 1000) + 48 * 3600,
+      deadlineHours: 48,
+      guestName:    'Test Guest',
+      guestEmail:   to,
+      guestPortalUrl: `${platformBase}/bookings/public/TEST_TOKEN_PORTAL`,
+      platformBaseUrl: platformBase,
+    }),
+    dispatchProofUploadedEmail(c.env, {
+      orderId:     fakeOrderId,
+      tenantId:    'test-tenant',
+      agentEmail:  to,
+      agentName:   'Tours Market Team',
+      tourTitle:   'BEST OF VIETNAM: ART & CULTURE (8 DAYS)',
+      travelDate:  '2026-06-15',
+      grandTotal:  1980.00,
+      currency:    'USD',
+      dashboardUrl: `${platformBase}/dashboard.html`,
+      platformBaseUrl: platformBase,
+    }),
+    dispatchBookingConfirmedEmail(c.env, {
+      orderId:     fakeOrderId,
+      tenantId:    'test-tenant',
+      tenantName:  'Tours Market (TEST)',
+      guestName:   'Test Guest',
+      guestEmail:  to,
+      tourTitle:   'BEST OF VIETNAM: ART & CULTURE (8 DAYS)',
+      travelDate:  '2026-06-15',
+      segmentName: '4-star hotel',
+      paxSummary:  '2 adults (shared room), 1 child',
+      grandTotal:  1980.00,
+      currency:    'USD',
+      platformBaseUrl: platformBase,
+    }),
+  ]);
+
+  return c.json({ ok: true, to,
+    booking_created:       r1,
+    proof_uploaded:        r2,
+    booking_confirmed:     r3,
+    note: 'Sent 3 test emails: booking.created + booking.proof_uploaded + booking.confirmed. Check your inbox.',
+  });
 });
 
 export default function registerAdminRoutes(app) {
