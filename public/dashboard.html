@@ -1769,8 +1769,18 @@ window.addEventListener('dashboard:langchange', () => {
   }
 
   function guestDisplay(order) {
-    if (order.identity_unlocked && order.guest_name) return escapeHtml(order.guest_name);
+    if (order.identity_unlocked) {
+      const name  = order.guest?.name;
+      const email = order.guest?.email;
+      const phone = order.guest?.phone;
+      if (name && name !== '***') {
+        return `<span>${escapeHtml(name)}</span>` +
+          (email && email !== '***' ? `<br><small style="color:#64748b">${escapeHtml(email)}</small>` : '') +
+          (phone && phone !== '***' ? `<br><small style="color:#64748b">${escapeHtml(phone)}</small>` : '');
+      }
+    }
     if (order.status === 'AWAITING_PROOF') return '<em style="color:#94a3b8">awaiting proof</em>';
+    if (order.status === 'PROOF_UPLOADED') return '<em style="color:#f59e0b">🔒 proof received</em>';
     return '<em style="color:#94a3b8">locked</em>';
   }
 
@@ -1781,13 +1791,13 @@ window.addEventListener('dashboard:langchange', () => {
 
   function actionBtn(order) {
     if (order.status === 'PROOF_UPLOADED') {
-      return `<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}" data-guest="${escapeHtml(order.guest_name||'?')}" data-total="${escapeHtml(String(order.grand_total_usd))}">✅ Confirm</button>`;
+      return `<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}">✅ Confirm</button>`;
     }
     if (order.status === 'AWAITING_PROOF') {
       return `<button class="button small alt" data-action="view-portal" data-token="${escapeHtml(order.secure_token||'')}">🔗 Portal</button>`;
     }
     if (order.status === 'CONFIRMED' && order.proof_r2_key) {
-      return `<button class="button small alt" data-action="view-proof" data-key="${escapeHtml(order.proof_r2_key)}">🖼 Proof</button>`;
+      return `<button class="button small alt" data-action="view-proof" data-order-id="${escapeHtml(order.id)}" data-key="${escapeHtml(order.proof_r2_key)}">🖼 Proof</button>`;
     }
     return '';
   }
@@ -1872,12 +1882,12 @@ window.addEventListener('dashboard:langchange', () => {
 
     if (action === 'confirm') {
       pendingConfirmId = btn.dataset.orderId;
-      const guest    = btn.dataset.guest || '?';
-      const total    = btn.dataset.total;
+      const row   = btn.closest('tr');
+      const total = row?.querySelector('td:nth-child(5)')?.textContent || '—';
       document.getElementById('confirm-modal-body').innerHTML =
-        `Confirm receipt for order <code>${escapeHtml(pendingConfirmId)}</code>?<br>` +
-        `Guest: <strong>${escapeHtml(guest)}</strong><br>` +
-        `Amount: <strong>${fmtMoney(total, getTenantCurrencyPreference?.() || 'USD')}</strong>`;
+        `Confirm receipt of payment for booking <code>${escapeHtml(pendingConfirmId.slice(0,8))}…</code>?<br><br>` +
+        `Amount: <strong>${escapeHtml(total)}</strong><br><br>` +
+        `ℹ️ Guest identity will be unlocked and visible in this table after confirmation.`;
       document.getElementById('confirm-modal-err').style.display = 'none';
       const modal = document.getElementById('confirm-modal');
       modal.style.display = 'flex';
@@ -1889,10 +1899,9 @@ window.addEventListener('dashboard:langchange', () => {
     }
 
     if (action === 'view-proof') {
-      // Sign URL via the existing agent proof endpoint
-      const key = btn.dataset.key;
-      if (key) {
-        const res  = await fetch(`/api/bookings/order/${encodeURIComponent(document.querySelector(`[data-action="view-proof"][data-key="${CSS.escape(key)}"]`)?.closest('tr')?.querySelector('code')?.title || '')}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
+      const ordId = btn.dataset.orderId;
+      if (ordId) {
+        const res  = await fetch(`/api/bookings/order/${encodeURIComponent(ordId)}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
         const data = res?.ok ? await res.json().catch(() => null) : null;
         if (data?.url) {
           document.getElementById('proof-modal-img').src = data.url;

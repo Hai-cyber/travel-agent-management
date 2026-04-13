@@ -707,6 +707,36 @@ bookings.post('/order/:orderId/proof', async (c) => {
   });
 });
 
+// ── GET /api/bookings/order/:orderId/proof-url ────────────────────────────────
+// Streams the proof image/PDF directly to the agent browser.
+// [SEC] Only accessible to the tenant that owns the order.
+bookings.get('/order/:orderId/proof-url', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const order = await c.env.DB
+    .prepare('SELECT proof_r2_key, status FROM booking_orders WHERE id = ? AND tenant_id = ?')
+    .bind(c.req.param('orderId'), tenantId)
+    .first();
+
+  if (!order) return c.json({ error: 'Order not found.' }, 404);
+  if (!order.proof_r2_key) return c.json({ error: 'No proof uploaded yet.' }, 404);
+
+  if (!c.env.BOOKING_PROOFS) return c.json({ error: 'R2 not configured.' }, 503);
+
+  const obj = await c.env.BOOKING_PROOFS.get(order.proof_r2_key);
+  if (!obj) return c.json({ error: 'Proof file not found in storage.' }, 404);
+
+  const ct = obj.httpMetadata?.contentType || 'application/octet-stream';
+  const headers = new Headers({
+    'Content-Type':        ct,
+    'Content-Disposition': `inline; filename="proof-${c.req.param('orderId')}"`,
+    'Cache-Control':       'private, max-age=300',
+    'Access-Control-Allow-Origin': c.req.header('Origin') || '*',
+  });
+  return new Response(obj.body, { headers });
+});
+
 // ── POST /api/bookings/order/:orderId/confirm-receipt ────────────────────────
 // Agent confirms they received the bank transfer AND unlocks guest identity.
 // Only valid when status = 'PROOF_UPLOADED'.

@@ -269,10 +269,7 @@ export async function dispatchNewBookingAgentEmail(env, {
     `  Total:        ${total}`,
     `  Payment:      ${paymentMethod}`,
     ``,
-    `Guest details:`,
-    `  Name:         ${guestName || 'N/A'}`,
-    `  Email:        ${guestEmail || 'N/A'}`,
-    `  Phone:        ${guestPhone || 'N/A'}`,
+    `Guest identity: LOCKED — will be revealed in your dashboard after you confirm receipt of payment.`,
     ``,
     isBankTransfer
       ? `The guest will upload their bank transfer proof within 48 hours. You will receive another email when the proof is uploaded.`
@@ -302,11 +299,9 @@ export async function dispatchNewBookingAgentEmail(env, {
     <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Total</td><td style="padding:8px 0;font-weight:600;font-size:18px;color:#1d4ed8">${esc(total)}</td></tr>
     <tr><td style="padding:8px 0;color:#64748b">Payment</td><td style="padding:8px 0">${esc(paymentMethod)}</td></tr>
   </table>
-  <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin:16px 0">
-    <p style="margin:0 0 8px;font-weight:600;color:#0f172a">Guest information</p>
-    <p style="margin:0;color:#475569">Name: <strong>${esc(guestName || 'N/A')}</strong></p>
-    <p style="margin:4px 0 0;color:#475569">Email: <strong>${esc(guestEmail || 'N/A')}</strong></p>
-    <p style="margin:4px 0 0;color:#475569">Phone: <strong>${esc(guestPhone || 'N/A')}</strong></p>
+  <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 4px;font-weight:600;color:#92400e">🔒 Guest identity is locked</p>
+    <p style="margin:0;font-size:13px;color:#78350f">For privacy protection, guest name, email and phone are hidden until you confirm receipt of payment in your dashboard. Once confirmed, full guest details will be visible there.</p>
   </div>
   ${isBankTransfer
     ? `<p style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:12px;color:#854d0e">⏳ Awaiting bank transfer proof from guest (48h deadline). You will be notified when they upload it.</p>`
