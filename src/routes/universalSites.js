@@ -4631,6 +4631,81 @@ router.get('/render/:tenantId', async (c) => {
   });
 });
 
+// ─── Public Search ──────────────────────────────────────────────────────────
+// GET /api/universal/search?q=&tenant_id=&limit=&page=
+// When tenant_id is provided: scoped to that tenant (no indexing check).
+// Without tenant_id: platform-wide across all publicly-indexed tenants.
+router.get('/search', async (c) => {
+  const q = String(c.req.query('q') || '').trim();
+  const tenantId = String(c.req.query('tenant_id') || '').trim() || null;
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '20', 10), 1), 60);
+  const page  = Math.max(parseInt(c.req.query('page') || '1', 10), 1);
+  const offset = (page - 1) * limit;
+  const pattern = `%${q}%`;
+
+  if (!q || q.length < 2) {
+    return c.json({ ok: true, results: [], total: 0, page, limit, query: q });
+  }
+
+  let rows, total;
+  if (tenantId) {
+    // [SCOPED] Per-tenant search — no public_indexing_enabled gate
+    const countRow = await c.env.DB
+      .prepare(`SELECT COUNT(*) as n FROM tours t WHERE t.tenant_id = ? AND t.status = 'published' AND (t.title LIKE ? OR t.duration_text LIKE ?)`)
+      .bind(tenantId, pattern, pattern)
+      .first();
+    total = Number(countRow?.n ?? 0);
+
+    rows = (await c.env.DB
+      .prepare(`SELECT t.id, t.title, t.slug, t.duration_text, t.tour_type, t.published_url,
+                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain
+                FROM tours t
+                JOIN tenants te ON te.id = t.tenant_id
+                WHERE t.tenant_id = ? AND t.status = 'published'
+                  AND (t.title LIKE ? OR t.duration_text LIKE ?)
+                ORDER BY t.created_at DESC LIMIT ? OFFSET ?`)
+      .bind(tenantId, pattern, pattern, limit, offset)
+      .all()).results ?? [];
+  } else {
+    // [PLATFORM] Cross-tenant search — only publicly indexed tenants
+    const countRow = await c.env.DB
+      .prepare(`SELECT COUNT(*) as n FROM tours t JOIN tenants te ON te.id = t.tenant_id
+                WHERE t.status = 'published' AND te.public_indexing_enabled = 1
+                  AND (t.title LIKE ? OR t.duration_text LIKE ?)`)
+      .bind(pattern, pattern)
+      .first();
+    total = Number(countRow?.n ?? 0);
+
+    rows = (await c.env.DB
+      .prepare(`SELECT t.id, t.title, t.slug, t.duration_text, t.tour_type, t.published_url,
+                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain
+                FROM tours t
+                JOIN tenants te ON te.id = t.tenant_id
+                WHERE t.status = 'published' AND te.public_indexing_enabled = 1
+                  AND (t.title LIKE ? OR t.duration_text LIKE ?)
+                ORDER BY t.created_at DESC LIMIT ? OFFSET ?`)
+      .bind(pattern, pattern, limit, offset)
+      .all()).results ?? [];
+  }
+
+  const results = rows.map((r) => {
+    const host = r.custom_domain || (r.subdomain ? `${r.subdomain}.tours-market.com` : null);
+    return {
+      tour_id: r.id,
+      title: r.title,
+      slug: r.slug,
+      duration_text: r.duration_text || null,
+      tour_type: r.tour_type || 'group_tour',
+      tour_url: r.published_url || (host ? `https://${host}/t/${r.slug}` : `/p/${r.tenant_id}/${r.slug}`),
+      tenant_id: r.tenant_id,
+      tenant_name: r.tenant_name,
+      tenant_host: host,
+    };
+  });
+
+  return c.json({ ok: true, results, total, page, limit, query: q });
+});
+
 export default function registerUniversalSiteRoutes(app) {
   app.route('/api/universal', router);
 
