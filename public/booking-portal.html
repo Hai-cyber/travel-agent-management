@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Booking — Tours Market</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 3rem;
+    }
+    .logo {
+      color: #fff;
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      margin-bottom: 1.75rem;
+      text-align: center;
+      opacity: 0.9;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    }
+    /* Status badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.3rem 0.85rem; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 600; margin-bottom: 1.1rem;
+    }
+    .badge-awaiting  { background: #fef3c7; color: #92400e; }
+    .badge-uploaded  { background: #d1fae5; color: #065f46; }
+    .badge-confirmed { background: #dbeafe; color: #1e40af; }
+    .badge-expired   { background: #fee2e2; color: #991b1b; }
+    /* Headings */
+    h1 { font-size: 1.375rem; font-weight: 700; color: #0f172a; margin-bottom: 0.2rem; }
+    .subhead { font-size: 0.85rem; color: #64748b; margin-bottom: 1.4rem; }
+    /* Details table */
+    .details { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    .details tr { border-bottom: 1px solid #f1f5f9; }
+    .details tr:last-child { border-bottom: none; }
+    .details td { padding: 0.625rem 0; font-size: 0.875rem; vertical-align: top; }
+    .details td.lbl { color: #64748b; width: 38%; padding-right: 0.5rem; }
+    .details td.val { font-weight: 500; color: #0f172a; }
+    .total-row td { font-size: 1rem; font-weight: 700; color: #1d4ed8; padding-top: 0.875rem !important; }
+    /* Deadline box */
+    .deadline-box {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;
+      padding: 0.875rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #7c2d12;
+      line-height: 1.5;
+    }
+    /* Alerts */
+    .alert { border-radius: 10px; padding: 0.875rem 1rem; font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5; }
+    .alert-ok   { background: #d1fae5; color: #065f46; }
+    .alert-info { background: #dbeafe; color: #1e40af; }
+    .alert-err  { background: #fee2e2; color: #991b1b; }
+    /* Upload section */
+    .upload-section h3 { font-size: 1rem; font-weight: 600; color: #0f172a; margin-bottom: 0.4rem; }
+    .upload-section p  { font-size: 0.8rem; color: #64748b; margin-bottom: 0.875rem; line-height: 1.4; }
+    .drop-zone {
+      border: 2px dashed #bfdbfe; border-radius: 10px; padding: 1.5rem 1rem;
+      text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 0.875rem;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: #1d4ed8; background: #eff6ff; }
+    .drop-zone input[type="file"] { display: none; }
+    .dz-icon { font-size: 2rem; margin-bottom: 0.3rem; }
+    .dz-hint { font-size: 0.78rem; color: #94a3b8; }
+    .dz-name { font-size: 0.8rem; color: #1d4ed8; font-weight: 600; margin-top: 0.4rem; }
+    /* Button */
+    .btn {
+      display: block; width: 100%; padding: 0.8rem;
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      color: #fff; font-size: 0.95rem; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.88; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Spinner */
+    .spin {
+      display: inline-block; width: 0.9rem; height: 0.9rem;
+      border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.65s linear infinite;
+      vertical-align: middle; margin-right: 0.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Loading screen */
+    .loading-wrap { text-align: center; color: rgba(255,255,255,0.85); padding: 4rem 0; }
+    .loading-wrap .big-spin {
+      display: inline-block; width: 2.5rem; height: 2.5rem;
+      border: 3px solid rgba(255,255,255,0.25); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .loading-wrap p { margin-top: 1rem; font-size: 0.95rem; }
+    /* Error card */
+    .error-wrap { max-width: 420px; width: 100%; }
+    .error-wrap .card { text-align: center; }
+    .error-wrap .big-icon { font-size: 3rem; margin-bottom: 0.75rem; }
+    /* Footer note */
+    .footer-note { margin-top: 1.5rem; font-size: 0.75rem; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="logo">Tours Market</div>
+
+  <!-- Loading -->
+  <div id="loading" class="loading-wrap">
+    <div class="big-spin"></div>
+    <p>Loading your booking…</p>
+  </div>
+
+  <!-- Error -->
+  <div id="error-screen" class="error-wrap" style="display:none;">
+    <div class="card">
+      <div class="big-icon">🔗</div>
+      <h1 id="err-title" style="font-size:1.25rem; margin-bottom:0.5rem;">Booking not found</h1>
+      <p id="err-msg" class="subhead" style="margin-bottom:0;"></p>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div id="content" class="card" style="display:none;">
+
+    <div><span id="status-badge" class="badge"></span></div>
+
+    <h1 id="card-title">Your Booking</h1>
+    <p id="card-subhead" class="subhead"></p>
+
+    <table class="details">
+      <tr><td class="lbl">Order ID</td>    <td class="val" id="d-orderid">—</td></tr>
+      <tr><td class="lbl">Tour</td>        <td class="val" id="d-tour">—</td></tr>
+      <tr><td class="lbl">Travel date</td> <td class="val" id="d-date">—</td></tr>
+      <tr><td class="lbl">Passengers</td>  <td class="val" id="d-pax">—</td></tr>
+      <tr><td class="lbl">Payment</td>     <td class="val" id="d-payment">—</td></tr>
+      <tr class="total-row">
+        <td class="lbl">Total</td>         <td class="val" id="d-total">—</td>
+      </tr>
+    </table>
+
+    <!-- Deadline warning -->
+    <div id="deadline-box" class="deadline-box" style="display:none;">
+      ⏱ <span id="deadline-text"></span>
+    </div>
+
+    <!-- Dynamic alert area -->
+    <div id="alert-area"></div>
+
+    <!-- Upload form — shown when AWAITING_PROOF -->
+    <div id="upload-section" class="upload-section" style="display:none;">
+      <h3>Upload payment receipt</h3>
+      <p>Please send a screenshot or photo of your bank transfer. Accepted: JPG, PNG, WEBP, PDF — max 10 MB.</p>
+      <div class="drop-zone" id="drop-zone">
+        <div class="dz-icon">📎</div>
+        <div class="dz-hint">Click to select a file, or drag &amp; drop here</div>
+        <div id="dz-name" class="dz-name" style="display:none;"></div>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
+      </div>
+      <button id="upload-btn" class="btn" disabled>Upload Receipt</button>
+    </div>
+
+    <!-- Status info sections -->
+    <div id="sec-uploaded" style="display:none;">
+      <div class="alert alert-ok">
+        ✅ <strong>Payment proof received.</strong>
+        Our team will review and confirm your booking within 24 hours. You'll receive a confirmation email.
+      </div>
+    </div>
+    <div id="sec-confirmed" style="display:none;">
+      <div class="alert alert-info">
+        🎉 <strong>Booking confirmed!</strong>
+        Your trip is locked in. Our team will be in touch with further details.
+      </div>
+    </div>
+    <div id="sec-expired" style="display:none;">
+      <div class="alert alert-err">
+        ⏰ <strong>Booking expired.</strong>
+        The payment window has passed. Please contact us to rebook.
+      </div>
+    </div>
+    <div id="sec-cancelled" style="display:none;">
+      <div class="alert alert-err">
+        ❌ <strong>Booking cancelled.</strong>
+        Please contact us if you have questions.
+      </div>
+    </div>
+
+    <p class="footer-note">Questions? Reply to your booking confirmation email.</p>
+  </div>
+
+  <script>
+  (async () => {
+    // Resolve token: works for /bookings/public/TOKEN or ?token=TOKEN
+    const qp    = new URLSearchParams(window.location.search);
+    let   token = qp.get('token');
+    if (!token) {
+      const parts = window.location.pathname.replace(/\/+$/, '').split('/');
+      token = parts[parts.length - 1];
+    }
+
+    if (!token || token.length < 16) {
+      showError('Invalid link', 'No booking token found. Please check your booking confirmation email.');
+      return;
+    }
+
+    let data;
+    try {
+      const res = await fetch(`/api/bookings/public/${encodeURIComponent(token)}`);
+      data      = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Booking not found');
+    } catch (e) {
+      showError('Booking not found', e.message || 'This link may be invalid or expired.');
+      return;
+    }
+
+    renderPortal(token, data);
+  })();
+
+  function renderPortal(token, data) {
+    const order = data.order;
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    // ── Status badge ──────────────────────────────────────────────────────────
+    const badges = {
+      AWAITING_PROOF: { label: 'Awaiting payment proof',       cls: 'badge-awaiting'  },
+      PROOF_UPLOADED: { label: 'Proof received — under review', cls: 'badge-uploaded'  },
+      CONFIRMED:      { label: 'Booking confirmed',             cls: 'badge-confirmed' },
+      EXPIRED:        { label: 'Expired',                       cls: 'badge-expired'   },
+      CANCELLED:      { label: 'Cancelled',                     cls: 'badge-expired'   },
+    };
+    const b = badges[order.status] || { label: order.status_label || order.status, cls: 'badge-awaiting' };
+    const badge = document.getElementById('status-badge');
+    badge.textContent = b.label;
+    badge.className   = `badge ${b.cls}`;
+
+    // ── Header ────────────────────────────────────────────────────────────────
+    document.getElementById('card-title').textContent   = order.tour_title || 'Your Booking';
+    document.getElementById('card-subhead').textContent = order.tenant_name
+      ? `Booked with ${order.tenant_name}` : '';
+
+    // ── Detail rows ───────────────────────────────────────────────────────────
+    document.getElementById('d-orderid').textContent  = order.id;
+    document.getElementById('d-tour').textContent     = order.tour_title || order.tour_id || '—';
+    document.getElementById('d-date').textContent     = fmtDate(order.travel_date);
+    document.getElementById('d-pax').textContent      = buildPax(order.pax);
+    document.getElementById('d-payment').textContent  = (order.payment_method || '').replace(/_/g, ' ') || '—';
+    document.getElementById('d-total').textContent    = fmtMoney(order.grand_total_usd, order.currency || 'USD');
+
+    // ── Deadline ──────────────────────────────────────────────────────────────
+    if (order.status === 'AWAITING_PROOF' && order.hours_remaining !== null) {
+      const h  = order.hours_remaining;
+      const el = document.getElementById('deadline-box');
+      el.style.display = 'block';
+      document.getElementById('deadline-text').textContent = h <= 0
+        ? 'The payment deadline has passed — please contact us.'
+        : `Please upload your payment receipt within ${h} hour${h === 1 ? '' : 's'} to secure your booking.`;
+    }
+
+    // ── Sections by status ────────────────────────────────────────────────────
+    if (order.status === 'AWAITING_PROOF' && data.upload_required) {
+      initUpload(token, data.upload_endpoint);
+    } else if (order.status === 'PROOF_UPLOADED') {
+      document.getElementById('sec-uploaded').style.display = 'block';
+    } else if (order.status === 'CONFIRMED') {
+      document.getElementById('sec-confirmed').style.display = 'block';
+    } else if (order.status === 'EXPIRED') {
+      document.getElementById('sec-expired').style.display = 'block';
+    } else if (order.status === 'CANCELLED') {
+      document.getElementById('sec-cancelled').style.display = 'block';
+    }
+  }
+
+  function initUpload(token, endpoint) {
+    const section   = document.getElementById('upload-section');
+    const fileInput = document.getElementById('file-input');
+    const btn       = document.getElementById('upload-btn');
+    const dropZone  = document.getElementById('drop-zone');
+    const dzName    = document.getElementById('dz-name');
+
+    section.style.display = 'block';
+
+    // Click on drop zone
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // File selected via input
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0];
+      if (f) { dzName.textContent = f.name; dzName.style.display = 'block'; btn.disabled = false; }
+    });
+
+    // Drag events
+    dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('over'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('over');
+      const f = e.dataTransfer?.files?.[0];
+      if (f) {
+        try { const dt = new DataTransfer(); dt.items.add(f); fileInput.files = dt.files; } catch {}
+        dzName.textContent = f.name; dzName.style.display = 'block'; btn.disabled = false;
+      }
+    });
+
+    // Submit
+    btn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span>Uploading…';
+
+      const fd = new FormData();
+      fd.append('proof', file);
+
+      try {
+        const res  = await fetch(endpoint || `/api/bookings/public/${encodeURIComponent(token)}/proof`, {
+          method: 'POST',
+          body: fd,
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || 'Upload failed');
+
+        // Success — hide upload, show confirmation
+        section.style.display                                 = 'none';
+        document.getElementById('deadline-box').style.display = 'none';
+        document.getElementById('sec-uploaded').style.display = 'block';
+        const badge = document.getElementById('status-badge');
+        badge.textContent = 'Proof received — under review';
+        badge.className   = 'badge badge-uploaded';
+        showAlert('ok', '✅ Your receipt has been submitted. We will confirm your booking shortly.');
+      } catch (e) {
+        btn.disabled     = false;
+        btn.textContent  = 'Upload Receipt';
+        showAlert('err', `Upload failed: ${e.message}. Please try again or contact us directly.`);
+      }
+    });
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function fmtDate(str) {
+    if (!str) return '—';
+    const [y, m, d] = str.split('-');
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${parseInt(d, 10)} ${mo[parseInt(m, 10) - 1]} ${y}`;
+  }
+
+  function fmtMoney(amount, currency) {
+    if (amount == null) return '—';
+    return Number(amount).toLocaleString('en-US', { style: 'currency', currency: currency || 'USD' });
+  }
+
+  function buildPax(pax) {
+    if (!pax) return '—';
+    const p = [];
+    if ((pax.shared  || 0) > 0) p.push(`${pax.shared} adult${pax.shared  > 1 ? 's' : ''} (shared room)`);
+    if ((pax.triple  || 0) > 0) p.push(`${pax.triple} adult${pax.triple  > 1 ? 's' : ''} (triple room)`);
+    if ((pax.private || 0) > 0) p.push(`${pax.private} adult${pax.private > 1 ? 's' : ''} (private room)`);
+    if ((pax.children|| 0) > 0) p.push(`${pax.children} child${pax.children > 1 ? 'ren' : ''}`);
+    if ((pax.infants || 0) > 0) p.push(`${pax.infants} infant${pax.infants > 1 ? 's' : ''}`);
+    return p.join(', ') || '—';
+  }
+
+  function showAlert(type, msg) {
+    const cls = type === 'ok' ? 'alert-ok' : type === 'err' ? 'alert-err' : 'alert-info';
+    document.getElementById('alert-area').innerHTML = `<div class="alert ${cls}">${msg}</div>`;
+  }
+
+  function showError(title, msg) {
+    document.getElementById('loading').style.display       = 'none';
+    document.getElementById('error-screen').style.display  = 'block';
+    document.getElementById('err-title').textContent       = title;
+    document.getElementById('err-msg').textContent         = msg;
+  }
+  </script>
+</body>
+</html>

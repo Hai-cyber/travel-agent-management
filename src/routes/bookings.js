@@ -167,6 +167,13 @@ bookings.get('/draft/:draftId', async (c) => {
 
 export default function registerBookingRoutes(app) {
   app.route('/api/bookings', bookings);
+
+  // Guest portal page — serve booking-portal.html for /bookings/public/:token
+  // The :token is passed as ?token= so the static page can call the API.
+  app.get('/bookings/public/:token', (c) => {
+    const token = c.req.param('token');
+    return c.redirect(`/booking-portal.html?token=${encodeURIComponent(token)}`, 302);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -872,16 +879,31 @@ bookings.get('/public/:secure_token', async (c) => {
   }
 
   const order = await c.env.DB
-    .prepare(`SELECT id, tenant_id, tour_id, travel_date, segment_id,
-                     pax_shared, pax_private, pax_children, pax_infants,
-                     guest_name, guest_email, guest_phone,
-                     grand_total_usd, payment_method, payment_deadline,
-                     status, identity_unlocked, proof_uploaded_at, created_at
-              FROM booking_orders WHERE secure_token = ?`)
+    .prepare(`SELECT bo.id, bo.tenant_id, bo.tour_id, bo.travel_date, bo.segment_id,
+                     bo.pax_shared, bo.pax_private, bo.pax_children, bo.pax_infants,
+                     bo.price_snapshot_json,
+                     bo.guest_name, bo.guest_email, bo.guest_phone,
+                     bo.grand_total_usd, bo.payment_method, bo.payment_deadline,
+                     bo.status, bo.identity_unlocked, bo.proof_uploaded_at, bo.created_at,
+                     t.title  AS tour_title,
+                     tn.name  AS tenant_name
+              FROM booking_orders bo
+              LEFT JOIN tours   t  ON t.id  = bo.tour_id
+              LEFT JOIN tenants tn ON tn.id = bo.tenant_id
+              WHERE bo.secure_token = ?`)
     .bind(token)
     .first();
 
   if (!order) return c.json({ error: 'Booking not found. The link may be invalid or expired.' }, 404);
+
+  // Try to recover adult_triple_room_count from the price snapshot
+  let pax_triple = 0;
+  if (order.price_snapshot_json) {
+    try {
+      const snap = JSON.parse(order.price_snapshot_json);
+      pax_triple = snap.params?.adult_triple_room_count ?? snap.pax?.adult_triple_room_count ?? 0;
+    } catch { /* ignore */ }
+  }
 
   // Accept-Language for label localisation (default: 'en')
   const lang = resolveLocaleFromAcceptLanguage(c.req.header('Accept-Language'));
@@ -900,6 +922,8 @@ bookings.get('/public/:secure_token', async (c) => {
     order: {
       id:              order.id,
       tour_id:         order.tour_id,
+      tour_title:      order.tour_title  ?? null,
+      tenant_name:     order.tenant_name ?? null,
       travel_date:     order.travel_date,
       segment_id:      order.segment_id,
       status:          order.status,
@@ -910,6 +934,7 @@ bookings.get('/public/:secure_token', async (c) => {
       grand_total_usd: order.grand_total_usd,
       pax: {
         shared:   order.pax_shared,
+        triple:   pax_triple,
         private:  order.pax_private,
         children: order.pax_children,
         infants:  order.pax_infants,
