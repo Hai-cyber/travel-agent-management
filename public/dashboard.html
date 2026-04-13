@@ -595,132 +595,83 @@
             <!-- Stat Cards -->
             <div class="stat-grid">
               <div class="stat-card">
-                <div class="stat-value" id="stat-total-orders" data-stat-kind="count" data-stat-value="24">24</div>
+                <div class="stat-value" id="stat-total-orders" data-stat-kind="count" data-stat-value="0">—</div>
                 <div class="stat-label" data-i18n="stat.total_orders">Total Orders</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value" id="stat-pending-payment" data-stat-kind="count" data-stat-value="7" style="color:#f59e0b">7</div>
-                <div class="stat-label" data-i18n="stat.pending_payment">Pending Payment</div>
+                <div class="stat-value" id="stat-pending-payment" data-stat-kind="count" data-stat-value="0" style="color:#f59e0b">—</div>
+                <div class="stat-label" data-i18n="stat.pending_payment">Awaiting Proof</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value" id="stat-pending-identity" data-stat-kind="count" data-stat-value="2" style="color:#ef4444">2</div>
-                <div class="stat-label" data-i18n="stat.pending_identity">Pending Identity Confirm</div>
+                <div class="stat-value" id="stat-pending-identity" data-stat-kind="count" data-stat-value="0" style="color:#ef4444">—</div>
+                <div class="stat-label" data-i18n="stat.pending_identity">Proof Uploaded</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value" id="stat-confirmed" data-stat-kind="count" data-stat-value="15" style="color:#10b981">15</div>
+                <div class="stat-value" id="stat-confirmed" data-stat-kind="count" data-stat-value="0" style="color:#10b981">—</div>
                 <div class="stat-label" data-i18n="stat.confirmed">Confirmed</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value" id="stat-revenue-month" data-stat-kind="currency-compact" data-stat-value="48200000">₫48.2M</div>
-                <div class="stat-label" data-i18n="stat.revenue_month">Revenue This Month</div>
+                <div class="stat-value" id="stat-revenue-month" data-stat-kind="currency-compact" data-stat-value="0">—</div>
+                <div class="stat-label" data-i18n="stat.revenue_month">Revenue (Total)</div>
               </div>
             </div>
 
+            <!-- Filter bar -->
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+              <h3 class="section-title" data-i18n="table.recent_orders" style="margin:0; flex:1; min-width:120px;">Recent Orders</h3>
+              <select id="orders-status-filter" style="padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px;">
+                <option value="">All statuses</option>
+                <option value="AWAITING_PROOF">Awaiting Proof</option>
+                <option value="PROOF_UPLOADED">Proof Uploaded</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="EXPIRED">Expired</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+              <button id="orders-refresh-btn" style="padding:5px 12px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px; cursor:pointer; background:#fff;">↻ Refresh</button>
+            </div>
+
             <!-- Recent Bookings Table -->
-            <h3 class="section-title" data-i18n="table.recent_orders">Recent Orders</h3>
-            <table class="booking-table">
+            <div id="orders-loading" style="text-align:center; padding:24px; color:#64748b; font-size:14px;">Loading orders…</div>
+            <div id="orders-error" style="display:none; background:#fee2e2; border-radius:8px; padding:12px 16px; font-size:13px; color:#991b1b; margin-bottom:12px;"></div>
+            <table class="booking-table" id="orders-table" style="display:none;">
               <thead>
                 <tr>
-                  <th data-i18n="table.col_id">Order ID</th>
-                  <th data-i18n="table.col_guest">Guest</th>
-                  <th data-i18n="table.col_tour">Tour</th>
-                  <th data-i18n="table.col_payment">Payment</th>
-                  <th data-i18n="table.col_status">Status</th>
-                  <th data-i18n="table.col_date">Date</th>
+                  <th>Order ID</th>
+                  <th>Guest</th>
+                  <th>Tour</th>
+                  <th>Travel Date</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Created</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td><code>ORD-001</code></td>
-                  <td data-i18n="table.locked_guest">*** (unverified)</td>
-                  <td>Hà Nội – Hạ Long 3D2N</td>
-                  <td><span class="badge badge-blue">BANK_TRANSFER</span></td>
-                  <td><span class="badge badge-yellow" data-i18n="status.proof_uploaded">Proof Uploaded</span></td>
-                  <td>25/03/2026</td>
-                  <td><a href="#" class="button small" data-i18n="action.confirm">Confirm</a></td>
-                </tr>
-                <tr>
-                  <td><code>ORD-002</code></td>
-                  <td>Nguyễn Văn A</td>
-                  <td>Đà Nẵng – Hội An 2D1N</td>
-                  <td><span class="badge badge-green">MOMO</span></td>
-                  <td><span class="badge badge-green" data-i18n="status.confirmed">Confirmed</span></td>
-                  <td>24/03/2026</td>
-                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
-                </tr>
-                <tr>
-                  <td><code>ORD-003</code></td>
-                  <td data-i18n="table.locked_guest">*** (unverified)</td>
-                  <td>Phú Quốc 4D3N</td>
-                  <td><span class="badge badge-gray">BANK_TRANSFER</span></td>
-                  <td><span class="badge badge-yellow" data-i18n="status.awaiting_proof">Awaiting Proof</span></td>
-                  <td>24/03/2026</td>
-                  <td><a href="#" class="button small" data-i18n="action.remind">Remind</a></td>
-                </tr>
-                <tr>
-                  <td><code>ORD-004</code></td>
-                  <td>Trần Thị B</td>
-                  <td>Sapa Trekking 3D2N</td>
-                  <td><span class="badge badge-green">ZALOPAY</span></td>
-                  <td><span class="badge badge-green" data-i18n="status.confirmed">Confirmed</span></td>
-                  <td>23/03/2026</td>
-                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
-                </tr>
-                <tr>
-                  <td><code>ORD-005</code></td>
-                  <td>Lê Minh C</td>
-                  <td>Mũi Né Resort 2D1N</td>
-                  <td><span class="badge badge-gray">PAY_ON_ARRIVAL</span></td>
-                  <td><span class="badge badge-gray" data-i18n="status.pending_arrival">Pending Arrival</span></td>
-                  <td>22/03/2026</td>
-                  <td><a href="#" class="button small" data-i18n="action.unlock">Unlock</a></td>
-                </tr>
-                <tr>
-                  <td><code>ORD-006</code></td>
-                  <td>—</td>
-                  <td>Ninh Bình Tràng An 1D</td>
-                  <td><span class="badge badge-blue">CREDIT_CARD</span></td>
-                  <td><span class="badge badge-red" data-i18n="status.awaiting_payment">Awaiting Payment</span></td>
-                  <td>22/03/2026</td>
-                  <td><a href="#" class="button small alt" data-i18n="action.view">View</a></td>
-                </tr>
-              </tbody>
+              <tbody id="orders-tbody"></tbody>
             </table>
+            <div id="orders-empty" style="display:none; text-align:center; padding:32px; color:#94a3b8; font-size:14px;">No orders found.</div>
+
+            <!-- Confirm modal -->
+            <div id="confirm-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+              <div style="background:#fff; border-radius:14px; padding:28px; max-width:440px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <h3 style="margin:0 0 8px; font-size:1.1rem;">Confirm Booking Receipt</h3>
+                <p id="confirm-modal-body" style="font-size:0.875rem; color:#475569; margin:0 0 20px; line-height:1.5;"></p>
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                  <button id="confirm-modal-cancel" style="padding:8px 18px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; cursor:pointer; font-size:14px;">Cancel</button>
+                  <button id="confirm-modal-ok" style="padding:8px 18px; border:none; border-radius:8px; background:#1d4ed8; color:#fff; cursor:pointer; font-size:14px; font-weight:600;">Confirm receipt →</button>
+                </div>
+                <div id="confirm-modal-err" style="display:none; margin-top:12px; font-size:13px; color:#dc2626;"></div>
+              </div>
+            </div>
+
+            <!-- Proof image modal -->
+            <div id="proof-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9998; align-items:center; justify-content:center;">
+              <div style="background:#fff; border-radius:12px; padding:20px; max-width:90vw; max-height:90vh; overflow:auto; position:relative;">
+                <button id="proof-modal-close" style="position:absolute; top:12px; right:12px; border:none; background:none; font-size:1.3rem; cursor:pointer;">✕</button>
+                <img id="proof-modal-img" src="" alt="Payment proof" style="max-width:600px; width:100%; border-radius:6px;" />
+              </div>
+            </div>
 
             <!-- Audit Log -->
-            <h3 class="section-title" style="margin-top:32px" data-i18n="table.audit_log">Identity Audit Log</h3>
-            <table class="booking-table">
-              <thead>
-                <tr>
-                  <th data-i18n="table.col_time">Time</th>
-                  <th data-i18n="table.col_action">Action</th>
-                  <th data-i18n="table.col_id">Order ID</th>
-                  <th data-i18n="table.col_actor">Actor</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>25/03 14:22</td>
-                  <td><span class="badge badge-green">IDENTITY_UNLOCK_CONFIRM_RECEIPT</span></td>
-                  <td><code>ORD-002</code></td>
-                  <td>agent:203.0.113.5</td>
-                </tr>
-                <tr>
-                  <td>25/03 09:11</td>
-                  <td><span class="badge badge-blue">INSTANT_UNLOCK_WEBHOOK</span></td>
-                  <td><code>ORD-004</code></td>
-                  <td>webhook:ZALOPAY</td>
-                </tr>
-                <tr>
-                  <td>24/03 17:05</td>
-                  <td><span class="badge badge-yellow">MANUAL_UNLOCK_ARRIVAL</span></td>
-                  <td><code>ORD-005</code></td>
-                  <td>agent:203.0.113.5</td>
-                </tr>
-              </tbody>
-            </table>
-
           </div>
         </div>
 
@@ -1747,6 +1698,7 @@ window.addEventListener('dashboard:langchange', () => {
       renderLaunchGuide();
       renderDashboardStats();
       loadCustomDomainStatus();
+      loadOrders(); // ← live bookings
 
       let daysLeft = null;
       try {
@@ -1792,6 +1744,198 @@ window.addEventListener('dashboard:langchange', () => {
     renderMarketSkinControl();
     renderLaunchGuide();
     renderDashboardStats();
+  });
+
+  // ── Live Orders ───────────────────────────────────────────────────────────
+  const STATUS_BADGE = {
+    AWAITING_PROOF:  { cls: 'badge-yellow',  label: 'Awaiting Proof'  },
+    PROOF_UPLOADED:  { cls: 'badge-blue',    label: 'Proof Uploaded'  },
+    CONFIRMED:       { cls: 'badge-green',   label: 'Confirmed'       },
+    EXPIRED:         { cls: 'badge-gray',    label: 'Expired'         },
+    CANCELLED:       { cls: 'badge-red',     label: 'Cancelled'       },
+    INSTANT_PAID:    { cls: 'badge-green',   label: 'Instant Paid'    },
+    AWAITING_PAYMENT:{ cls: 'badge-yellow',  label: 'Awaiting Payment'},
+  };
+
+  function fmtDateShort(unix) {
+    if (!unix) return '—';
+    const d = new Date(unix * 1000);
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' });
+  }
+
+  function fmtMoney(amount, currency) {
+    if (amount == null) return '—';
+    return Number(amount).toLocaleString('en-US', { style:'currency', currency: currency || 'USD', maximumFractionDigits: 0 });
+  }
+
+  function guestDisplay(order) {
+    if (order.identity_unlocked && order.guest_name) return escapeHtml(order.guest_name);
+    if (order.status === 'AWAITING_PROOF') return '<em style="color:#94a3b8">awaiting proof</em>';
+    return '<em style="color:#94a3b8">locked</em>';
+  }
+
+  function tourDisplay(order) {
+    const snap = (() => { try { return JSON.parse(order.price_snapshot_json || 'null'); } catch { return null; } })();
+    return escapeHtml(snap?.tour_title || order.tour_id?.slice(0,12) || '—');
+  }
+
+  function actionBtn(order) {
+    if (order.status === 'PROOF_UPLOADED') {
+      return `<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}" data-guest="${escapeHtml(order.guest_name||'?')}" data-total="${escapeHtml(String(order.grand_total_usd))}">✅ Confirm</button>`;
+    }
+    if (order.status === 'AWAITING_PROOF') {
+      return `<button class="button small alt" data-action="view-portal" data-token="${escapeHtml(order.secure_token||'')}">🔗 Portal</button>`;
+    }
+    if (order.status === 'CONFIRMED' && order.proof_r2_key) {
+      return `<button class="button small alt" data-action="view-proof" data-key="${escapeHtml(order.proof_r2_key)}">🖼 Proof</button>`;
+    }
+    return '';
+  }
+
+  async function loadOrders() {
+    const statusFilter = document.getElementById('orders-status-filter')?.value || '';
+    const loadingEl = document.getElementById('orders-loading');
+    const errorEl   = document.getElementById('orders-error');
+    const tableEl   = document.getElementById('orders-table');
+    const tbodyEl   = document.getElementById('orders-tbody');
+    const emptyEl   = document.getElementById('orders-empty');
+
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (errorEl)   { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+    if (tableEl)   tableEl.style.display   = 'none';
+    if (emptyEl)   emptyEl.style.display   = 'none';
+
+    try {
+      const url = new URL('/api/bookings/orders', location.origin);
+      url.searchParams.set('limit', '100');
+      if (statusFilter) url.searchParams.set('status', statusFilter);
+
+      const res  = await fetch(url.toString(), { headers: buildTenantHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load orders');
+
+      const orders = data.orders || [];
+
+      // ── update stat cards ──
+      const total       = orders.length;
+      const awaitingCnt = orders.filter(o => o.status === 'AWAITING_PROOF').length;
+      const proofCnt    = orders.filter(o => o.status === 'PROOF_UPLOADED').length;
+      const confCnt     = orders.filter(o => o.status === 'CONFIRMED').length;
+      const revenue     = orders.filter(o => o.status === 'CONFIRMED').reduce((s,o) => s + (Number(o.grand_total_usd)||0), 0);
+      const currency    = getTenantCurrencyPreference?.() || 'USD';
+
+      const el = (id) => document.getElementById(id);
+      if (el('stat-total-orders'))   el('stat-total-orders').textContent   = total;
+      if (el('stat-pending-payment'))el('stat-pending-payment').textContent = awaitingCnt;
+      if (el('stat-pending-identity'))el('stat-pending-identity').textContent = proofCnt;
+      if (el('stat-confirmed'))      el('stat-confirmed').textContent      = confCnt;
+      if (el('stat-revenue-month'))  el('stat-revenue-month').textContent  = fmtMoney(revenue, currency);
+
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      if (orders.length === 0) {
+        if (emptyEl) emptyEl.style.display = 'block';
+        return;
+      }
+
+      tbodyEl.innerHTML = orders.map(order => {
+        const badge = STATUS_BADGE[order.status] || { cls:'badge-gray', label: order.status };
+        return `<tr>
+          <td><code title="${escapeHtml(order.id)}">${escapeHtml(order.id.slice(0,8))}…</code></td>
+          <td>${guestDisplay(order)}</td>
+          <td style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tourDisplay(order)}</td>
+          <td>${escapeHtml(order.travel_date || '—')}</td>
+          <td style="font-weight:600;">${fmtMoney(order.grand_total_usd, currency)}</td>
+          <td><span class="badge ${badge.cls}">${badge.label}</span></td>
+          <td style="font-size:12px; color:#94a3b8;">${fmtDateShort(order.created_at)}</td>
+          <td>${actionBtn(order)}</td>
+        </tr>`;
+      }).join('');
+
+      tableEl.style.display = 'table';
+    } catch (err) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (errorEl)   { errorEl.textContent = `Error: ${err.message}`; errorEl.style.display = 'block'; }
+    }
+  }
+
+  // filter + refresh controls
+  document.getElementById('orders-status-filter')?.addEventListener('change', () => loadOrders());
+  document.getElementById('orders-refresh-btn')?.addEventListener('click', () => loadOrders());
+
+  // confirm modal logic
+  let pendingConfirmId = null;
+  document.getElementById('orders-tbody')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+
+    if (action === 'confirm') {
+      pendingConfirmId = btn.dataset.orderId;
+      const guest    = btn.dataset.guest || '?';
+      const total    = btn.dataset.total;
+      document.getElementById('confirm-modal-body').innerHTML =
+        `Confirm receipt for order <code>${escapeHtml(pendingConfirmId)}</code>?<br>` +
+        `Guest: <strong>${escapeHtml(guest)}</strong><br>` +
+        `Amount: <strong>${fmtMoney(total, getTenantCurrencyPreference?.() || 'USD')}</strong>`;
+      document.getElementById('confirm-modal-err').style.display = 'none';
+      const modal = document.getElementById('confirm-modal');
+      modal.style.display = 'flex';
+    }
+
+    if (action === 'view-portal') {
+      const token = btn.dataset.token;
+      if (token) window.open(`/booking-portal.html?token=${encodeURIComponent(token)}`, '_blank');
+    }
+
+    if (action === 'view-proof') {
+      // Sign URL via the existing agent proof endpoint
+      const key = btn.dataset.key;
+      if (key) {
+        const res  = await fetch(`/api/bookings/order/${encodeURIComponent(document.querySelector(`[data-action="view-proof"][data-key="${CSS.escape(key)}"]`)?.closest('tr')?.querySelector('code')?.title || '')}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
+        const data = res?.ok ? await res.json().catch(() => null) : null;
+        if (data?.url) {
+          document.getElementById('proof-modal-img').src = data.url;
+          document.getElementById('proof-modal').style.display = 'flex';
+        } else {
+          alert('Could not load proof image. Please try again.');
+        }
+      }
+    }
+  });
+
+  document.getElementById('confirm-modal-cancel')?.addEventListener('click', () => {
+    document.getElementById('confirm-modal').style.display = 'none';
+    pendingConfirmId = null;
+  });
+
+  document.getElementById('confirm-modal-ok')?.addEventListener('click', async () => {
+    if (!pendingConfirmId) return;
+    const btn    = document.getElementById('confirm-modal-ok');
+    const errEl  = document.getElementById('confirm-modal-err');
+    btn.disabled    = true;
+    btn.textContent = 'Confirming…';
+    errEl.style.display = 'none';
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(pendingConfirmId)}/confirm-receipt`, {
+        method: 'POST',
+        headers: buildTenantHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Server error');
+      document.getElementById('confirm-modal').style.display = 'none';
+      pendingConfirmId = null;
+      await loadOrders(); // refresh table
+    } catch (err) {
+      errEl.textContent   = err.message;
+      errEl.style.display = 'block';
+      btn.disabled    = false;
+      btn.textContent = 'Confirm receipt →';
+    }
+  });
+
+  document.getElementById('proof-modal-close')?.addEventListener('click', () => {
+    document.getElementById('proof-modal').style.display = 'none';
   });
 
   document.documentElement.style.transition  = 'opacity .18s ease';

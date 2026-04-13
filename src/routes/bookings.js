@@ -230,6 +230,10 @@ function maskOrder(row) {
     proof_r2_key:      row.proof_r2_key ?? null,
     proof_uploaded_at: row.proof_uploaded_at ?? null,
     created_at:        row.created_at,
+    // Token needed so agents can open / share the guest portal link
+    secure_token:      row.secure_token ?? null,
+    // Snapshot for tour title display in admin table
+    price_snapshot_json: row.price_snapshot_json ?? null,
   };
 
   // [SEC] Identity Shield: always include guest field but mask when locked.
