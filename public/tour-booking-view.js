@@ -683,11 +683,14 @@
       lines.push(`<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote?.total, quote?.currency || currency))}</div>`);
 
       const priceLines = [
-        { label: PAX_TYPES[0].label, value: quote?.unitPrices?.adult_shared_room },
-        { label: PAX_TYPES[1].label, value: quote?.unitPrices?.adult_single_room },
-        { label: PAX_TYPES[2].label, value: quote?.unitPrices?.child_shared_with_parents },
-        { label: PAX_TYPES[3].label, value: quote?.unitPrices?.infant },
-      ].filter((entry) => entry.value != null);
+        { label: PAX_TYPES.find((p) => p.key === 'adult_shared_room_count')?.label, value: quote?.unitPrices?.adult_shared_room },
+        ...(!isDayTour ? [
+          { label: PAX_TYPES.find((p) => p.key === 'adult_triple_room_count')?.label, value: quote?.unitPrices?.adult_triple_room },
+          { label: PAX_TYPES.find((p) => p.key === 'adult_single_room_count')?.label, value: quote?.unitPrices?.adult_single_room },
+        ] : []),
+        { label: PAX_TYPES.find((p) => p.key === 'child_count')?.label, value: quote?.unitPrices?.child_shared_with_parents },
+        { label: PAX_TYPES.find((p) => p.key === 'infant_count')?.label, value: quote?.unitPrices?.infant },
+      ].filter((entry) => entry.label && entry.value != null);
 
       if (priceLines.length) {
         lines.push(`<div style="margin-top:10px;border-top:1px dashed rgba(212,175,115,0.24);padding-top:10px">${priceLines.map((entry) => `<div><strong>${esc(entry.label)}</strong>: ${esc(fmtMoney(entry.value, quote?.currency || currency))}</div>`).join('')}</div>`);
@@ -714,8 +717,11 @@
       const quote = state.lastQuote || buildPaymentPayload(null);
       if (!quote.segmentId || !quote.travelDate || quote.total == null) return;
       const settings = await loadPaymentSettings();
-      const demoMode = settings?.compliance?.has_electronic_gateway !== true;
       const methods = getVisibleMethods(settings);
+      // Manual payment methods (bank transfer, pay on arrival) always create real orders.
+      // Demo mode only applies when tenant has NO manual methods AND no electronic gateway.
+      const hasManualMethod = methods.some((m) => ['BANK_TRANSFER', 'PAY_ON_ARRIVAL'].includes(String(m.id || '').toUpperCase()));
+      const demoMode = !hasManualMethod && settings?.compliance?.has_electronic_gateway !== true;
 
       const overlay = createElement('div', { className: 'tbv-pay-overlay' });
       const panel = createElement('div', { className: 'tbv-pay-panel' });
