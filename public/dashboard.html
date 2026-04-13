@@ -92,7 +92,8 @@
       font-size: 14px; color: #334155; transition: background .15s;
     }
     .nav-list a:hover  { background: #eff6ff; color: #2563eb; }
-    .nav-list a.active { background: #dbeafe; color: #2563eb; font-weight: 600; }
+    .nav-list a.active         { background: #dbeafe; color: #2563eb; font-weight: 600; }
+    .nav-list a.active-filter  { background: #dbeafe; color: #2563eb; font-weight: 600; }
     .nav-list .icon { width: 18px; text-align: center; font-size: 15px; }
 
     .compliance-banner {
@@ -481,13 +482,13 @@
 
             <div class="sidebar-section">
               <h4 data-i18n="sidebar.orders">Orders</h4>
-              <ul class="nav-list">
-                <li><a href="#"><span class="icon">📋</span> <span data-i18n="nav.all_orders">All Orders</span> <span class="badge badge-blue" style="margin-left:auto">24</span></a></li>
-                <li><a href="#"><span class="icon">⏳</span> <span data-i18n="status.awaiting_payment">Awaiting Payment</span> <span class="badge badge-yellow" style="margin-left:auto">7</span></a></li>
-                <li><a href="#"><span class="icon">📄</span> <span data-i18n="status.awaiting_proof">Awaiting Proof</span> <span class="badge badge-yellow" style="margin-left:auto">3</span></a></li>
-                <li><a href="#"><span class="icon">🔒</span> <span data-i18n="status.proof_uploaded">Proof Uploaded</span> <span class="badge badge-red" style="margin-left:auto">2</span></a></li>
-                <li><a href="#"><span class="icon">✅</span> <span data-i18n="status.confirmed">Confirmed</span></a></li>
-                <li><a href="#"><span class="icon">🏨</span> <span data-i18n="status.pending_arrival">Pending Arrival</span> <span class="badge badge-gray" style="margin-left:auto">1</span></a></li>
+              <ul class="nav-list" id="sidebar-orders-nav">
+                <li><a href="#" data-filter="" class="sidebar-order-filter active-filter"><span class="icon">📋</span> <span data-i18n="nav.all_orders">All Orders</span> <span class="badge badge-blue" id="sidebar-badge-all" style="margin-left:auto">—</span></a></li>
+                <li><a href="#" data-filter="AWAITING_PAYMENT" class="sidebar-order-filter"><span class="icon">⏳</span> <span data-i18n="status.awaiting_payment">Awaiting Payment</span> <span class="badge badge-yellow" id="sidebar-badge-awaiting-payment" style="margin-left:auto">—</span></a></li>
+                <li><a href="#" data-filter="AWAITING_PROOF" class="sidebar-order-filter"><span class="icon">📄</span> <span data-i18n="status.awaiting_proof">Awaiting Proof</span> <span class="badge badge-yellow" id="sidebar-badge-awaiting-proof" style="margin-left:auto">—</span></a></li>
+                <li><a href="#" data-filter="PROOF_UPLOADED" class="sidebar-order-filter"><span class="icon">🔒</span> <span data-i18n="status.proof_uploaded">Proof Uploaded</span> <span class="badge badge-red" id="sidebar-badge-proof-uploaded" style="margin-left:auto">—</span></a></li>
+                <li><a href="#" data-filter="CONFIRMED" class="sidebar-order-filter"><span class="icon">✅</span> <span data-i18n="status.confirmed">Confirmed</span> <span class="badge badge-green" id="sidebar-badge-confirmed" style="margin-left:auto">—</span></a></li>
+                <li><a href="#" data-filter="PENDING_ARRIVAL" class="sidebar-order-filter"><span class="icon">🏨</span> <span data-i18n="status.pending_arrival">Pending Arrival</span> <span class="badge badge-gray" id="sidebar-badge-pending-arrival" style="margin-left:auto">—</span></a></li>
               </ul>
             </div>
 
@@ -621,9 +622,11 @@
               <h3 class="section-title" data-i18n="table.recent_orders" style="margin:0; flex:1; min-width:120px;">Recent Orders</h3>
               <select id="orders-status-filter" style="padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px;">
                 <option value="">All statuses</option>
+                <option value="AWAITING_PAYMENT">Awaiting Payment</option>
                 <option value="AWAITING_PROOF">Awaiting Proof</option>
                 <option value="PROOF_UPLOADED">Proof Uploaded</option>
                 <option value="CONFIRMED">Confirmed</option>
+                <option value="PENDING_ARRIVAL">Pending Arrival</option>
                 <option value="EXPIRED">Expired</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
@@ -1816,30 +1819,41 @@ window.addEventListener('dashboard:langchange', () => {
     if (emptyEl)   emptyEl.style.display   = 'none';
 
     try {
+      // Always fetch all orders so sidebar counts are accurate; filter client-side
       const url = new URL('/api/bookings/orders', location.origin);
       url.searchParams.set('limit', '100');
-      if (statusFilter) url.searchParams.set('status', statusFilter);
 
       const res  = await fetch(url.toString(), { headers: buildTenantHeaders() });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load orders');
 
-      const orders = data.orders || [];
+      const allOrders = data.orders || [];
+      const orders    = statusFilter ? allOrders.filter(o => o.status === statusFilter) : allOrders;
 
       // ── update stat cards ──
-      const total       = orders.length;
-      const awaitingCnt = orders.filter(o => o.status === 'AWAITING_PROOF').length;
-      const proofCnt    = orders.filter(o => o.status === 'PROOF_UPLOADED').length;
-      const confCnt     = orders.filter(o => o.status === 'CONFIRMED').length;
-      const revenue     = orders.filter(o => o.status === 'CONFIRMED').reduce((s,o) => s + (Number(o.grand_total_usd)||0), 0);
+      const awaitingCnt = allOrders.filter(o => o.status === 'AWAITING_PROOF').length;
+      const proofCnt    = allOrders.filter(o => o.status === 'PROOF_UPLOADED').length;
+      const confCnt     = allOrders.filter(o => o.status === 'CONFIRMED').length;
+      const revenue     = allOrders.filter(o => o.status === 'CONFIRMED').reduce((s,o) => s + (Number(o.grand_total_usd)||0), 0);
       const currency    = getTenantCurrencyPreference?.() || 'USD';
 
       const el = (id) => document.getElementById(id);
-      if (el('stat-total-orders'))   el('stat-total-orders').textContent   = total;
-      if (el('stat-pending-payment'))el('stat-pending-payment').textContent = awaitingCnt;
+      if (el('stat-total-orders'))    el('stat-total-orders').textContent    = allOrders.length;
+      if (el('stat-pending-payment')) el('stat-pending-payment').textContent = awaitingCnt;
       if (el('stat-pending-identity'))el('stat-pending-identity').textContent = proofCnt;
-      if (el('stat-confirmed'))      el('stat-confirmed').textContent      = confCnt;
-      if (el('stat-revenue-month'))  el('stat-revenue-month').textContent  = fmtMoney(revenue, currency);
+      if (el('stat-confirmed'))       el('stat-confirmed').textContent       = confCnt;
+      if (el('stat-revenue-month'))   el('stat-revenue-month').textContent   = fmtMoney(revenue, currency);
+
+      // ── update sidebar badges ──
+      const countByStatus = {};
+      for (const o of allOrders) countByStatus[o.status] = (countByStatus[o.status] || 0) + 1;
+      const sbBadge = (id, val) => { const e = el(id); if (e) e.textContent = val || 0; };
+      sbBadge('sidebar-badge-all',              allOrders.length);
+      sbBadge('sidebar-badge-awaiting-payment', countByStatus['AWAITING_PAYMENT'] || 0);
+      sbBadge('sidebar-badge-awaiting-proof',   countByStatus['AWAITING_PROOF']   || 0);
+      sbBadge('sidebar-badge-proof-uploaded',   countByStatus['PROOF_UPLOADED']   || 0);
+      sbBadge('sidebar-badge-confirmed',        countByStatus['CONFIRMED']        || 0);
+      sbBadge('sidebar-badge-pending-arrival',  countByStatus['PENDING_ARRIVAL']  || 0);
 
       if (loadingEl) loadingEl.style.display = 'none';
 
@@ -1870,8 +1884,29 @@ window.addEventListener('dashboard:langchange', () => {
   }
 
   // filter + refresh controls
-  document.getElementById('orders-status-filter')?.addEventListener('change', () => loadOrders());
+  document.getElementById('orders-status-filter')?.addEventListener('change', () => {
+    const val = document.getElementById('orders-status-filter').value;
+    document.querySelectorAll('.sidebar-order-filter').forEach(l => {
+      l.classList.toggle('active-filter', l.dataset.filter === val);
+    });
+    loadOrders();
+  });
   document.getElementById('orders-refresh-btn')?.addEventListener('click', () => loadOrders());
+
+  // sidebar order filter links
+  document.getElementById('sidebar-orders-nav')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const link = e.target.closest('.sidebar-order-filter');
+    if (!link) return;
+    const filter = link.dataset.filter;
+    const sel = document.getElementById('orders-status-filter');
+    if (sel) sel.value = filter;
+    document.querySelectorAll('.sidebar-order-filter').forEach(l => l.classList.remove('active-filter'));
+    link.classList.add('active-filter');
+    loadOrders();
+    // scroll to orders section
+    document.querySelector('#orders-section, #orders-table, [data-section="orders"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   // confirm modal logic
   let pendingConfirmId = null;
