@@ -25,6 +25,8 @@
   const API_BASE   = (script?.dataset?.apiBase  || '').replace(/\/$/, '');
   const LANG       = (script?.dataset?.lang || navigator.language || 'en').toLowerCase().split('-')[0];
   const ACCENT     = script?.dataset?.accent    || '#e85d26';
+  const TOUR_TYPE   = (script?.dataset?.tourType || 'package').toLowerCase();
+  const IS_DAY_TOUR = TOUR_TYPE === 'day_tour';
 
   function getNestedValue(dict, key) {
     return String(key).split('.').reduce((node, part) => node?.[part], dict);
@@ -216,7 +218,7 @@
 
     if (totals.adult_shared_subtotal > 0) {
       div.appendChild(el('div', { class: 'wbk-price-row' },
-        el('span', {}, `${paxCount} × ${t('widget.shared_room')}`),
+        el('span', {}, `${paxCount} × ${IS_DAY_TOUR ? t('public_booking.traveller_adult') : t('widget.shared_room')}`),
         el('span', {}, fmt(totals.adult_shared_subtotal))
       ));
     }
@@ -277,9 +279,11 @@
         try {
           const segId = segmentSelect.value;
           const params = new URLSearchParams({
-            tour_id:               TOUR_ID,
-            date:                  dateVal,
-            adult_shared_room_count: String(paxCount),
+            tour_id: TOUR_ID,
+            date:    dateVal,
+            ...(IS_DAY_TOUR
+              ? { adult_count: String(paxCount) }
+              : { adult_shared_room_count: String(paxCount) }),
             ...(segId ? { segment_id: segId } : {}),
           });
           const res = await fetch(`${API_BASE}/api/pricing/calculate?${params}`, {

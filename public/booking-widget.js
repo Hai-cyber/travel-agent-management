@@ -38,6 +38,8 @@
   const API_BASE  = (_script?.dataset.apiBase  ?? '').replace(/\/+$/, '');
   const LANG      = (_script?.dataset.lang     ?? 'en').toLowerCase();
   const HIDE_TRIGGER = (_script?.dataset.hideTrigger ?? '') === '1';
+  const TOUR_TYPE    = (_script?.dataset.tourType    ?? 'package').toLowerCase();
+  const IS_DAY_TOUR  = TOUR_TYPE === 'day_tour';
 
   if (!TOUR_ID || !TENANT_ID) {
     console.warn('[BookingWidget] <script> tag must have data-tour-id and data-tenant-id.');
@@ -51,6 +53,7 @@
       title:         'Get Your Quote',
       date_label:    'Travel Date',
       shared_label:  'Adults (Shared Room)',
+      adult_label:   'Adults',
       private_label: 'Adults (Private Room)',
       child_label:   'Children (3–11)',
       infant_label:  'Infants (0–2)',
@@ -80,6 +83,7 @@
       title:         'Nhận báo giá',
       date_label:    'Ngày khởi hành',
       shared_label:  'Người lớn (Phòng đôi)',
+      adult_label:   'Người lớn',
       private_label: 'Người lớn (Phòng đơn)',
       child_label:   'Trẻ em (3–11 tuổi)',
       infant_label:  'Em bé (0–2 tuổi)',
@@ -347,15 +351,15 @@
           <input id="bw-date" type="date" autocomplete="off">
         </div>
 
-        <div class="bw-pax-grid">
+        <div class="bw-pax-grid" ${IS_DAY_TOUR ? 'style="grid-template-columns:1fr"' : ''}>
           <div class="bw-field">
-            <label for="bw-shared">${esc(t('shared_label'))}</label>
-            <input id="bw-shared"  type="number" min="0" max="99" value="2">
+            <label for="bw-shared">${esc(IS_DAY_TOUR ? t('adult_label') : t('shared_label'))}</label>
+            <input id="bw-shared"  type="number" min="0" max="99" value="${IS_DAY_TOUR ? 1 : 2}">
           </div>
-          <div class="bw-field">
+          ${!IS_DAY_TOUR ? `<div class="bw-field">
             <label for="bw-private">${esc(t('private_label'))}</label>
             <input id="bw-private" type="number" min="0" max="99" value="0">
-          </div>
+          </div>` : ''}
         </div>
 
         <div class="bw-pax-grid">

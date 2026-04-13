@@ -535,7 +535,7 @@ pricing.post('/calculate', async (c) => {
   return c.json(buildPriceResponse(result, tenantConfig));
 });
 
-// GET /api/pricing/calculate?tour_id=&date=YYYY-MM-DD&adult_shared_room_count=&[segment_id=]
+// GET /api/pricing/calculate?tour_id=&date=YYYY-MM-DD&adult_shared_room_count= (or adult_count= for day tours)&[segment_id=]
 // segment_id optional — omit to get compare table for ALL segments
 pricing.get('/calculate', async (c) => {
   // [SEC] tenant_id từ X-Tenant-ID header
