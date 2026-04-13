@@ -57,7 +57,13 @@ async function dispatchWebhook(env, { event, tenantId, recipientEmail, emailCont
     },
   };
 
-  const payloadText = JSON.stringify(payload);
+  const payloadText = JSON.stringify(payload)
+    // GAS reads the POST body with Latin-1/ISO-8859-1 encoding when computing HMAC.
+    // Any non-ASCII chars (Vietnamese names, em-dashes, etc.) produce different bytes
+    // on GAS side vs Worker side, causing signature mismatch. Escape all non-ASCII
+    // to \uXXXX so only ASCII bytes are transported. JSON.parse on GAS side will
+    // correctly decode them back to the original Unicode chars before sending email.
+    .replace(/[\u0080-\uFFFF]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
   try {
     const destinationUrl = new URL(webhookUrl);
@@ -73,23 +79,33 @@ async function dispatchWebhook(env, { event, tenantId, recipientEmail, emailCont
     destinationUrl.searchParams.set('ta_event_id', eventId);
     destinationUrl.searchParams.set('ta_ts',       String(timestamp));
 
+    let signature = '';
     if (webhookSecret) {
-      const signature = await hmacSha256Hex(webhookSecret, `${timestamp}.${payloadText}`);
+      const _enc = new TextEncoder();
+      const _key = await crypto.subtle.importKey('raw', _enc.encode(webhookSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      signature = Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', _key, _enc.encode(`${timestamp}.${payloadText}`)))).map(b => b.toString(16).padStart(2, '0')).join('');
       headers['X-TravelAgent-Signature'] = `v1=${signature}`;
       destinationUrl.searchParams.set('ta_sig_v', 'v1');
       destinationUrl.searchParams.set('ta_sig',   signature);
     }
 
     const res = await fetch(destinationUrl.toString(), { method: 'POST', headers, body: payloadText });
+    const resText = await res.text().catch(() => '');
 
-    if (res.ok) {
-      console.info(`[BOOKING_EMAIL] sent event=${event} to=${recipientEmail} event_id=${eventId}`);
-      return { ok: true, event_id: eventId };
+    if (!res.ok) {
+      console.warn(`[BOOKING_EMAIL] webhook http error event=${event} status=${res.status} body=${resText.slice(0, 200)}`);
+      return { ok: false, status: res.status, gas_body: resText.slice(0, 200) };
     }
 
-    const body = await res.text().catch(() => '');
-    console.warn(`[BOOKING_EMAIL] webhook error event=${event} status=${res.status} body=${body.slice(0, 200)}`);
-    return { ok: false, status: res.status };
+    // GAS always returns HTTP 200 — check body text for actual success
+    const success = resText.trim() === 'Success';
+    if (!success) {
+      console.warn(`[BOOKING_EMAIL] GAS rejected event=${event} to=${recipientEmail} gas_body="${resText.slice(0, 300)}"`);
+      return { ok: false, gas_body: resText.slice(0, 300) };
+    }
+
+    console.info(`[BOOKING_EMAIL] sent event=${event} to=${recipientEmail} event_id=${eventId}`);
+    return { ok: true, event_id: eventId };
   } catch (err) {
     console.warn(`[BOOKING_EMAIL] dispatch exception event=${event}:`, err.message);
     return { ok: false, reason: err.message };
