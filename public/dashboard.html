@@ -1931,6 +1931,18 @@ window.addEventListener('dashboard:langchange', () => {
     renderDashboardStats();
   });
 
+  // ── Pane controller ────────────────────────────────────────────────────────
+  let allOrdersCache = [];
+
+  function showPane(name) {
+    document.querySelectorAll('[data-pane]').forEach(p => {
+      p.classList.toggle('pane-active', p.dataset.pane === name);
+    });
+    // sync sidebar Dashboard link active state
+    const dashLink = document.querySelector('[data-pane-target]');
+    if (dashLink) dashLink.classList.toggle('active', name === 'start-here');
+  }
+
   // ── Live Orders ───────────────────────────────────────────────────────────
   const STATUS_BADGE = {
     AWAITING_PROOF:  { cls: 'badge-yellow',  label: 'Awaiting Proof'  },
@@ -1975,16 +1987,18 @@ window.addEventListener('dashboard:langchange', () => {
   }
 
   function actionBtn(order) {
+    let btns = '';
     if (order.status === 'PROOF_UPLOADED') {
-      return `<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}">✅ Confirm</button>`;
+      btns += `<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}">✅ Confirm</button>`;
     }
     if (order.status === 'AWAITING_PROOF') {
-      return `<button class="button small alt" data-action="view-portal" data-token="${escapeHtml(order.secure_token||'')}">🔗 Portal</button>`;
+      btns += `<button class="button small alt" data-action="view-portal" data-token="${escapeHtml(order.secure_token||'')}">🔗 Portal</button>`;
     }
     if (order.status === 'CONFIRMED' && order.proof_r2_key) {
-      return `<button class="button small alt" data-action="view-proof" data-order-id="${escapeHtml(order.id)}" data-key="${escapeHtml(order.proof_r2_key)}">🖼 Proof</button>`;
+      btns += `<button class="button small alt" data-action="view-proof" data-order-id="${escapeHtml(order.id)}" data-key="${escapeHtml(order.proof_r2_key)}">🖼 Proof</button>`;
     }
-    return '';
+    btns += ` <button class="button small alt" data-action="view-detail" data-order-id="${escapeHtml(order.id)}">📋</button>`;
+    return btns;
   }
 
   async function loadOrders() {
