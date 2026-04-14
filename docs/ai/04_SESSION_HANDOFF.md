@@ -21,7 +21,62 @@ Suggested next prompt:
 
 ## Latest Handoff
 Date: 2026-04-14
-Checkpoint: CHK-R56 + CHK-R57 — Dashboard pane system, order detail, booking_order_todos, showPane hotfix
+Checkpoint: CHK-R58 — Trial countdown banner + Upgrade button restored + fully localized
+
+### What was completed
+
+**Trial banner root cause analysis:**
+1. Settings API `SELECT` never included `created_at` → old condition `subscription_status === 'TRIAL' && created_at` always `false`
+2. All dev tenants were manually set `ACTIVE` (no `stripe_customer_id`) → banner condition never triggered regardless
+
+**Fixes applied:**
+- Removed `created_at` gate entirely; `daysLeft` now driven from `/api/billing/status` server-side `trial_info.trial_days_left` (with `created_at` as local fallback only when billing API is unavailable)
+- Upgraded banner condition: `subscription_status === 'TRIAL' || !hasStripeSubscription` — shows for any tenant without a real Stripe payment
+- Wired `#btn-upgrade` click handler → `POST /api/billing/checkout` → redirects to Stripe `checkout_url` on success; shows `✅ Already Active` if tenant is already subscribed; restores label on error
+
+**i18n localization:**
+- Added `trial_banner.active`, `trial_banner.expired`, `trial_banner.upgrade` keys to all 11 locale files: `en`, `en-GB`, `en-AU`, `vi`, `zh`, `ja`, `ko`, `de`, `fr`, `es`, `th`
+- Replaced hardcoded mixed Vietnamese/English string with `i18n.t('trial_banner.active').replace('{{n}}', daysLeft)`
+
+**Language-switch re-render fix:**
+- Removed `data-i18n` from `#trial-banner-text` and `#btn-upgrade` — the i18n engine's `apply()` pass was overwriting them with the raw `{{n}}` placeholder on every language switch
+- Extracted `renderTrialBanner()` function; stores `daysLeft` as `window._trialDaysLeft`
+- Registered `renderTrialBanner` as a `dashboard:langchange` listener → banner text re-renders correctly on language switch
+
+### Files changed
+```
+public/dashboard.html                                (trial banner condition, renderTrialBanner, btn-upgrade handler)
+src/locales/en.json, en-gb.json, en-au.json          (trial_banner keys added)
+src/locales/vi.json, zh.json, ja.json, ko.json       (trial_banner keys added)
+src/locales/de.json, fr.json, es.json, th.json       (trial_banner keys added)
+docs/ai/03_PROGRESS_LEDGER.md                        (CHK-R58 entry)
+docs/ai/04_SESSION_HANDOFF.md                        (this handoff)
+```
+
+### What is still not done
+- `openOrderDetail()`, `loadTodos()`, `renderTodos()`, add-task save handler, `odet-actions` click handler — verify these function bodies exist in `dashboard.html` before assuming they work
+- Day tour booking widget: room-based pax inputs still shown for day tours in `public/booking-widget.js`
+- Trust ladder admin UI: `tenant_review_cases` table exists, no admin screen yet
+- Booking currency display: `grand_total_usd` legacy references remain in some surfaces
+- Calendar endpoint + departure reminders: cron wired but no business logic
+- SEO/public indexing: `public_indexing_enabled` column exists but `<meta robots>` not injected
+
+### Known risks / TODOs
+- `STRIPE_PRICE_ID` env var is `price_REPLACE_ME` — Stripe checkout will fail until replaced with a real price ID
+- Terminal cwd bug: use absolute `--cwd`/`--config` flags with wrangler; `cd` does not reliably persist
+
+### Recommended next checkpoints
+| # | Title | Prompt |
+|---|---|---|
+| CHK-R59 | Order detail JS completeness | "Verify that `openOrderDetail`, `loadTodos`, `renderTodos`, add-task form, and `odet-actions` click handler all exist in `dashboard.html`. If any are missing, write them." |
+| CHK-R60 | Day tour booking widget | "In `booking-widget.js`, hide room selection and show adult/child count only when `tour_type=day_tour`." |
+| CHK-R61 | Trust ladder admin UI | "Add a platform admin screen to list, inspect, and approve/reject `tenant_review_cases`." |
+| CHK-R62 | Booking currency display cleanup | "Replace `grand_total_usd` legacy references in dashboard order detail, invoice HTML, and emails with `booking_currency`/`grand_total_amount`." |
+
+### Suggested next prompt
+"Verify order-detail JS completeness: grep `dashboard.html` for `openOrderDetail`, `loadTodos`, `renderTodos`, `btn-back-to-orders`, `btn-save-todo`, and `odet-actions`. For any that are missing, write in the correct handler bodies."
+
+---
 
 ### What was completed
 
