@@ -574,6 +574,7 @@
   async function apiCalculate() {
     const body = {
       tour_id:                 TOUR_ID,
+      tour_type:               TOUR_TYPE,
       travel_date:             state.date,
       adult_shared_room_count: state.adult_shared,
       adult_single_room_count: state.adult_private,

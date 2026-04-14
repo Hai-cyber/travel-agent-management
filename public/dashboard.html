@@ -681,7 +681,8 @@
             <div id="proof-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9998; align-items:center; justify-content:center;">
               <div style="background:#fff; border-radius:12px; padding:20px; max-width:90vw; max-height:90vh; overflow:auto; position:relative;">
                 <button id="proof-modal-close" style="position:absolute; top:12px; right:12px; border:none; background:none; font-size:1.3rem; cursor:pointer;">✕</button>
-                <img id="proof-modal-img" src="" alt="Payment proof" style="max-width:600px; width:100%; border-radius:6px;" />
+                <img id="proof-modal-img" src="" alt="Payment proof" style="max-width:600px; width:100%; border-radius:6px; display:block;" />
+                <object id="proof-modal-pdf" data="" type="application/pdf" style="display:none; width:min(600px,80vw); height:70vh; border-radius:6px;"></object>
               </div>
             </div>
 
@@ -1996,13 +1997,36 @@ window.addEventListener('dashboard:langchange', () => {
     if (action === 'view-proof') {
       const ordId = btn.dataset.orderId;
       if (ordId) {
-        const res  = await fetch(`/api/bookings/order/${encodeURIComponent(ordId)}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
-        const data = res?.ok ? await res.json().catch(() => null) : null;
-        if (data?.url) {
-          document.getElementById('proof-modal-img').src = data.url;
+        btn.disabled = true;
+        btn.textContent = 'Loading…';
+        try {
+          const res = await fetch(`/api/bookings/order/${encodeURIComponent(ordId)}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
+          if (!res?.ok) throw new Error(res ? `HTTP ${res.status}` : 'fetch failed');
+          const blob = await res.blob();
+          const ct   = blob.type || '';
+          const url  = URL.createObjectURL(blob);
+          // Revoke any previously active blob URL
+          const imgEl = document.getElementById('proof-modal-img');
+          const pdfEl = document.getElementById('proof-modal-pdf');
+          if (imgEl._proofBlobUrl) URL.revokeObjectURL(imgEl._proofBlobUrl);
+          imgEl._proofBlobUrl = url;
+          if (ct === 'application/pdf' || ct.includes('pdf')) {
+            imgEl.style.display = 'none';
+            imgEl.src = '';
+            pdfEl.style.display = 'block';
+            pdfEl.data = url;
+          } else {
+            pdfEl.style.display = 'none';
+            pdfEl.data = '';
+            imgEl.style.display = 'block';
+            imgEl.src = url;
+          }
           document.getElementById('proof-modal').style.display = 'flex';
-        } else {
-          alert('Could not load proof image. Please try again.');
+        } catch (e) {
+          alert('Could not load proof file. Please try again.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🖼 Proof';
         }
       }
     }
@@ -2040,6 +2064,11 @@ window.addEventListener('dashboard:langchange', () => {
 
   document.getElementById('proof-modal-close')?.addEventListener('click', () => {
     document.getElementById('proof-modal').style.display = 'none';
+    const imgEl = document.getElementById('proof-modal-img');
+    const pdfEl = document.getElementById('proof-modal-pdf');
+    if (imgEl._proofBlobUrl) { URL.revokeObjectURL(imgEl._proofBlobUrl); imgEl._proofBlobUrl = null; }
+    imgEl.src = '';
+    pdfEl.data = '';
   });
 
   document.documentElement.style.transition  = 'opacity .18s ease';

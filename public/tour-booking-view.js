@@ -1099,7 +1099,7 @@
         const response = await fetch('/api/pricing/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
-          body: JSON.stringify({ tour_id: tourId, segment_id: segmentId, travel_date: travelDate, ...paxSnap }),
+          body: JSON.stringify({ tour_id: tourId, tour_type: tourType, segment_id: segmentId, travel_date: travelDate, ...paxSnap }),
         });
         const result = await response.json();
         if (!response.ok || !result?.ok || segmentId !== state.calcState.segmentId) return;

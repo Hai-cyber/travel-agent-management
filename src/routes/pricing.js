@@ -163,7 +163,7 @@ function schedulePricingUniversalSync(executionCtx, env, tenantId, tourIds) {
 // derived lang code (tenantConfig.lang, default 'en').
 // USD is always primary (source of truth); local currency is appended when
 // the tenant has a non-USD display_currency configured.
-function buildPriceResponse(result, tenantConfig) {
+function buildPriceResponse(result, tenantConfig, tourType) {
   const {
     exchange_rate    = 1,
     display_currency = 'USD',
@@ -172,6 +172,7 @@ function buildPriceResponse(result, tenantConfig) {
   } = tenantConfig ?? {};
 
   const cfg = { exchange_rate, display_currency, locale };
+  const isDayTour = (tourType ?? result.tour_type) === 'day_tour';
 
   const { pax_breakdown, totals, prices, base_currency } = result;
   const {
@@ -194,7 +195,7 @@ function buildPriceResponse(result, tenantConfig) {
   if (sharedCount > 0) {
     line_items.push({
       type:       'adult_shared_room',
-      label:      translate('invoice.adult_shared_room', lang),
+      label:      isDayTour ? translate('tour.adult', lang) : translate('invoice.adult_shared_room', lang),
       qty:        sharedCount,
       unit_price: dualPrice(prices.adult_shared_room ?? 0, cfg),
       subtotal:   dualPrice(totals?.shared_room_subtotal ?? 0, cfg),
@@ -519,6 +520,7 @@ pricing.post('/calculate', async (c) => {
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
     pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
+  const tourType = params.tour_type ?? null;
 
   // Compare mode: no segment_id ? return all segments
   if (!params.segment_id) {
@@ -527,14 +529,14 @@ pricing.post('/calculate', async (c) => {
     return c.json({
       ok:         true,
       mode:       'compare',
-      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig)),
+      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig, tourType)),
       matched_on: allResult.matched_on,
     });
   }
 
   const result = await calculateTourPrice(c.env, { ...commonParams, segment_id: params.segment_id });
   if (!result.ok) return c.json(result, 422);
-  return c.json(buildPriceResponse(result, tenantConfig));
+  return c.json(buildPriceResponse(result, tenantConfig, tourType));
 });
 
 // GET /api/pricing/calculate?tour_id=&date=YYYY-MM-DD&adult_shared_room_count= (or adult_count= for day tours)&[segment_id=]
@@ -582,6 +584,7 @@ pricing.get('/calculate', async (c) => {
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
     pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
+  const tourType = c.req.query('tour_type') ?? null;
 
   // Compare mode: no segment_id ? return all segments sorted cheapest-first
   if (!segment_id) {
@@ -590,14 +593,14 @@ pricing.get('/calculate', async (c) => {
     return c.json({
       ok:         true,
       mode:       'compare',
-      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig)),
+      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig, tourType)),
       matched_on: allResult.matched_on,
     });
   }
 
   const result = await calculateTourPrice(c.env, { ...commonParams, segment_id });
   if (!result.ok) return c.json(result, 422);
-  return c.json(buildPriceResponse(result, tenantConfig));
+  return c.json(buildPriceResponse(result, tenantConfig, tourType));
 });
 
 // Phải đứng TRƯỚC /:group — tránh Hono match 'tenant-seasons' vào group handler
