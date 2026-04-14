@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-14 (CHK-R54: auth guard on /api/tenant/pages, trust upgrade endpoint, booking_currency propagated to all email dispatches, migration 0045 local-bootstrap fix, migration 0049 no-op ledger marker; pre-CHK-R54 production deploy at version ec18dc87)
+Last updated: 2026-04-14 (CHK-R56/R57: dashboard pane system + order detail + booking_order_todos + showPane hotfix; deployed `02cec6b7`)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -34,12 +34,12 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0048; local runtime verified against current dev DB, and remote production D1 verified through 0048; 0046 = triple_room_price, 0047 = pricing_notes, 0048 = tour_type)
+### D1 Tables (repo migrations 0001–0050; local runtime verified against current dev DB, and remote production D1 verified through 0050; 0050 = booking_order_todos)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
 `tenant_seasons`, `pricing_segments`, `pax_bands`, `tour_prices`,
-`booking_drafts`, `tenant_audit_log`, `booking_orders`, `site_templates`,
+`booking_drafts`, `tenant_audit_log`, `booking_orders`, `booking_order_todos`, `site_templates`,
 `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`,
 `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
 `tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`,
@@ -144,6 +144,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/bookings/order/:id/proof-url` — streams R2 proof image directly from `BOOKING_PROOFS` bucket with tenant-scope check; returns `Content-Type` from r2 `httpMetadata`; `Cache-Control: private, max-age=300`
 - `POST /api/bookings/order/:id/proof` — stores to R2, moves order to `PROOF_UPLOADED`, keeps identity locked until confirm
 - `POST /api/bookings/order/:id/confirm-receipt` — sets `identity_unlocked = 1`, increments `total_revenue_tracked`, writes `tenant_audit_log` row
+- `GET /api/bookings/order/:orderId/todos?seed=1` — lists per-order service checklist todos; `?seed=1` auto-seeds one todo per `tour_stop` (formatted as `"Label (Day X–Y)"`) if table is empty for that order; all rows scoped by `tenant_id`
+- `POST /api/bookings/order/:orderId/todos` — add a custom task (stop_id=NULL, sort_order=999) to an order's checklist
+- `PATCH /api/bookings/order/:orderId/todos/:todoId` — toggle `done`/undone; sets `done_at` timestamp on mark-done or null on uncheck
 
 **Guest Portal — no auth required (CHK-R19 / CHK-R53)**
 - `GET /bookings/public/:token` — HTTP 302 redirect to `/booking-portal.html?token=TOKEN`
@@ -163,7 +166,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `DEFAULT_MESSAGES` in `tour-booking-view.js` includes English fallbacks for all traveller keys so no locale can display a raw technical key
 - `public/reset-password.html` — localized request/reset page for password recovery tokens
 - `public/booking-portal.html` — guest-facing booking status portal (no auth); shows status badge, booking details table, deadline countdown, drag-and-drop proof upload; per-status sections (awaiting/uploaded/confirmed/expired/cancelled); fetches `GET /api/bookings/public/:token`
-- `public/dashboard.html` — tenant admin dashboard; bookings section shows live orders from `GET /api/bookings/orders` (client-side filtered); stat cards show real counts; left sidebar order links (`All Orders`, `Awaiting Payment`, `Awaiting Proof`, `Proof Uploaded`, `Confirmed`, `Pending Arrival`) are wired to live status counts and filter the table on click; confirm-receipt flow unlocks guest identity in-page; known issue: `🖼 Proof` image viewer button returns error (deferred)
+- `public/dashboard.html` — tenant admin dashboard; **sidebar-as-pane-controller** pattern: 3 `[data-pane]` content divs (`start-here` default, `orders`, `order-detail`); clicking sidebar order filters calls `showPane('orders')` and loads orders; `📋` detail button on every order row opens `order-detail` pane; order detail shows guest/tour/payment header + per-order service checklist (`booking_order_todos`) seeded from `tour_stops`; todos checkable via PATCH API; custom tasks addable inline; back button returns to orders list; stat cards show real counts; confirm-receipt flow unlocks guest identity in-page; proof image viewer uses blob() URL.
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)

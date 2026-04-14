@@ -20,8 +20,68 @@ Suggested next prompt:
 ---
 
 ## Latest Handoff
-Date: 2026-04-13
-Checkpoint: CHK-R53 — Booking pipeline fixes + dashboard live data + guest portal
+Date: 2026-04-14
+Checkpoint: CHK-R56 + CHK-R57 — Dashboard pane system, order detail, booking_order_todos, showPane hotfix
+
+### What was completed
+
+**Dashboard pane system (CHK-R56):**
+- `db/migrations/0050_booking_order_todos.sql` — new `booking_order_todos` table; `id TEXT PK`, `tenant_id`, `order_id FK`, `stop_id INTEGER` (null for custom tasks), `title`, `done`, `done_at`, `sort_order`, `created_at`; indexed on `(order_id, tenant_id)`
+- 3 new API routes in `src/routes/bookings.js`:
+  - `GET /order/:orderId/todos?seed=1` — lists todos; `?seed=1` auto-seeds one row per `tour_stop` on first open
+  - `POST /order/:orderId/todos` — add custom task
+  - `PATCH /order/:orderId/todos/:todoId` — toggle done/undone, set `done_at`
+- `public/dashboard.html` restructured:
+  - 3 `[data-pane]` divs: `start-here` (default), `orders`, `order-detail`
+  - `showPane(name)` toggles `.pane-active` class — sidebar links become pane controllers
+  - `let allOrdersCache = []` declared in script scope
+  - `actionBtn(order)` always appends `📋` detail button
+  - Order-detail pane: guest/tour/payment header, per-order todos checklist, add custom task form
+  - Back button returns to orders pane
+
+**showPane hotfix (CHK-R57):**
+- `showPane()` function body and `allOrdersCache` declaration were missing from the file (silently dropped during multi-replace in prior session)
+- Patched via targeted `replace_string_in_file` — both declarations now present and verified in file
+
+**Proof image modal:**
+- Fixed in CHK-R55 (prior session): `view-proof` handler uses `blob()+URL.createObjectURL()`; PDF support via `<object>` element; blob URL revoked on close. Confirmed working by user.
+
+**Deploy:**
+- Worker deployed as `02cec6b7` on `tours-market.com`
+- Remote D1 migration 0050 applied
+
+### Files changed
+```
+db/migrations/0050_booking_order_todos.sql           (new)
+src/routes/bookings.js                               (3 todos routes added)
+public/dashboard.html                                (pane system CSS + HTML + JS; showPane hotfix)
+docs/ai/01_CURRENT_STATE.md                          (updated to CHK-R56/R57)
+docs/ai/03_PROGRESS_LEDGER.md                        (CHK-R56 + CHK-R57 entries; recommended next checkpoints table)
+docs/ai/04_SESSION_HANDOFF.md                        (this handoff)
+```
+
+### What is still not done
+- `openOrderDetail()`, `loadTodos()`, `renderTodos()`, add-task save handler, `odet-actions` click handler — these functions are referenced but their bodies need to be verified exist in `dashboard.html`; grep the file before assuming they are present
+- Day tour booking widget: room-based pax inputs still shown for day tours in `public/booking-widget.js`
+- Trust ladder admin UI: `tenant_review_cases` table exists, no admin screen yet
+- Booking currency display: `grand_total_usd` legacy references remain in some surfaces
+- Calendar endpoint + departure reminders: cron is wired but no logic
+- SEO/public indexing surface: `public_indexing_enabled` column exists but `<meta robots>` not injected
+
+### Known risks / TODOs
+- Before working on order-detail JS: grep `openOrderDetail` in `public/dashboard.html` — if absent, the 📋 button will do nothing. Same check for `loadTodos`, `renderTodos`, `btn-back-to-orders` handler.
+- Terminal cwd bug: `cd` commands inside a multi-command expression may not persist in some terminal sessions; use absolute `--cwd` or `--config` flags with `wrangler` as a workaround
+
+### Recommended next checkpoints
+| # | Title | Prompt |
+|---|---|---|
+| CHK-R58 | Order detail JS completeness | "Verify that `openOrderDetail`, `loadTodos`, `renderTodos`, add-task form, and `odet-actions` click handler all exist in `dashboard.html`. If any are missing, write them." |
+| CHK-R59 | Day tour booking widget | "In `booking-widget.js` and `tour-booking-view.js`, hide room selection and show adult/child count only when `TOUR_TYPE=day`." |
+| CHK-R60 | Trust ladder admin UI | "Add a platform admin screen to list, inspect, and approve/reject `tenant_review_cases`." |
+| CHK-R61 | Booking currency display cleanup | "Replace `grand_total_usd` legacy references in dashboard order detail, invoice HTML, and emails with `booking_currency`/`grand_total_amount`." |
+
+### Suggested next prompt
+"Verify order-detail JS completeness: grep `dashboard.html` for `openOrderDetail`, `loadTodos`, `renderTodos`, `btn-back-to-orders`, `btn-save-todo`, and `odet-actions`. For any that are missing, write in the correct handler bodies."
 
 ### What was completed
 
