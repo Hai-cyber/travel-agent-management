@@ -107,6 +107,56 @@
     .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
     .quick-actions a.button { margin: 0; }
 
+    /* ── Pane system ── */
+    [data-pane] { display: none; }
+    [data-pane].pane-active { display: block; }
+
+    /* ── Order detail card ── */
+    .order-detail-header {
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 12px; padding: 20px; margin-bottom: 20px;
+    }
+    .order-detail-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px; margin-top: 14px;
+    }
+    .order-detail-meta-cell .meta-label {
+      font-size: 11px; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .order-detail-meta-cell .meta-val {
+      font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 2px;
+    }
+    /* ── Todo checklist ── */
+    .todo-card {
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 12px; padding: 20px;
+    }
+    .todo-card-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 14px;
+    }
+    .todo-card-title { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
+    #todos-list { list-style: none; padding: 0; margin: 0; }
+    .todo-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 4px; border-bottom: 1px solid #f1f5f9;
+    }
+    .todo-item:last-child { border-bottom: none; }
+    .todo-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #1d4ed8; flex-shrink: 0; }
+    .todo-item .todo-title { font-size: 14px; flex: 1; line-height: 1.4; color: #1e293b; }
+    .todo-item.done .todo-title { text-decoration: line-through; color: #94a3b8; }
+    .todo-item .todo-date { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+    .add-todo-row {
+      display: flex; gap: 8px; margin-top: 14px;
+      border-top: 1px solid #f1f5f9; padding-top: 14px;
+    }
+    .add-todo-row input {
+      flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0;
+      border-radius: 8px; font-size: 13px;
+    }
+
     .launch-guide {
       background: linear-gradient(135deg, #eff6ff, #ffffff);
       border: 1px solid #bfdbfe;
@@ -534,6 +584,9 @@
               <a href="#" data-i18n="compliance.setup_now">Set up now →</a>
             </div>
 
+            <!-- ═══ PANE: start-here (default) ═══ -->
+            <div id="pane-start-here" data-pane="start-here" class="pane-active">
+
             <!-- Quick Actions -->
             <div class="quick-actions">
               <a href="#" id="btn-tour-config"     class="button icon solid fa-map" data-i18n="dashboard.action.tour_config">Configure Tours</a>
@@ -604,6 +657,11 @@
               </div>
             </section>
 
+            </div><!-- /pane-start-here -->
+
+            <!-- ═══ PANE: orders ═══ -->
+            <div id="pane-orders" data-pane="orders">
+
             <!-- Stat Cards -->
             <div class="stat-grid">
               <div class="stat-card">
@@ -663,6 +721,69 @@
               <tbody id="orders-tbody"></tbody>
             </table>
             <div id="orders-empty" style="display:none; text-align:center; padding:32px; color:#94a3b8; font-size:14px;">No orders found.</div>
+
+            </div><!-- /pane-orders -->
+
+            <!-- ═══ PANE: order-detail ═══ -->
+            <div id="pane-order-detail" data-pane="order-detail">
+
+              <div style="margin-bottom:16px">
+                <a href="#" id="btn-back-to-orders" class="button alt small">← Back to Orders</a>
+              </div>
+
+              <!-- Order Header -->
+              <div class="order-detail-header" id="order-detail-header">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px">Order ID</div>
+                    <div id="odet-id" style="font-family:monospace; font-size:13px; color:#1e293b; word-break:break-all"></div>
+                  </div>
+                  <div id="odet-status-badge"></div>
+                </div>
+                <div class="order-detail-meta">
+                  <div class="order-detail-meta-cell">
+                    <div class="meta-label">Guest</div>
+                    <div class="meta-val" id="odet-guest">—</div>
+                  </div>
+                  <div class="order-detail-meta-cell">
+                    <div class="meta-label">Tour</div>
+                    <div class="meta-val" id="odet-tour">—</div>
+                  </div>
+                  <div class="order-detail-meta-cell">
+                    <div class="meta-label">Travel Date</div>
+                    <div class="meta-val" id="odet-date">—</div>
+                  </div>
+                  <div class="order-detail-meta-cell">
+                    <div class="meta-label">Total</div>
+                    <div class="meta-val" id="odet-total" style="color:#1d4ed8">—</div>
+                  </div>
+                  <div class="order-detail-meta-cell">
+                    <div class="meta-label">Payment</div>
+                    <div class="meta-val" id="odet-method">—</div>
+                  </div>
+                </div>
+                <div id="odet-actions" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+              </div>
+
+              <!-- Service Checklist -->
+              <div class="todo-card">
+                <div class="todo-card-header">
+                  <h3 class="todo-card-title">Service Checklist</h3>
+                  <button id="btn-add-todo" class="button alt small">+ Add Task</button>
+                </div>
+                <div id="todos-loading" style="color:#94a3b8; font-size:13px; padding:8px 0">Loading tasks…</div>
+                <div id="todos-empty" style="display:none; color:#94a3b8; font-size:13px; padding:8px 0">No tasks yet. Tasks are seeded from tour stops when available.</div>
+                <ul id="todos-list" style="display:none;"></ul>
+                <div id="add-todo-form" style="display:none;">
+                  <div class="add-todo-row">
+                    <input id="new-todo-input" type="text" placeholder="E.g. Airport pickup on Day 1" maxlength="200" />
+                    <button id="btn-save-todo" class="button small">Add</button>
+                    <button id="btn-cancel-todo" class="button alt small">Cancel</button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /pane-order-detail -->
 
             <!-- Confirm modal -->
             <div id="confirm-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
@@ -1889,6 +2010,7 @@ window.addEventListener('dashboard:langchange', () => {
       if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load orders');
 
       const allOrders = data.orders || [];
+      allOrdersCache  = allOrders;
       const orders    = statusFilter ? allOrders.filter(o => o.status === statusFilter) : allOrders;
 
       // ── update stat cards ──
@@ -1962,11 +2084,14 @@ window.addEventListener('dashboard:langchange', () => {
     const filter = link.dataset.filter;
     const sel = document.getElementById('orders-status-filter');
     if (sel) sel.value = filter;
-    document.querySelectorAll('.sidebar-order-filter').forEach(l => l.classList.remove('active-filter'));
+    document.querySelectorAll('.sidebar-order-filter').forEach(l => {
+      l.classList.remove('active-filter');
+      l.classList.remove('active-filter-last');
+    });
     link.classList.add('active-filter');
+    link.classList.add('active-filter-last');
+    showPane('orders');
     loadOrders();
-    // scroll to orders section
-    document.querySelector('#orders-section, #orders-table, [data-section="orders"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   // confirm modal logic
@@ -2030,6 +2155,12 @@ window.addEventListener('dashboard:langchange', () => {
         }
       }
     }
+    if (action === 'view-detail') {
+      const ordId  = btn.dataset.orderId;
+      const order  = allOrdersCache.find(o => o.id === ordId);
+      if (order) openOrderDetail(order);
+    }
+
   });
 
   document.getElementById('confirm-modal-cancel')?.addEventListener('click', () => {
@@ -2069,6 +2200,170 @@ window.addEventListener('dashboard:langchange', () => {
     if (imgEl._proofBlobUrl) { URL.revokeObjectURL(imgEl._proofBlobUrl); imgEl._proofBlobUrl = null; }
     imgEl.src = '';
     pdfEl.data = '';
+  });
+
+  // ── Order Detail + Todo Checklist ─────────────────────────────────────────────────────
+  let currentOrderId = null;
+
+  function openOrderDetail(order) {
+    currentOrderId = order.id;
+    document.getElementById('odet-id').textContent = order.id;
+    const badge = STATUS_BADGE[order.status] || { cls: 'badge-gray', label: order.status };
+    document.getElementById('odet-status-badge').innerHTML =
+      `<span class="badge ${badge.cls}">${badge.label}</span>`;
+    const snap = (() => { try { return JSON.parse(order.price_snapshot_json || 'null'); } catch { return null; } })();
+    document.getElementById('odet-tour').textContent    = snap?.tour_title || order.tour_id?.slice(0, 16) || '—';
+    document.getElementById('odet-date').textContent    = order.travel_date || '—';
+    document.getElementById('odet-total').textContent   = fmtMoney(order.grand_total_usd, getTenantCurrencyPreference?.() || 'USD');
+    document.getElementById('odet-method').textContent  = (order.payment_method || '—').replace(/_/g, ' ');
+    const guestEl = document.getElementById('odet-guest');
+    if (order.identity_unlocked && order.guest?.name && order.guest.name !== '***') {
+      guestEl.innerHTML = escapeHtml(order.guest.name) +
+        (order.guest.email && order.guest.email !== '***'
+          ? `<br><small style="color:#64748b;font-weight:400">${escapeHtml(order.guest.email)}</small>` : '');
+    } else {
+      guestEl.innerHTML = '<em style="color:#94a3b8;font-weight:400">locked</em>';
+    }
+    // Action buttons inside detail pane
+    const actEl  = document.getElementById('odet-actions');
+    const actBtns = [];
+    if (order.status === 'PROOF_UPLOADED')
+      actBtns.push(`<button class="button small" data-action="confirm" data-order-id="${escapeHtml(order.id)}">&#x2705; Confirm Receipt</button>`);
+    if (order.proof_r2_key)
+      actBtns.push(`<button class="button small alt" data-action="view-proof" data-order-id="${escapeHtml(order.id)}" data-key="${escapeHtml(order.proof_r2_key)}">&#x1F5BC; View Proof</button>`);
+    if (order.status === 'AWAITING_PROOF')
+      actBtns.push(`<button class="button small alt" data-action="view-portal" data-token="${escapeHtml(order.secure_token||'')}">&#x1F517; Guest Portal</button>`);
+    actEl.innerHTML = actBtns.join('');
+    showPane('order-detail');
+    loadTodos();
+  }
+
+  async function loadTodos() {
+    if (!currentOrderId) return;
+    const listEl    = document.getElementById('todos-list');
+    const loadingEl = document.getElementById('todos-loading');
+    const emptyEl   = document.getElementById('todos-empty');
+    if (!listEl) return;
+    loadingEl.textContent = 'Loading tasks…'; loadingEl.style.display = 'block';
+    listEl.style.display = 'none'; emptyEl.style.display = 'none';
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos?seed=1`, { headers: buildTenantHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
+      loadingEl.style.display = 'none';
+      const todos = data.todos || [];
+      if (!todos.length) { emptyEl.style.display = 'block'; return; }
+      renderTodos(todos);
+      listEl.style.display = 'block';
+    } catch (err) { loadingEl.textContent = `Error: ${err.message}`; }
+  }
+
+  function renderTodos(todos) {
+    const listEl = document.getElementById('todos-list');
+    if (!listEl) return;
+    listEl.innerHTML = todos.map(todo => `
+      <li class="todo-item${todo.done ? ' done' : ''}" data-todo-id="${escapeHtml(String(todo.id))}">
+        <input type="checkbox" class="todo-checkbox" data-todo-id="${escapeHtml(String(todo.id))}"${todo.done ? ' checked' : ''} />
+        <span class="todo-title">${escapeHtml(todo.title)}</span>
+        ${todo.done && todo.done_at ? `<span class="todo-date">${fmtDateShort(todo.done_at)}</span>` : ''}
+      </li>`).join('');
+  }
+
+  document.getElementById('todos-list')?.addEventListener('change', async (e) => {
+    const cb = e.target.closest('.todo-checkbox');
+    if (!cb || !currentOrderId) return;
+    const todoId = cb.dataset.todoId;
+    const done   = cb.checked ? 1 : 0;
+    try {
+      const res = await fetch(
+        `/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}`,
+        { method: 'PATCH', headers: buildTenantHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ done }) }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
+      cb.closest('li')?.classList.toggle('done', !!done);
+    } catch (err) {
+      cb.checked = !cb.checked;
+      alert(`Could not update task: ${err.message}`);
+    }
+  });
+
+  document.getElementById('btn-add-todo')?.addEventListener('click', () => {
+    document.getElementById('add-todo-form').style.display = '';
+    document.getElementById('new-todo-input').focus();
+  });
+  document.getElementById('btn-cancel-todo')?.addEventListener('click', () => {
+    document.getElementById('add-todo-form').style.display = 'none';
+    document.getElementById('new-todo-input').value = '';
+  });
+  document.getElementById('btn-save-todo')?.addEventListener('click', async () => {
+    const input = document.getElementById('new-todo-input');
+    const title = input?.value.trim();
+    if (!title || !currentOrderId) return;
+    const btn = document.getElementById('btn-save-todo');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos`, {
+        method: 'POST',
+        headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
+      input.value = '';
+      document.getElementById('add-todo-form').style.display = 'none';
+      await loadTodos();
+      document.getElementById('todos-list').style.display = 'block';
+      document.getElementById('todos-empty').style.display = 'none';
+    } catch (err) { alert(`Could not add task: ${err.message}`); }
+    finally { btn.disabled = false; btn.textContent = 'Add'; }
+  });
+
+  document.getElementById('btn-back-to-orders')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentOrderId = null;
+    showPane('orders');
+  });
+
+  document.getElementById('odet-actions')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'confirm') {
+      pendingConfirmId = btn.dataset.orderId;
+      document.getElementById('confirm-modal-body').innerHTML =
+        `Confirm receipt for order <code>${escapeHtml(pendingConfirmId.slice(0,8))}…</code>?<br><br>ℹ️ Identity will be unlocked after confirmation.`;
+      document.getElementById('confirm-modal-err').style.display = 'none';
+      document.getElementById('confirm-modal').style.display = 'flex';
+    }
+    if (action === 'view-proof') {
+      const ordId = btn.dataset.orderId;
+      if (ordId) {
+        btn.disabled = true; btn.textContent = 'Loading…';
+        try {
+          const res = await fetch(`/api/bookings/order/${encodeURIComponent(ordId)}/proof-url`, { headers: buildTenantHeaders() }).catch(() => null);
+          if (!res?.ok) throw new Error(res ? `HTTP ${res.status}` : 'fetch failed');
+          const blob = await res.blob();
+          const ct   = blob.type || '';
+          const url  = URL.createObjectURL(blob);
+          const imgEl = document.getElementById('proof-modal-img');
+          const pdfEl = document.getElementById('proof-modal-pdf');
+          if (imgEl._proofBlobUrl) URL.revokeObjectURL(imgEl._proofBlobUrl);
+          imgEl._proofBlobUrl = url;
+          if (ct === 'application/pdf' || ct.includes('pdf')) {
+            imgEl.style.display = 'none'; imgEl.src = ''; pdfEl.style.display = 'block'; pdfEl.data = url;
+          } else {
+            pdfEl.style.display = 'none'; pdfEl.data = ''; imgEl.style.display = 'block'; imgEl.src = url;
+          }
+          document.getElementById('proof-modal').style.display = 'flex';
+        } catch (err) { alert('Could not load proof file.'); }
+        finally { btn.disabled = false; btn.innerHTML = '&#x1F5BC; View Proof'; }
+      }
+    }
+    if (action === 'view-portal') {
+      const token = btn.dataset.token;
+      if (token) window.open(`/booking-portal.html?token=${encodeURIComponent(token)}`, '_blank');
+    }
   });
 
   document.documentElement.style.transition  = 'opacity .18s ease';

@@ -1202,6 +1202,115 @@ bookings.post('/order/:orderId/manual-unlock', async (c) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ORDER TODOS — per-order service checklist, seeded from tour stops
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/bookings/order/:orderId/todos ─────────────────────────────────
+// Returns todos for this order.
+// ?seed=1 → auto-seed from tour stops if no todos exist yet.
+// [SEC] WHERE tenant_id — cross-tenant isolation enforced.
+bookings.get('/order/:orderId/todos', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const seed    = c.req.query('seed') === '1';
+
+  const order = await c.env.DB
+    .prepare('SELECT id, tour_id FROM booking_orders WHERE id = ? AND tenant_id = ?')
+    .bind(orderId, tenantId)
+    .first();
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  let { results: todos } = await c.env.DB
+    .prepare('SELECT * FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? ORDER BY sort_order, created_at')
+    .bind(orderId, tenantId)
+    .all();
+
+  if (seed && todos.length === 0) {
+    const { results: stops } = await c.env.DB
+      .prepare('SELECT id, label, day_from, day_to FROM tour_stops WHERE tour_id = ? AND tenant_id = ? ORDER BY sort_order, day_from')
+      .bind(order.tour_id, tenantId)
+      .all();
+
+    if (stops.length > 0) {
+      const now   = Math.floor(Date.now() / 1000);
+      const stmts = stops.map((stop, i) => {
+        const id    = nanoid();
+        const days  = stop.day_from != null
+          ? ` (Day ${stop.day_from}${stop.day_to && stop.day_to !== stop.day_from ? '–' + stop.day_to : ''})`
+          : '';
+        const title = String(stop.label || 'Stop').slice(0, 200) + days;
+        return c.env.DB.prepare(
+          'INSERT OR IGNORE INTO booking_order_todos (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at) VALUES (?,?,?,?,?,0,?,?)'
+        ).bind(id, tenantId, orderId, stop.id, title, i, now);
+      });
+      try { await c.env.DB.batch(stmts); } catch (err) { console.warn('[TODOS_SEED]', err.message); }
+      const seeded = await c.env.DB
+        .prepare('SELECT * FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? ORDER BY sort_order, created_at')
+        .bind(orderId, tenantId)
+        .all();
+      todos = seeded.results;
+    }
+  }
+
+  return c.json({ ok: true, todos: todos || [] });
+});
+
+// ── POST /api/bookings/order/:orderId/todos ───────────────────────────────
+// Add a custom (non-stop) task to an order's checklist.
+bookings.post('/order/:orderId/todos', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const order   = await c.env.DB
+    .prepare('SELECT id FROM booking_orders WHERE id = ? AND tenant_id = ?')
+    .bind(orderId, tenantId)
+    .first();
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+
+  const title = String(body?.title || '').trim().slice(0, 200);
+  if (!title) return c.json({ error: 'title is required' }, 400);
+
+  const id  = nanoid();
+  const now = Math.floor(Date.now() / 1000);
+  await c.env.DB
+    .prepare('INSERT INTO booking_order_todos (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at) VALUES (?,?,?,NULL,?,0,999,?)')
+    .bind(id, tenantId, orderId, title, now)
+    .run();
+
+  return c.json({ ok: true, todo: { id, tenant_id: tenantId, order_id: orderId, stop_id: null, title, done: 0, done_at: null, sort_order: 999, created_at: now } }, 201);
+});
+
+// ── PATCH /api/bookings/order/:orderId/todos/:todoId ─────────────────────
+// Toggle done / undone on a single todo item.
+bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const todoId  = c.req.param('todoId');
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+
+  const done = body?.done ? 1 : 0;
+  const now  = Math.floor(Date.now() / 1000);
+
+  const result = await c.env.DB
+    .prepare('UPDATE booking_order_todos SET done = ?, done_at = ? WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(done, done ? now : null, todoId, orderId, tenantId)
+    .run();
+
+  if (!result.meta?.changes) return c.json({ error: 'Todo not found' }, 404);
+  return c.json({ ok: true, id: todoId, done, done_at: done ? now : null });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SCHEDULED PURGE — called by the Workers Cron trigger every 15 minutes
 // ═══════════════════════════════════════════════════════════════════════════
 
