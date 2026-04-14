@@ -580,16 +580,27 @@
               </div>
               <div class="launch-steps" id="launch-steps"></div>
 
-              <!-- Custom Domain (TRUSTED tenants only) -->
+              <!-- Custom Domain -->
               <div class="custom-domain-section" id="custom-domain-section">
                 <h4>🌐 Custom Domain</h4>
-                <div class="custom-domain-row">
-                  <input id="custom-domain-input" type="text" placeholder="tours.mycompany.com" autocomplete="off" spellcheck="false" />
-                  <a href="#" id="btn-save-custom-domain" class="button small">Save</a>
-                  <a href="#" id="btn-verify-custom-domain" class="button alt small" style="display:none">Check DNS</a>
+                <!-- Shown when TRUSTED -->
+                <div id="custom-domain-trusted-panel">
+                  <div class="custom-domain-row">
+                    <input id="custom-domain-input" type="text" placeholder="tours.mycompany.com" autocomplete="off" spellcheck="false" />
+                    <a href="#" id="btn-save-custom-domain" class="button small">Save</a>
+                    <a href="#" id="btn-verify-custom-domain" class="button alt small" style="display:none">Check DNS</a>
+                  </div>
+                  <div id="custom-domain-instructions" class="custom-domain-instructions" style="display:none"></div>
+                  <div id="custom-domain-status" class="custom-domain-status"></div>
                 </div>
-                <div id="custom-domain-instructions" class="custom-domain-instructions" style="display:none"></div>
-                <div id="custom-domain-status" class="custom-domain-status"></div>
+                <!-- Shown when PROBATION/PREVIEW_ONLY -->
+                <div id="custom-domain-locked-panel" style="display:none">
+                  <p style="color:#64748b;font-size:14px;margin:0 0 10px">
+                    Custom domains require account verification. Your account is currently on the <strong id="trust-status-label">probation</strong> tier.
+                  </p>
+                  <a href="#" id="btn-request-trust-upgrade" class="button alt small">Request Account Verification</a>
+                  <div id="trust-upgrade-status" style="margin-top:8px;font-size:13px"></div>
+                </div>
               </div>
             </section>
 
@@ -1562,47 +1573,65 @@ window.addEventListener('dashboard:langchange', () => {
     customDomainStatus.className = `custom-domain-status ${kind}`;
   }
 
+  const trustedPanel = document.getElementById('custom-domain-trusted-panel');
+  const lockedPanel  = document.getElementById('custom-domain-locked-panel');
+  const trustStatusLabel = document.getElementById('trust-status-label');
+  const btnRequestTrustUpgrade = document.getElementById('btn-request-trust-upgrade');
+  const trustUpgradeStatus = document.getElementById('trust-upgrade-status');
+
   async function loadCustomDomainStatus() {
     const settings = onboardingState.settings || {};
     const trustStatus = String(settings.trust_status || '').toUpperCase();
     if (!customDomainSection) return;
-    if (trustStatus !== 'TRUSTED') {
+
+    const ACTIVE_STATUSES = ['TRUSTED', 'PROBATION', 'PREVIEW_ONLY'];
+    if (!ACTIVE_STATUSES.includes(trustStatus)) {
       customDomainSection.classList.remove('visible');
       return;
     }
     customDomainSection.classList.add('visible');
 
-    try {
-      const res = await fetch('/api/tenants/custom-domain-verify', { headers: buildTenantHeaders() });
-      const payload = await res.json().catch(() => null);
-      if (!res.ok || !payload?.ok) return;
+    if (trustStatus === 'TRUSTED') {
+      if (trustedPanel) trustedPanel.style.display = '';
+      if (lockedPanel)  lockedPanel.style.display  = 'none';
 
-      if (customDomainInput && !customDomainInput.value) {
-        customDomainInput.value = payload.domain || '';
-      }
+      try {
+        const res = await fetch('/api/tenants/custom-domain-verify', { headers: buildTenantHeaders() });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) return;
 
-      if (payload.verified) {
-        setDomainStatus(`✅ Verified: ${payload.domain}`, 'verified');
-        if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = 'none';
-        if (customDomainInstructions) customDomainInstructions.style.display = 'none';
-      } else if (payload.domain) {
-        setDomainStatus('⏳ Pending DNS verification', 'pending');
-        if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = '';
-        if (payload.instructions && customDomainInstructions) {
-          customDomainInstructions.style.display = '';
-          const inst = payload.instructions;
-          customDomainInstructions.innerHTML = `
-            <strong>DNS Setup Instructions</strong><br>
-            1. ${inst.step1}<br>
-            2. Add <strong>TXT</strong>: name <code>${'_tm-verify.' + payload.domain}</code> → value <code>${payload.token}</code><br>
-            3. Add <strong>CNAME</strong>: name <code>${payload.domain}</code> → target <code>square-wind-2594.divine-shape-9f0a.workers.dev</code><br>
-            4. Click <strong>Check DNS</strong> below once propagated (may take up to 24 h).
-          `;
+        if (customDomainInput && !customDomainInput.value) {
+          customDomainInput.value = payload.domain || '';
         }
-      } else {
-        setDomainStatus('Enter your custom domain above and save.', 'pending');
-      }
-    } catch (_) {}
+
+        if (payload.verified) {
+          setDomainStatus(`✅ Verified: ${payload.domain}`, 'verified');
+          if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = 'none';
+          if (customDomainInstructions) customDomainInstructions.style.display = 'none';
+        } else if (payload.domain) {
+          setDomainStatus('⏳ Pending DNS verification', 'pending');
+          if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = '';
+          if (payload.instructions && customDomainInstructions) {
+            customDomainInstructions.style.display = '';
+            const inst = payload.instructions;
+            customDomainInstructions.innerHTML = `
+              <strong>DNS Setup Instructions</strong><br>
+              1. ${inst.step1}<br>
+              2. Add <strong>TXT</strong>: name <code>${'_tm-verify.' + payload.domain}</code> → value <code>${payload.token}</code><br>
+              3. Add <strong>CNAME</strong>: name <code>${payload.domain}</code> → target <code>square-wind-2594.divine-shape-9f0a.workers.dev</code><br>
+              4. Click <strong>Check DNS</strong> below once propagated (may take up to 24 h).
+            `;
+          }
+        } else {
+          setDomainStatus('Enter your custom domain above and save.', 'pending');
+        }
+      } catch (_) {}
+    } else {
+      // PROBATION or PREVIEW_ONLY — show the locked upgrade panel
+      if (trustedPanel) trustedPanel.style.display = 'none';
+      if (lockedPanel)  lockedPanel.style.display  = '';
+      if (trustStatusLabel) trustStatusLabel.textContent = trustStatus.toLowerCase().replace('_', ' ');
+    }
   }
 
   if (btnSaveCustomDomain) {
@@ -1655,6 +1684,37 @@ window.addEventListener('dashboard:langchange', () => {
         setDomainStatus('DNS check failed. Please try again.', 'pending');
       } finally {
         if (btnVerifyCustomDomain.style.display !== 'none') btnVerifyCustomDomain.textContent = 'Check DNS';
+      }
+    });
+  }
+
+  if (btnRequestTrustUpgrade) {
+    btnRequestTrustUpgrade.addEventListener('click', async (event) => {
+      event.preventDefault();
+      btnRequestTrustUpgrade.textContent = 'Submitting...';
+      btnRequestTrustUpgrade.style.pointerEvents = 'none';
+      try {
+        const res = await fetch('/api/tenants/request-trust-upgrade', {
+          method: 'POST',
+          headers: buildTenantHeaders(),
+        });
+        const payload = await res.json().catch(() => null);
+        if (payload?.already_trusted) {
+          if (trustUpgradeStatus) trustUpgradeStatus.textContent = '✅ Your account is already verified.';
+        } else if (payload?.already_requested) {
+          if (trustUpgradeStatus) trustUpgradeStatus.textContent = '⏳ Your request is under review — we\'ll follow up by email.';
+        } else if (payload?.ok) {
+          if (trustUpgradeStatus) trustUpgradeStatus.textContent = '✅ Request submitted. We\'ll review and follow up within 1–2 business days.';
+          btnRequestTrustUpgrade.style.display = 'none';
+        } else {
+          if (trustUpgradeStatus) trustUpgradeStatus.textContent = payload?.error || 'Request failed. Please try again.';
+          btnRequestTrustUpgrade.style.pointerEvents = '';
+        }
+      } catch (_) {
+        if (trustUpgradeStatus) trustUpgradeStatus.textContent = 'Request failed. Please try again.';
+        btnRequestTrustUpgrade.style.pointerEvents = '';
+      } finally {
+        btnRequestTrustUpgrade.textContent = 'Request Account Verification';
       }
     });
   }

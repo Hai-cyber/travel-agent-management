@@ -2664,6 +2664,61 @@ publicConfig.post('/soft-publish', async (c) => {
   });
 });
 
+// ─── Trust upgrade request ────────────────────────────────────────────────────
+// POST /api/tenants/request-trust-upgrade
+// Lets a PROBATION tenant request manual review to become TRUSTED.
+// Creates a tenant_review_case (category: trust_upgrade_request).
+// Idempotent: repeated requests within 7 days skip case creation and return ok.
+tenants.post('/request-trust-upgrade', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const { error: authError } = await requireTenantActor(c, tenantId);
+  if (authError) return authError;
+
+  const tenant = await c.env.DB
+    .prepare('SELECT trust_status, subdomain, custom_domain FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found' }, 404);
+
+  const status = normalizeTrustStatus(tenant.trust_status);
+  if (status === 'TRUSTED') {
+    return c.json({ ok: true, already_trusted: true, message: 'Your account is already verified.' });
+  }
+  if (status === 'SUSPENDED' || status === 'QUARANTINED') {
+    return c.json({ error: 'Account is suspended. Contact support.' }, 403);
+  }
+
+  // Idempotency: skip if an open trust_upgrade_request case already exists in the last 7 days.
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+  const existing = await c.env.DB
+    .prepare(`SELECT id FROM tenant_review_cases
+              WHERE tenant_id = ? AND category = 'trust_upgrade_request' AND status = 'OPEN' AND created_at > ?
+              LIMIT 1`)
+    .bind(tenantId, sevenDaysAgo)
+    .first();
+
+  if (existing) {
+    return c.json({ ok: true, already_requested: true, message: 'Your verification request is already under review.' });
+  }
+
+  const caseResult = await createTenantReviewCase(c.env, {
+    tenantId,
+    category: 'trust_upgrade_request',
+    reason:   `Tenant (subdomain: ${tenant.subdomain ?? 'none'}) submitted a manual trust upgrade request via the dashboard.`,
+    status:   'OPEN',
+    summary:  'Trust upgrade request — tenant wants TRUSTED status to bind a custom domain.',
+  });
+
+  console.info(`[TRUST_UPGRADE_REQUEST] tenant=${tenantId} case_created=${caseResult.created}`);
+  return c.json({
+    ok:      true,
+    requested: true,
+    message: 'Your request has been submitted. We will review your account and follow up by email, usually within 1–2 business days.',
+  });
+});
+
 // ─── Custom-domain DNS verification ──────────────────────────────────────────
 // Token value tenants must add as a DNS TXT record to prove ownership.
 // Derived from the tenant ID so no extra DB column is needed.

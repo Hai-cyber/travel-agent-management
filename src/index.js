@@ -186,6 +186,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/stops',
   '/api/tasks',
   '/api/tenants',
+  '/api/tenant/pages',   // pages.js routes — all require an authenticated session
   '/api/tours',
   '/api/universal',
   '/api/billing/checkout',

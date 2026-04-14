@@ -55,6 +55,65 @@ function hasMigrationLedgerEntry() {
   return rows.length > 0;
 }
 
+function hasLedgerEntry(name) {
+  const rows = runD1Json(`SELECT id FROM d1_migrations WHERE name = '${name}' LIMIT 1;`);
+  return rows.length > 0;
+}
+
+function hasTable(tableName) {
+  const rows = runD1Json(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}' LIMIT 1;`);
+  return rows.length > 0;
+}
+
+// Migration 0049 captures tables (tenant_destinations, tour_destination_links, tour_hotel_links)
+// that were applied directly to the remote D1 in CHK-R48 without a migration file.
+// If those tables already exist in the local DB (unlikely for a fresh .wrangler state) we add
+// a ledger row so Wrangler does not try to create them again.
+function reconcileTenantDestinationsMigration() {
+  const name = '0049_tenant_destinations_catalog.sql';
+  if (hasLedgerEntry(name)) {
+    console.log(`[db:migrate:local] ${name}: ledger already consistent.`);
+    return;
+  }
+  if (hasTable('tenant_destinations')) {
+    runD1Json(`INSERT INTO d1_migrations (name, applied_at) VALUES ('${name}', CURRENT_TIMESTAMP);`);
+    console.log(`[db:migrate:local] ${name}: inserted missing ledger row because tenant_destinations already exists.`);
+  } else {
+    console.log(`[db:migrate:local] ${name}: tables missing, normal Wrangler apply will create them.`);
+  }
+}
+
+// Migration 0045 added show_on_home to tenant_universal_hotels and tenant_destinations.
+// The tables tenant_destinations / tour_destination_links / tour_hotel_links were
+// previously only on remote (no migration file before 0045), so a fresh local DB
+// could get into a half-applied state. Reconcile by detecting the existing column
+// and creating missing tables + ledger row without re-running the altered ALTERs.
+function reconcileShowOnHomeMigration() {
+  const name = '0045_show_on_home.sql';
+  if (hasLedgerEntry(name)) {
+    console.log(`[db:migrate:local] ${name}: ledger already consistent.`);
+    return;
+  }
+  const cols = runD1Json('PRAGMA table_info(tenant_universal_hotels);');
+  const hasColumn = cols.some((r) => r.name === 'show_on_home');
+  if (!hasColumn) {
+    console.log(`[db:migrate:local] ${name}: column missing — normal Wrangler apply will handle it.`);
+    return;
+  }
+  // Column already exists — migration was partially applied. Create missing tables.
+  if (!hasTable('tenant_destinations')) {
+    const ddls = [
+      `CREATE TABLE IF NOT EXISTS tenant_destinations (id TEXT NOT NULL PRIMARY KEY, tenant_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT, region TEXT, gallery_json TEXT, status TEXT NOT NULL DEFAULT 'active', show_on_home INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS tour_destination_links (id TEXT NOT NULL PRIMARY KEY, tenant_id TEXT NOT NULL, tour_id TEXT NOT NULL, destination_id TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, UNIQUE (tour_id, destination_id, tenant_id))`,
+      `CREATE TABLE IF NOT EXISTS tour_hotel_links (id TEXT NOT NULL PRIMARY KEY, tenant_id TEXT NOT NULL, tour_id TEXT NOT NULL, hotel_id TEXT NOT NULL, nights INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, UNIQUE (tour_id, hotel_id, tenant_id))`,
+    ];
+    for (const ddl of ddls) runD1Json(ddl);
+    console.log(`[db:migrate:local] ${name}: created missing destination/hotel-link tables.`);
+  }
+  runD1Json(`INSERT INTO d1_migrations (name, applied_at) VALUES ('${name}', CURRENT_TIMESTAMP);`);
+  console.log(`[db:migrate:local] ${name}: inserted missing ledger row (show_on_home already present).`);
+}
+
 function reconcileServicesConfigMigration() {
   const columnExists = hasServicesConfigColumn();
   const ledgerExists = hasMigrationLedgerEntry();
@@ -84,6 +143,8 @@ function applyLocalMigrations() {
 
 try {
   reconcileServicesConfigMigration();
+  reconcileShowOnHomeMigration();
+  reconcileTenantDestinationsMigration();
   applyLocalMigrations();
 } catch (error) {
   console.error(`[db:migrate:local] ${error.message}`);

@@ -430,7 +430,7 @@ bookings.post('/order', async (c) => {
             segmentName:  priceResult.segment_name || null,
             paxSummary,
             grandTotal:   priceResult.totals.grand_total,
-            currency:     null,
+            currency:     tenantConfig.booking_currency || 'USD',
             paymentMethod: rawMethod,
             deadlineUnix:  deadline,
             deadlineHours,
@@ -448,7 +448,7 @@ bookings.post('/order', async (c) => {
             segmentName:  priceResult.segment_name || null,
             paxSummary,
             grandTotal:   priceResult.totals.grand_total,
-            currency:     null,
+            currency:     tenantConfig.booking_currency || 'USD',
             paymentMethod: rawMethod,
             guestName:    guest.name,
             guestEmail:   guest.email,
@@ -677,7 +677,7 @@ bookings.post('/order/:orderId/proof', async (c) => {
         c.env.DB.prepare(`SELECT u.email FROM users u
                           JOIN memberships m ON m.user_id = u.id
                           WHERE m.tenant_id = ? AND m.role = 'owner' LIMIT 1`).bind(tenantId).first(),
-        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+        c.env.DB.prepare('SELECT name, booking_currency FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
       ]);
       const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
       await dispatchProofUploadedEmail(c.env, {
@@ -687,7 +687,7 @@ bookings.post('/order/:orderId/proof', async (c) => {
         tourTitle:    orderRow?.tour_title || null,
         travelDate:   orderRow?.travel_date || null,
         grandTotal:   orderRow?.grand_total_usd || null,
-        currency:     null,
+        currency:     tenantRow?.booking_currency || 'USD',
         dashboardUrl: `${platformBase}/dashboard.html`,
         platformBaseUrl: platformBase,
       });
@@ -824,7 +824,7 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
                                  t.title as tour_title
                           FROM booking_orders o LEFT JOIN tours t ON t.id = o.tour_id
                           WHERE o.id = ? LIMIT 1`).bind(orderId).first(),
-        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
+        c.env.DB.prepare('SELECT name, booking_currency FROM tenants WHERE id = ? LIMIT 1').bind(tenantId).first(),
       ]);
       const paxSummary = buildPaxSummary({
         adult_shared_room_count: fullOrder?.pax_shared,
@@ -843,7 +843,7 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
         segmentName: null,
         paxSummary,
         grandTotal:  order.grand_total_usd,
-        currency:    null,
+        currency:    tenantRow?.booking_currency || 'USD',
         platformBaseUrl: platformBase,
       });
     } catch (err) {
@@ -1085,7 +1085,7 @@ bookings.post('/public/:secure_token/proof', async (c) => {
         c.env.DB.prepare(`SELECT u.email FROM users u
                           JOIN memberships m ON m.user_id = u.id
                           WHERE m.tenant_id = ? AND m.role = 'owner' LIMIT 1`).bind(order.tenant_id).first(),
-        c.env.DB.prepare('SELECT name FROM tenants WHERE id = ? LIMIT 1').bind(order.tenant_id).first(),
+        c.env.DB.prepare('SELECT name, booking_currency FROM tenants WHERE id = ? LIMIT 1').bind(order.tenant_id).first(),
       ]);
       const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
       await dispatchProofUploadedEmail(c.env, {
@@ -1096,7 +1096,7 @@ bookings.post('/public/:secure_token/proof', async (c) => {
         tourTitle:    orderRow?.tour_title || null,
         travelDate:   orderRow?.travel_date || null,
         grandTotal:   orderRow?.grand_total_usd || null,
-        currency:     null,
+        currency:     tenantRow?.booking_currency || 'USD',
         dashboardUrl: `${platformBase}/dashboard.html`,
         platformBaseUrl: platformBase,
       });

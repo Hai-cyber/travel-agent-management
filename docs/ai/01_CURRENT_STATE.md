@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-13 (includes booking pipeline fixes CHK-R53: triple room child capacity, guest portal page, live dashboard orders, identity masking, R2 proof streaming, sidebar wiring; production deploy at version ec18dc87)
+Last updated: 2026-04-14 (CHK-R54: auth guard on /api/tenant/pages, trust upgrade endpoint, booking_currency propagated to all email dispatches, migration 0045 local-bootstrap fix, migration 0049 no-op ledger marker; pre-CHK-R54 production deploy at version ec18dc87)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -30,7 +30,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)`
 - Local dev: `npx wrangler dev` on `http://127.0.0.1:8787`
 - i18n: Accept-Language → `translate()`, dual-price formatter, `resolveLocaleFromAcceptLanguage()`
-- Currency/runtime note: storefront money logic is still transitional and USD-primary in several formatter / invoice / booking snapshot surfaces, even though the approved direction is tenant-controlled booking currency
+- Currency/runtime note: booking email dispatches (`dispatchBookingCreatedEmail`, `dispatchNewBookingAgentEmail`, `dispatchProofUploadedEmail`, `dispatchBookingConfirmedEmail`) now receive the tenant's `booking_currency` from D1 instead of `null`; `bookingEmails.js` `|| 'USD'` fallback is now only a safety net. Storefront formatter/invoice USD-primary legacy in non-email surfaces is still transitional.
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
@@ -102,6 +102,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Admin ops can manually re-run AI moderation through `POST /api/admin/tenants/:id/moderate-ai`, and flagged moderation events can send Telegram alerts when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are configured
 - `GET /api/admin/tenants/:id/broken-assets` scans five D1 JSON surfaces (`tours.content_data`, `tenant_universal_hotels.gallery_json`, `tenant_universal_tour_pages.content_override_json`, `tenant_universal_pages.blocks_json`, `tenants.site_config`) for dead `/api/tenant/assets/...` URLs; classifies each as `deleted`, `blocked`, `not_in_r2`, or `not_in_inventory_or_r2`; add `?check_r2=1` to also HEAD-check assets against TOUR_PAGES R2
 - Sensitive tenant-editor routes now require a real authenticated tenant session in addition to tenant scoping, including template structure, publish readiness, config save, template switching, snippet loading, preview, soft publish, and publish flows
+- `/api/tenant/pages` routes (pages.js: CRUD for universal site pages) are now in `PROTECTED_API_PREFIXES` — previously they only checked `X-Tenant-ID` with no session auth
+- `POST /api/tenants/request-trust-upgrade` — PROBATION/PREVIEW_ONLY tenants can submit a review-case request for trust promotion; idempotent (7-day dedup); SUSPENDED/QUARANTINED receive 403; TRUSTED receive `already_trusted: true`
+- `public/dashboard.html` custom-domain section is now visible to PROBATION and PREVIEW_ONLY operators (previously hidden until TRUSTED); shows a locked upgrade panel with the trust request button until TRUSTED status is reached
 - `PATCH /api/tenant/config` now records a durable risk event, applies tenant-age/trust-aware save-rate scoring, runs rule + Cloudflare AI moderation on normalized site content, can open review cases, and can apply a soft trust hold that preserves editing while reducing public exposure
 - `GET /api/tenant/assets` now merges R2 file listing with D1 asset-inventory metadata so tenant UIs can see moderation state, visibility, risk score, and reasons
 - `POST /api/tenant/assets/upload` now computes SHA-256, applies upload velocity checks, runs rule-based asset scanning plus Cloudflare AI asset moderation, correlates cross-tenant asset reuse, stores inventory and scan results in D1, and blocks obviously malicious uploads such as active-content phishing SVGs before R2 persistence
