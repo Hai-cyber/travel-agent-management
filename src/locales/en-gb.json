@@ -415,5 +415,10 @@
     "system_desc_empty": "Finish contact channels, legal pages, and core system defaults before launch.",
     "system_label_ready": "Review system settings",
     "system_label_empty": "Finish system settings"
+  },
+  "trial_banner": {
+    "active": "Trial mode — {{n}} day(s) remaining",
+    "expired": "⚠️ Trial expired — please upgrade to continue",
+    "upgrade": "Upgrade →"
   }
 }

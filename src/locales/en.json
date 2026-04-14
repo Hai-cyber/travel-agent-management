@@ -989,5 +989,10 @@
     "extra_summary": "Primary market: {{market}}. UI locale follows {{locale}}. Booking currency follows {{currency}}.",
     "saved": "Market skin saved. Default locale and authoritative currency updated.",
     "save_failed": "Failed to save market skin."
+  },
+  "trial_banner": {
+    "active": "Trial mode — {{n}} day(s) remaining",
+    "expired": "⚠️ Trial expired — please upgrade to continue",
+    "upgrade": "Upgrade →"
   }
 }

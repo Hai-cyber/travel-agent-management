@@ -595,5 +595,10 @@
     "extra_summary": "Primärmarkt: {{market}}. Die UI-Sprache folgt {{locale}}. Die Buchungswährung folgt {{currency}}.",
     "saved": "Markt-Skin gespeichert. Standardsprache und maßgebliche Währung wurden aktualisiert.",
     "save_failed": "Markt-Skin konnte nicht gespeichert werden."
+  },
+  "trial_banner": {
+    "active": "Testmodus — noch {{n}} Tag(e)",
+    "expired": "⚠️ Testzeitraum abgelaufen — bitte upgraden, um fortzufahren",
+    "upgrade": "Upgraden →"
   }
 }

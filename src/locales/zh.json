@@ -989,5 +989,10 @@
     "extra_summary": "Primary market：{{market}}。UI locale 跟随 {{locale}}。Booking currency 跟随 {{currency}}。",
     "saved": "Market skin 已保存。默认语言与权威货币已更新。",
     "save_failed": "保存 market skin 失败。"
+  },
+  "trial_banner": {
+    "active": "试用模式 — 剩余 {{n}} 天",
+    "expired": "⚠️ 试用期已过 — 请升级以继续使用",
+    "upgrade": "升级 →"
   }
 }

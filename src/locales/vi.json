@@ -984,5 +984,10 @@
     "extra_summary": "Primary market: {{market}}. UI locale đi theo {{locale}}. Booking currency đi theo {{currency}}.",
     "saved": "Đã lưu market skin. Locale mặc định và authoritative currency đã được cập nhật.",
     "save_failed": "Không thể lưu market skin."
+  },
+  "trial_banner": {
+    "active": "Chế độ dùng thử — còn {{n}} ngày",
+    "expired": "⚠️ Hết hạn dùng thử — vui lòng nâng cấp để tiếp tục",
+    "upgrade": "Nâng cấp →"
   }
 }

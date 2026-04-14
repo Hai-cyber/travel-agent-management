@@ -595,5 +595,10 @@
     "extra_summary": "Marché principal : {{market}}. La langue d'interface suit {{locale}}. La devise de réservation suit {{currency}}.",
     "saved": "Le market skin a été enregistré. La langue par défaut et la devise de référence ont été mises à jour.",
     "save_failed": "Impossible d'enregistrer le market skin."
+  },
+  "trial_banner": {
+    "active": "Mode essai — {{n}} jour(s) restant(s)",
+    "expired": "⚠️ Période d'essai expirée — veuillez mettre à niveau pour continuer",
+    "upgrade": "Mettre à niveau →"
   }
 }

@@ -595,5 +595,10 @@
     "extra_summary": "Mercado principal: {{market}}. El idioma de la interfaz sigue {{locale}}. La moneda de reserva sigue {{currency}}.",
     "saved": "Se guardó el skin de mercado. El idioma predeterminado y la moneda autoritativa se han actualizado.",
     "save_failed": "No se pudo guardar el skin de mercado."
+  },
+  "trial_banner": {
+    "active": "Modo de prueba — quedan {{n}} día(s)",
+    "expired": "⚠️ Período de prueba vencido — por favor, actualiza para continuar",
+    "upgrade": "Actualizar →"
   }
 }
