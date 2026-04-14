@@ -1898,10 +1898,14 @@ window.addEventListener('dashboard:langchange', () => {
         }
       } catch (_) {}
 
-      if (onboardingState.settings.subscription_status === 'TRIAL' && onboardingState.settings.created_at) {
+      if (onboardingState.settings.subscription_status === 'TRIAL') {
         if (!Number.isFinite(daysLeft)) {
-          const elapsed  = Math.floor(Date.now() / 1000 - onboardingState.settings.created_at);
-          daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
+          if (onboardingState.settings.created_at) {
+            const elapsed = Math.floor(Date.now() / 1000 - onboardingState.settings.created_at);
+            daysLeft = Math.max(0, TRIAL_DAYS - Math.floor(elapsed / 86400));
+          } else {
+            daysLeft = TRIAL_DAYS;
+          }
         }
         const banner   = document.getElementById('trial-banner');
         const text     = document.getElementById('trial-banner-text');
@@ -1918,6 +1922,32 @@ window.addEventListener('dashboard:langchange', () => {
           banner.style.color       = '#991b1b';
         }
         banner.style.display = 'flex';
+
+        const btnUpgrade = document.getElementById('btn-upgrade');
+        if (btnUpgrade) {
+          btnUpgrade.addEventListener('click', async (event) => {
+            event.preventDefault();
+            btnUpgrade.textContent = 'Redirecting...';
+            btnUpgrade.style.pointerEvents = 'none';
+            try {
+              const res = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: buildTenantHeaders(),
+              });
+              const payload = await res.json().catch(() => null);
+              if (res.ok && payload?.ok && payload?.checkout_url) {
+                window.location.href = payload.checkout_url;
+              } else if (payload?.already_active) {
+                btnUpgrade.textContent = '✅ Already Active';
+              } else {
+                throw new Error(payload?.error || 'Could not start checkout.');
+              }
+            } catch (err) {
+              btnUpgrade.textContent = err.message || 'Upgrade →';
+              btnUpgrade.style.pointerEvents = '';
+            }
+          });
+        }
       }
     }
   } catch (err) {
