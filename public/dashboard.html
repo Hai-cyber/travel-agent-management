@@ -1886,6 +1886,7 @@ window.addEventListener('dashboard:langchange', () => {
       loadOrders(); // ← live bookings
 
       let daysLeft = null;
+      let hasStripeSubscription = false;
       try {
         const billingRes = await fetch('/api/billing/status', {
           headers: buildTenantHeaders()
@@ -1895,10 +1896,15 @@ window.addEventListener('dashboard:langchange', () => {
           if (billing?.ok && billing?.trial_info) {
             daysLeft = Number(billing.trial_info.trial_days_left);
           }
+          if (billing?.ok && billing?.stripe_customer_id) {
+            hasStripeSubscription = true;
+          }
         }
       } catch (_) {}
 
-      if (onboardingState.settings.subscription_status === 'TRIAL') {
+      // Show trial banner if: (a) explicitly TRIAL status, OR (b) no real Stripe payment yet
+      const isTrialState = onboardingState.settings.subscription_status === 'TRIAL' || !hasStripeSubscription;
+      if (isTrialState) {
         if (!Number.isFinite(daysLeft)) {
           if (onboardingState.settings.created_at) {
             const elapsed = Math.floor(Date.now() / 1000 - onboardingState.settings.created_at);
