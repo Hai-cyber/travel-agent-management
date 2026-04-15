@@ -263,6 +263,10 @@
     .footer-links { display: flex; gap: 20px; }
     .footer-links a { color: var(--muted); font-size: 13px; }
     .footer-links a:hover { color: var(--accent); }
+    .pay-badges { display: flex; gap: 8px; align-items: center; }
+    .pay-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 5px; font-size: 11px; font-weight: 700; border: 1px solid #e2e8f0; background: #fff; color: var(--ink); line-height: 1; }
+    .pay-badge-visa { font-style: italic; letter-spacing: .1em; color: #1a1f71; }
+    .pay-badge-stripe { color: #635bff; border-color: #ddd9ff; background: #f7f5ff; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -435,6 +439,17 @@
 <footer>
   <div class="shell footer-inner">
     <span>&copy; 2026 Tours Market LLC. All rights reserved.</span>
+    <div class="pay-badges">
+      <span class="pay-badge pay-badge-visa">VISA</span>
+      <span class="pay-badge">
+        <svg width="26" height="16" viewBox="0 0 26 16" fill="none" aria-label="Mastercard" role="img">
+          <circle cx="10" cy="8" r="6" fill="#eb001b"/>
+          <circle cx="16" cy="8" r="6" fill="#f79e1b" opacity=".9"/>
+          <path d="M13 3.1a6 6 0 0 1 0 9.8A6 6 0 0 1 13 3.1z" fill="#ff5f00"/>
+        </svg>
+      </span>
+      <span class="pay-badge pay-badge-stripe">⚡ Secured by Stripe</span>
+    </div>
     <div class="footer-links">
       <a href="/terms.html">Terms of Service</a>
       <a href="/privacy.html">Privacy Policy</a>
