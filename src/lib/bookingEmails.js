@@ -479,3 +479,29 @@ export async function dispatchBookingConfirmedEmail(env, {
     platformBaseUrl,
   });
 }
+
+// ── Contact form → info@tours-market.com ──────────────────────────────────────
+export async function dispatchContactFormEmail(env, { name, email, type, message }) {
+  const subject = `[Contact Form] ${esc(type || 'General')} — from ${esc(name)}`;
+  const text = `Name: ${name}\nEmail: ${email}\nType: ${type}\n\n${message}`;
+  const html = `<div style="font-family:sans-serif;max-width:600px">
+<h2 style="color:#0f172a">New contact form submission</h2>
+<table style="width:100%;border-collapse:collapse;margin:16px 0">
+  <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b;width:30%">Name</td><td style="padding:8px 0;font-weight:600">${esc(name)}</td></tr>
+  <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Email</td><td style="padding:8px 0"><a href="mailto:${esc(email)}">${esc(email)}</a></td></tr>
+  <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px 0;color:#64748b">Type</td><td style="padding:8px 0">${esc(type)}</td></tr>
+</table>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin:16px 0;white-space:pre-wrap">${esc(message)}</div>
+<p style="color:#64748b;font-size:13px">Sent from tours-market.com contact form</p>
+</div>`.trim();
+
+  const infoEmail = 'info@tours-market.com';
+  return dispatchWebhook(env, {
+    event: 'contact.form',
+    tenantId: 'platform',
+    recipientEmail: infoEmail,
+    emailContent: { subject, text, html },
+    bookingData: { sender_name: name, sender_email: email, contact_type: type },
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}

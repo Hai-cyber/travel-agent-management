@@ -27,6 +27,7 @@ import registerDomainRoutes from './routes/domains.js';
 import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
 import registerReportsRoutes from './routes/reports.js';
+import { dispatchContactFormEmail } from './lib/bookingEmails.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -239,6 +240,22 @@ registerDomainRoutes && registerDomainRoutes(app);
 registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 registerReportsRoutes && registerReportsRoutes(app);
+
+// ── Platform contact form ─────────────────────────────────────────────────────
+app.post('/api/contact', async (c) => {
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'invalid_json' }, 400); }
+  const { name, email, type, message } = body ?? {};
+  if (!name || !email || !message || message.length < 20) {
+    return c.json({ error: 'missing_fields' }, 400);
+  }
+  const result = await dispatchContactFormEmail(c.env, { name, email, type: type || 'General', message });
+  if (!result.ok) {
+    console.warn('[CONTACT_FORM] dispatch failed', result);
+    return c.json({ error: 'send_failed' }, 502);
+  }
+  return c.json({ ok: true });
+});
 
 const SERVICE_GROUPS = ['accommodations', 'meals', 'guides', 'local-transports', 'intercity-legs'];
 const PRICING_GROUPS = ['tenant-seasons', 'pricing-segments', 'pax-bands', 'tour-prices'];
