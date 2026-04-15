@@ -180,7 +180,7 @@
         <div class="info-icon">✉</div>
         <div>
           <strong>General support</strong>
-          <a href="mailto:support@tours-market.com">support@tours-market.com</a>
+          <a href="mailto:info@tours-market.com">info@tours-market.com</a>
           <p>Billing, account access, general questions</p>
         </div>
       </div>
@@ -189,7 +189,7 @@
         <div class="info-icon">⚖</div>
         <div>
           <strong>Legal inquiries</strong>
-          <a href="mailto:legal@tours-market.com">legal@tours-market.com</a>
+          <a href="mailto:info@tours-market.com?subject=Legal%20inquiry">info@tours-market.com</a>
           <p>Terms, data requests, compliance questions</p>
         </div>
       </div>
@@ -198,7 +198,7 @@
         <div class="info-icon">🔒</div>
         <div>
           <strong>Privacy &amp; data requests</strong>
-          <a href="mailto:privacy@tours-market.com">privacy@tours-market.com</a>
+          <a href="mailto:info@tours-market.com?subject=Privacy%20request">info@tours-market.com</a>
           <p>GDPR requests, data export, account deletion</p>
         </div>
       </div>
@@ -329,7 +329,7 @@
       submitBtn.textContent = 'Send message';
       const mailtoFallback = document.createElement('p');
       mailtoFallback.style.cssText = 'font-size:13px;color:var(--error);margin-top:12px;';
-      mailtoFallback.innerHTML = 'Could not submit the form. Please email us directly at <a href="mailto:support@tours-market.com">support@tours-market.com</a>.';
+      mailtoFallback.innerHTML = 'Could not submit the form. Please email us directly at <a href="mailto:info@tours-market.com">info@tours-market.com</a>.';
       if (!document.getElementById('mailto-fallback')) {
         mailtoFallback.id = 'mailto-fallback';
         submitBtn.after(mailtoFallback);
