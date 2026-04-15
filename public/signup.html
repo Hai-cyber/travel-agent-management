@@ -5,327 +5,201 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Up - Tours Market</title>
   <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --border: #e2e8f0;
+      --surface: #f8fafc;
+      --green: #059669;
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
     body {
-      font-family: Georgia, 'Times New Roman', serif;
-      background:
-        radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 28%),
-        radial-gradient(circle at right center, rgba(59, 130, 246, 0.18), transparent 24%),
-        linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 24px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      line-height: 1.7;
     }
-    .page-shell {
-      width: 100%;
-      max-width: 1160px;
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    /* Header */
+    header { border-bottom: 1px solid var(--border); padding: 18px 0; }
+    .shell { width: min(1060px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #60a5fa, #2563eb);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 13px;
     }
-    .card {
-      width: 100%;
+    .brand strong { font-size: 15px; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .btn-nav {
+      padding: 9px 18px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: all .15s;
+      font-family: inherit; border: none; display: inline-block;
+      text-decoration: none;
     }
-    .hero-head {
-      margin-bottom: 14px;
+    .btn-nav:hover { text-decoration: none; }
+    .btn-nav-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-nav-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    /* Hero */
+    .signup-hero { text-align: center; padding: 56px 0 36px; }
+    .label {
+      font-size: 12px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
     }
-    .headline {
-      font-size: clamp(22px, 3vw, 30px);
-      line-height: 1.1;
-      letter-spacing: -.02em;
-      color: #ffffff;
-      max-width: 24ch;
+    .signup-hero h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; margin-bottom: 14px; }
+    .signup-hero p { color: var(--muted); font-size: 1rem; max-width: 480px; margin: 0 auto 10px; }
+    .trial-badge {
+      display: inline-block;
+      background: #ecfdf5; color: #065f46;
+      border: 1px solid #a7f3d0; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px; font-weight: 600;
     }
+    /* Layout */
     .signup-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
-      gap: 18px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+      gap: 24px;
       align-items: start;
+      padding-bottom: 72px;
     }
     .plan-column,
     .form-column {
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .plan-column {
-      background: rgba(255, 255, 255, 0.94);
-      border: 1px solid rgba(191, 219, 254, 0.95);
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
-    }
-    .form-column {
-      background: rgba(255, 255, 255, 0.96);
-      border: 1px solid rgba(229, 231, 235, 0.92);
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
     }
     .section-kicker {
-      color: #2563eb;
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
+      font-size: 12px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
     }
     .section-title-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap; margin-bottom: 10px;
     }
-    .section-title {
-      color: #111827;
-      font-size: 20px;
-      line-height: 1.15;
-    }
+    .section-title { font-size: 1.1rem; font-weight: 700; color: var(--ink); }
     .section-copy,
     .hint,
-    .form-copy {
-      color: #64748b;
-      font-size: 13px;
-      line-height: 1.6;
-      font-family: 'Segoe UI', sans-serif;
-    }
+    .form-copy { color: var(--muted); font-size: 14px; line-height: 1.6; }
     .required-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: #0f172a;
-      color: #fff;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      font-family: 'Segoe UI', sans-serif;
+      display: inline-flex; align-items: center;
+      padding: 3px 8px; border-radius: 20px;
+      background: var(--surface); color: var(--muted);
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; border: 1px solid var(--border);
     }
-    .tier-block {
-      margin-top: 12px;
-      border-radius: 12px;
-      transition: box-shadow .15s ease, border-color .15s ease;
-    }
-    .tier-block.invalid {
-      box-shadow: 0 0 0 2px rgba(220, 38, 38, .12);
-    }
+    .tier-block { margin-top: 14px; }
+    .tier-block.invalid { box-shadow: 0 0 0 2px rgba(220,38,38,.12); border-radius: 12px; }
     .tier-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px 16px;
-      margin-top: 14px;
-      padding-bottom: 0;
-      align-items: start;
+      gap: 12px; margin-top: 12px;
     }
     .tier-card {
-      width: 100%;
-      text-align: left;
-      border: 1.5px solid #bfdbfe;
-      border-radius: 10px;
-      background: rgba(255,255,255,.88);
-      padding: 14px;
-      cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, transform .15s, background .15s;
-      position: relative;
-      overflow: hidden;
-    }
-    .tier-card::after {
-      content: '';
-      position: absolute;
-      inset: auto -24px -24px auto;
-      width: 72px;
-      height: 72px;
-      border-radius: 999px;
-      background: rgba(37, 99, 235, .07);
+      width: 100%; text-align: left;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 16px; cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
     }
     .tier-card:hover:not(:disabled) {
-      border-color: #2563eb;
-      box-shadow: 0 16px 34px rgba(37, 99, 235, .16);
-      transform: translateY(-1px);
+      border-color: var(--accent);
+      box-shadow: 0 4px 16px rgba(37,99,235,.12);
     }
     .tier-card.active {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, .12), 0 16px 34px rgba(37, 99, 235, .16);
-      background: linear-gradient(180deg, #fff 0%, #eff6ff 100%);
-    }
-    .tier-card:nth-child(1),
-    .tier-card:nth-child(2) {
-      z-index: 2;
-    }
-    .tier-card:nth-child(3),
-    .tier-card:nth-child(4) {
-      margin-top: -26px;
-    }
-    .tier-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      position: relative;
-      z-index: 1;
-    }
-    .tier-name { color: #0f172a; font-size: 16px; font-weight: 800; }
-    .tier-tagline { color: #6b7280; font-size: 12px; margin-top: 4px; font-family: 'Segoe UI', sans-serif; }
-    .tier-badge {
-      white-space: nowrap;
-      border-radius: 999px;
-      padding: 4px 8px;
-      background: #fff;
-      color: #2563eb;
-      border: 1px solid #bfdbfe;
-      font-size: 11px;
-      font-weight: 700;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .tier-price { color: #111827; font-size: 13px; font-weight: 800; margin-top: 10px; position: relative; z-index: 1; font-family: 'Segoe UI', sans-serif; }
-    .tier-description { color: #475569; font-size: 12px; line-height: 1.55; margin-top: 8px; position: relative; z-index: 1; font-family: 'Segoe UI', sans-serif; }
-    .tier-features {
-      margin-top: 10px;
-      color: #334155;
-      font-size: 12px;
-      line-height: 1.55;
-      padding-left: 18px;
-      position: relative;
-      z-index: 1;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .field-label {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 700;
-      color: #374151;
-      margin-bottom: 6px;
-      margin-top: 16px;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    input,
-    select {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 14px;
-      color: #1e293b;
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-      font-family: 'Segoe UI', sans-serif;
-      background: #fff;
-    }
-    input:focus,
-    select:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
-    }
-    .field-hint {
-      margin-top: 6px;
-      color: #64748b;
-      font-size: 12px;
-      line-height: 1.55;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .signup-proof {
-      margin-top: 14px;
-      padding: 12px 14px;
-      border-radius: 8px;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(37,99,235,.1);
       background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1d4ed8;
-      font-size: 12px;
-      line-height: 1.6;
-      font-weight: 700;
-      font-family: 'Segoe UI', sans-serif;
+    }
+    .tier-card:disabled { opacity: .5; cursor: default; }
+    .tier-card:nth-child(3),
+    .tier-card:nth-child(4) { margin-top: 0; }
+    .tier-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .tier-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+    .tier-tagline { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .tier-badge {
+      white-space: nowrap; border-radius: 20px;
+      padding: 3px 8px; background: var(--surface);
+      color: var(--muted); border: 1px solid var(--border);
+      font-size: 11px; font-weight: 600;
+    }
+    .tier-price { font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 8px; }
+    .tier-description { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+    .tier-features { margin-top: 8px; color: #334155; font-size: 12px; line-height: 1.5; padding-left: 16px; }
+    .field-label {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      font-size: 13px; font-weight: 700; color: #374151;
+      margin-bottom: 6px; margin-top: 18px;
+    }
+    input, select {
+      width: 100%; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; color: var(--ink); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: inherit; background: #fff;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .field-hint { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .signup-proof {
+      margin-top: 12px; padding: 10px 14px;
+      border-radius: 8px; background: #ecfdf5;
+      border: 1px solid #a7f3d0; color: #065f46;
+      font-size: 12px; line-height: 1.55; font-weight: 600;
     }
     .btn {
-      display: block;
-      width: 100%;
-      margin-top: 22px;
-      padding: 14px;
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: transform .15s, box-shadow .15s, opacity .15s;
-      font-family: 'Segoe UI', sans-serif;
-      box-shadow: 0 18px 34px rgba(29, 78, 216, .28);
+      display: block; width: 100%;
+      margin-top: 20px; padding: 13px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 9px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+      font-family: inherit;
     }
-    .btn:hover:not(:disabled) { transform: translateY(-1px); }
-    .btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+    .btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
     .btn-secondary {
-      background: #fff;
-      color: #0f172a;
-      border: 1.5px solid #dbe4f0;
-      margin-top: 14px;
-      box-shadow: none;
+      background: #fff; color: var(--ink);
+      border: 1px solid var(--border); margin-top: 12px;
     }
-    .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface); }
     .divider {
-      position: relative;
-      margin-top: 18px;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 12px;
-      font-weight: 700;
-      font-family: 'Segoe UI', sans-serif;
+      position: relative; margin-top: 16px;
+      text-align: center; color: var(--muted); font-size: 12px; font-weight: 600;
     }
     .divider::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 50%;
-      border-top: 1px solid #e2e8f0;
+      content: ''; position: absolute;
+      left: 0; right: 0; top: 50%; border-top: 1px solid var(--border);
     }
-    .divider span {
-      position: relative;
-      background: #fff;
-      padding: 0 10px;
-    }
-    .google-slot { margin-top: 14px; display: flex; justify-content: center; min-height: 42px; }
-    .turnstile-shell { margin-top: 16px; display: none; }
-    .turnstile-note { color: #475569; font-size: 12px; margin-bottom: 8px; font-family: 'Segoe UI', sans-serif; }
-    .error-msg,
-    .success-msg {
-      font-size: 13px;
-      margin-top: 12px;
-      display: none;
-      font-family: 'Segoe UI', sans-serif;
-    }
+    .divider span { position: relative; background: #fff; padding: 0 10px; }
+    .google-slot { margin-top: 12px; display: flex; justify-content: center; min-height: 42px; }
+    .turnstile-shell { margin-top: 14px; display: none; }
+    .turnstile-note { color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+    .error-msg, .success-msg { font-size: 13px; margin-top: 10px; display: none; }
     .error-msg { color: #dc2626; }
     .success-msg { color: #16a34a; }
     .login-link {
-      text-align: center;
-      margin-top: 22px;
-      font-size: 13px;
-      color: #64748b;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
+      text-align: center; padding: 28px 0 60px;
+      font-size: 14px; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
     }
     .login-link a {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 180px;
-      padding: 11px 18px;
-      border-radius: 8px;
-      border: 1.5px solid #bfdbfe;
-      background: rgba(255, 255, 255, 0.96);
-      color: #1d4ed8;
-      text-decoration: none;
-      font-weight: 800;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      transition: background .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 10px 28px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--accent); text-decoration: none; font-weight: 600;
+      transition: border-color .15s, background .15s;
     }
-    .login-link a:hover {
-      background: #eff6ff;
-      border-color: #60a5fa;
-      transform: translateY(-1px);
-      box-shadow: 0 14px 28px rgba(29, 78, 216, 0.14);
-    }
+    .login-link a:hover { border-color: var(--accent); background: #eff6ff; text-decoration: none; }
     .spinner {
       display: inline-block;
       width: 14px;
@@ -338,35 +212,45 @@
       margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* Footer */
+    footer { border-top: 1px solid var(--border); padding: 28px 0; font-size: 13px; color: var(--muted); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: var(--muted); font-size: 13px; }
+    .footer-links a:hover { color: var(--accent); }
     @media (max-width: 900px) {
-      .signup-layout {
-        grid-template-columns: 1fr;
-        display: grid;
-      }
-      .tier-grid {
-        grid-template-columns: 1fr;
-        padding-bottom: 0;
-      }
-      .tier-card:nth-child(3),
-      .tier-card:nth-child(4) {
-        margin-top: 0;
-      }
+      .signup-layout { grid-template-columns: 1fr; }
+      .tier-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      body { padding: 14px; }
-      .plan-column, .form-column { padding: 14px; }
-      .headline { max-width: none; }
+      .plan-column, .form-column { padding: 20px; }
     }
   </style>
 </head>
 <body>
-<div class="page-shell">
-  <div class="card">
-    <div class="hero-head">
-      <h1 class="headline" id="signup-title">Create your travel platform. Free for 6 months.</h1>
-    </div>
 
-    <form id="signup-form" novalidate>
+<header>
+  <div class="shell topbar-inner">
+    <a class="brand" href="/">
+      <div class="brand-mark">TM</div>
+      <strong>Tours Market</strong>
+    </a>
+    <div class="nav-links">
+      <a class="btn-nav btn-nav-secondary" href="/pricing.html">Pricing</a>
+      <a class="btn-nav btn-nav-secondary" href="/login.html">Log in</a>
+    </div>
+  </div>
+</header>
+
+<main class="shell">
+
+  <section class="signup-hero">
+    <div class="label">Sign up</div>
+    <h1 id="signup-title">Create your travel platform. Free for 6 months.</h1>
+    <div class="trial-badge">6 months free &nbsp;&middot;&nbsp; No card required</div>
+  </section>
+
+  <form id="signup-form" novalidate>
       <div class="signup-layout">
         <section class="plan-column">
           <div class="section-kicker">Required first step</div>
@@ -430,9 +314,21 @@
       </div>
     </form>
 
-    <div class="login-link"><span id="login-prompt">Already have an account?</span><a id="login-link" href="/login.html">Sign in</a></div>
+  <div class="login-link"><span id="login-prompt">Already have an account?</span><a id="login-link" href="/login.html">Sign in</a></div>
+
+</main>
+
+<footer>
+  <div class="shell footer-inner">
+    <span>&copy; 2026 Tours Market LLC. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/contact.html">Contact</a>
+    </div>
   </div>
-</div>
+</footer>
 
 <script src="/auth-page-i18n.js"></script>
 <script>
