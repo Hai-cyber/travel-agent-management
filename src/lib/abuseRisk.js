@@ -276,8 +276,12 @@ export function decideAssetModerationOutcome({ ruleAnalysis = null, aiModeration
   const aiEnabled = Boolean(aiModeration?.enabled) && !aiModeration?.skipped;
   const aiRiskScore = aiEnabled ? normalizeRiskScore(aiModeration?.risk_score) : 0;
   const aiAction = aiEnabled ? String(aiModeration?.recommended_action || 'ALLOW').toUpperCase() : 'ALLOW';
+  const aiReviewThreshold = 35;
   const blockedByAi = aiEnabled && (aiAction === 'BLOCK' || aiAction === 'QUARANTINE' || aiRiskScore >= 85);
-  const reviewByAi = aiEnabled && !blockedByAi && (aiAction === 'REVIEW' || aiRiskScore >= 60);
+  const reviewByAi = aiEnabled && !blockedByAi && (
+    aiRiskScore >= 60
+    || (aiAction === 'REVIEW' && aiRiskScore >= aiReviewThreshold)
+  );
   const reviewByDuplicate = duplicateTenantCount >= 2;
   const blocked = Boolean(ruleAnalysis?.blocked) || blockedByAi;
   const reviewRequired = !blocked && (Boolean(ruleAnalysis?.review_required) || reviewByAi || reviewByDuplicate);
@@ -305,7 +309,7 @@ export function decideAssetModerationOutcome({ ruleAnalysis = null, aiModeration
     review_required: !blocked,
     moderation_status: blocked ? 'BLOCK' : 'REVIEW',
     visibility: blocked ? 'BLOCKED' : 'AUTHENTICATED_ONLY',
-    risk_score: blocked ? Math.max(aiRiskScore, 90) : Math.max(aiRiskScore, reviewByDuplicate ? 70 : 60),
+    risk_score: blocked ? Math.max(aiRiskScore, 90) : Math.max(aiRiskScore, reviewByDuplicate ? 70 : aiReviewThreshold),
     reason: blocked
       ? (ruleAnalysis?.reason || aiModeration?.summary || 'Asset blocked due to risky active content or abuse signals.')
       : (ruleAnalysis?.reason || aiModeration?.summary || 'Asset requires review before public serving.'),

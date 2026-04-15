@@ -5,6 +5,46 @@ function dedupe(values) {
 const DEFAULT_AI_PROVIDER = 'cloudflare-ai';
 const DEFAULT_CF_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 const VALID_ACTIONS = new Set(['ALLOW', 'REVIEW', 'BLOCK', 'QUARANTINE']);
+const textEncoder = new TextEncoder();
+
+async function hmacHex(secret, value) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(String(secret || '')),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, textEncoder.encode(String(value || '')));
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function buildSignedReviewActionSignature(secret, details = {}) {
+  const payload = [
+    String(details.action || '').trim().toLowerCase(),
+    String(details.tenantId || '').trim(),
+    String(details.reviewCaseId || '').trim(),
+    String(details.expiresAt || '').trim(),
+  ].join(':');
+  return hmacHex(secret, payload);
+}
+
+export async function buildSignedReviewActionUrl(env, details = {}) {
+  const baseUrl = String(env?.PLATFORM_BASE_URL || 'https://tours-market.com').trim().replace(/\/$/, '');
+  const secret = String(env?.ADMIN_SECRET || '').trim();
+  const tenantId = String(details.tenantId || '').trim();
+  const reviewCaseId = String(details.reviewCaseId || '').trim();
+  const action = String(details.action || '').trim().toLowerCase();
+  const expiresAt = Number(details.expiresAt || 0) || (Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
+  if (!baseUrl || !secret || !tenantId || !reviewCaseId || !['approve', 'disapprove'].includes(action)) return '';
+  const sig = await buildSignedReviewActionSignature(secret, { action, tenantId, reviewCaseId, expiresAt });
+  const url = new URL(`${baseUrl}/api/tenant/review-action/${encodeURIComponent(action)}`);
+  url.searchParams.set('tenant_id', tenantId);
+  url.searchParams.set('review_case_id', reviewCaseId);
+  url.searchParams.set('expires', String(expiresAt));
+  url.searchParams.set('sig', sig);
+  return url.toString();
+}
 
 function clampNumber(value, min, max, fallback = min) {
   const numeric = Number(value);
@@ -61,12 +101,21 @@ export function buildTenantModerationPayload({ tenant = {}, siteConfig = {}, sta
   const sections = buildSectionsDigest(siteConfig);
   const brand = siteConfig.brand && typeof siteConfig.brand === 'object' ? siteConfig.brand : {};
   const content = siteConfig.content && typeof siteConfig.content === 'object' ? siteConfig.content : {};
+  const brandDigest = [
+    String(brand.name || '').trim(),
+    String(brand.primary_color || '').trim(),
+  ].filter(Boolean).join(' | ');
+  const contentDigest = [
+    String(content.hero_title || '').trim(),
+    String(content.hero_desc || '').trim(),
+  ].filter(Boolean).join(' | ');
   const combinedText = truncate([
     tenant.name,
+    tenant.email,
     tenant.subdomain,
     tenant.custom_domain,
-    JSON.stringify(brand),
-    JSON.stringify(content),
+    brandDigest,
+    contentDigest,
     ...navigation.map((entry) => `${entry.label} ${entry.url}`),
     ...sections.map((entry) => `${entry.id} ${entry.text_excerpt}`),
   ].filter(Boolean).join('\n'), 20000);
@@ -428,6 +477,21 @@ export async function sendTelegramModerationAlert(env, details = {}) {
     details.reviewCaseId ? `Review case: <code>${escapeTelegramHtml(details.reviewCaseId)}</code>` : '',
   ].filter(Boolean).join('\n');
 
+  const approveUrl = details.reviewCaseId
+    ? await buildSignedReviewActionUrl(env, { action: 'approve', tenantId: details.tenantId, reviewCaseId: details.reviewCaseId })
+    : '';
+  const disapproveUrl = details.reviewCaseId
+    ? await buildSignedReviewActionUrl(env, { action: 'disapprove', tenantId: details.tenantId, reviewCaseId: details.reviewCaseId })
+    : '';
+  const replyMarkup = approveUrl && disapproveUrl
+    ? {
+        inline_keyboard: [[
+          { text: 'Approve', url: approveUrl },
+          { text: 'Disapprove', url: disapproveUrl },
+        ]],
+      }
+    : undefined;
+
   try {
     const response = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`, {
       method: 'POST',
@@ -437,6 +501,7 @@ export async function sendTelegramModerationAlert(env, details = {}) {
         text: message,
         parse_mode: 'HTML',
         disable_web_page_preview: true,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       }),
     });
 

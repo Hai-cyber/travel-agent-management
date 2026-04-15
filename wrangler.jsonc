@@ -2,10 +2,16 @@
 	"name": "square-wind-2594",
 	"main": "src/index.js",
 	"assets": {
-		"directory": "./public"
+		"directory": "./public",
+		"binding": "ASSETS",
+		"run_worker_first": true
 	},
 	"workers_dev": true,
 	"routes": [
+		{
+			"pattern": "*.tours-market.com/*",
+			"zone_name": "tours-market.com"
+		},
 		{
 			"pattern": "tours-market.com",
 			"custom_domain": true

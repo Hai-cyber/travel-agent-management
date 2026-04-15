@@ -594,6 +594,45 @@ admin.post('/tenants/:id/moderate-ai', async (c) => {
   });
 });
 
+admin.post('/tenants/:id/send-review-alert', async (c) => {
+  const tenantId = c.req.param('id').trim();
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, trust_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const reviewCase = await c.env.DB
+    .prepare('SELECT id, category, severity, signal_key, summary, evidence_json, created_at FROM tenant_review_cases WHERE tenant_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1')
+    .bind(tenantId, 'OPEN')
+    .first();
+  if (!reviewCase) return c.json({ error: 'No open review case found for this tenant.' }, 404);
+
+  let evidence = null;
+  try {
+    evidence = reviewCase.evidence_json ? JSON.parse(reviewCase.evidence_json) : null;
+  } catch {
+    evidence = null;
+  }
+
+  const alertResult = await sendTelegramModerationAlert(c.env, {
+    tenantId,
+    tenantName: tenant.name,
+    stage: reviewCase.category || 'manual_review',
+    recommendedAction: reviewCase.severity === 'block' ? 'QUARANTINE' : 'REVIEW',
+    riskScore: evidence?.outcome?.risk_score ?? evidence?.ai?.risk_score ?? null,
+    summary: reviewCase.summary,
+    reasons: Array.isArray(evidence?.outcome?.summaries) ? evidence.outcome.summaries : [],
+    reviewCaseId: reviewCase.id,
+  });
+
+  if (!alertResult.ok) {
+    return c.json({ error: alertResult.reason || 'Telegram alert failed.', telegram: alertResult }, 502);
+  }
+
+  return c.json({ ok: true, review_case_id: reviewCase.id, telegram: alertResult });
+});
+
 // ── GET /api/admin/tenants/:id/broken-assets ─────────────────────────────────
 // Scans all D1 JSON surfaces for this tenant's asset URLs
 // (/api/tenant/assets/{tenantId}/...) and identifies which ones are broken:

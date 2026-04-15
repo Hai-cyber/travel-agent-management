@@ -1855,9 +1855,9 @@
       contactsPanel.appendChild(buildField('YouTube URL', 'system-youtube-value', contacts.channels?.youtube?.value || ''));
 
       const legalPanel = createSystemTabPanel('legal');
-      legalPanel.appendChild(makeSpan(buildSectionHeading('SEO And Long-form Copy', 'This tab keeps large editable text areas away from operational toggles.')));
-      legalPanel.appendChild(makeFull(buildField('Home SEO Title', 'system-home-seo-title', homePage?.seo?.title || '')));
-      legalPanel.appendChild(makeFull(buildField('Home SEO Description', 'system-home-seo-description', homePage?.seo?.description || '', true)));
+      legalPanel.appendChild(makeSpan(buildSectionHeading('SEO And Long-form Copy', 'These fields control search/social metadata and legal copy. They do not change the hero headline/body on the homepage.')));
+      legalPanel.appendChild(makeFull(buildField('Home Meta Title (SEO only)', 'system-home-seo-title', homePage?.seo?.title || '')));
+      legalPanel.appendChild(makeFull(buildField('Home Meta Description (SEO only)', 'system-home-seo-description', homePage?.seo?.description || '', true)));
       legalPanel.appendChild(makeFull(buildField('Home SEO OG Image', 'system-home-seo-og-image', homePage?.seo?.og_image || '')));
       legalPanel.appendChild(buildToggleField('Contact Page Visible', 'system-contact-page-visible', contactPage?.visible));
       legalPanel.appendChild(buildToggleField('Terms Visible', 'system-terms-visible', termsPage?.visible));

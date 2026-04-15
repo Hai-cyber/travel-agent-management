@@ -419,8 +419,14 @@ export default {
       return Response.json(rows.results);
     }
 
-    // Nếu không khớp pattern nào, chuyển cho Hono xử lý
-    return app.fetch(request, env, ctx);
+    // Nếu không khớp pattern nào, chuyển cho Hono xử lý.
+    // For Workers static assets, let the Worker run first and explicitly fall back
+    // to ASSETS only when Hono/manual routes do not handle the request.
+    const appResponse = await app.fetch(request, env, ctx);
+    if (appResponse.status !== 404 || !env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
+      return appResponse;
+    }
+    return env.ASSETS.fetch(request);
   },
 
   // Scheduled purge — cron "*/15 * * * *" (configured in wrangler.jsonc triggers.crons)

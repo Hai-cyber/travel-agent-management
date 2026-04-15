@@ -29,10 +29,12 @@ import {
   createTenantReviewCase,
   decideTenantModerationOutcome,
   mergeTrustReasons,
+  parseTrustReasons,
   normalizeTrustStatus,
 } from '../lib/trustAbuse.js';
 import {
   buildAssetModerationPayload,
+  buildSignedReviewActionSignature,
   buildTenantModerationPayload,
   moderateAssetWithAI,
   moderateTenantContent,
@@ -106,6 +108,230 @@ function sanitizeNavUrl(raw) {
   if (/^\/[a-zA-Z0-9_\-./]*$/.test(url)) return url;   // site-relative path
   if (/^https?:\/\//i.test(url))         return url;   // absolute http(s) URL
   return '';                                             // reject everything else
+}
+
+function safeParseJson(raw, fallback) {
+  try {
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function isTenantModerationCategory(category) {
+  const normalized = String(category || '').trim().toLowerCase();
+  return [
+    'publish_content_review',
+    'asset_upload_review',
+    'custom_domain_verification',
+    'admin_ai_review',
+    'admin_ai_block',
+    'subdomain_review',
+  ].includes(normalized);
+}
+
+async function buildPublishModerationInput(env, tenant) {
+  const tenantRecord = { ...(tenant || {}) };
+  const siteConfig = safeParseJson(tenantRecord.site_config, {}) || {};
+  siteConfig.brand = siteConfig.brand && typeof siteConfig.brand === 'object' ? siteConfig.brand : {};
+  siteConfig.content = siteConfig.content && typeof siteConfig.content === 'object' ? siteConfig.content : {};
+
+  const [homePage, menuRowsResult, contactsRow, siteRow] = await Promise.all([
+    env.DB.prepare('SELECT title, seo_json, blocks_json FROM tenant_universal_pages WHERE tenant_id = ? AND page_key = ? LIMIT 1').bind(tenantRecord.id, 'home').first(),
+    env.DB.prepare('SELECT label, href, page_key, visible FROM tenant_universal_menu_items WHERE tenant_id = ? ORDER BY sort_order ASC').bind(tenantRecord.id).all(),
+    env.DB.prepare('SELECT channels_json FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenantRecord.id).first(),
+    env.DB.prepare('SELECT site_name FROM tenant_universal_sites WHERE tenant_id = ? LIMIT 1').bind(tenantRecord.id).first(),
+  ]);
+
+  const seo = safeParseJson(homePage?.seo_json, {});
+  const blocks = safeParseJson(homePage?.blocks_json, []);
+  const heroBlock = Array.isArray(blocks) ? blocks.find((block) => block?.type === 'hero') : null;
+  const heroContent = heroBlock?.content && typeof heroBlock.content === 'object' ? heroBlock.content : {};
+  const contactChannels = safeParseJson(contactsRow?.channels_json, {})?.email || {};
+  const navigation = Array.isArray(menuRowsResult?.results)
+    ? menuRowsResult.results
+        .filter((row) => row?.visible)
+        .map((row) => ({
+          label: String(row?.label || row?.page_key || '').trim(),
+          url: String(row?.href || '').trim(),
+        }))
+    : [];
+  const customSections = Array.isArray(blocks)
+    ? blocks.map((block, index) => ({
+        id: String(block?.id || `section-${index + 1}`).trim(),
+        html: [
+          String(block?.label || '').trim(),
+          String(block?.content?.heading || '').trim(),
+          String(block?.content?.headline || '').trim(),
+          String(block?.content?.body || '').trim(),
+        ].filter(Boolean).join('\n'),
+      })).filter((entry) => entry.html)
+    : [];
+
+  siteConfig.brand.name = String(siteConfig.brand.name || siteRow?.site_name || tenantRecord.name || '').trim();
+  siteConfig.content.hero_title = String(siteConfig.content.hero_title || heroContent.headline || seo.title || homePage?.title || '').trim();
+  siteConfig.content.hero_desc = String(siteConfig.content.hero_desc || heroContent.body || seo.description || '').trim();
+  siteConfig.navigation = navigation;
+  siteConfig.custom_sections = customSections;
+
+  if (!tenantRecord.email && contactChannels?.value) {
+    tenantRecord.email = String(contactChannels.value || '').trim();
+  }
+
+  return { tenant: tenantRecord, siteConfig };
+}
+
+async function refreshOpenPublishReviewCase(env, tenantRecord) {
+  if (!tenantRecord?.id) return { tenant: tenantRecord, refreshed: false, resolution: 'skipped' };
+
+  const openPublishCase = await env.DB
+    .prepare(`SELECT id, summary, evidence_json
+                FROM tenant_review_cases
+               WHERE tenant_id = ?
+                 AND status = 'OPEN'
+                 AND category = 'publish_content_review'
+               ORDER BY created_at DESC
+               LIMIT 1`)
+    .bind(tenantRecord.id)
+    .first();
+  if (!openPublishCase) return { tenant: tenantRecord, refreshed: false, resolution: 'none' };
+
+  let existingEvidence = null;
+  try {
+    existingEvidence = openPublishCase.evidence_json ? JSON.parse(openPublishCase.evidence_json) : null;
+  } catch {
+    existingEvidence = null;
+  }
+
+  const moderationInput = await buildPublishModerationInput(env, tenantRecord);
+  const abuseAnalysis = analyzeTenantSiteAbuse(moderationInput);
+  const moderationPayload = buildTenantModerationPayload({ ...moderationInput, stage: 'publish' });
+  const aiModeration = await moderateTenantContent(env, moderationPayload, { stage: 'publish' });
+  const moderationOutcome = decideTenantModerationOutcome({ ruleAnalysis: abuseAnalysis, aiModeration });
+  const now = Math.floor(Date.now() / 1000);
+  const staleReasons = new Set([
+    ...((existingEvidence?.outcome?.summaries || []).map((entry) => String(entry || '').trim())),
+    String(existingEvidence?.outcome?.reason || '').trim(),
+    String(openPublishCase.summary || '').trim(),
+  ].filter(Boolean));
+  const existingTrustReasons = parseTrustReasons(tenantRecord.trust_reasons_json);
+  const preservedReasons = existingTrustReasons.filter((entry) => !staleReasons.has(String(entry || '').trim()));
+
+  if (!moderationOutcome.flagged) {
+    const nextReasons = preservedReasons;
+    await env.DB.batch([
+      env.DB.prepare('UPDATE tenant_review_cases SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ? WHERE id = ? AND tenant_id = ?').bind('RESOLVED', now, 'system:review-status-refresh', 'Current publish moderation no longer flags this tenant.', openPublishCase.id, tenantRecord.id),
+      env.DB.prepare('UPDATE tenants SET trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ? WHERE id = ?').bind(JSON.stringify(nextReasons), now, 'system:review-status-refresh', tenantRecord.id),
+    ]);
+    return {
+      tenant: {
+        ...tenantRecord,
+        trust_reasons_json: JSON.stringify(nextReasons),
+        trust_reviewed_at: now,
+        trust_reviewed_by: 'system:review-status-refresh',
+      },
+      refreshed: true,
+      resolution: 'resolved',
+    };
+  }
+
+  const nextReasons = mergeTrustReasons(JSON.stringify(preservedReasons), moderationOutcome.summaries);
+  const nextEvidence = {
+    rules: abuseAnalysis,
+    ai: aiModeration,
+    outcome: moderationOutcome,
+  };
+  await env.DB.batch([
+    env.DB.prepare('UPDATE tenant_review_cases SET summary = ?, evidence_json = ? WHERE id = ? AND tenant_id = ?').bind(moderationOutcome.reason, JSON.stringify(nextEvidence), openPublishCase.id, tenantRecord.id),
+    env.DB.prepare('UPDATE tenants SET trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ? WHERE id = ?').bind(JSON.stringify(nextReasons), now, 'system:review-status-refresh', tenantRecord.id),
+  ]);
+  return {
+    tenant: {
+      ...tenantRecord,
+      trust_reasons_json: JSON.stringify(nextReasons),
+      trust_reviewed_at: now,
+      trust_reviewed_by: 'system:review-status-refresh',
+    },
+    refreshed: true,
+    resolution: 'updated',
+  };
+}
+
+function isLowRiskAiAssetCase(evidence = {}) {
+  const rulesBlocked = evidence?.rules?.blocked === true;
+  const rulesReview = evidence?.rules?.review_required === true;
+  const ruleSignals = Array.isArray(evidence?.rules?.signals) ? evidence.rules.signals : [];
+  const aiRiskScore = Number(evidence?.ai?.risk_score || 0);
+  const aiAction = String(evidence?.ai?.recommended_action || '').trim().toUpperCase();
+  const duplicateTenantCount = Number(evidence?.duplicate_tenant_count || 0);
+  return !rulesBlocked
+    && !rulesReview
+    && ruleSignals.length === 0
+    && duplicateTenantCount < 2
+    && aiAction === 'REVIEW'
+    && aiRiskScore > 0
+    && aiRiskScore < 35;
+}
+
+async function refreshOpenAssetReviewCases(env, tenantRecord) {
+  if (!tenantRecord?.id) return { tenant: tenantRecord, refreshed: false };
+
+  const { results } = await env.DB
+    .prepare(`SELECT id, summary, evidence_json
+                FROM tenant_review_cases
+               WHERE tenant_id = ?
+                 AND status = 'OPEN'
+                 AND category = 'asset_upload_review'
+               ORDER BY created_at DESC`)
+    .bind(tenantRecord.id)
+    .all();
+  if (!Array.isArray(results) || results.length === 0) {
+    return { tenant: tenantRecord, refreshed: false };
+  }
+
+  let trustReasons = parseTrustReasons(tenantRecord.trust_reasons_json);
+  let changed = false;
+  const now = Math.floor(Date.now() / 1000);
+
+  for (const row of results) {
+    let evidence = null;
+    try {
+      evidence = row.evidence_json ? JSON.parse(row.evidence_json) : null;
+    } catch {
+      evidence = null;
+    }
+    if (!isLowRiskAiAssetCase(evidence)) continue;
+
+    const staleReasons = new Set([
+      String(row.summary || '').trim(),
+      ...(Array.isArray(evidence?.ai?.reasons) ? evidence.ai.reasons.map((entry) => String(entry || '').trim()) : []),
+      String(evidence?.ai?.summary || '').trim(),
+    ].filter(Boolean));
+    trustReasons = trustReasons.filter((entry) => !staleReasons.has(String(entry || '').trim()));
+
+    await env.DB.batch([
+      env.DB.prepare('UPDATE tenant_review_cases SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ? WHERE id = ? AND tenant_id = ?').bind('RESOLVED', now, 'system:asset-review-refresh', 'Resolved low-risk AI-only asset review case.', row.id, tenantRecord.id),
+      env.DB.prepare('UPDATE tenant_asset_inventory SET moderation_status = ?, visibility = ?, risk_score = ?, reasons_json = ? WHERE tenant_id = ? AND filename = ? AND deleted_at IS NULL').bind('ALLOW', 'PUBLIC', Number(evidence?.ai?.risk_score || 0), JSON.stringify([]), tenantRecord.id, String(evidence?.filename || '').trim()),
+    ]);
+    changed = true;
+  }
+
+  if (!changed) return { tenant: tenantRecord, refreshed: false };
+
+  await env.DB
+    .prepare('UPDATE tenants SET trust_reasons_json = ?, trust_reviewed_at = ?, trust_reviewed_by = ? WHERE id = ?')
+    .bind(JSON.stringify(trustReasons), now, 'system:asset-review-refresh', tenantRecord.id)
+    .run();
+
+  return {
+    tenant: {
+      ...tenantRecord,
+      trust_reasons_json: JSON.stringify(trustReasons),
+      trust_reviewed_at: now,
+      trust_reviewed_by: 'system:asset-review-refresh',
+    },
+    refreshed: true,
+  };
 }
 
 /**
@@ -659,11 +885,16 @@ tenants.get('/review-status', async (c) => {
   const actor = await requireTenantActor(c, tenantId);
   if (actor.error) return actor.error;
 
-  const tenant = await c.env.DB
+  let tenant = await c.env.DB
     .prepare('SELECT id, name, email, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, subscription_status FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const refreshedPublish = await refreshOpenPublishReviewCase(c.env, tenant);
+  tenant = refreshedPublish.tenant || tenant;
+  const refreshedAssets = await refreshOpenAssetReviewCases(c.env, tenant);
+  tenant = refreshedAssets.tenant || tenant;
 
   const { results } = await c.env.DB
     .prepare(
@@ -697,13 +928,15 @@ tenants.get('/review-status', async (c) => {
       feedback: buildTenantSafeReviewFeedback(evidence, { stage: row.category }),
     };
   });
+  const moderationCases = reviewCases.filter((entry) => isTenantModerationCategory(entry.category));
 
   return c.json({
     ok: true,
     tenant_id: tenantId,
     trust_state: buildTenantTrustState(tenant),
-    has_open_review: reviewCases.some((entry) => entry.status === 'OPEN'),
-    review_cases: reviewCases,
+    has_open_review: moderationCases.some((entry) => entry.status === 'OPEN'),
+    review_cases: moderationCases,
+    other_open_cases: reviewCases.filter((entry) => entry.status === 'OPEN' && !isTenantModerationCategory(entry.category)),
   });
 });
 
@@ -720,6 +953,82 @@ tenants.get('/review-status', async (c) => {
 // sub-router) so that the URL is /api/tenant/config, not /api/tenants/tenant/config.
 // Registration in registerTenantRoutes() below handles this.
 const publicConfig = new Hono();
+
+function buildReviewActionHtml(title, message) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title><style>body{font-family:ui-sans-serif,system-ui,sans-serif;background:#f8fafc;color:#0f172a;padding:32px}main{max-width:680px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:24px;box-shadow:0 12px 30px rgba(15,23,42,.08)}h1{margin:0 0 12px;font-size:24px}p{margin:0;font-size:15px;line-height:1.6;color:#475569}</style></head><body><main><h1>${title}</h1><p>${message}</p></main></body></html>`;
+}
+
+publicConfig.get('/review-action/:action', async (c) => {
+  const action = String(c.req.param('action') || '').trim().toLowerCase();
+  const tenantId = String(c.req.query('tenant_id') || '').trim();
+  const reviewCaseId = String(c.req.query('review_case_id') || '').trim();
+  const expiresAt = Number(c.req.query('expires') || 0);
+  const sig = String(c.req.query('sig') || '').trim();
+
+  if (!['approve', 'disapprove'].includes(action) || !tenantId || !reviewCaseId || !expiresAt || !sig) {
+    return c.html(buildReviewActionHtml('Invalid review action', 'This review action link is incomplete or invalid.'), 400);
+  }
+  if (!c.env.ADMIN_SECRET) {
+    return c.html(buildReviewActionHtml('Review actions unavailable', 'ADMIN_SECRET is not configured on this environment.'), 503);
+  }
+  if (expiresAt < Math.floor(Date.now() / 1000)) {
+    return c.html(buildReviewActionHtml('Review action expired', 'This Telegram review action link has expired. Send a new review alert and try again.'), 410);
+  }
+
+  const expectedSig = await buildSignedReviewActionSignature(c.env.ADMIN_SECRET, {
+    action,
+    tenantId,
+    reviewCaseId,
+    expiresAt,
+  });
+  if (sig !== expectedSig) {
+    return c.html(buildReviewActionHtml('Unauthorized review action', 'The review action signature is invalid.'), 401);
+  }
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, trust_status, public_indexing_enabled FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) {
+    return c.html(buildReviewActionHtml('Tenant not found', 'The tenant attached to this review action no longer exists.'), 404);
+  }
+
+  const reviewCase = await c.env.DB
+    .prepare('SELECT id, status, category, severity, signal_key, summary FROM tenant_review_cases WHERE id = ? AND tenant_id = ? LIMIT 1')
+    .bind(reviewCaseId, tenantId)
+    .first();
+  if (!reviewCase) {
+    return c.html(buildReviewActionHtml('Review case not found', 'The review case attached to this action could not be found.'), 404);
+  }
+  if (reviewCase.status !== 'OPEN') {
+    return c.html(buildReviewActionHtml('Review case already resolved', 'This review case has already been resolved.'), 200);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const nextTrustStatus = action === 'approve'
+    ? (normalizeTrustStatus(tenant.trust_status) === 'PREVIEW_ONLY' ? 'PROBATION' : normalizeTrustStatus(tenant.trust_status))
+    : 'PREVIEW_ONLY';
+  const nextPublicIndexing = action === 'approve' ? tenant.public_indexing_enabled === 1 || tenant.public_indexing_enabled === true ? 1 : 0 : 0;
+  const caseStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+  const resolutionNote = action === 'approve'
+    ? 'Approved from Telegram review action.'
+    : 'Rejected from Telegram review action.';
+
+  await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE tenants SET trust_status = ?, public_indexing_enabled = ?, trust_reviewed_at = ?, trust_reviewed_by = ? WHERE id = ?').bind(nextTrustStatus, nextPublicIndexing, now, `telegram:${action}`, tenantId),
+    c.env.DB.prepare('UPDATE tenant_review_cases SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ? WHERE id = ? AND tenant_id = ?').bind(caseStatus, now, `telegram:${action}`, resolutionNote, reviewCaseId, tenantId),
+  ]);
+
+  return c.html(
+    buildReviewActionHtml(
+      action === 'approve' ? 'Review approved' : 'Review rejected',
+      action === 'approve'
+        ? 'The review case was approved successfully. The tenant can retry publishing with the updated moderation flow.'
+        : 'The review case was rejected successfully. The tenant remains blocked until the flagged content is corrected and reviewed again.'
+    ),
+    200
+  );
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/tenant/accept-terms  (admin — X-Tenant-ID required)
@@ -2495,20 +2804,20 @@ publicConfig.post('/publish-site', async (c) => {
   }
   const tenant = guard.tenant;
 
+  const universalSiteRow = await c.env.DB
+    .prepare('SELECT variant_key FROM tenant_universal_sites WHERE tenant_id = ? LIMIT 1')
+    .bind(tenantId)
+    .first();
+  const usesDynamicUniversalPublish = !tenant.template_id && String(universalSiteRow?.variant_key || '').trim() !== '';
+
   const tenantSite = await c.env.DB
-    .prepare('SELECT name, subdomain, custom_domain, site_config, trust_status, trust_score, trust_reasons_json FROM tenants WHERE id = ?')
+    .prepare('SELECT id, name, email, subdomain, custom_domain, site_config, trust_status, trust_score, trust_reasons_json FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
-  let siteConfig = {};
-  try {
-    if (tenantSite?.site_config) siteConfig = JSON.parse(tenantSite.site_config);
-  } catch {
-    siteConfig = {};
-  }
-
-  const abuseAnalysis = analyzeTenantSiteAbuse({ tenant: tenantSite || tenant, siteConfig });
-  const moderationPayload = buildTenantModerationPayload({ tenant: tenantSite || tenant, siteConfig, stage: 'publish' });
+  const moderationInput = await buildPublishModerationInput(c.env, tenantSite || tenant);
+  const abuseAnalysis = analyzeTenantSiteAbuse(moderationInput);
+  const moderationPayload = buildTenantModerationPayload({ ...moderationInput, stage: 'publish' });
   const aiModeration = await moderateTenantContent(c.env, moderationPayload, { stage: 'publish' });
   const moderationOutcome = decideTenantModerationOutcome({ ruleAnalysis: abuseAnalysis, aiModeration });
 
@@ -2560,6 +2869,61 @@ publicConfig.post('/publish-site', async (c) => {
 
   const sandboxPrefix = `sandbox/${tenantId}/`;
   const livePrefix    = `live/${tenantId}/`;
+
+  if (usesDynamicUniversalPublish) {
+    const now = Math.floor(Date.now() / 1000);
+    await c.env.DB
+      .prepare(
+        `UPDATE tenants
+            SET published_template_id = NULL,
+                site_published_at = ?
+          WHERE id = ?`
+      )
+      .bind(now, tenantId)
+      .run();
+
+    try {
+      await c.env.DB
+        .prepare(
+          `INSERT INTO tenant_audit_log
+             (id, tenant_id, field_name, changed_at, action, entity_type, entity_id, meta_json, created_at)
+           VALUES (?, ?, 'SITE_PUBLISH', ?, 'SITE_PUBLISH', 'tenant', ?, ?, ?)`
+        )
+        .bind(
+          nanoid(),
+          tenantId,
+          now,
+          tenantId,
+          JSON.stringify({
+            mode: 'dynamic_universal',
+            variant_key: String(universalSiteRow?.variant_key || '').trim() || null,
+            sandbox_files_copied: 0,
+            live_files_deleted: 0,
+            template_switch: false,
+          }),
+          now,
+        )
+        .run();
+    } catch (auditErr) {
+      console.warn(`[PUBLISH_AUDIT_WARN] tenant=${tenantId}`, auditErr?.message);
+    }
+
+    console.info(
+      `[SITE_PUBLISH] tenant=${tenantId} mode=dynamic_universal variant=${String(universalSiteRow?.variant_key || '').trim() || 'unknown'}`
+    );
+
+    return c.json({
+      ok: true,
+      tenant_id: tenantId,
+      published_at: new Date(now * 1000).toISOString(),
+      template_id: null,
+      live_prefix: null,
+      files_copied: 0,
+      files_deleted: 0,
+      template_switch: false,
+      publish_mode: 'dynamic_universal',
+    });
+  }
 
   // ── 3. Verify sandbox is not empty ───────────────────────────────────────
   const sandboxFiles = await listAllObjects(c.env.TOUR_PAGES, sandboxPrefix);

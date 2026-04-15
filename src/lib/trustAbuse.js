@@ -312,9 +312,13 @@ export function decideTenantModerationOutcome({ ruleAnalysis = null, aiModeratio
   const aiEnabled = Boolean(aiModeration?.enabled) && !aiModeration?.skipped;
   const aiRiskScore = aiEnabled ? Number(aiModeration?.risk_score || 0) : 0;
   const aiAction = aiEnabled ? String(aiModeration?.recommended_action || 'ALLOW').toUpperCase() : 'ALLOW';
+  const aiReviewThreshold = 35;
 
   const blockedByAi = aiEnabled && (aiAction === 'BLOCK' || aiAction === 'QUARANTINE' || aiRiskScore >= 80);
-  const reviewByAi = aiEnabled && !blockedByAi && (aiAction === 'REVIEW' || aiRiskScore >= 55);
+  const reviewByAi = aiEnabled && !blockedByAi && (
+    aiRiskScore >= 55
+    || (aiAction === 'REVIEW' && aiRiskScore >= aiReviewThreshold)
+  );
   const blocked = Boolean(ruleAnalysis?.blocked) || blockedByAi;
   const reviewRequired = !blocked && (Boolean(ruleAnalysis?.review_required) || reviewByAi);
 
@@ -386,6 +390,13 @@ export function buildTenantSafeReviewFeedback(evidence = {}, options = {}) {
   const rulesSignals = Array.isArray(evidence?.rules?.signals) ? evidence.rules.signals : [];
   const aiCategories = Array.isArray(evidence?.ai?.categories) ? evidence.ai.categories : [];
   const aiReasons = Array.isArray(evidence?.ai?.reasons) ? evidence.ai.reasons : [];
+  const source = rulesSignals.length > 0 && aiCategories.length > 0
+    ? 'mixed'
+    : aiCategories.length > 0
+      ? 'ai'
+      : rulesSignals.length > 0
+        ? 'rules'
+        : 'unknown';
   const summaries = dedupe([
     ...rulesSignals.map((signal) => String(signal?.summary || '').trim()),
     ...aiReasons.map((reason) => String(reason || '').trim()),
@@ -408,6 +419,7 @@ export function buildTenantSafeReviewFeedback(evidence = {}, options = {}) {
 
   return {
     stage: String(options.stage || evidence?.outcome?.code || '').trim() || null,
+    source,
     risk_score: Number(evidence?.outcome?.risk_score || evidence?.ai?.risk_score || 0),
     summaries,
     signals,

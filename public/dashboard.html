@@ -750,6 +750,10 @@
                   </div>
                   <span class="review-status-chip" id="review-status-chip">Under Review</span>
                 </div>
+                <div class="launch-publish-actions">
+                  <a href="#" id="btn-review-approve" class="button small alt">Approve Review</a>
+                  <a href="#" id="btn-review-telegram" class="button small alt">Send Telegram Test</a>
+                </div>
                 <div>
                   <strong style="display:block; font-size:12px; color:#9a3412; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">Latest signals</strong>
                   <ul class="review-status-list" id="review-status-signals"></ul>
@@ -1748,6 +1752,7 @@ window.addEventListener('dashboard:langchange', () => {
     const cases = Array.isArray(reviewStatus?.review_cases) ? reviewStatus.review_cases : [];
     const activeCase = cases.find((entry) => entry.status === 'OPEN') || cases[0] || null;
     const feedback = activeCase?.feedback || {};
+    const source = String(feedback?.source || '').trim();
     const summaries = Array.isArray(feedback?.summaries) ? feedback.summaries.filter(Boolean).slice(0, 4) : [];
     const guidance = Array.isArray(feedback?.guidance) ? feedback.guidance.filter(Boolean).slice(0, 6) : [];
 
@@ -1758,7 +1763,13 @@ window.addEventListener('dashboard:langchange', () => {
     }
 
     panel.classList.add('visible');
-    chipEl.textContent = activeCase.severity === 'block' ? 'Publish Paused' : 'Under Review';
+    chipEl.textContent = activeCase.severity === 'block'
+      ? 'Publish Paused'
+      : source === 'ai'
+        ? 'AI Review'
+        : source === 'rules'
+          ? 'Rules Review'
+          : 'Under Review';
     copyEl.textContent = activeCase.summary || 'Your site is currently under manual review. The latest signals and what to change will appear here.';
     signalsEl.innerHTML = summaries.length
       ? summaries.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')
@@ -1879,8 +1890,62 @@ window.addEventListener('dashboard:langchange', () => {
   const suggestSubdomain = document.getElementById('btn-suggest-subdomain');
   const saveSubdomain = document.getElementById('btn-save-subdomain');
   const publishSubdomain = document.getElementById('btn-publish-subdomain');
+  const approveReviewBtn = document.getElementById('btn-review-approve');
+  const telegramReviewBtn = document.getElementById('btn-review-telegram');
   const marketSkinSelect = document.getElementById('market-skin-select');
   const saveMarketSkin = document.getElementById('btn-save-market-skin');
+
+  function promptAdminSecret(actionLabel) {
+    const secret = window.prompt(`Enter ADMIN_SECRET to ${actionLabel}:`, '');
+    return typeof secret === 'string' ? secret.trim() : '';
+  }
+
+  async function approveCurrentReview() {
+    const secret = promptAdminSecret('approve this review');
+    if (!secret) return;
+    const activeCase = (onboardingState.reviewStatus?.review_cases || []).find((entry) => entry.status === 'OPEN') || null;
+    const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/trust`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': secret,
+      },
+      body: JSON.stringify({
+        trust_status: 'TRUSTED',
+        public_indexing_enabled: true,
+        reviewed_by: 'dashboard:manual-approve',
+        resolution_note: activeCase ? `Approved from tenant dashboard for review case ${activeCase.id}.` : 'Approved from tenant dashboard.',
+        close_open_cases: true,
+      }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      throw new Error(payload?.error || 'Could not approve review.');
+    }
+    await loadLaunchData();
+    const refreshed = await fetchTenantSettings();
+    if (refreshed.payload?.ok) onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
+    renderLaunchGuide();
+    renderPublishPanel('Review approved. You can retry publish now.', false);
+  }
+
+  async function sendReviewTelegramTest() {
+    const secret = promptAdminSecret('send a Telegram review alert');
+    if (!secret) return;
+    const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/send-review-alert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': secret,
+      },
+      body: JSON.stringify({}),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      throw new Error(payload?.error || payload?.telegram?.reason || 'Could not send Telegram test alert.');
+    }
+    renderPublishPanel('Telegram review alert sent successfully.', false);
+  }
   if (suggestSubdomain) {
     suggestSubdomain.addEventListener('click', (event) => {
       event.preventDefault();
@@ -2015,6 +2080,26 @@ window.addEventListener('dashboard:langchange', () => {
         if (!publishSubdomain.classList.contains('is-disabled')) return;
         publishSubdomain.classList.remove('is-disabled');
         renderPublishPanel();
+      }
+    });
+  }
+  if (approveReviewBtn) {
+    approveReviewBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        await approveCurrentReview();
+      } catch (error) {
+        renderPublishPanel(error.message || 'Could not approve review.', true);
+      }
+    });
+  }
+  if (telegramReviewBtn) {
+    telegramReviewBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        await sendReviewTelegramTest();
+      } catch (error) {
+        renderPublishPanel(error.message || 'Could not send Telegram review alert.', true);
       }
     });
   }
