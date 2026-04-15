@@ -63,15 +63,18 @@ export function createSixSensesTheme(helpers = {}) {
     const content = ctx.block.content || {};
     const runtimeHero = ctx.targetPage.page_key === ctx.homePageKey ? ctx.tourRuntime.featured_tour : null;
     const isTourDetailTarget = ctx.targetPage.page_type === 'tour_detail' || /^tour-/.test(String(ctx.targetPage.page_key || ''));
+    const bookingEnabled = ctx.commercialPolicy?.public_booking_enabled === true;
     const primaryCtaLabel = isTourDetailTarget
-      ? resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'booking')
+      ? (bookingEnabled
+          ? resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'booking')
+          : resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'discovery', content.primary_cta_label || ctx.systemCopy?.cta?.exploreCollection || 'Explore'))
       : resolveThemeCtaLabel(ctx.theme, ctx.site.group_key, 'discovery', content.primary_cta_label);
     const primaryCtaHref = isTourDetailTarget
-      ? (ctx.bookingPageHref || '#booking-engine')
+      ? (bookingEnabled ? (ctx.bookingPageHref || '#booking-engine') : buildUniversalPublicPath(ctx.site.tenant_id, 'contact-us'))
       : (ctx.targetPage.page_key === ctx.homePageKey
           ? ctx.buildPageHref?.(ctx.headerPrimaryPageKey) || '#'
           : (content.primary_cta_href || '#section-featured-tours'));
-    const primaryCtaAttrs = isTourDetailTarget && ctx.bookingPageHref ? ' data-open-public-booking="1"' : '';
+    const primaryCtaAttrs = isTourDetailTarget && bookingEnabled && ctx.bookingPageHref ? ' data-open-public-booking="1"' : '';
     const image = content.hero_image || runtimeHero?.hero_image || ctx.snapshot?.hero_image || SAMPLE_HERO_URL;
     const imageBrightness = clampNumber(content.image_brightness, 0.4, 1.4, 1);
     const overlayStrength = clampNumber(content.overlay_strength, 0.12, 0.92, 0.56);

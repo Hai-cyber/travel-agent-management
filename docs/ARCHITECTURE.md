@@ -17,6 +17,9 @@ System context, components, and deployment topology.
 
 
 ## Luồng chính (canonical)
+0) Publish/public exposure tách thành 2 mode:
+	- showcase publish trên platform subdomain
+	- commercial publish trên verified custom domain
 1) Tạo tour → thêm tour_stops (itinerary segments, ordered, each may reference a catalog destination) → auto arrival/departure.
 2) CHK-207: Day-1 pickup/welcome có toggle khi tạo tour → auto task Day-1.
 3) Mỗi tour_stop: thêm nhiều item cho 5 nhóm dịch vụ (service items linked to tour_stop_id).
@@ -50,3 +53,8 @@ System context, components, and deployment topology.
 - Turnstile is now active on production forgot-password, signup, and login; backend Siteverify remains required for all three flows
 - Turnstile widget hostnames must be explicitly authorized in Cloudflare Hostname Management; production hit client error `110200` until `tours-market.com` was added to the widget allowlist
 - Secrets qua Wrangler
+
+## Commercial publishing rule
+- Platform subdomains are not merchant surfaces. They can publish content but must stay showcase-only.
+- Verified custom domains are the only surfaces allowed to expose booking/payment flows.
+- Commercial activation is a separate gate on top of publish: tenant must be `ACTIVE`, `TRUSTED`, have terms accepted, use a verified custom domain, and enable at least one payment method.

@@ -153,14 +153,22 @@ Status: not implemented (planned)
 	- updates checklist state and returns resolved publish gate
 
 ### Publish gate rules
-- Production publish requires all of:
-	- domain verified
-	- payment method added
+- Showcase publish requires all of:
+	- subdomain or custom domain configured
 	- terms accepted
-	- commission agreement accepted
-	- billing in good standing
+	- trust policy allows public exposure
+	- billing standing allows showcase publish
+- Commercial activation requires all of:
+	- verified custom domain
+	- payment method added
+	- billing in good standing for commerce
+	- trust/compliance approval
 - Preview is always allowed and is not treated as production publish
 - `PATCH /api/tours/:id` with `status=on_sale` must be rejected when gate requirements are not satisfied
+
+### Platform subdomain rule
+- Platform subdomains are showcase-only and must not expose booking checkout, payment instructions, or completed-sale flows.
+- Booking/order creation and payment surfaces are only valid on a verified custom domain after commercial activation.
 
 ## Billing Restrictions (CHK-403)
 Status: not implemented (planned)

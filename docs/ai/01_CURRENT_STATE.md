@@ -96,7 +96,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Tenant settings responses now include a `subdomain_policy` object so dashboard onboarding can render the active apex domain, reserved labels, and suggestion suffixes without hardcoding them
 - Tenant trust control is now a first-class runtime concept: tenants carry `trust_status`, `public_indexing_enabled`, `custom_domain_verified_at`, and durable `tenant_review_cases`, allowing signup to stay low-friction while public exposure follows a ladder of `PREVIEW_ONLY -> PROBATION -> TRUSTED -> SUSPENDED/QUARANTINED`
 - New tenants start as `PREVIEW_ONLY`; a clean first subdomain claim auto-promotes them to `PROBATION`, platform subdomains in probation are served with forced `noindex`, and custom domains only resolve after a tenant is `TRUSTED` and the current domain has been manually verified
-- `POST /api/tenant/publish-site` now inherits the trust ladder and runs a lightweight abuse scan over tenant site content before publish; suspicious or blocked publish attempts open review cases, downgrade trust, disable indexing, and return structured review details instead of publishing
+- `POST /api/tenant/publish-site` now acts as a showcase-publish gate: TRIAL or ACTIVE tenants with terms accepted, a configured domain, and trust approval can publish public content without enabling commerce first; suspicious or blocked publish attempts still open review cases, downgrade trust, disable indexing, and return structured review details instead of publishing
 - `POST /api/tenant/publish-site` also rate-limits repeated publish attempts by trust tier, records `publish_attempt` / `publish_throttled` events in `tenant_risk_events`, and returns `429` before full publish work when behavior looks automated
 - When Cloudflare AI is configured, publish-time moderation now also runs a second-pass scorer over normalized tenant content and merges that result with rule-based heuristics before deciding `ALLOW`, `REVIEW`, `BLOCK`, or `QUARANTINE`
 - Admin ops can manually re-run AI moderation through `POST /api/admin/tenants/:id/moderate-ai`, and flagged moderation events can send Telegram alerts when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are configured
@@ -112,7 +112,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `DELETE /api/tenant/assets/:filename` now marks the asset inventory row as deleted in addition to removing the underlying object
 
 **Site Studio (CHK-R20 to R24/R29-R33)**
-- `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline
+- `GET /:path` on custom subdomain/domain — `resolveTenantByHost()` + `serveSitePage()` HTMLRewriter pipeline. Platform subdomains can render showcase content on `TRIAL` or `ACTIVE`; custom domains still require `ACTIVE` + `TRUSTED` + verification.
 
 **Universal Site / Taxonomy Discovery (CHK-R35 to R45)**
 - `GET /api/universal/site/config` — returns current universal site bundle, including runtime theme/menu/page data
@@ -138,7 +138,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/bookings/draft/:draftId`
 
 **Booking Orders — Bank Transfer (CHK-R18 / CHK-R53)**
-- `POST /api/bookings/order` — legal firewall (ACTIVE only), server reprice, identity locked; snapshots `grand_total_amount` + `booking_currency`; returns `guest_portal_token`; `adult_triple_room_count` included in both pricing and `buildPaxSummary`; triggers `dispatchNewBookingAgentEmail` (guest identity hidden in email until agent confirms)
+- `POST /api/bookings/order` — legal + commercial firewall. Public booking is only allowed on a verified custom domain after commercial activation (`ACTIVE`, `TRUSTED`, terms accepted, custom domain verified, and at least one enabled payment method). Platform subdomains and `/p/:tenantId/:slug` public paths are showcase-only.
 - `GET /api/bookings/orders` — agent order list; accepts `?status=` filter + `?limit=`; returns masked orders (tenant-scoped)
 - `GET /api/bookings/order/:id` — agent view; `maskOrder` now also exposes `secure_token` and `price_snapshot_json`; guest fields `name/email/phone` are masked until `identity_unlocked = 1`
 - `GET /api/bookings/order/:id/proof-url` — streams R2 proof image directly from `BOOKING_PROOFS` bucket with tenant-scope check; returns `Content-Type` from r2 `httpMetadata`; `Cache-Control: private, max-age=300`
@@ -225,7 +225,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Broader non-editable storefront fallbacks now also follow the selected skin locale: luxury search empty states, gallery/story fallbacks, itinerary/service-flow headings, hero fallback labels, and footer/navigation fallback notes render from locale presets rather than staying hardcoded English when the tenant cannot edit them
 - Navigation labels, footer legal page links, and system page titles now treat prior default labels from any supported storefront locale as non-custom defaults; when tenants switch skin locale, these high-traffic labels re-localize to the new skin language unless the tenant entered a real custom override
 - Public customer booking flow now follows the storefront skin locale as well: the check-availability drawer inherits the effective `html lang` from the universal site renderer, uses localized booking UI copy and rooming messages, and public secure-token booking/proof endpoints now resolve guest-facing status and upload messages from the tenant's `default_locale` before any browser-language fallback
-- The public booking drawer now includes a customer-facing checkout step: guests can enter contact details, pick an available payment method sourced from public tenant config, create a booking order directly from the drawer, and receive a guest-portal follow-up link; when a tenant has no electronic gateway configured, the drawer automatically falls back to a `DEMO` checkout mode instead of hard-blocking the customer flow
+- Public booking UI is now policy-aware: showcase surfaces must not expose booking checkout at all, while commercial booking is only exposed on verified custom domains after commercial activation. Demo checkout on public showcase surfaces is no longer part of the intended direction.
 - Pricing overlap resolution is now driven by `tenant_seasons.sort_order`, so when High Season and Low Season overlap, the higher-priority season wins regardless of which row happens to have the largest raw price
 - Booking UI now places `Good to know` after `Grand total`, and the public `Check availability` slot shows a minimum-price teaser with canonical pricing copy instead of a system-placeholder sentence
 - Current runtime truth for skins: the storefront shell is still powered by the preserved `six-senses` runtime module, but there are now multiple luxury variants riding that shell instead of a single hardcoded preset

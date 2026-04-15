@@ -625,7 +625,7 @@ tours.post('/:id/publish', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
   if (!c.env.TOUR_PAGES) return c.json({ error: 'R2 binding TOUR_PAGES is not configured.' }, 503);
 
-  // Subscription + payment configuration check
+  // Showcase publish guard
   const guard = await checkPublishPermission(c.env, tenantId);
   if (!guard.ok) return c.json({ error: guard.error, code: guard.code, blocks: guard.blocks, checklist: guard.checklist }, 403);
 
@@ -673,7 +673,7 @@ tours.post('/:id/switch-template', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
   if (!c.env.TOUR_PAGES) return c.json({ error: 'R2 binding TOUR_PAGES is not configured.' }, 503);
 
-  // Subscription check — template swap re-renders the page so it needs the same gate
+  // Showcase publish guard — template swap re-renders the page so it needs the same gate
   const guard = await checkPublishPermission(c.env, tenantId);
   if (!guard.ok) return c.json({ error: guard.error, code: guard.code, blocks: guard.blocks, checklist: guard.checklist }, 403);
 

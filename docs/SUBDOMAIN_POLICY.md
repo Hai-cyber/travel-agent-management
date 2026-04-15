@@ -7,6 +7,7 @@ This document is runtime-aligned for the current platform subdomain flow. If imp
 ## Principles
 
 - Tenant-selected platform subdomains are branding labels for tenant previews and hosted platform entrypoints.
+- Platform subdomains are showcase-only surfaces. They are not approved commercial storefronts.
 - Platform-owned subdomains are permanently reserved and cannot be claimed by tenants.
 - Tenant subdomains should be brand-specific, not generic SaaS, marketing, or infrastructure labels.
 - A tenant platform subdomain is lock-once. After a tenant reserves it, later changes are rejected.
@@ -147,3 +148,5 @@ Regex reference:
 - Manual review alerts can be forwarded through `SUBDOMAIN_REVIEW_WEBHOOK_URL` and signed with `SUBDOMAIN_REVIEW_WEBHOOK_SECRET`; local development falls back to log-only warnings.
 - Tenant settings responses expose `subdomain_policy` so the dashboard can show the active platform suffix, reserved labels, and suggestion suffixes.
 - The tenant dashboard suggestion flow prefers non-reserved alternatives automatically.
+- Published platform subdomains are limited to showcase/trial publishing. They must not expose booking checkout, payment instructions, booking confirmation flows, or other completed-commerce behavior.
+- Commercial activity is reserved for verified custom domains after commercial activation. In runtime terms that means the tenant must be `TRUSTED`, the custom domain must be verified, and at least one payment method must be enabled before public booking is exposed.

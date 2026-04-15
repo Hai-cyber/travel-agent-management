@@ -24,7 +24,7 @@ import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
 import registerMarketingRoutes from './routes/marketing.js';
-import registerUniversalSiteRoutes from './routes/universalSites.js';
+import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
 import registerReportsRoutes from './routes/reports.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -37,6 +37,7 @@ import registerPricingRoutes, {
   handleDeletePricing
 } from './routes/pricing.js';
 import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
+import { slugify } from './lib/universalSite.js';
 import { clearAuthSessionCookie, getAuthSession, readAuthSessionToken } from './lib/auth.js';
 import { buildTenantTrustPolicy } from './lib/trustAbuse.js';
 
@@ -337,23 +338,47 @@ export default {
 
       if (tenant) {
         const trustPolicy = buildTenantTrustPolicy(tenant);
-        // ── Electronic Gateway Mandate ─────────────────────────────────────
-        // Parse tenant's payment_methods and block site rendering if no
-        // electronic gateway (Stripe/PayPal/MoMo/ZaloPay/VNPay/GrabPay) is active.
-        let tenantMethods = [];
-        try { if (tenant.payment_methods) tenantMethods = JSON.parse(tenant.payment_methods); } catch {}
-        if (!checkTenantCompliance(tenantMethods)) {
-          return new Response(UNDER_CONSTRUCTION_HTML, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-          });
-        }
-
         // ── Path 1: Site Studio — live template render ────────────────────
         if (tenant.template_id) {
           return serveSitePage(tenant, env, {
             responseHeaders: trustPolicy.force_noindex ? { 'X-Robots-Tag': trustPolicy.robots_directive } : {},
           });
+        }
+
+        // ── Path 1b: Universal site render on platform/custom host ───────
+        const requestedSlug = slugify(url.pathname.replace(/^\/+/, '').replace(/\.html$/, '') || 'home');
+        let pageRow = await env.DB
+          .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? AND slug = ?')
+          .bind(tenant.id, requestedSlug)
+          .first();
+        if (!pageRow && requestedSlug === 'home') {
+          pageRow = await env.DB
+            .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? AND slug = ?')
+            .bind(tenant.id, '')
+            .first();
+        }
+        if (pageRow) {
+          const siteBundle = await getSiteBundle(tenant.id, tenant, env.DB, env, {
+            hostType: tenant.resolved_host_type || 'platform_subdomain',
+          });
+          const page = {
+            id: pageRow.id,
+            tenant_id: pageRow.tenant_id,
+            page_key: pageRow.page_key,
+            title: pageRow.title,
+            slug: pageRow.slug,
+            page_type: pageRow.page_type,
+            status: pageRow.status,
+            visible: Boolean(pageRow.visible),
+            blocks: pageRow.blocks_json ? JSON.parse(pageRow.blocks_json) : [],
+            seo: pageRow.seo_json ? JSON.parse(pageRow.seo_json) : {},
+            created_at: pageRow.created_at,
+            updated_at: pageRow.updated_at,
+          };
+          const html = renderPublicHtml(siteBundle, page, null, { requestUrl: request.url });
+          const headers = { 'Content-Type': 'text/html; charset=utf-8' };
+          if (trustPolicy.force_noindex) headers['X-Robots-Tag'] = trustPolicy.robots_directive;
+          return new Response(html, { headers });
         }
 
         // ── Path 2: Legacy TOUR_PAGES — pre-rendered HTML ─────────────────

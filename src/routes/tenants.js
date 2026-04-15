@@ -3,7 +3,13 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { resolveTenantByHost, serveSitePage, SAFE_SELECTOR_RE, listAllObjects, initializeTenantSandbox, getTemplateStructure, extractTemplateSections } from '../lib/siteStudio.js';
-import { checkPublishPermission } from '../lib/publishGuard.js';
+import {
+  buildTenantCommercialPolicy,
+  checkPublishPermission,
+  hasEnabledElectronicGateway,
+  hasEnabledPaymentMethod,
+  parseTenantPaymentMethods,
+} from '../lib/publishGuard.js';
 import { generateTourPage } from '../routes/tours.js';
 import pagesRouter, { rebuildAllTenantPageRenders } from '../routes/pages.js';
 import { getSupportedLocales, resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
@@ -16,8 +22,10 @@ import {
 } from '../lib/subdomainPolicy.js';
 import {
   analyzeTenantSiteAbuse,
+  buildTenantSafeReviewFeedback,
   buildTenantTrustPolicy,
   buildTenantTrustState,
+  buildTenantModerationUserMessage,
   createTenantReviewCase,
   decideTenantModerationOutcome,
   mergeTrustReasons,
@@ -544,7 +552,7 @@ tenants.patch('/settings', async (c) => {
 
     // Trả về settings mới để UI có thể cập nhật hiển thị ngay
     const updated = await c.env.DB
-      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
+      .prepare('SELECT exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, product_tier_key, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, site_published_at, published_template_id FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -581,7 +589,7 @@ tenants.get('/settings', async (c) => {
 
   try {
     const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, site_published_at, published_template_id FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -640,6 +648,65 @@ tenants.get('/audit-log', async (c) => {
   }
 });
 
+// GET /api/tenants/review-status
+// Tenant-safe moderation visibility: returns current trust state, recent open/recent
+// review cases, compact summaries, and actionable guidance without exposing
+// raw AI prompts or full internal evidence payloads.
+tenants.get('/review-status', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, email, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const { results } = await c.env.DB
+    .prepare(
+      `SELECT id, status, category, severity, signal_key, summary, evidence_json, created_at, resolved_at, resolved_by, resolution_note
+         FROM tenant_review_cases
+        WHERE tenant_id = ?
+        ORDER BY created_at DESC
+        LIMIT 10`
+    )
+    .bind(tenantId)
+    .all();
+
+  const reviewCases = (results || []).map((row) => {
+    let evidence = null;
+    try {
+      evidence = row.evidence_json ? JSON.parse(row.evidence_json) : null;
+    } catch {
+      evidence = null;
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      category: row.category,
+      severity: row.severity,
+      signal_key: row.signal_key,
+      summary: row.summary,
+      created_at: row.created_at,
+      resolved_at: row.resolved_at,
+      resolved_by: row.resolved_by,
+      resolution_note: row.resolution_note,
+      feedback: buildTenantSafeReviewFeedback(evidence, { stage: row.category }),
+    };
+  });
+
+  return c.json({
+    ok: true,
+    tenant_id: tenantId,
+    trust_state: buildTenantTrustState(tenant),
+    has_open_review: reviewCases.some((entry) => entry.status === 'OPEN'),
+    review_cases: reviewCases,
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/tenant/config  (public — no X-Tenant-ID required)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -654,6 +721,92 @@ tenants.get('/audit-log', async (c) => {
 // Registration in registerTenantRoutes() below handles this.
 const publicConfig = new Hono();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tenant/accept-terms  (admin — X-Tenant-ID required)
+// ─────────────────────────────────────────────────────────────────────────────
+// Dedicated legal-consent endpoint. Idempotent.
+publicConfig.post('/accept-terms', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const actor = await requireTenantActor(c, tenantId);
+  if (actor.error) return actor.error;
+
+  const existing = await c.env.DB
+    .prepare('SELECT id, terms_accepted, terms_accepted_at, onboarding_step, trust_status, subdomain FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  if (!existing) {
+    return c.json({ error: 'Tenant not found.' }, 404);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const acceptedAt = Number(existing.terms_accepted_at || 0) > 0 ? Number(existing.terms_accepted_at) : now;
+  const nextOnboardingStep = (!existing.onboarding_step || String(existing.onboarding_step).trim() === '' || existing.onboarding_step === 'SUBDOMAIN_SELECTED')
+    ? 'TERMS_ACCEPTED'
+    : existing.onboarding_step;
+  const autoProbation = normalizeTrustStatus(existing.trust_status) === 'PREVIEW_ONLY' && String(existing.subdomain || '').trim();
+
+  await c.env.DB
+    .prepare(
+      `UPDATE tenants
+          SET terms_accepted = 1,
+              terms_accepted_at = ?,
+              onboarding_step = ?,
+              trust_status = CASE WHEN ? = 1 THEN 'PROBATION' ELSE trust_status END,
+              trust_reviewed_at = CASE WHEN ? = 1 THEN ? ELSE trust_reviewed_at END,
+              trust_reviewed_by = CASE WHEN ? = 1 THEN 'system:auto-probation-terms' ELSE trust_reviewed_by END
+        WHERE id = ?`
+    )
+    .bind(acceptedAt, nextOnboardingStep, autoProbation ? 1 : 0, autoProbation ? 1 : 0, now, autoProbation ? 1 : 0, tenantId)
+    .run();
+
+  if (existing.terms_accepted !== 1) {
+    try {
+      await c.env.DB
+        .prepare(
+          `INSERT INTO tenant_audit_log
+             (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by, action, entity_type, entity_id, created_at)
+           VALUES (?, ?, 'terms_accepted', ?, ?, ?, ?, 'TERMS_ACCEPTED', 'tenant', ?, ?)`
+        )
+        .bind(
+          nanoid(),
+          tenantId,
+          String(existing.terms_accepted ?? 0),
+          '1',
+          now,
+          actor.session?.user_id ?? null,
+          tenantId,
+          now,
+        )
+        .run();
+    } catch (err) {
+      console.warn('[TERMS_ACCEPT_AUDIT_WARN]', err?.message);
+    }
+  }
+
+  return c.json({
+    ok: true,
+    terms_accepted: true,
+    terms_accepted_at: acceptedAt,
+    accepted_at: new Date(acceptedAt * 1000).toISOString(),
+    onboarding_step: nextOnboardingStep,
+  });
+});
+
+function classifyTenantHostType(host, tenant) {
+  const bareHost = String(host || '').split(':')[0].trim().toLowerCase();
+  const customDomain = String(tenant?.custom_domain || '').trim().toLowerCase();
+  const subdomain = String(tenant?.subdomain || '').trim().toLowerCase();
+  if (customDomain && bareHost === customDomain) return 'custom_domain';
+  if (subdomain && bareHost) {
+    const firstLabel = bareHost.split('.')[0];
+    if (firstLabel === subdomain) return 'platform_subdomain';
+  }
+  return bareHost ? 'unknown' : 'admin_preview';
+}
+
 publicConfig.get('/config', async (c) => {
   const host = c.req.header('host') ?? '';
 
@@ -664,7 +817,7 @@ publicConfig.get('/config', async (c) => {
     const adminId = c.req.header('X-Tenant-ID')?.trim();
     if (adminId) {
       tenant = await c.env.DB
-        .prepare('SELECT id, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market FROM tenants WHERE id = ?')
+        .prepare('SELECT id, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, terms_accepted, trust_status, custom_domain_verified_at, subdomain, custom_domain FROM tenants WHERE id = ?')
         .bind(adminId)
         .first();
     } else {
@@ -691,10 +844,9 @@ publicConfig.get('/config', async (c) => {
   // [SEC] Return only the public-safe fields. Never expose payment_config_json,
   //       total_revenue_tracked, subscription_status, or internal IDs here.
   //       payment_methods is safe to expose — it's the enabled channel list for inject.js checkout.
-  let paymentMethods = [];
-  try {
-    if (tenant.payment_methods) paymentMethods = JSON.parse(tenant.payment_methods);
-  } catch { /* malformed JSON — return empty array */ }
+  const paymentMethods = parseTenantPaymentMethods(tenant.payment_methods);
+  const hostType = tenant.resolved_host_type || classifyTenantHostType(host, tenant);
+  const commercialPolicy = buildTenantCommercialPolicy(tenant, { paymentMethods, hostType });
 
   return c.json({
     ok: true,
@@ -749,6 +901,7 @@ publicConfig.get('/config', async (c) => {
       market_skin_key: typeof tenant.market_skin_key === 'string' ? tenant.market_skin_key : 'global-default',
       primary_market: typeof tenant.primary_market === 'string' ? tenant.primary_market : 'GLOBAL',
       payment_methods:  paymentMethods,
+      commercial_policy: commercialPolicy,
     },
   });
 });
@@ -809,11 +962,14 @@ publicConfig.get('/template-structure', async (c) => {
 // Returns a detailed checklist of all conditions required before a tenant can
 // publish their site and sell tours.
 //
-// Four gates (matching publishGuard.checkPublishPermission):
+// Showcase publish gates:
 //   TEMPLATE  — template_id must be set on the tenant row
 //   CONTENT   — at least one tour (any status) in the tours table
 //   IDENTITY  — subdomain/custom_domain set AND terms_accepted = 1
-//   PAYMENT   — ≥1 electronic gateway in payment_methods has enabled: true
+//   TRUST     — trust ladder allows public exposure
+//
+// Commercial activation gates are returned separately:
+//   custom domain verified + ACTIVE + TRUSTED + >=1 payment method enabled
 //
 // Intentionally separate from publishGuard so the dashboard can display the
 // checklist WITHOUT triggering a publish attempt.
@@ -828,18 +984,32 @@ publicConfig.get('/publish-readiness', async (c) => {
 
   const tenant = await c.env.DB
     .prepare(
-      `SELECT id, template_id, subdomain, custom_domain,
+       `SELECT t.id, t.template_id, t.subdomain, t.custom_domain,
               terms_accepted, payment_methods, subscription_status,
-              trust_status, public_indexing_enabled, custom_domain_verified_at,
-              onboarding_step
-         FROM tenants WHERE id = ?`
+            trust_status, public_indexing_enabled, custom_domain_verified_at,
+            onboarding_step, us.variant_key
+          FROM tenants t
+          LEFT JOIN tenant_universal_sites us ON us.tenant_id = t.id
+         WHERE t.id = ?`
     )
     .bind(tenantId)
     .first();
   if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
 
-  // ── Gate 1: Template ───────────────────────────────────────────────────────
-  const hasTemplate = !!tenant.template_id;
+  const hasTemplate = !!(
+    (tenant.template_id && String(tenant.template_id).trim())
+    || (tenant.variant_key && String(tenant.variant_key).trim())
+  );
+  const activeDesignKey = String(tenant.variant_key || tenant.template_id || '').trim();
+
+  if (normalizeTrustStatus(tenant.trust_status) === 'PREVIEW_ONLY' && String(tenant.subdomain || '').trim()) {
+    const autoProbationAt = Math.floor(Date.now() / 1000);
+    await c.env.DB
+      .prepare('UPDATE tenants SET trust_status = ?, trust_reviewed_at = ?, trust_reviewed_by = ? WHERE id = ?')
+      .bind('PROBATION', autoProbationAt, 'system:auto-probation-readiness', tenantId)
+      .run();
+    tenant.trust_status = 'PROBATION';
+  }
 
   // ── Gate 2: Content — at least one tour created ────────────────────────────
   const tourRow = await c.env.DB
@@ -857,16 +1027,13 @@ publicConfig.get('/publish-readiness', async (c) => {
   const hasTerms = tenant.terms_accepted === 1;
 
   // ── Gate 4: Electronic gateway enabled ────────────────────────────────────
-  const ELECTRONIC_IDS = new Set(['STRIPE','MOMO','VNPAY','ZALOPAY','CREDIT_CARD','PAYPAL','GRABPAY']);
-  let hasGateway   = false;
-  let enabledGateway = null;
-  try {
-    const methods = tenant.payment_methods ? JSON.parse(tenant.payment_methods) : [];
-    const found   = Array.isArray(methods)
-      ? methods.find(m => m.enabled === true && ELECTRONIC_IDS.has((m.id ?? '').toUpperCase()))
-      : null;
-    if (found) { hasGateway = true; enabledGateway = found.id; }
-  } catch { /* treat as unconfigured */ }
+  const paymentMethods = parseTenantPaymentMethods(tenant.payment_methods);
+  const hasGateway = hasEnabledElectronicGateway(paymentMethods);
+  const hasPaymentMethod = hasEnabledPaymentMethod(paymentMethods);
+  const commercialPolicy = buildTenantCommercialPolicy(tenant, {
+    paymentMethods,
+    hostType: tenant.custom_domain ? 'custom_domain' : (tenant.subdomain ? 'platform_subdomain' : 'unknown'),
+  });
 
   // ── Build data map ─────────────────────────────────────────────────────────
   const data = {
@@ -874,10 +1041,10 @@ publicConfig.get('/publish-readiness', async (c) => {
       pass:          hasTemplate,
       label:         'Template đã chọn',
       detail:        hasTemplate
-        ? `Template đang dùng: ${tenant.template_id}`
-        : 'Chưa chọn template. Mở Visual Editor và chọn một design.',
-      action_url:    hasTemplate ? null : '/visual-editor.html',
-      value:         tenant.template_id ?? null,
+        ? `Website skin hiện tại: ${activeDesignKey}`
+        : 'Chưa chọn website skin. Mở Website Design và chọn một skin/sample trước khi xuất bản.',
+      action_url:    hasTemplate ? null : '/universal-admin.html?panel=system&onboarding=skin',
+      value:         activeDesignKey || null,
     },
     CONTENT: {
       pass:          hasTour,
@@ -906,15 +1073,6 @@ publicConfig.get('/publish-readiness', async (c) => {
       action_url:    hasTerms ? null : '/dashboard.html#terms',
       value:         hasTerms,
     },
-    PAYMENT: {
-      pass:          hasGateway,
-      label:         'Cổng thanh toán điện tử đang hoạt động',
-      detail:        hasGateway
-        ? `Gateway đang bật: ${enabledGateway}. Sẵn sàng nhận booking có thanh toán.`
-        : 'Chưa có cổng điện tử nào bật (MoMo, VNPay, Stripe, v.v.). Bank Transfer không tính.',
-      action_url:    hasGateway ? null : '/dashboard.html#payments',
-      value:         enabledGateway,
-    },
     TRUST: {
       pass:          buildTenantTrustPolicy(tenant).allow_publish,
       label:         'Trust ladder cho phep public exposure',
@@ -924,6 +1082,19 @@ publicConfig.get('/publish-readiness', async (c) => {
       action_url:    buildTenantTrustPolicy(tenant).allow_publish ? null : '/dashboard.html#launch',
       value:         tenant.trust_status || 'PREVIEW_ONLY',
     },
+    COMMERCIAL: {
+      pass:          commercialPolicy.commercial_activation_enabled,
+      label:         'Commercial activation',
+      detail:        commercialPolicy.commercial_activation_enabled
+        ? 'Custom domain da verify va it nhat 1 payment method da bat. Tenant co the kinh doanh tren domain rieng.'
+        : commercialPolicy.message,
+      action_url:    commercialPolicy.commercial_activation_enabled ? null : '/dashboard.html#domain',
+      value:         {
+        custom_domain_verified: commercialPolicy.custom_domain_verified,
+        payment_configured: hasPaymentMethod,
+        electronic_gateway_configured: hasGateway,
+      },
+    },
   };
 
   // ── Collect missing gates ──────────────────────────────────────────────────
@@ -931,12 +1102,13 @@ publicConfig.get('/publish-readiness', async (c) => {
     .filter(([, v]) => !v.pass)
     .map(([k]) => k);
 
-  const ok = missing.length === 0;
+  const ok = ['TEMPLATE', 'CONTENT', 'DOMAIN', 'TERMS', 'TRUST'].every((key) => data[key].pass);
 
   return c.json({
     ok,
     missing,
     ready_to_publish: ok,
+    commercial_ready: commercialPolicy.commercial_activation_enabled,
     subscription_status: tenant.subscription_status,
     onboarding_step:     tenant.onboarding_step ?? null,
     data,
@@ -1171,6 +1343,7 @@ publicConfig.patch('/config', async (c) => {
     site_config: cfg,
     review_required: Boolean(reviewCaseId),
     review_case_id: reviewCaseId,
+    review_message: reviewCaseId ? buildTenantModerationUserMessage(moderationOutcome, { stage: 'config_save' }) : '',
     risk_evaluation: {
       rules: contentRules,
       ai: aiModeration,
@@ -2308,9 +2481,9 @@ publicConfig.post('/publish-site', async (c) => {
 
   // ── 1. Full publish gate (4 conditions) ──────────────────────────────────
   // checkPublishPermission fetches the tenant row (includes template_id,
-  // published_template_id, site_published_at) and enforces:
-  //   subscription_status=ACTIVE, terms_accepted=1,
-  //   ≥1 electronic gateway enabled, subdomain/custom_domain set.
+  // published_template_id, site_published_at) and enforces showcase publish:
+  //   subscription_status in (TRIAL, ACTIVE), terms_accepted=1,
+  //   subdomain/custom_domain set, trust ladder allows public exposure.
   const guard = await checkPublishPermission(c.env, tenantId);
   if (!guard.ok) {
     return c.json({
@@ -2340,6 +2513,7 @@ publicConfig.post('/publish-site', async (c) => {
   const moderationOutcome = decideTenantModerationOutcome({ ruleAnalysis: abuseAnalysis, aiModeration });
 
   if (moderationOutcome.flagged) {
+    const userFacingModerationMessage = buildTenantModerationUserMessage(moderationOutcome, { stage: 'publish' });
     const reasons = mergeTrustReasons(tenantSite?.trust_reasons_json, moderationOutcome.summaries);
     const caseRecord = await createTenantReviewCase(c.env, {
       tenantId,
@@ -2371,10 +2545,11 @@ publicConfig.post('/publish-site', async (c) => {
     });
 
     return c.json({
-      error: moderationOutcome.reason,
+      error: userFacingModerationMessage,
       code: moderationOutcome.code,
       review_required: true,
       review_case_id: caseRecord.id || null,
+      review_message: userFacingModerationMessage,
       analysis: {
         rules: abuseAnalysis,
         ai: aiModeration,
@@ -2581,87 +2756,10 @@ publicConfig.get('/snippets', async (c) => {
 // Intended as a silent fallback when the full /publish-site gate is blocked
 // (e.g. dev / staging tenants without an active subscription).
 publicConfig.post('/soft-publish', async (c) => {
-  const tenantId = c.req.header('X-Tenant-ID')?.trim();
-  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
-  const actor = await requireTenantActor(c, tenantId);
-  if (actor.error) return actor.error;
-
-  if (!c.env.TOUR_PAGES) {
-    return c.json({ error: 'TOUR_PAGES R2 binding is not configured.' }, 503);
-  }
-
-  // Verify tenant exists.
-  const tenant = await c.env.DB
-    .prepare('SELECT id, template_id FROM tenants WHERE id = ?')
-    .bind(tenantId)
-    .first();
-  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
-
-  const sandboxPrefix = `sandbox/${tenantId}/`;
-  const livePrefix    = `live/${tenantId}/`;
-
-  // List sandbox files.
-  const sandboxFiles = await listAllObjects(c.env.TOUR_PAGES, sandboxPrefix);
-  if (sandboxFiles.length === 0) {
-    return c.json({ error: `Sandbox is empty for tenant "${tenantId}".` }, 422);
-  }
-
-  // Delete old live files (one batch — soft-publish is for small sites).
-  const oldLive = await listAllObjects(c.env.TOUR_PAGES, livePrefix);
-  if (oldLive.length > 0) {
-    const BATCH = 1000;
-    for (let i = 0; i < oldLive.length; i += BATCH) {
-      await c.env.TOUR_PAGES.delete(oldLive.slice(i, i + BATCH).map(o => o.key));
-    }
-  }
-
-  // Copy sandbox → live.
-  let copied   = 0;
-  const errors = [];
-  for (const obj of sandboxFiles) {
-    const relPath = obj.key.slice(sandboxPrefix.length);
-    if (!relPath) continue;
-    try {
-      const srcObj = await c.env.TOUR_PAGES.get(obj.key);
-      if (!srcObj) { errors.push(obj.key); continue; }
-      const contentType = srcObj.httpMetadata?.contentType ?? 'application/octet-stream';
-      await c.env.TOUR_PAGES.put(`${livePrefix}${relPath}`, srcObj.body, {
-        httpMetadata: {
-          contentType,
-          cacheControl: 'public, max-age=300, stale-while-revalidate=60',
-        },
-        customMetadata: {
-          source:       obj.key,
-          published_at: new Date().toISOString(),
-          tenant_id:    tenantId,
-        },
-      });
-      copied++;
-    } catch (_) {
-      errors.push(obj.key);
-    }
-  }
-
-  // Update DB — best-effort, don't fail the response if this errors.
-  const ts = Math.floor(Date.now() / 1000);
-  try {
-    await c.env.DB
-      .prepare('UPDATE tenants SET site_published_at = ? WHERE id = ?')
-      .bind(ts, tenantId)
-      .run();
-  } catch (dbErr) {
-    console.warn(`[SOFT_PUBLISH_DB_WARN] tenant=${tenantId}`, dbErr?.message);
-  }
-
   return c.json({
-    ok:           true,
-    mode:         'soft',
-    tenant_id:    tenantId,
-    published_at: new Date(ts * 1000).toISOString(),
-    files_copied: copied,
-    files_deleted: oldLive.length,
-    ...(errors.length ? { warnings: errors } : {}),
-  });
+    error: 'Soft publish is disabled. Use POST /api/tenant/publish-site, which now supports showcase publishing on platform subdomains without opening commerce.',
+    code: 'SOFT_PUBLISH_DISABLED',
+  }, 410);
 });
 
 // ─── Trust upgrade request ────────────────────────────────────────────────────

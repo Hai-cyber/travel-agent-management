@@ -603,6 +603,16 @@
       paymentButton.disabled = !safePayload.segmentId || !safePayload.travelDate || (safePayload.total == null);
     }
 
+    function syncCommercialUi(settings) {
+      if (!paymentButton) return;
+      const bookingEnabled = settings?.commercial_policy?.public_booking_enabled === true;
+      paymentButton.style.display = bookingEnabled ? '' : 'none';
+      paymentButton.dataset.commercialEnabled = bookingEnabled ? '1' : '0';
+      if (!bookingEnabled) {
+        paymentButton.disabled = true;
+      }
+    }
+
     async function loadPaymentSettings() {
       if (state.paymentSettings) return state.paymentSettings;
       try {
@@ -614,7 +624,17 @@
         }
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || 'Could not load payment settings.');
-        state.paymentSettings = data;
+        const publicResponse = await fetch('/api/tenant/config', {
+          headers: { 'X-Tenant-ID': tenantId, 'Accept-Language': normalizeLang(document.documentElement.lang || navigator.language || 'en') },
+        });
+        const publicData = await publicResponse.json();
+        state.paymentSettings = {
+          ...data,
+          commercial_policy: publicData?.config?.commercial_policy || {
+            public_booking_enabled: false,
+            message: 'This site is showcase-only.',
+          },
+        };
       } catch (error) {
         try {
           const response = await fetch('/api/tenant/config', {
@@ -623,21 +643,20 @@
           const data = await response.json();
           if (!response.ok || !data?.ok) throw new Error(data?.error || 'Could not load public payment settings.');
           const paymentMethods = Array.isArray(data?.config?.payment_methods) ? data.config.payment_methods : [];
-          const hasElectronicGateway = paymentMethods.some((method) => method?.enabled && ['stripe', 'paypal', 'momo', 'zalopay', 'vnpay', 'grabpay', 'credit_card'].includes(String(method.id || '').toLowerCase()));
           state.paymentSettings = {
             ok: true,
             payment_methods: paymentMethods,
+            commercial_policy: data?.config?.commercial_policy || { public_booking_enabled: false, message: 'This site is showcase-only.' },
             compliance: {
-              has_electronic_gateway: hasElectronicGateway,
-              message: hasElectronicGateway
-                ? t('payments.compliance_gateway_active', {}, 'Tenant has at least one active electronic gateway.')
-                : t('payments.compliance_gateway_missing', {}, 'No electronic gateway is enabled yet. Configure API keys to activate one.'),
+              has_electronic_gateway: data?.config?.commercial_policy?.electronic_gateway_configured === true,
+              message: data?.config?.commercial_policy?.message || 'This site is showcase-only.',
             },
           };
         } catch (publicError) {
           state.paymentSettings = {
             ok: false,
             payment_methods: [],
+            commercial_policy: { public_booking_enabled: false, message: 'This site is showcase-only.' },
             compliance: {
               has_electronic_gateway: false,
               message: publicError?.message || error?.message || 'Could not load payment settings.',
@@ -717,11 +736,11 @@
       const quote = state.lastQuote || buildPaymentPayload(null);
       if (!quote.segmentId || !quote.travelDate || quote.total == null) return;
       const settings = await loadPaymentSettings();
+      if (settings?.commercial_policy?.public_booking_enabled !== true) {
+        return;
+      }
       const methods = getVisibleMethods(settings);
-      // Manual payment methods (bank transfer, pay on arrival) always create real orders.
-      // Demo mode only applies when tenant has NO manual methods AND no electronic gateway.
-      const hasManualMethod = methods.some((m) => ['BANK_TRANSFER', 'PAY_ON_ARRIVAL'].includes(String(m.id || '').toUpperCase()));
-      const demoMode = !hasManualMethod && settings?.compliance?.has_electronic_gateway !== true;
+      const demoMode = false;
 
       const overlay = createElement('div', { className: 'tbv-pay-overlay' });
       const panel = createElement('div', { className: 'tbv-pay-panel' });
@@ -768,9 +787,6 @@
       ]);
 
       panel.appendChild(intro);
-      if (demoMode) {
-        panel.appendChild(createElement('div', { className: 'tbv-pay-demo', html: `<strong>${esc(t('public_booking.payment_demo_banner'))}</strong><br>${esc(settings?.compliance?.message || t('public_booking.payment_demo_message'))}` }));
-      }
       panel.appendChild(summaryBox);
       panel.appendChild(grid);
       panel.appendChild(methodsWrap);
@@ -799,40 +815,30 @@
         submitBtn.disabled = true;
         submitBtn.textContent = demoMode ? t('public_booking.payment_submit_loading_demo') : t('public_booking.payment_submit_loading');
         try {
-          let result;
-          if (demoMode) {
-            result = buildDemoResponse(selectedMethod.value, guest);
-            emitEvent('travelagent:public-booking-demo-payment', {
-              ...quote,
+          const response = await fetch('/api/bookings/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+            body: JSON.stringify({
+              tour_id: quote.tourId,
+              travel_date: quote.travelDate,
+              segment_id: quote.segmentId,
               payment_method: selectedMethod.value,
+              pax: quote.pax,
               guest,
-            });
-          } else {
-            const response = await fetch('/api/bookings/order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
-              body: JSON.stringify({
-                tour_id: quote.tourId,
-                travel_date: quote.travelDate,
-                segment_id: quote.segmentId,
-                payment_method: selectedMethod.value,
-                pax: quote.pax,
-                guest,
-                customer_note: String(notesInput.value || '').trim(),
-              }),
-            });
-            result = await response.json();
-            if (!response.ok || !result?.ok) {
-              throw new Error(result?.error || t('public_booking.payment_error_generic'));
-            }
-            emitEvent('travelagent:public-booking-order-created', {
-              ...quote,
-              payment_method: selectedMethod.value,
-              guest,
-              order_id: result.order_id,
-              status: result.status,
-            });
+              customer_note: String(notesInput.value || '').trim(),
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result?.ok) {
+            throw new Error(result?.error || t('public_booking.payment_error_generic'));
           }
+          emitEvent('travelagent:public-booking-order-created', {
+            ...quote,
+            payment_method: selectedMethod.value,
+            guest,
+            order_id: result.order_id,
+            status: result.status,
+          });
           renderPaymentResult(statusBox, result, quote, demoMode);
         } catch (error) {
           statusBox.className = 'tbv-pay-status error';
@@ -1245,6 +1251,7 @@
     }
     validateRooms();
     syncPaymentHook(buildPaymentPayload(null));
+    loadPaymentSettings().then(syncCommercialUi).catch(() => syncCommercialUi(null));
 
     root.openBookingView = openView;
     if (root.getAttribute('data-auto-open') === '1') {

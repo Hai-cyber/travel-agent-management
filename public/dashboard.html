@@ -363,6 +363,103 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 14px;
     }
+    .launch-publish-panel {
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .launch-publish-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .launch-publish-head h4 {
+      margin: 0;
+      font-size: 15px;
+      color: #0f172a;
+    }
+    .launch-publish-copy {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+    }
+    .launch-publish-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .launch-publish-meta {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.6;
+      min-height: 18px;
+    }
+    .launch-publish-meta.is-error {
+      color: #b91c1c;
+    }
+    .review-status-panel {
+      margin-top: 16px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 14px;
+      padding: 16px;
+      display: none;
+      gap: 12px;
+    }
+    .review-status-panel.visible {
+      display: grid;
+    }
+    .review-status-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .review-status-head h4 {
+      margin: 0;
+      font-size: 15px;
+      color: #7c2d12;
+    }
+    .review-status-copy {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #9a3412;
+      line-height: 1.5;
+    }
+    .review-status-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ffedd5;
+      color: #9a3412;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .review-status-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #7c2d12;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .review-status-list li + li {
+      margin-top: 6px;
+    }
+    .button.is-disabled {
+      opacity: .55;
+    }
     .launch-step {
       background: #fff;
       border: 1px solid #e5e7eb;
@@ -580,7 +677,7 @@
             <!-- Compliance Banner -->
             <div class="compliance-banner" id="compliance-banner" style="display:none">
               ⚠️ <strong data-i18n="compliance.warning_title">Warning:</strong>
-              <span data-i18n="compliance.warning_body">No electronic payment gateway configured. Your website is currently offline.</span>
+              <span data-i18n="compliance.warning_body">Platform subdomains are showcase-only. Connect a verified custom domain and configure payment methods to accept bookings.</span>
               <a href="#" data-i18n="compliance.setup_now">Set up now →</a>
             </div>
 
@@ -632,6 +729,36 @@
                 </div>
               </div>
               <div class="launch-steps" id="launch-steps"></div>
+              <div class="launch-publish-panel" id="launch-publish-panel">
+                <div class="launch-publish-head">
+                  <div>
+                    <h4>Publish to Subdomain</h4>
+                    <p class="launch-publish-copy" id="launch-publish-copy">Lock your platform subdomain, then publish your current site so the hosted showcase URL is live for testing.</p>
+                  </div>
+                  <div class="launch-publish-actions">
+                    <a href="#" id="btn-publish-subdomain" class="button small">Publish Now</a>
+                    <a href="#" id="btn-open-live-site" class="button alt small" target="_blank" rel="noopener" style="display:none">Open Public Site</a>
+                  </div>
+                </div>
+                <div class="launch-publish-meta" id="launch-publish-meta"></div>
+              </div>
+              <div class="review-status-panel" id="review-status-panel">
+                <div class="review-status-head">
+                  <div>
+                    <h4>Manual Review Status</h4>
+                    <p class="review-status-copy" id="review-status-copy">Your site is currently under manual review. The latest signals and what to change will appear here.</p>
+                  </div>
+                  <span class="review-status-chip" id="review-status-chip">Under Review</span>
+                </div>
+                <div>
+                  <strong style="display:block; font-size:12px; color:#9a3412; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">Latest signals</strong>
+                  <ul class="review-status-list" id="review-status-signals"></ul>
+                </div>
+                <div>
+                  <strong style="display:block; font-size:12px; color:#9a3412; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">What to change</strong>
+                  <ul class="review-status-list" id="review-status-guidance"></ul>
+                </div>
+              </div>
 
               <!-- Custom Domain -->
               <div class="custom-domain-section" id="custom-domain-section">
@@ -994,18 +1121,7 @@ function initDashboardLanguageSelector() {
   langSelect.dataset.ready = 'true';
 }
 
-/* ── Compliance check ── */
-(async () => {
-  try {
-    const res = await fetch('/api/tenant/config', { headers: { 'x-api-key': 'dev' } });
-    if (!res.ok) return;
-    const { value } = await res.json();
-    const methods  = value?.config?.payment_methods ?? [];
-    const GATEWAYS = ['stripe','paypal','momo','zalopay','vnpay','grabpay'];
-    const ok = methods.some(m => m.enabled && GATEWAYS.includes(m.id));
-    if (!ok) document.getElementById('compliance-banner').style.display = 'flex';
-  } catch (_) { /* API unavailable — static preview mode */ }
-})();
+/* ── Compliance banner is resolved later from tenant settings ── */
 
 document.addEventListener('DOMContentLoaded', () => {
   initDashboardLanguageSelector();
@@ -1096,7 +1212,7 @@ window.addEventListener('dashboard:langchange', () => {
   };
   const tenantId = sessionPayload.session.tenant_id;
   const tenantName = sessionPayload.session.tenant_name || '';
-  const onboardingState = { settings: null, catalogs: null, subdomainPolicy: null, publicConfig: null, universalBundle: null, tours: [] };
+  const onboardingState = { settings: null, catalogs: null, subdomainPolicy: null, publicConfig: null, universalBundle: null, tours: [], publishReadiness: null, reviewStatus: null };
 
   function getSubdomainPolicy() {
     return onboardingState.subdomainPolicy || {};
@@ -1190,6 +1306,78 @@ window.addEventListener('dashboard:langchange', () => {
     const url = new URL(path, window.location.origin);
     url.searchParams.set('tid', tenantId);
     return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  function getDashboardLiveUrl() {
+    const settings = onboardingState.settings || {};
+    const customDomain = String(settings.custom_domain || '').trim();
+    const subdomain = String(settings.subdomain || '').trim();
+    if (customDomain) return `https://${customDomain}`;
+    if (subdomain) return `https://${buildPlatformPreviewHost(subdomain)}`;
+    return '';
+  }
+
+  function buildPublishBlockedMessage() {
+    const readiness = onboardingState.publishReadiness || null;
+    const missing = Array.isArray(readiness?.missing) ? readiness.missing : [];
+    const details = missing
+      .map((key) => readiness?.data?.[key]?.detail)
+      .filter(Boolean);
+    if (details.length) return details.join(' ');
+    return 'Complete the missing launch steps first, then publish again.';
+  }
+
+  function getFirstPublishActionUrl() {
+    const readiness = onboardingState.publishReadiness || null;
+    const missing = Array.isArray(readiness?.missing) ? readiness.missing : [];
+    for (const key of missing) {
+      const actionUrl = String(readiness?.data?.[key]?.action_url || '').trim();
+      if (!actionUrl) continue;
+      if (actionUrl.startsWith('/')) {
+        const target = new URL(actionUrl, window.location.origin);
+        if (!target.searchParams.has('tid') && !actionUrl.startsWith('/dashboard.html')) {
+          target.searchParams.set('tid', tenantId);
+        }
+        return `${target.pathname}${target.search}${target.hash}`;
+      }
+      return actionUrl;
+    }
+    return '';
+  }
+
+  async function acceptTermsForPublishFlow() {
+    const confirmed = window.confirm('To continue publishing, you must accept the platform Terms & Conditions. Accept now and continue?');
+    if (!confirmed) {
+      renderPublishPanel('Publish paused. Accept T&C to continue.', true);
+      return false;
+    }
+
+    const res = await fetch('/api/tenant/accept-terms', {
+      method: 'POST',
+      headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ source: 'dashboard_publish' }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      throw new Error(payload?.error || 'Could not record Terms & Conditions acceptance.');
+    }
+
+    onboardingState.settings = {
+      ...(onboardingState.settings || {}),
+      terms_accepted: 1,
+      terms_accepted_at: payload.terms_accepted_at || Math.floor(Date.now() / 1000),
+      onboarding_step: payload.onboarding_step || onboardingState.settings?.onboarding_step || 'TERMS_ACCEPTED',
+    };
+    await loadLaunchData();
+    const refreshed = await fetchTenantSettings();
+    if (refreshed.payload?.ok) {
+      onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
+      onboardingState.catalogs = refreshed.payload.catalogs || onboardingState.catalogs;
+      onboardingState.subdomainPolicy = refreshed.payload.subdomain_policy || onboardingState.subdomainPolicy;
+    }
+    renderLaunchGuide();
+    renderPublishPanel('Terms accepted. Continuing publish flow...', false);
+    return true;
   }
 
   function formatDashboardStatValue(element) {
@@ -1376,8 +1564,9 @@ window.addEventListener('dashboard:langchange', () => {
     const runtime = universalBundle.tour_runtime || {};
     const pages = Array.isArray(universalBundle.pages) ? universalBundle.pages : [];
     const hasSubdomain = Boolean((settings.subdomain || settings.custom_domain || '').trim());
+    const selectedVariantKey = String(universalBundle.site?.variant_key || '').trim();
     const selectedSkin = String(settings.current_theme || publicConfig.current_theme || universalBundle.site?.current_theme || '').trim();
-    const hasTheme = Boolean(selectedSkin);
+    const hasTheme = Boolean(selectedVariantKey);
     const homePage = findPage(pages, 'home');
     const menuItems = Array.isArray(universalBundle.menu) ? universalBundle.menu : (Array.isArray(universalBundle.menu?.items) ? universalBundle.menu.items : []);
     const hasWebsiteBase = Boolean((publicConfig.template_id || '').trim())
@@ -1436,10 +1625,10 @@ window.addEventListener('dashboard:langchange', () => {
         complete: hasTheme,
         title: i18n.t('dashboard_launch.skin_title'),
         description: hasTheme
-          ? `${i18n.t('dashboard_launch.skin_selected_prefix')} ${selectedSkin}. ${i18n.t('dashboard_launch.skin_selected_suffix')}`
-          : i18n.t('dashboard_launch.skin_empty'),
+          ? `Website skin selected: ${selectedVariantKey}.${selectedSkin ? ` Accent theme: ${selectedSkin}.` : ''}`
+          : 'Choose the active storefront skin in Website Design before refining pages and launch details.',
         href: withTenant('universal-admin.html?panel=system&onboarding=skin'),
-        label: hasTheme ? i18n.t('dashboard_launch.skin_refine') : i18n.t('dashboard_launch.skin_choose'),
+        label: hasTheme ? 'Refine skin' : 'Choose skin',
       },
       {
         key: 'website',
@@ -1545,13 +1734,113 @@ window.addEventListener('dashboard:langchange', () => {
 
     document.getElementById('launch-steps').innerHTML = steps.join('');
     applyLaunchFocus();
+    renderPublishPanel();
+    renderReviewStatusPanel();
+  }
+
+  function renderReviewStatusPanel() {
+    const panel = document.getElementById('review-status-panel');
+    const copyEl = document.getElementById('review-status-copy');
+    const chipEl = document.getElementById('review-status-chip');
+    const signalsEl = document.getElementById('review-status-signals');
+    const guidanceEl = document.getElementById('review-status-guidance');
+    const reviewStatus = onboardingState.reviewStatus || null;
+    const cases = Array.isArray(reviewStatus?.review_cases) ? reviewStatus.review_cases : [];
+    const activeCase = cases.find((entry) => entry.status === 'OPEN') || cases[0] || null;
+    const feedback = activeCase?.feedback || {};
+    const summaries = Array.isArray(feedback?.summaries) ? feedback.summaries.filter(Boolean).slice(0, 4) : [];
+    const guidance = Array.isArray(feedback?.guidance) ? feedback.guidance.filter(Boolean).slice(0, 6) : [];
+
+    if (!panel || !copyEl || !chipEl || !signalsEl || !guidanceEl) return;
+    if (!reviewStatus?.has_open_review || !activeCase) {
+      panel.classList.remove('visible');
+      return;
+    }
+
+    panel.classList.add('visible');
+    chipEl.textContent = activeCase.severity === 'block' ? 'Publish Paused' : 'Under Review';
+    copyEl.textContent = activeCase.summary || 'Your site is currently under manual review. The latest signals and what to change will appear here.';
+    signalsEl.innerHTML = summaries.length
+      ? summaries.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')
+      : '<li>Manual review is active, but no compact summary is available yet.</li>';
+    guidanceEl.innerHTML = guidance.length
+      ? guidance.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')
+      : '<li>Review the public copy, images, outbound links, and branding so the site reads like a normal travel storefront.</li>';
+  }
+
+  function renderPublishPanel(messageOverride = '', isError = false) {
+    const settings = onboardingState.settings || {};
+    const readiness = onboardingState.publishReadiness || null;
+    const publishBtn = document.getElementById('btn-publish-subdomain');
+    const openBtn = document.getElementById('btn-open-live-site');
+    const copyEl = document.getElementById('launch-publish-copy');
+    const metaEl = document.getElementById('launch-publish-meta');
+    const customDomain = String(settings.custom_domain || '').trim();
+    const liveUrl = getDashboardLiveUrl();
+    const publishedAt = Number(settings.site_published_at || 0);
+    const published = Number.isFinite(publishedAt) && publishedAt > 0;
+    const ready = readiness?.ready_to_publish === true;
+    const hasSubdomain = Boolean(String(settings.subdomain || '').trim());
+    const missing = Array.isArray(readiness?.missing) ? readiness.missing : [];
+    const missingDetails = missing
+      .map((key) => readiness?.data?.[key]?.detail)
+      .filter(Boolean)
+      .slice(0, 3);
+
+    if (copyEl) {
+      copyEl.textContent = published
+        ? 'Your hosted showcase is published. Re-publish any time after content updates to refresh the live platform URL.'
+        : 'Lock your platform subdomain, then publish your current site so the hosted showcase URL is live for testing.';
+    }
+
+    if (publishBtn) {
+      publishBtn.classList.toggle('is-disabled', !ready);
+      publishBtn.textContent = published ? 'Re-publish' : 'Publish Now';
+      publishBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+    }
+
+    if (openBtn) {
+      if (liveUrl && (published || hasSubdomain)) {
+        openBtn.style.display = '';
+        openBtn.href = liveUrl;
+        openBtn.textContent = customDomain ? 'Open Live Site' : 'Open Subdomain';
+      } else {
+        openBtn.style.display = 'none';
+        openBtn.removeAttribute('href');
+      }
+    }
+
+    if (!metaEl) return;
+    metaEl.classList.toggle('is-error', isError);
+    if (messageOverride) {
+      metaEl.textContent = messageOverride;
+      return;
+    }
+    if (published && liveUrl) {
+      const publishedDate = new Date(publishedAt * 1000).toLocaleString();
+      metaEl.textContent = `Published to ${liveUrl} on ${publishedDate}. Platform subdomains stay showcase-only until commerce is activated on a verified custom domain.`;
+      return;
+    }
+    if (!hasSubdomain) {
+      metaEl.textContent = 'First lock a platform subdomain above. That creates the hosted URL you can publish to.';
+      return;
+    }
+    if (!ready) {
+      metaEl.textContent = missingDetails.length
+        ? missingDetails.join(' ')
+        : 'Complete the required launch steps above before publishing to your platform subdomain.';
+      return;
+    }
+    metaEl.textContent = `Ready to publish to https://${buildPlatformPreviewHost(settings.subdomain)}.`;
   }
 
   async function loadLaunchData() {
-    const [publicConfigResult, universalBundleResult, toursResult] = await Promise.allSettled([
+    const [publicConfigResult, universalBundleResult, toursResult, publishReadinessResult, reviewStatusResult] = await Promise.allSettled([
       fetch('/api/tenant/config', { headers: buildTenantHeaders() }),
       fetch('/api/universal/site/config', { headers: buildTenantHeaders() }),
       fetch('/api/tours', { headers: buildTenantHeaders() }),
+      fetch('/api/tenant/publish-readiness', { headers: buildTenantHeaders() }),
+      fetch('/api/tenants/review-status', { headers: buildTenantHeaders() }),
     ]);
 
     if (publicConfigResult.status === 'fulfilled') {
@@ -1568,6 +1857,16 @@ window.addEventListener('dashboard:langchange', () => {
       const payload = await toursResult.value.json().catch(() => null);
       if (toursResult.value.ok && payload?.ok && Array.isArray(payload.tours)) onboardingState.tours = payload.tours;
     }
+
+    if (publishReadinessResult.status === 'fulfilled') {
+      const payload = await publishReadinessResult.value.json().catch(() => null);
+      if (publishReadinessResult.value.ok && payload) onboardingState.publishReadiness = payload;
+    }
+
+    if (reviewStatusResult.status === 'fulfilled') {
+      const payload = await reviewStatusResult.value.json().catch(() => null);
+      if (reviewStatusResult.value.ok && payload?.ok) onboardingState.reviewStatus = payload;
+    }
   }
 
   async function fetchTenantSettings() {
@@ -1579,6 +1878,7 @@ window.addEventListener('dashboard:langchange', () => {
   const subdomainInput = document.getElementById('subdomain-input');
   const suggestSubdomain = document.getElementById('btn-suggest-subdomain');
   const saveSubdomain = document.getElementById('btn-save-subdomain');
+  const publishSubdomain = document.getElementById('btn-publish-subdomain');
   const marketSkinSelect = document.getElementById('market-skin-select');
   const saveMarketSkin = document.getElementById('btn-save-market-skin');
   if (suggestSubdomain) {
@@ -1625,6 +1925,7 @@ window.addEventListener('dashboard:langchange', () => {
         if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not lock subdomain.');
         onboardingState.settings = { ...(onboardingState.settings || {}), ...(payload.settings || {}) };
         onboardingState.subdomainPolicy = payload.subdomain_policy || onboardingState.subdomainPolicy;
+        await loadLaunchData();
         subdomainInput.value = payload.settings?.subdomain || normalized;
         updateSubdomainHint(`Locked. Reserved preview: ${buildPlatformPreviewHost(payload.settings?.subdomain || normalized)}. This choice cannot be changed later.`, false);
         updateSubdomainPreview(payload.settings?.subdomain || normalized);
@@ -1633,6 +1934,87 @@ window.addEventListener('dashboard:langchange', () => {
         updateSubdomainHint(error.message || 'Could not lock subdomain.', true);
       } finally {
         syncSubdomainLockUi();
+      }
+    });
+  }
+  if (publishSubdomain) {
+    publishSubdomain.addEventListener('click', async (event) => {
+      event.preventDefault();
+      if (publishSubdomain.classList.contains('is-disabled')) {
+        const missing = Array.isArray(onboardingState.publishReadiness?.missing) ? onboardingState.publishReadiness.missing : [];
+        if (missing.includes('TERMS')) {
+          try {
+            const accepted = await acceptTermsForPublishFlow();
+            if (!accepted) return;
+          } catch (error) {
+            renderPublishPanel(error.message || 'Could not record Terms & Conditions acceptance.', true);
+            return;
+          }
+        }
+        if (publishSubdomain.classList.contains('is-disabled')) {
+          renderPublishPanel(buildPublishBlockedMessage(), true);
+          const actionUrl = getFirstPublishActionUrl();
+          if (actionUrl) {
+            window.location.href = actionUrl;
+            return;
+          }
+        }
+        document.getElementById('launch-guide')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (publishSubdomain.classList.contains('is-disabled')) return;
+      }
+
+      publishSubdomain.textContent = 'Publishing...';
+      publishSubdomain.classList.add('is-disabled');
+      try {
+        const res = await fetch('/api/tenant/publish-site', {
+          method: 'POST',
+          headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({}),
+        });
+        const payload = await res.json().catch(() => null);
+        if (res.status === 403 && (payload?.code === 'TERMS_NOT_ACCEPTED' || Array.isArray(payload?.blocks) && payload.blocks.includes('TERMS_NOT_ACCEPTED'))) {
+          const accepted = await acceptTermsForPublishFlow();
+          if (!accepted) return;
+          const retryRes = await fetch('/api/tenant/publish-site', {
+            method: 'POST',
+            headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({}),
+          });
+          const retryPayload = await retryRes.json().catch(() => null);
+          if (!retryRes.ok || !retryPayload?.ok) {
+            throw new Error(retryPayload?.error || 'Could not publish site.');
+          }
+          await loadLaunchData();
+          const refreshed = await fetchTenantSettings();
+          if (refreshed.payload?.ok) {
+            onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
+            onboardingState.catalogs = refreshed.payload.catalogs || onboardingState.catalogs;
+            onboardingState.subdomainPolicy = refreshed.payload.subdomain_policy || onboardingState.subdomainPolicy;
+          }
+          renderLaunchGuide();
+          renderPublishPanel(`Published successfully. Live URL: ${getDashboardLiveUrl() || `https://${buildPlatformPreviewHost(onboardingState.settings?.subdomain || '')}`}`, false);
+          return;
+        }
+        if (!res.ok || !payload?.ok) {
+          throw new Error(payload?.error || 'Could not publish site.');
+        }
+        await loadLaunchData();
+        const refreshed = await fetchTenantSettings();
+        if (refreshed.payload?.ok) {
+          onboardingState.settings = refreshed.payload.settings || onboardingState.settings;
+          onboardingState.catalogs = refreshed.payload.catalogs || onboardingState.catalogs;
+          onboardingState.subdomainPolicy = refreshed.payload.subdomain_policy || onboardingState.subdomainPolicy;
+        }
+        renderLaunchGuide();
+        renderPublishPanel(`Published successfully. Live URL: ${getDashboardLiveUrl() || `https://${buildPlatformPreviewHost(onboardingState.settings?.subdomain || '')}`}`, false);
+      } catch (error) {
+        await loadLaunchData();
+        renderLaunchGuide();
+        renderPublishPanel(error.message || 'Could not publish site.', true);
+      } finally {
+        if (!publishSubdomain.classList.contains('is-disabled')) return;
+        publishSubdomain.classList.remove('is-disabled');
+        renderPublishPanel();
       }
     });
   }

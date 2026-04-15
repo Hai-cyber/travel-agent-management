@@ -1,3 +1,35 @@
+## Latest Handoff
+Date: 2026-04-14
+Checkpoint: CHK-R64 — Showcase-only platform subdomains + commercial activation backbone
+
+### What was completed
+
+- Product/legal direction was locked more tightly: platform subdomains are no longer treated as “lite commerce” surfaces; they are showcase-only by policy
+- Runtime direction updated so showcase publish and commercial activation are separate concepts:
+  - showcase publish: subdomain or custom domain configured, trust allows publish, terms accepted, tenant standing allows public content
+  - commercial activation: verified custom domain, trusted tenant, active subscription, terms accepted, and at least one enabled payment method
+- `soft-publish` fallback is being removed from the editor flow because it undermines the publish gate and the new legal policy
+- Public booking/order creation is being redefined as custom-domain-only commerce rather than a generic tenant capability
+- Docs were updated to reflect the policy consistently across product brief, architecture, API, subdomain policy, and AI runtime notes
+
+### What is still not done
+
+- Final pass on storefront CTA rendering to ensure all public platform surfaces replace booking intent with showcase/contact intent where needed
+- Final pass on dashboard messaging so every launch/compliance hint describes “showcase vs commercial activation” rather than “gateway missing = site offline"
+- Dedicated tenant/customer legal copy pages still need to be authored; this session locks the policy and runtime direction, not the finished legal prose
+
+### Known risks / TODOs
+
+- Any remaining public surface that still renders `Book Now`, `Check availability`, or demo checkout on a platform-owned host will create policy drift even if `/api/bookings/order` is blocked
+- `/p/:tenantId/:slug` public paths should be treated the same as platform subdomains for legal purposes: showcase-only, no commerce
+- Terms/disclaimer enforcement still needs a deliberate UI/legal-page rollout so the policy is visible to both tenants and end customers
+
+### Suggested next prompt
+"Finish CHK-R64: audit remaining public CTAs and booking widgets so no platform-owned surface exposes booking/payment intent, then add dedicated tenant terms + end-customer disclaimer pages for showcase-only subdomains."
+
+---
+
+## Previous Handoff
 # Session Handoff Log
 
 Purpose: end each session with a tiny handoff that reflects the **current rescue rebuild reality**, not the old system.

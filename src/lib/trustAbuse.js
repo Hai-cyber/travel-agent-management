@@ -98,6 +98,19 @@ function summarizeSignals(signals) {
   return dedupe(signals.map((signal) => signal.summary)).slice(0, 4);
 }
 
+const TENANT_REVIEW_GUIDANCE_MAP = Object.freeze({
+  credential_form: 'Remove any password/login/credential fields from public pages.',
+  credential_theft_copy: 'Avoid copy such as "verify account", "confirm password", or similar security-verification prompts on public pages.',
+  adult_content: 'Remove explicit adult wording or media from public pages.',
+  gambling_terms: 'Remove gambling, betting, casino, poker, or sportsbook wording unless explicitly approved by platform policy.',
+  pharma_terms: 'Remove pharma affiliate wording such as Viagra/Cialis/pharmacy deal claims.',
+  finance_bait_terms: 'Remove crypto giveaway, forex signal, instant loan, payday loan, or similar finance-bait wording.',
+  excessive_external_links: 'Reduce outbound links and keep public navigation focused on your own travel site and normal contact channels.',
+  phishing: 'Avoid public content that looks like account verification, secure login, wallet verification, or credential capture.',
+  impersonation: 'Make sure branding clearly matches your own travel business and does not imitate other brands or services.',
+  seo_spam: 'Remove keyword stuffing, repetitive sales bait, and link-heavy SEO pages that do not look like a normal travel storefront.',
+});
+
 function extractAbsoluteLinks(value) {
   const links = [];
   const regex = /(?:href|src)\s*=\s*["'](https?:\/\/[^"']+)["']/gi;
@@ -342,5 +355,62 @@ export function decideTenantModerationOutcome({ ruleAnalysis = null, aiModeratio
     reason,
     summaries,
     risk_score: aiEnabled ? aiRiskScore : blocked ? 90 : 65,
+  };
+}
+
+export function buildTenantModerationUserMessage(outcome = {}, options = {}) {
+  const stage = String(options.stage || 'publish').trim().toLowerCase();
+  const blocked = outcome?.blocked === true;
+  const reviewRequired = outcome?.review_required === true || (!blocked && outcome?.flagged === true);
+
+  if (stage === 'config_save') {
+    if (blocked) {
+      return 'Your latest site changes were saved, but public exposure is temporarily paused while our team reviews the content.';
+    }
+    if (reviewRequired) {
+      return 'Your latest site changes were saved and queued for manual review before public publishing continues.';
+    }
+    return 'Your latest site changes were saved.';
+  }
+
+  if (blocked) {
+    return 'Public publishing is temporarily paused while our team reviews this tenant.';
+  }
+  if (reviewRequired) {
+    return 'Public publishing requires a manual review before it can continue.';
+  }
+  return 'No moderation issues detected.';
+}
+
+export function buildTenantSafeReviewFeedback(evidence = {}, options = {}) {
+  const rulesSignals = Array.isArray(evidence?.rules?.signals) ? evidence.rules.signals : [];
+  const aiCategories = Array.isArray(evidence?.ai?.categories) ? evidence.ai.categories : [];
+  const aiReasons = Array.isArray(evidence?.ai?.reasons) ? evidence.ai.reasons : [];
+  const summaries = dedupe([
+    ...rulesSignals.map((signal) => String(signal?.summary || '').trim()),
+    ...aiReasons.map((reason) => String(reason || '').trim()),
+    String(evidence?.outcome?.reason || '').trim(),
+  ]).filter(Boolean).slice(0, 6);
+
+  const signals = dedupe([
+    ...rulesSignals.map((signal) => `${String(signal?.key || '').trim()}|${String(signal?.severity || '').trim()}|${String(signal?.summary || '').trim()}`),
+    ...aiCategories.map((category) => `${String(category?.key || '').trim()}|ai|${String(category?.score ?? '').trim()}`),
+  ]).map((entry) => {
+    const [key, severity, detail] = entry.split('|');
+    return { key, severity, detail };
+  }).filter((entry) => entry.key);
+
+  const guidance = dedupe([
+    ...rulesSignals.map((signal) => TENANT_REVIEW_GUIDANCE_MAP[String(signal?.key || '').trim()] || ''),
+    ...aiCategories.map((category) => TENANT_REVIEW_GUIDANCE_MAP[String(category?.key || '').trim()] || ''),
+    ...(summaries.length ? [] : ['Review the public copy, outbound links, forms, and brand language to ensure the site reads like a normal travel storefront.']),
+  ]).filter(Boolean).slice(0, 6);
+
+  return {
+    stage: String(options.stage || evidence?.outcome?.code || '').trim() || null,
+    risk_score: Number(evidence?.outcome?.risk_score || evidence?.ai?.risk_score || 0),
+    summaries,
+    signals,
+    guidance,
   };
 }

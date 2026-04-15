@@ -1,4 +1,5 @@
 import { spawnSync, spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import crypto from 'node:crypto';
 import { buildTenantModerationPayload, moderateTenantContent } from '../src/lib/aiModeration.js';
@@ -138,6 +139,8 @@ function ensureTenantFixtures() {
   runD1Json(
     `UPDATE tenants
         SET subscription_status = 'ACTIVE',
+            terms_accepted = 1,
+            terms_accepted_at = ${Math.floor(Date.now() / 1000)},
             subdomain = NULL,
             custom_domain = NULL,
             custom_domain_verified_at = NULL,
@@ -429,6 +432,17 @@ function getPrimaryUserEmail() {
   return email;
 }
 
+function getLocalAdminSecret() {
+  try {
+    const raw = readFileSync('.dev.vars', 'utf8');
+    const match = raw.match(/^ADMIN_SECRET=(.+)$/m);
+    if (match?.[1]) return match[1].trim();
+  } catch {
+    // fall through
+  }
+  throw new Error('ADMIN_SECRET was not found in .dev.vars for local smoke.');
+}
+
 async function requestJson(url, options = {}) {
   let response;
   let lastError = null;
@@ -560,14 +574,122 @@ async function runTaskSmoke(baseUrl, token) {
   pass('Verified patched task status persisted');
 }
 
-async function runBookingSmoke(baseUrl) {
+async function runBookingSmoke(baseUrl, token, adminSecret) {
   info('Running booking confirm smoke flow');
 
-  const order = await requestJson(`${baseUrl}/api/bookings/order`, {
+  const showcaseBlocked = await requestJson(`${baseUrl}/api/bookings/order?__local_host=${encodeURIComponent('sunset-smoke-lagoon.tours-market.com')}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Tenant-ID': TENANT_ID,
+      'X-Local-Smoke-Secret': adminSecret,
+    },
+    body: JSON.stringify({
+      tour_id: 'tour-001',
+      travel_date: '2026-07-10',
+      segment_id: 'segment-standard',
+      pax: {
+        adult_shared_room_count: 2,
+        adult_count: 2,
+      },
+      guest: {
+        name: 'Blocked Showcase User',
+        email: `blocked.showcase.${Date.now()}@example.com`,
+      },
+    }),
+  });
+
+  if (showcaseBlocked.response.status !== 403 || showcaseBlocked.body?.code !== 'COMMERCIAL_ACTIVATION_REQUIRED') {
+    fail(`Booking smoke expected platform-subdomain commerce to be blocked, received ${showcaseBlocked.response.status}: ${showcaseBlocked.text}`);
+    return;
+  }
+  pass('Blocked booking creation on showcase-only platform subdomain');
+
+  const trustUpgrade = await requestJson(`${baseUrl}/api/admin/tenants/${encodeURIComponent(TENANT_ID)}/trust`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Secret': adminSecret,
+    },
+    body: JSON.stringify({
+      trust_status: 'TRUSTED',
+      public_indexing_enabled: true,
+      reviewed_by: 'smoke:admin',
+      resolution_note: 'Local smoke trusted promotion for custom-domain commerce path.',
+    }),
+  });
+
+  if (!trustUpgrade.response.ok || trustUpgrade.body?.trust_state?.status !== 'TRUSTED') {
+    fail(`Booking smoke trust upgrade failed: ${trustUpgrade.text}`);
+    return;
+  }
+  pass('Promoted smoke tenant to TRUSTED through the live admin route');
+
+  const customDomain = 'travel-smoke.example.com';
+  const bindDomain = await requestJson(`${baseUrl}/api/tenants/settings`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+    },
+    body: JSON.stringify({ custom_domain: customDomain }),
+  });
+
+  if (!bindDomain.response.ok || bindDomain.body?.settings?.custom_domain !== customDomain) {
+    fail(`Booking smoke custom-domain bind failed: ${bindDomain.text}`);
+    return;
+  }
+  pass('Bound custom domain after trust promotion');
+
+  const verifyDomain = await requestJson(`${baseUrl}/api/admin/tenants/${encodeURIComponent(TENANT_ID)}/trust`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Secret': adminSecret,
+    },
+    body: JSON.stringify({
+      trust_status: 'TRUSTED',
+      public_indexing_enabled: true,
+      verify_current_domain: true,
+      reviewed_by: 'smoke:admin',
+      resolution_note: 'Local smoke custom-domain verification for commerce path.',
+    }),
+  });
+
+  if (!verifyDomain.response.ok || !verifyDomain.body?.tenant?.custom_domain_verified_at) {
+    fail(`Booking smoke custom-domain verification failed: ${verifyDomain.text}`);
+    return;
+  }
+  pass('Verified current custom domain through the live admin route');
+
+  const paymentConfig = await requestJson(`${baseUrl}/api/payments/settings`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+    },
+    body: JSON.stringify({
+      methods: [
+        { id: 'BANK_TRANSFER', enabled: true },
+        { id: 'STRIPE', enabled: true },
+      ],
+    }),
+  });
+
+  if (!paymentConfig.response.ok || !Array.isArray(paymentConfig.body?.payment_methods) || !paymentConfig.body.payment_methods.some((entry) => entry.id === 'BANK_TRANSFER' && entry.enabled === true)) {
+    fail(`Booking smoke payment configuration failed: ${paymentConfig.text}`);
+    return;
+  }
+  pass('Confirmed payment methods are enabled through the live payment settings route');
+
+  const order = await requestJson(`${baseUrl}/api/bookings/order?__local_host=${encodeURIComponent(customDomain)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+      'X-Local-Smoke-Secret': adminSecret,
     },
     body: JSON.stringify({
       tour_id: 'tour-001',
@@ -595,10 +717,11 @@ async function runBookingSmoke(baseUrl) {
   const proofForm = new FormData();
   proofForm.set('proof', new Blob(['SMOKE_PROOF'], { type: 'image/jpeg' }), 'proof.jpg');
 
-  const proof = await requestJson(`${baseUrl}/api/bookings/order/${orderId}/proof`, {
+  const proof = await requestJson(`${baseUrl}/api/bookings/order/${orderId}/proof?__local_host=${encodeURIComponent(customDomain)}`, {
     method: 'POST',
     headers: {
       'X-Tenant-ID': TENANT_ID,
+      'X-Local-Smoke-Secret': adminSecret,
     },
     body: proofForm,
   });
@@ -609,10 +732,11 @@ async function runBookingSmoke(baseUrl) {
   }
   pass('Uploaded booking proof and reached PROOF_UPLOADED');
 
-  const confirm = await requestJson(`${baseUrl}/api/bookings/order/${orderId}/confirm-receipt`, {
+  const confirm = await requestJson(`${baseUrl}/api/bookings/order/${orderId}/confirm-receipt?__local_host=${encodeURIComponent(customDomain)}`, {
     method: 'POST',
     headers: {
       'X-Tenant-ID': TENANT_ID,
+      'X-Local-Smoke-Secret': adminSecret,
     },
   });
 
@@ -750,6 +874,7 @@ async function runPricingSmoke(baseUrl, token) {
 async function runPasswordResetSmoke(baseUrl, token) {
   info('Running password reset smoke flow');
   const email = getPrimaryUserEmail();
+  runD1Json(`DELETE FROM auth_action_attempts WHERE action = 'forgot_password' AND email = '${email.replaceAll("'", "''")}';`);
 
   const request = await requestJson(`${baseUrl}/api/auth/forgot-password`, {
     method: 'POST',
@@ -827,11 +952,12 @@ async function main() {
     await runAiModerationFallbackSmoke();
 
     const token = mintBearerToken();
+    const adminSecret = getLocalAdminSecret();
     await runSubdomainPolicySmoke(baseUrl, token);
     await runAssetModerationSmoke(baseUrl, token);
     await runTaskSmoke(baseUrl, token);
     await runPricingSmoke(baseUrl, token);
-    await runBookingSmoke(baseUrl);
+    await runBookingSmoke(baseUrl, token, adminSecret);
     await runPasswordResetSmoke(baseUrl, token);
   } finally {
     if (server) {

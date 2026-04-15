@@ -6,6 +6,7 @@ import { calculateTourPrice } from './pricing.js';
 import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { notifyAgent } from '../lib/notifications.js';
 import { isInstantProvider, ALL_PROVIDERS, checkTenantCompliance } from './payments.js';
+import { buildTenantCommercialPolicy, parseTenantPaymentMethods } from '../lib/publishGuard.js';
 import {
   dispatchBookingCreatedEmail,
   dispatchNewBookingAgentEmail,
@@ -265,15 +266,38 @@ bookings.post('/order', async (c) => {
 
   // [LEGAL FIREWALL] Only live (ACTIVE) tenants may accept bookings.
   const tenantRow = await c.env.DB
-    .prepare('SELECT subscription_status, payment_methods FROM tenants WHERE id = ?')
+    .prepare('SELECT subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenantRow) return c.json({ error: 'Tenant not found.' }, 404);
-  if (tenantRow.subscription_status !== 'ACTIVE') {
+  const rawHost = String(c.req.header('host') || '').split(':')[0].trim().toLowerCase();
+  let localOverrideHost = '';
+  try {
+    localOverrideHost = String(new URL(c.req.url).searchParams.get('__local_host') || c.req.header('x-local-host-override') || '').split(':')[0].trim().toLowerCase();
+  } catch {
+    localOverrideHost = String(c.req.header('x-local-host-override') || '').split(':')[0].trim().toLowerCase();
+  }
+  const localSmokeSecret = String(c.req.header('x-local-smoke-secret') || '').trim();
+  const allowLocalOverride = Boolean(c.env.ADMIN_SECRET) && localSmokeSecret !== '' && localSmokeSecret === c.env.ADMIN_SECRET;
+  const requestHost = allowLocalOverride && localOverrideHost ? localOverrideHost : rawHost;
+  const customDomain = String(tenantRow.custom_domain || '').trim().toLowerCase();
+  const subdomain = String(tenantRow.subdomain || '').trim().toLowerCase();
+  const requestHostType = customDomain && requestHost === customDomain
+    ? 'custom_domain'
+    : (subdomain && requestHost.split('.')[0] === subdomain ? 'platform_subdomain' : 'unknown');
+  const tenantPolicy = buildTenantCommercialPolicy(tenantRow, {
+    paymentMethods: parseTenantPaymentMethods(tenantRow.payment_methods),
+    hostType: requestHostType,
+  });
+  const localCommercialPreview = allowLocalOverride
+    && tenantPolicy.commercial_activation_enabled
+    && Boolean(localOverrideHost)
+    && localOverrideHost === customDomain;
+  if (!tenantPolicy.public_booking_enabled && !localCommercialPreview) {
     return c.json({
-      error:       'Booking is only available to tenants with an active subscription. This tour is in preview mode.',
-      code:        'SUBSCRIPTION_INACTIVE',
-      upgrade_url: '/billing/upgrade',
+      error: tenantPolicy.message,
+      code: 'COMMERCIAL_ACTIVATION_REQUIRED',
+      upgrade_url: '/dashboard.html#domain',
     }, 403);
   }
 

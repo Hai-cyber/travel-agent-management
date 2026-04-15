@@ -406,6 +406,12 @@ export async function sendTelegramModerationAlert(env, details = {}) {
   const token = String(env?.TELEGRAM_BOT_TOKEN || '').trim();
   const chatId = String(env?.TELEGRAM_CHAT_ID || '').trim();
   if (!token || !chatId) {
+    console.warn('[TELEGRAM_ALERT_SKIPPED] Telegram credentials are not configured.', {
+      has_token: Boolean(token),
+      has_chat_id: Boolean(chatId),
+      tenant_id: details.tenantId || null,
+      stage: details.stage || 'publish',
+    });
     return { ok: false, skipped: true, reason: 'Telegram credentials are not configured.' };
   }
 
@@ -436,11 +442,22 @@ export async function sendTelegramModerationAlert(env, details = {}) {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.warn('[TELEGRAM_ALERT_FAILED]', {
+        tenant_id: details.tenantId || null,
+        stage: details.stage || 'publish',
+        status: response.status,
+        error: errorText,
+      });
       return { ok: false, skipped: false, reason: `Telegram alert failed with status ${response.status}`, error: errorText };
     }
 
     return { ok: true, skipped: false };
   } catch (error) {
+    console.warn('[TELEGRAM_ALERT_ERROR]', {
+      tenant_id: details.tenantId || null,
+      stage: details.stage || 'publish',
+      error: error.message,
+    });
     return { ok: false, skipped: false, reason: error.message };
   }
 }

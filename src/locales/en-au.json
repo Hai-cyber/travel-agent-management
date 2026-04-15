@@ -60,7 +60,7 @@
     },
     "compliance": {
       "warning_title": "Warning:",
-      "warning_body": "No electronic payment gateway configured. Your website is currently offline.",
+      "warning_body": "Platform subdomains are showcase-only. Connect a verified custom domain and configure payment methods to accept bookings.",
       "setup_now": "Set up now ->"
     },
     "action": {

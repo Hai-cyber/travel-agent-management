@@ -1818,18 +1818,8 @@ textarea.inp { resize: vertical; min-height: 55px; line-height: 1.5; }
         return;
       }
 
-      // Full publish blocked — fall through to soft-publish
-      var softRes = await fetch(API + '/api/tenant/soft-publish', {
-        method: 'POST', headers: hdr(), body: JSON.stringify({})
-      });
-
-      if (softRes.ok) {
-        var data = await softRes.json();
-        showToast('Soft-published ✓ (' + data.files_copied + ' files)', 'ok');
-      } else {
-        var errText = await softRes.text();
-        showToast('Publish failed: ' + errText.slice(0, 120), 'err');
-      }
+      var errText = await res.text();
+      showToast('Publish failed: ' + errText.slice(0, 160), 'err');
     } catch (err) {
       showToast('Publish error: ' + err.message, 'err');
     } finally {

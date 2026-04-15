@@ -1,5 +1,5 @@
 // src/lib/publishGuard.js
-// Subscription + payment config guard for the headless publishing pipeline.
+// Showcase-publish + commercial-activation policy helpers.
 
 import { buildTenantTrustPolicy } from './trustAbuse.js';
 //
@@ -7,20 +7,109 @@ import { buildTenantTrustPolicy } from './trustAbuse.js';
 //   const guard = await checkPublishPermission(env, tenantId);
 //   if (!guard.ok) return c.json({ error: guard.error, code: guard.code, checklist: guard.checklist }, 403);
 
-// Electronic gateways — BANK_TRANSFER and manual methods are excluded.
-// A tenant must have at least ONE of these enabled to publish.
-const ELECTRONIC_GATEWAY_IDS = new Set([
+export const ELECTRONIC_GATEWAY_IDS = new Set([
   'STRIPE', 'MOMO', 'VNPAY', 'ZALOPAY', 'CREDIT_CARD', 'PAYPAL', 'GRABPAY',
 ]);
 
+export const MANUAL_PAYMENT_METHOD_IDS = new Set([
+  'BANK_TRANSFER', 'CASH_AT_OFFICE', 'PAY_ON_ARRIVAL',
+]);
+
+export function parseTenantPaymentMethods(rawValue) {
+  try {
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function hasEnabledElectronicGateway(methods = []) {
+  return Array.isArray(methods) && methods.some(
+    (method) => method?.enabled === true && ELECTRONIC_GATEWAY_IDS.has(String(method.id || '').toUpperCase())
+  );
+}
+
+export function hasEnabledPaymentMethod(methods = []) {
+  return Array.isArray(methods) && methods.some(
+    (method) => method?.enabled === true
+      && (
+        ELECTRONIC_GATEWAY_IDS.has(String(method.id || '').toUpperCase())
+        || MANUAL_PAYMENT_METHOD_IDS.has(String(method.id || '').toUpperCase())
+      )
+  );
+}
+
+function normalizeHostType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['custom_domain', 'platform_subdomain', 'platform_path', 'admin_preview'].includes(normalized)) {
+    return normalized;
+  }
+  return 'unknown';
+}
+
+export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
+  const paymentMethods = Array.isArray(options.paymentMethods)
+    ? options.paymentMethods
+    : parseTenantPaymentMethods(tenant.payment_methods);
+  const trustPolicy = buildTenantTrustPolicy(tenant);
+  const subscriptionStatus = String(tenant.subscription_status || '').trim().toUpperCase();
+  const hasSubdomain = Boolean(String(tenant.subdomain || '').trim());
+  const hasCustomDomain = Boolean(String(tenant.custom_domain || '').trim());
+  const hostType = normalizeHostType(options.hostType);
+  const termsAccepted = tenant.terms_accepted === 1 || tenant.terms_accepted === true;
+  const customDomainVerified = Number(tenant.custom_domain_verified_at || 0) > 0;
+  const showcaseSubscriptionEnabled = subscriptionStatus === 'TRIAL' || subscriptionStatus === 'ACTIVE';
+  const commercialSubscriptionEnabled = subscriptionStatus === 'ACTIVE';
+  const paymentConfigured = hasEnabledPaymentMethod(paymentMethods);
+  const electronicGatewayConfigured = hasEnabledElectronicGateway(paymentMethods);
+  const domainConfigured = hasSubdomain || hasCustomDomain;
+  const showcasePublishEnabled = showcaseSubscriptionEnabled && termsAccepted && domainConfigured && trustPolicy.allow_publish;
+  const commercialActivationEnabled = commercialSubscriptionEnabled
+    && termsAccepted
+    && trustPolicy.can_bind_custom_domain
+    && hasCustomDomain
+    && customDomainVerified
+    && paymentConfigured;
+  const publicBookingEnabled = commercialActivationEnabled && hostType === 'custom_domain';
+
+  let message = 'This tenant is not ready for public publishing yet.';
+  if (publicBookingEnabled) {
+    message = 'Commercial publishing is active on this verified custom domain.';
+  } else if (showcasePublishEnabled && (hostType === 'platform_subdomain' || hostType === 'platform_path' || hostType === 'admin_preview' || hostType === 'unknown')) {
+    message = 'Platform-owned surfaces are showcase-only. Connect a verified custom domain and enable payment methods to accept bookings.';
+  } else if (showcasePublishEnabled && hasCustomDomain && !customDomainVerified) {
+    message = 'Showcase publishing is live, but commercial activation remains locked until the custom domain is verified.';
+  } else if (showcasePublishEnabled && !paymentConfigured) {
+    message = 'Showcase publishing is live. Add at least one payment method after custom-domain activation to accept bookings.';
+  }
+
+  return {
+    host_type: hostType,
+    subscription_status: subscriptionStatus || null,
+    trust_status: trustPolicy.trust_status,
+    showcase_publish_enabled: showcasePublishEnabled,
+    commercial_activation_enabled: commercialActivationEnabled,
+    public_booking_enabled: publicBookingEnabled,
+    showcase_only: showcasePublishEnabled && !publicBookingEnabled,
+    terms_accepted: termsAccepted,
+    has_subdomain: hasSubdomain,
+    has_custom_domain: hasCustomDomain,
+    custom_domain_verified: customDomainVerified,
+    payment_configured: paymentConfigured,
+    electronic_gateway_configured: electronicGatewayConfigured,
+    message,
+  };
+}
+
 /**
- * Checks whether a tenant is allowed to publish / re-render tour pages.
+ * Checks whether a tenant is allowed to publish / re-render showcase content.
  *
- * Four gates (all must pass):
- *   1. subscription_status === 'ACTIVE'
+ * Showcase publish gates:
+ *   1. subscription_status is TRIAL or ACTIVE
  *   2. terms_accepted === 1
- *   3. At least one electronic gateway in payment_methods has enabled: true
- *   4. subdomain OR custom_domain is set (not NULL / empty)
+ *   3. subdomain OR custom_domain is set (not NULL / empty)
+ *   4. trust policy allows public exposure
  *
  * @param {object} env      - Cloudflare Workers env (must have env.DB)
  * @param {string} tenantId
@@ -56,28 +145,16 @@ export async function checkPublishPermission(env, tenantId) {
     };
   }
 
-  // ── Gate 1: Active subscription ──────────────────────────────────────────
-  const isActive = tenant.subscription_status === 'ACTIVE';
+  const paymentMethods = parseTenantPaymentMethods(tenant.payment_methods);
+  const commercialPolicy = buildTenantCommercialPolicy(tenant, { paymentMethods });
+
+  // ── Gate 1: Showcase subscription standing ───────────────────────────────
+  const subscriptionAllowsShowcase = ['TRIAL', 'ACTIVE'].includes(String(tenant.subscription_status || '').toUpperCase());
 
   // ── Gate 2: Terms & Conditions accepted ──────────────────────────────────
   const hasTerms = tenant.terms_accepted === 1;
 
-  // ── Gate 3: ≥1 electronic gateway enabled ────────────────────────────────
-  let hasGateway = false;
-  let enabledGateway = null;
-  try {
-    const methods = tenant.payment_methods ? JSON.parse(tenant.payment_methods) : [];
-    if (Array.isArray(methods)) {
-      const found = methods.find(
-        m => m.enabled === true && ELECTRONIC_GATEWAY_IDS.has((m.id ?? '').toUpperCase())
-      );
-      if (found) { hasGateway = true; enabledGateway = found.id; }
-    }
-  } catch {
-    // Malformed JSON — treat as not configured
-  }
-
-  // ── Gate 4: Domain configured ─────────────────────────────────────────────
+  // ── Gate 3: Domain configured ─────────────────────────────────────────────
   const hasDomain = !!(
     (tenant.subdomain    && String(tenant.subdomain).trim())    ||
     (tenant.custom_domain && String(tenant.custom_domain).trim())
@@ -89,12 +166,12 @@ export async function checkPublishPermission(env, tenantId) {
   // ── Build checklist object ────────────────────────────────────────────────
   const checklist = {
     subscription_active: {
-      pass:    isActive,
-      label:   'Subscription aktif',
-      detail:  isActive
+      pass:    subscriptionAllowsShowcase,
+      label:   'Subscription cho phep showcase publish',
+      detail:  subscriptionAllowsShowcase
         ? `Status: ${tenant.subscription_status}`
-        : `Status hiện tại: ${tenant.subscription_status}. Cần nâng cấp lên ACTIVE.`,
-      action_url: isActive ? null : '/billing/upgrade',
+        : `Status hiện tại: ${tenant.subscription_status}. Chi TRIAL hoac ACTIVE moi duoc showcase publish.`,
+      action_url: subscriptionAllowsShowcase ? null : '/billing/upgrade',
     },
     terms_accepted: {
       pass:    hasTerms,
@@ -103,14 +180,6 @@ export async function checkPublishPermission(env, tenantId) {
         ? 'T&C đã được chấp nhận.'
         : 'Chưa đồng ý T&C. Gọi POST /api/tenant/accept-terms để xác nhận.',
       action_url: hasTerms ? null : '/dashboard.html#terms',
-    },
-    has_electronic_gateway: {
-      pass:    hasGateway,
-      label:   'Cổng thanh toán điện tử',
-      detail:  hasGateway
-        ? `Gateway đang hoạt động: ${enabledGateway}`
-        : 'Chưa có cổng điện tử nào được bật (MoMo, VNPay, Stripe, v.v.). Bank Transfer không tính.',
-      action_url: hasGateway ? null : '/dashboard.html#payments',
     },
     has_domain: {
       pass:    hasDomain,
@@ -132,9 +201,8 @@ export async function checkPublishPermission(env, tenantId) {
 
   // ── Collect failing gates ─────────────────────────────────────────────────
   const blocks = [];
-  if (!isActive)   blocks.push('SUBSCRIPTION_INACTIVE');
+  if (!subscriptionAllowsShowcase) blocks.push('SUBSCRIPTION_INACTIVE');
   if (!hasTerms)   blocks.push('TERMS_NOT_ACCEPTED');
-  if (!hasGateway) blocks.push('NO_ELECTRONIC_GATEWAY');
   if (!hasDomain)  blocks.push('NO_DOMAIN');
   if (!trustAllowsPublish) blocks.push('TRUST_REVIEW_REQUIRED');
 
@@ -142,7 +210,6 @@ export async function checkPublishPermission(env, tenantId) {
     const labels = blocks.map(b => ({
       SUBSCRIPTION_INACTIVE:   'subscription chưa ACTIVE',
       TERMS_NOT_ACCEPTED:      'chưa đồng ý T&C',
-      NO_ELECTRONIC_GATEWAY:   'chưa có cổng thanh toán điện tử',
       NO_DOMAIN:               'chưa cấu hình tên miền',
       TRUST_REVIEW_REQUIRED:   'tenant chưa được phép public publish',
     }[b] ?? b));
@@ -165,7 +232,7 @@ export async function checkPublishPermission(env, tenantId) {
     }
   }
 
-  return { ok: true, checklist, blocks: [], tenant, paymentConfig };
+  return { ok: true, checklist, blocks: [], tenant, paymentConfig, commercialPolicy };
 }
 
 

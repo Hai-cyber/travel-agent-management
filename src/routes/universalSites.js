@@ -39,6 +39,7 @@ import {
   validateInterestPayload,
 } from '../lib/interestTaxonomy.js';
 import { resolveUniversalTheme } from '../lib/themes/index.js';
+import { buildTenantCommercialPolicy, parseTenantPaymentMethods } from '../lib/publishGuard.js';
 
 const router = new Hono();
 
@@ -958,7 +959,7 @@ function renderPreviewHtml(siteBundle, tourPreview) {
 </html>`;
 }
 
-function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
+export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const theme = siteBundle.theme || {};
   const site = siteBundle.site || {};
   const tourRuntime = siteBundle.tour_runtime || {};
@@ -1016,9 +1017,10 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
   const searchState = parseSearchState(options.requestUrl, site.tenant_id);
   const activeBookingTourId = normalizeStringValue(snapshot?.tour_id, requestedBookingTourId);
-  const bookingPageHref = activeBookingTourId
+  const publicBookingEnabled = site.commercial_policy?.public_booking_enabled === true;
+  const bookingPageHref = publicBookingEnabled && activeBookingTourId
     ? `${buildPageHref(groupConfig.reservationPageKey || 'booking')}?tour=${encodeURIComponent(activeBookingTourId)}`
-    : buildPageHref(groupConfig.reservationPageKey || 'booking');
+    : '';
   const getPageTitle = (targetPage = page) => targetPage?.seo?.title || snapshot?.title || targetPage?.title || site.site_name || 'Travel Page';
   const getPageDescription = (targetPage = page) => targetPage?.seo?.description || snapshot?.about_section || snapshot?.summary || 'Travel experience page';
   const isLuxuryShell = activeTheme.key === 'six-senses';
@@ -1282,14 +1284,14 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const localizedPrimaryExplicit = localizeUniversalSystemText(block.content?.primary_cta_label, 'universal_site.cta.discovery', site.default_lang);
     const localizedSecondaryExplicit = localizeUniversalSystemText(block.content?.secondary_cta_label, 'universal_site.cta.plan_with_concierge', site.default_lang);
     const primaryHeroLabel = isTourDetailTarget
-      ? localizedThemeCtaLabel('booking')
+      ? (publicBookingEnabled ? localizedThemeCtaLabel('booking') : localizedThemeCtaLabel('discovery', systemCopy.cta.exploreCollection))
       : localizedThemeCtaLabel('discovery', localizedPrimaryExplicit);
     const primaryHeroHref = isTourDetailTarget
-      ? bookingPageHref
+      ? (publicBookingEnabled ? bookingPageHref : buildUniversalPublicPath(site.tenant_id, 'contact-us'))
       : (targetPage.page_key === homePageKey
           ? buildPageHref(headerPrimaryPageKey)
           : (block.content?.primary_cta_href || '#pricing'));
-    const primaryHeroAttrs = isTourDetailTarget && activeBookingTourId ? ' data-open-public-booking="1"' : '';
+    const primaryHeroAttrs = isTourDetailTarget && publicBookingEnabled && activeBookingTourId ? ' data-open-public-booking="1"' : '';
     const themedHero = activeTheme.renderHero?.({
       block,
       targetPage,
@@ -1308,6 +1310,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       resolveHeroModuleMenuItems,
       searchState,
       systemCopy,
+      commercialPolicy: site.commercial_policy || {},
     });
     if (themedHero) return themedHero;
     const content = block.content || {};
@@ -1443,9 +1446,11 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const cards = Array.isArray(block.content?.price_cards) ? block.content.price_cards : priceCards;
     const priceFromVal = snapshot?.price_from;
     if (!cards.length && priceFromVal == null) return '';
-    const bookingCtaLabel = localizedThemeCtaLabel('booking', block.content?.cta_label);
-    const bookingCtaHref = bookingPageHref || '#';
-    const bookingCtaAttrs = bookingPageHref ? ' data-open-public-booking="1"' : '';
+    const bookingCtaLabel = publicBookingEnabled
+      ? localizedThemeCtaLabel('booking', block.content?.cta_label)
+      : localizedThemeCtaLabel('contact', block.content?.cta_label || systemCopy.cta.contactUs);
+    const bookingCtaHref = publicBookingEnabled ? (bookingPageHref || '#') : buildUniversalPublicPath(site.tenant_id, 'contact-us');
+    const bookingCtaAttrs = publicBookingEnabled && bookingPageHref ? ' data-open-public-booking="1"' : '';
     const bookingCtaMarkup = `<div class="mt-6 flex justify-start"><a href="${escapeHtml(bookingCtaHref)}"${bookingCtaAttrs} class="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white" style="background:${escapeHtml(primaryColor)}">${escapeHtml(bookingCtaLabel)}</a></div>`;
     if (profile.pricing === 'table') {
       const thead = isDayTour
@@ -1724,7 +1729,7 @@ function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     ? activeTheme.renderFloatingBookNow?.({ channels, buildChannelHref, buildChannelLabel, buildSocialMonogram, theme, systemCopy })
     : '';
   const adminPreviewScript = '';
-  const bookingViewMarkup = site.group_key === 'tour_operator' && activeBookingTourId
+  const bookingViewMarkup = site.group_key === 'tour_operator' && activeBookingTourId && publicBookingEnabled
     ? `<div data-public-booking-host="drawer" data-tour-id="${escapeHtml(activeBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}" data-tour-type="${escapeHtml(activeTourType)}"></div>
   <script src="/tour-booking-view.js"></script>`
     : '';
@@ -2696,7 +2701,7 @@ async function requireTenant(c) {
   }
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market FROM tenants WHERE id = ?')
+    .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
@@ -2865,7 +2870,7 @@ function validateMenuPayload(items) {
   return null;
 }
 
-async function getSiteBundle(tenantId, tenant, db, env = null) {
+export async function getSiteBundle(tenantId, tenant, db, env = null, options = {}) {
   const siteRow = await ensureUniversalSiteInitialized(db, tenantId, tenant.name);
   const themeRow = await db.prepare('SELECT * FROM tenant_universal_theme_tokens WHERE tenant_id = ?').bind(tenantId).first();
   const contactsRow = await db.prepare('SELECT * FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenantId).first();
@@ -2890,6 +2895,10 @@ async function getSiteBundle(tenantId, tenant, db, env = null) {
     : 'USD';
   site.market_skin_key = typeof tenant.market_skin_key === 'string' ? tenant.market_skin_key : 'global-default';
   site.primary_market = typeof tenant.primary_market === 'string' ? tenant.primary_market : 'GLOBAL';
+  site.commercial_policy = buildTenantCommercialPolicy(tenant, {
+    paymentMethods: parseTenantPaymentMethods(tenant.payment_methods),
+    hostType: options.hostType || 'platform_path',
+  });
   const tenantSiteConfig = parseJsonSafe(tenant.site_config, {});
   site.current_theme = typeof tenantSiteConfig.current_theme === 'string' ? tenantSiteConfig.current_theme.trim() : '';
   const theme = normalizeTheme(themeRow);
@@ -4577,7 +4586,7 @@ router.get('/render/:tenantId', async (c) => {
     return jsonError(c, 404, 'Tenant not found');
   }
 
-  const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env);
+  const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env, { hostType: 'admin_preview' });
   const requestedTourId = c.req.query('tourId')?.trim();
   const requestedSlug = slugify(c.req.query('slug') || '') || siteBundle.site?.home_page_key || 'home';
   const adminMode = c.req.query('admin') === '1';
@@ -4723,7 +4732,7 @@ export default function registerUniversalSiteRoutes(app) {
     }
 
     const tenant = await c.env.DB
-      .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
     if (!tenant) {
@@ -4745,7 +4754,7 @@ export default function registerUniversalSiteRoutes(app) {
     }
 
     const page = normalizePage(pageRow);
-    const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env);
+    const siteBundle = await getSiteBundle(tenantId, tenant, c.env.DB, c.env, { hostType: 'platform_path' });
     const tourPageRow = page.page_type === 'tour_detail'
       ? await c.env.DB
           .prepare('SELECT * FROM tenant_universal_tour_pages WHERE tenant_id = ? AND slug = ?')

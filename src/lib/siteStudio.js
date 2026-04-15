@@ -64,7 +64,8 @@ export const SAFE_SELECTOR_RE = /^[a-zA-Z0-9_\-#.[\]="': >+~^$*|()]+$/;
  *   2. Platform subdomain match   — leftmost label of host,
  *      e.g. "myagency" from "myagency.tourplatform.vn"
  *
- * Both paths require subscription_status = 'ACTIVE'.
+ * Custom domains require ACTIVE + TRUSTED + verification.
+ * Platform subdomains allow TRIAL or ACTIVE for showcase publishing.
  *
  * Returns { id, subscription_status, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market } or null.
  */
@@ -75,7 +76,8 @@ export async function resolveTenantByHost(host, db) {
   // 1. Exact custom_domain lookup
   const byDomain = await db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+            `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+              'custom_domain' AS resolved_host_type,
               trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain
          FROM tenants
         WHERE custom_domain = ?
@@ -96,11 +98,12 @@ export async function resolveTenantByHost(host, db) {
   return db
     .prepare(
       `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+              'platform_subdomain' AS resolved_host_type,
               trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain
          FROM tenants
         WHERE subdomain = ?
-          AND subscription_status = 'ACTIVE'
-          AND trust_status IN ('PROBATION', 'TRUSTED')`
+          AND subscription_status IN ('ACTIVE', 'TRIAL')
+          AND trust_status IN ('PREVIEW_ONLY', 'PROBATION', 'TRUSTED')`
     )
     .bind(subLabel)
     .first();
