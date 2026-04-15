@@ -245,10 +245,47 @@ registerReportsRoutes && registerReportsRoutes(app);
 app.post('/api/contact', async (c) => {
   let body;
   try { body = await c.req.json(); } catch { return c.json({ error: 'invalid_json' }, 400); }
-  const { name, email, type, message } = body ?? {};
+
+  const { name, email, type, message, website: honeypot, turnstile_token } = body ?? {};
+
+  // Honeypot: bots fill the hidden "website" field
+  if (honeypot && String(honeypot).trim()) {
+    return c.json({ ok: true }); // silent accept to confuse bots
+  }
+
   if (!name || !email || !message || message.length < 20) {
     return c.json({ error: 'missing_fields' }, 400);
   }
+
+  // Rate limit: max 3 submissions per IP per hour via KV
+  const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown';
+  const kvKey = `contact_rl:${ip}`;
+  try {
+    const stored = await c.env.TOUR_PRESETS.get(kvKey);
+    const count = stored ? parseInt(stored, 10) : 0;
+    if (count >= 3) {
+      return c.json({ error: 'rate_limited' }, 429);
+    }
+    await c.env.TOUR_PRESETS.put(kvKey, String(count + 1), { expirationTtl: 3600 });
+  } catch (_) { /* KV unavailable — allow through */ }
+
+  // Turnstile verification
+  const tsSecretKey = String(c.env.TURNSTILE_SECRET_KEY || '').trim();
+  if (tsSecretKey) {
+    const token = String(turnstile_token || '').trim();
+    if (!token) return c.json({ error: 'turnstile_required' }, 400);
+    try {
+      const tsForm = new FormData();
+      tsForm.append('secret', tsSecretKey);
+      tsForm.append('response', token);
+      const remoteIp = c.req.header('CF-Connecting-IP') || '';
+      if (remoteIp) tsForm.append('remoteip', remoteIp);
+      const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: tsForm });
+      const tsData = await tsRes.json();
+      if (!tsData?.success) return c.json({ error: 'turnstile_failed' }, 403);
+    } catch (_) { /* network error — allow through */ }
+  }
+
   const result = await dispatchContactFormEmail(c.env, { name, email, type: type || 'General', message });
   if (!result.ok) {
     console.warn('[CONTACT_FORM] dispatch failed', result);

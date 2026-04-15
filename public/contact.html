@@ -119,6 +119,20 @@
     .form-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
     .form-error { font-size: 12px; color: var(--error); margin-top: 5px; display: none; }
 
+    /* Honeypot — visually hidden, never filled by real users */
+    .hp-field { position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none; tab-index: -1; }
+
+    /* Turnstile */
+    .turnstile-wrap { margin-bottom: 18px; }
+
+    /* Cooldown notice */
+    .cooldown-notice {
+      font-size: 13px; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+      display: none;
+    }
+
     .btn-submit {
       width: 100%;
       padding: 12px 24px;
@@ -226,6 +240,12 @@
       </div>
 
       <form id="contact-form" novalidate>
+        <!-- Honeypot: bots fill this, humans don't -->
+        <div class="hp-field" aria-hidden="true">
+          <label for="f-website">Website (leave blank)</label>
+          <input type="text" id="f-website" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+
         <div class="form-row">
           <label for="f-name">Your name *</label>
           <input type="text" id="f-name" name="name" autocomplete="name" placeholder="Jane Smith" required />
@@ -259,6 +279,12 @@
           <div class="form-error" id="err-message">Please enter a message of at least 20 characters.</div>
         </div>
 
+        <div class="turnstile-wrap" id="turnstile-wrap" style="display:none">
+          <div id="turnstile-container"></div>
+        </div>
+
+        <div class="cooldown-notice" id="cooldown-notice"></div>
+
         <button type="submit" class="btn-submit" id="submit-btn">Send message</button>
       </form>
     </div>
@@ -278,20 +304,114 @@
 </footer>
 
 <script>
-  const form = document.getElementById('contact-form');
+(function () {
+  const form       = document.getElementById('contact-form');
   const successBox = document.getElementById('form-success');
-  const submitBtn = document.getElementById('submit-btn');
+  const submitBtn  = document.getElementById('submit-btn');
+  const cooldownEl = document.getElementById('cooldown-notice');
 
+  // ── Cooldown (client-side, 60 s between submissions) ─────────────────────
+  const COOLDOWN_MS  = 60_000;
+  const COOLDOWN_KEY = 'tm_contact_last_sent';
+
+  function getCooldownRemaining() {
+    const last = parseInt(localStorage.getItem(COOLDOWN_KEY) || '0', 10);
+    const remaining = COOLDOWN_MS - (Date.now() - last);
+    return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+  }
+
+  function blockIfCooldown() {
+    const secs = getCooldownRemaining();
+    if (secs > 0) {
+      cooldownEl.textContent = `Please wait ${secs}s before sending another message.`;
+      cooldownEl.style.display = 'block';
+      submitBtn.disabled = true;
+      const t = setInterval(() => {
+        const s = getCooldownRemaining();
+        if (s <= 0) {
+          cooldownEl.style.display = 'none';
+          submitBtn.disabled = false;
+          clearInterval(t);
+        } else {
+          cooldownEl.textContent = `Please wait ${s}s before sending another message.`;
+        }
+      }, 1000);
+      return true;
+    }
+    return false;
+  }
+
+  // ── Turnstile ─────────────────────────────────────────────────────────────
+  let turnstileToken = '';
+  let turnstileWidgetId = null;
+  let turnstileSiteKey = '';
+
+  async function loadTurnstileScript() {
+    if (window.turnstile?.render) return;
+    if (window.__turnstileLoader) { await window.__turnstileLoader; return; }
+    window.__turnstileLoader = new Promise((resolve, reject) => {
+      const tid = setTimeout(() => reject(new Error('timeout')), 8000);
+      const s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.async = true; s.defer = true;
+      s.onload = () => { clearTimeout(tid); resolve(); };
+      s.onerror = () => { clearTimeout(tid); reject(new Error('load_failed')); };
+      document.head.appendChild(s);
+    });
+    await window.__turnstileLoader;
+  }
+
+  async function initTurnstile() {
+    try {
+      const cfg = await fetch('/api/auth/turnstile-config').then(r => r.json()).catch(() => null);
+      turnstileSiteKey = cfg?.signup?.site_key || '';
+      if (!turnstileSiteKey) return;
+      document.getElementById('turnstile-wrap').style.display = 'block';
+      await loadTurnstileScript();
+      turnstileWidgetId = window.turnstile.render('#turnstile-container', {
+        sitekey: turnstileSiteKey,
+        action: 'contact',
+        theme: 'light',
+        callback: t  => { turnstileToken = t || ''; },
+        'expired-callback': () => { turnstileToken = ''; },
+        'error-callback':   () => { turnstileToken = ''; },
+      });
+    } catch (_) { /* Turnstile unavailable — still allow submit, server validates */ }
+  }
+
+  function resetTurnstile() {
+    if (turnstileWidgetId !== null && window.turnstile?.reset) {
+      window.turnstile.reset(turnstileWidgetId);
+    }
+    turnstileToken = '';
+  }
+
+  // ── Validation helpers ────────────────────────────────────────────────────
   function showError(id, show) {
     document.getElementById(id).style.display = show ? 'block' : 'none';
   }
-
   function validateEmail(v) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }
+  function showMailtoFallback() {
+    if (!document.getElementById('mailto-fallback')) {
+      const p = document.createElement('p');
+      p.id = 'mailto-fallback';
+      p.style.cssText = 'font-size:13px;color:var(--error);margin-top:12px;';
+      p.innerHTML = 'Could not send. Please email us directly at <a href="mailto:info@tours-market.com">info@tours-market.com</a>.';
+      submitBtn.after(p);
+    }
+  }
 
-  form.addEventListener('submit', async function(e) {
+  // ── Submit ────────────────────────────────────────────────────────────────
+  form.addEventListener('submit', async function (e) {
     e.preventDefault();
+
+    // Honeypot check
+    if (document.getElementById('f-website').value.trim()) return;
+
+    // Cooldown check
+    if (blockIfCooldown()) return;
 
     const name    = document.getElementById('f-name').value.trim();
     const email   = document.getElementById('f-email').value.trim();
@@ -299,13 +419,25 @@
     const message = document.getElementById('f-message').value.trim();
 
     let valid = true;
-
-    if (!name)                         { showError('err-name', true);    valid = false; } else { showError('err-name', false); }
-    if (!validateEmail(email))         { showError('err-email', true);   valid = false; } else { showError('err-email', false); }
-    if (!type)                         { showError('err-type', true);    valid = false; } else { showError('err-type', false); }
-    if (message.length < 20)          { showError('err-message', true); valid = false; } else { showError('err-message', false); }
-
+    if (!name)               { showError('err-name', true);    valid = false; } else { showError('err-name', false); }
+    if (!validateEmail(email)){ showError('err-email', true);   valid = false; } else { showError('err-email', false); }
+    if (!type)               { showError('err-type', true);    valid = false; } else { showError('err-type', false); }
+    if (message.length < 20) { showError('err-message', true); valid = false; } else { showError('err-message', false); }
     if (!valid) return;
+
+    // Turnstile check (only if widget was rendered)
+    if (turnstileSiteKey && !turnstileToken) {
+      const err = document.getElementById('turnstile-err') || (()=>{
+        const p=document.createElement('p'); p.id='turnstile-err';
+        p.style.cssText='font-size:12px;color:var(--error);margin-bottom:10px;';
+        document.getElementById('turnstile-wrap').after(p); return p;
+      })();
+      err.textContent = 'Please complete the verification challenge.';
+      return;
+    } else {
+      const err = document.getElementById('turnstile-err');
+      if (err) err.textContent = '';
+    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';
@@ -314,28 +446,37 @@
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, type, message })
+        body: JSON.stringify({ name, email, type, message, turnstile_token: turnstileToken })
       });
 
+      if (res.status === 429) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send message';
+        cooldownEl.textContent = 'Too many requests. Please wait a few minutes before trying again.';
+        cooldownEl.style.display = 'block';
+        resetTurnstile();
+        return;
+      }
+
       if (res.ok) {
+        localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
         form.style.display = 'none';
         successBox.style.display = 'block';
       } else {
         throw new Error('server_error');
       }
     } catch {
-      // Fallback: show mailto link
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send message';
-      const mailtoFallback = document.createElement('p');
-      mailtoFallback.style.cssText = 'font-size:13px;color:var(--error);margin-top:12px;';
-      mailtoFallback.innerHTML = 'Could not submit the form. Please email us directly at <a href="mailto:info@tours-market.com">info@tours-market.com</a>.';
-      if (!document.getElementById('mailto-fallback')) {
-        mailtoFallback.id = 'mailto-fallback';
-        submitBtn.after(mailtoFallback);
-      }
+      resetTurnstile();
+      showMailtoFallback();
     }
   });
+
+  // Init
+  blockIfCooldown();
+  initTurnstile();
+})();
 </script>
 
 </body>
