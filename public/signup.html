@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign Up - TravelAgent</title>
+  <title>Sign Up - Tours Market</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -363,7 +363,7 @@
 <div class="page-shell">
   <div class="card">
     <div class="hero-head">
-      <h1 class="headline" id="signup-title">Sign up to create your tour platform with 0 EUR.</h1>
+      <h1 class="headline" id="signup-title">Create your travel platform. Free for 6 months.</h1>
     </div>
 
     <form id="signup-form" novalidate>
@@ -374,7 +374,7 @@
             <h2 class="section-title" id="tier-title">Choose your product tier</h2>
             <span class="required-badge">Required</span>
           </div>
-          <p class="section-copy" id="tier-hint">Pick one tier now. Launch pricing is 0 EUR for 6 months, then your selected monthly plan starts. Cancel anytime.</p>
+          <p class="section-copy" id="tier-hint">Pick one tier now. Free for 6 months, no card required. Your selected monthly plan starts after that — cancel any time.</p>
           <div class="tier-block" id="tier-block">
             <div class="tier-grid" id="tier-grid"></div>
           </div>
@@ -383,9 +383,9 @@
         <section class="form-column">
           <div class="section-kicker">Create account</div>
           <div class="section-title-row">
-            <h2 class="section-title">Keep signup clean</h2>
+            <h2 class="section-title">Your account details</h2>
           </div>
-          <p class="form-copy" id="signup-proof">Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.</p>
+          <p class="form-copy" id="signup-proof">Choose a product tier, enter your email, and set a password. Your brand or agency name sets up the workspace.</p>
 
           <label class="field-label" for="f-email">
             <span id="label-email">Email</span>
@@ -417,7 +417,7 @@
           </div>
 
           <button class="btn" id="submit-btn" type="submit">Create account</button>
-          <div class="signup-proof" id="signup-offer">0 EUR for 6 months, then your selected plan. Cancel anytime.</div>
+          <div class="signup-proof" id="signup-offer">Free for 6 months. No card required. Your selected plan starts after the trial.</div>
 
           <div class="divider"><span id="divider-or">or</span></div>
           <div class="google-slot" id="google-slot"></div>
@@ -477,10 +477,10 @@
   }
 
   function buildTierPriceLine(tier) {
-    const badge = String(launchOffer?.launch_offer_badge || '').trim() || '0 EUR for 6 months';
-    const terms = String(launchOffer?.launch_offer_terms || '').trim() || 'Then your selected plan starts. Cancel anytime.';
+    const badge = String(launchOffer?.launch_offer_badge || '').trim() || 'Free for 6 months';
+    const terms = String(launchOffer?.launch_offer_terms || '').trim() || 'No card required. Your selected plan starts after the trial.';
     if (tier.available_for_signup) {
-      return `${badge}. Then ${tier.price_label || 'your selected monthly plan'}. ${lowerFirst(terms)}`;
+      return `${badge}. ${tier.price_label || 'Your selected monthly plan starts after that.'}. ${terms}`;
     }
     return `${tier.price_label || 'Pricing announced later'}. ${tier.availability_label || 'Future tier'}.`;
   }
@@ -490,8 +490,8 @@
     return text ? text.charAt(0).toLowerCase() + text.slice(1) : '';
   }
 
-  document.title = page('meta_title', 'Sign Up - TravelAgent');
-  document.getElementById('signup-title').textContent = launchOffer?.signup_title || 'Sign up to create your tour platform with 0 EUR.';
+  document.title = page('meta_title', 'Sign Up - Tours Market');
+  document.getElementById('signup-title').textContent = launchOffer?.signup_title || 'Create your travel platform. Free for 6 months.';
   document.getElementById('label-email').textContent = shared('email_label', 'Email');
   document.getElementById('label-name').textContent = page('name_label', 'Brand / team / agency name');
   document.getElementById('label-password').textContent = page('password_label', 'Create password');
@@ -507,10 +507,10 @@
   document.getElementById('success-msg').textContent = page('success', 'Your workspace is being created...');
   document.getElementById('login-prompt').textContent = page('login_prompt', 'Already have an account?');
   document.getElementById('login-link').textContent = page('login_link', 'Sign in');
-  document.getElementById('signup-proof').textContent = launchOffer?.signup_requirement_copy || page('proof', 'Required: choose a product tier, enter your email, and create your password. Your brand, team, or working name sets up the workspace.');
+  document.getElementById('signup-proof').textContent = launchOffer?.signup_requirement_copy || page('proof', 'Choose a product tier, enter your email, and set a password. Your brand or agency name sets up the workspace.');
   document.getElementById('signup-offer').textContent = launchOffer
-    ? `${launchOffer.launch_offer_badge || '0 EUR for 6 months'}. ${launchOffer.launch_offer_terms || 'Then your selected plan starts. Cancel anytime.'}`
-    : page('offer', '0 EUR for 6 months, then your selected plan. Cancel anytime.');
+    ? `${launchOffer.launch_offer_badge || 'Free for 6 months'}. ${launchOffer.launch_offer_terms || 'No card required. Your selected plan starts after the trial.'}`
+    : page('offer', 'Free for 6 months. No card required. Your selected plan starts after the trial.');
   document.getElementById('turnstile-note').textContent = page('turnstile_note', 'Complete verification before creating your account.');
 
   const tierCatalog = await fetch('/api/auth/product-tiers', {
@@ -538,7 +538,7 @@
 
   if (tierCatalog?.ok && Array.isArray(tierCatalog?.tiers)) {
     document.getElementById('tier-title').textContent = tierCatalog.title || 'Choose your product tier';
-    document.getElementById('tier-hint').textContent = page('tier_hint', 'Pick one tier now. Launch pricing is 0 EUR for 6 months, then your selected monthly plan starts. Cancel anytime.');
+    document.getElementById('tier-hint').textContent = page('tier_hint', 'Pick one tier now. Free for 6 months, no card required. Your selected monthly plan starts after that — cancel any time.');
     const requestedTierKey = new URLSearchParams(window.location.search).get('tier');
     const availableTierKeys = new Set(tierCatalog.tiers.filter((tier) => tier.available_for_signup).map((tier) => tier.key));
     selectedProductTierKey = availableTierKeys.has(requestedTierKey) ? requestedTierKey : '';
