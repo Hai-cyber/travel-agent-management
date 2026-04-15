@@ -45,8 +45,8 @@
       text-decoration: none;
     }
     .btn-nav:hover { text-decoration: none; }
-    .btn-nav-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-    .btn-nav-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-nav-secondary { background: transparent; color: var(--accent); border: 1px solid #bfdbfe; }
+    .btn-nav-secondary:hover { border-color: var(--accent); background: #eff6ff; }
     /* Hero */
     .signup-hero { text-align: center; padding: 56px 0 36px; }
     .label {
@@ -71,9 +71,10 @@
     }
     .plan-column,
     .form-column {
-      border: 1px solid var(--border);
+      border: 1.5px solid #93c5fd;
       border-radius: 16px;
       padding: 32px;
+      background: #fafcff;
     }
     .section-kicker {
       font-size: 12px; font-weight: 700; letter-spacing: .07em;
@@ -437,7 +438,8 @@
     document.getElementById('tier-hint').textContent = page('tier_hint', 'Pick one tier now. Free for 6 months, no card required. Your selected monthly plan starts after that — cancel any time.');
     const requestedTierKey = new URLSearchParams(window.location.search).get('tier');
     const availableTierKeys = new Set(tierCatalog.tiers.filter((tier) => tier.available_for_signup).map((tier) => tier.key));
-    selectedProductTierKey = availableTierKeys.has(requestedTierKey) ? requestedTierKey : '';
+    const defaultTierKey = 'tour_operator_pro';
+    selectedProductTierKey = availableTierKeys.has(requestedTierKey) ? requestedTierKey : (availableTierKeys.has(defaultTierKey) ? defaultTierKey : '');
     tierGrid.innerHTML = '';
 
     tierCatalog.tiers.forEach((tier) => {
