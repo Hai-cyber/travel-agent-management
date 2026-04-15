@@ -248,6 +248,16 @@
     }
     .cta-band a:hover { opacity: .9; }
 
+    /* Trust statement */
+    .trust-statement {
+      text-align: center;
+      padding: 0 0 48px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .trust-statement strong { color: var(--ink); }
+
     footer { border-top: 1px solid var(--border); padding: 28px 0; font-size: 13px; color: var(--muted); }
     .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .footer-links { display: flex; gap: 20px; }
@@ -274,8 +284,8 @@
 
   <section class="pricing-hero">
     <div class="label">Pricing</div>
-    <h1>Simple pricing for independent operators</h1>
-    <p>One flat monthly fee. No hidden charges. No lock-in. Cancel any time.</p>
+    <h1>Simple pricing for independent travel operators</h1>
+    <p>One flat monthly fee. No hidden charges. Cancel anytime.</p>
     <div class="trial-badge">6 months free · No card required at signup</div>
   </section>
 
@@ -293,16 +303,13 @@
       </div>
       <div class="price-note">After the free period. No card needed to start.</div>
       <ul class="card-features">
-        <li><span class="check">✓</span> Professional travel storefront on a platform subdomain</li>
-        <li><span class="check">✓</span> Website editor — homepage, sections, copy</li>
-        <li><span class="check">✓</span> Contact form and inquiry capture</li>
+        <li><span class="check">✓</span> Public storefront on platform subdomain</li>
+        <li><span class="check">✓</span> Website editor (basic content)</li>
+        <li><span class="check">✓</span> Inquiry &amp; contact capture</li>
         <li><span class="check">✓</span> Destination and content management</li>
-        <li><span class="check">✓</span> SSL, edge delivery, automatic updates</li>
-        <li><span class="dash">–</span> Booking and payment flow (Pro tier)</li>
-        <li><span class="dash">–</span> Custom domain (Pro tier)</li>
-        <li><span class="dash">–</span> Task and operations management (Pro tier)</li>
+        <li><span class="check">✓</span> SSL &amp; hosting included</li>
       </ul>
-      <a href="/signup.html?tier=starter_landing" class="card-cta cta-secondary">Start free — Starter</a>
+      <a href="/signup.html?tier=starter_landing" class="card-cta cta-secondary">Start your public page</a>
     </div>
 
     <!-- Tour Operator Pro -->
@@ -310,15 +317,16 @@
       <div class="featured-tag">Most popular</div>
       <div class="card-tier">Pro</div>
       <div class="card-name">Tour Operator Pro</div>
-      <div class="card-tagline">Full operations for growing travel businesses.</div>
+      <div class="card-tagline">For operators running real bookings and operations</div>
       <div class="card-price">
+        <span style="font-size:14px;color:var(--muted);align-self:center">From</span>
         <span class="price-amount">€9.98</span>
         <span class="price-period">/ month</span>
       </div>
       <div class="price-note">After the free period. No card needed to start.</div>
       <div class="card-commission">
-        <strong>+ Platform commission — invoiced monthly</strong>
-        <p>Based on your confirmed booking volume that month. We invoice you at month-end — never deducted from your customers' payments.</p>
+        <strong>+ Small platform fee, invoiced monthly</strong>
+        <p>You keep 100% of your customer payments. We invoice a small platform fee based on your monthly booking volume — only when you grow.</p>
         <div style="margin-top:10px;display:grid;gap:4px">
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #bae6fd">
             <span>Under €500 / month</span><strong style="color:#0369a1">Free</strong>
@@ -333,18 +341,22 @@
       </div>
       <ul class="card-features">
         <li><span class="check">✓</span> Everything in Starter</li>
+        <li><span class="check">✓</span> Booking &amp; order tracking</li>
+        <li><span class="check">✓</span> Service delivery tracking (operations)</li>
+        <li><span class="check">✓</span> Team tasks &amp; coordination</li>
         <li><span class="check">✓</span> Custom domain support</li>
-        <li><span class="check">✓</span> Booking management and order tracking</li>
-        <li><span class="check">✓</span> Service delivery tracking (stops, accommodation, transport, meals)</li>
-        <li><span class="check">✓</span> Internal task and to-do system for your team</li>
-        <li><span class="check">✓</span> Pricing engine (seasons, segments, pax bands)</li>
-        <li><span class="check">✓</span> Bank transfer payment collection support</li>
-        <li><span class="check">✓</span> Multi-locale storefront (11 languages)</li>
+        <li><span class="check">✓</span> Multi-language storefront</li>
       </ul>
-      <a href="/signup.html?tier=tour_operator_pro" class="card-cta cta-primary">Start free — Pro</a>
+      <a href="/signup.html?tier=tour_operator_pro" class="card-cta cta-primary">Start running your operations</a>
     </div>
 
   </section>
+
+  <!-- Trust statement -->
+  <div class="trust-statement">
+    <p><strong>No payment processing. No revenue sharing.</strong><br>
+    You stay in full control of your customer relationships and payments.</p>
+  </div>
 
   <!-- Future tiers -->
   <section class="future-section">
