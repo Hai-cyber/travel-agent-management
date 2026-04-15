@@ -363,6 +363,16 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 14px;
     }
+    .go-live-banner {
+      margin-top: 16px;
+      background: #ecfdf5;
+      border: 1px solid #6ee7b7;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #065f46;
+    }
     .launch-publish-panel {
       margin-top: 16px;
       background: #f8fafc;
@@ -513,6 +523,126 @@
       margin: 0;
       display: inline-block;
     }
+
+    /* ── Commerce Activation Wizard ── */
+    .commerce-wizard {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 24px; margin-top: 28px;    }
+    .commerce-wizard-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .commerce-wizard-head h3 {
+      font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
+    }
+    .commerce-wizard-head p {
+      font-size: 13px; color: #64748b; margin: 4px 0 0;
+    }
+    .wizard-live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #dcfce7; color: #166534;
+      border-radius: 999px; padding: 5px 12px;
+      font-size: 12px; font-weight: 700;
+    }
+    .wizard-steps { display: flex; flex-direction: column; gap: 0; }
+    .wizard-step {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 16px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .wizard-step:last-child { border-bottom: none; }
+    .wizard-step-icon {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700;
+    }
+    .wizard-step-icon.done  { background: #dcfce7; color: #16a34a; }
+    .wizard-step-icon.next  { background: #dbeafe; color: #1d4ed8; }
+    .wizard-step-icon.later { background: #f1f5f9; color: #94a3b8; }
+    .wizard-step-icon.locked { background: #fef9c3; color: #854d0e; }
+    .wizard-step-body { flex: 1; min-width: 0; }
+    .wizard-step-title {
+      font-size: 14px; font-weight: 600; color: #1e293b; margin: 0 0 2px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .wizard-step-desc {
+      font-size: 13px; color: #64748b; margin: 0 0 10px;
+    }
+    .wizard-step-desc.later { color: #94a3b8; }
+    .wizard-step-action { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .wizard-tc-box {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 12px 14px; font-size: 12px; color: #475569; margin-bottom: 10px;
+      max-height: 90px; overflow-y: auto; line-height: 1.6;
+    }
+    .wizard-tc-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; margin-bottom: 8px; cursor: pointer; }
+    .wizard-tc-check input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
+    .wizard-payment-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .wizard-payment-row {
+      display: flex; align-items: center; gap: 10px;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .wizard-payment-row.active { border-color: #86efac; background: #f0fdf4; }
+    .wizard-payment-row.supplementary { border-color: #fde68a; background: #fefce8; }
+    .wizard-payment-icon { font-size: 18px; width: 24px; text-align: center; }
+    .wizard-payment-label { flex: 1; font-size: 13px; font-weight: 600; color: #1e293b; }
+    .wizard-payment-tag {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      padding: 2px 7px; border-radius: 999px;
+    }
+    .wizard-payment-tag.required { background: #dbeafe; color: #1d4ed8; }
+    .wizard-payment-tag.supplementary { background: #fef9c3; color: #854d0e; }
+    .wizard-payment-tag.connected { background: #dcfce7; color: #166534; }
+
+    /* ── Domain registration panel ── */
+    .domain-reg-panel {
+      background: #f8fafc; border: 1px solid #bfdbfe; border-radius: 12px;
+      padding: 20px 24px; margin-top: 16px;
+    }
+    .domain-reg-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .domain-reg-panel-head h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0; }
+    .domain-reg-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px; color: #94a3b8; line-height: 1; padding: 0 4px;
+    }
+    .domain-reg-desc { font-size: 13px; color: #64748b; margin: 0 0 14px; }
+    .domain-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .domain-search-row input {
+      flex: 1; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: 14px; background: #fff; outline: none;
+    }
+    .domain-search-row input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+    .domain-result { margin-top: 4px; }
+    .domain-result-unavail {
+      background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+      padding: 12px 14px; font-size: 13px; color: #991b1b;
+    }
+    .domain-result-avail {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .domain-avail-badge {
+      display: inline-block; background: #dcfce7; color: #15803d;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      padding: 2px 9px; border-radius: 999px; margin-bottom: 6px;
+    }
+    .domain-result-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+    .domain-price-breakdown {
+      border: 1px solid #bbf7d0; border-radius: 8px; overflow: hidden; margin-bottom: 12px;
+    }
+    .domain-price-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #bbf7d0;
+      background: #fff;
+    }
+    .domain-price-row:last-child { border-bottom: none; }
+    .domain-price-row.markup { background: #f8fafc; color: #64748b; }
+    .domain-price-row.total { font-weight: 700; font-size: 14px; background: #f0fdf4; }
+    .domain-reg-note { font-size: 12px; color: #64748b; margin: 0 0 12px; }
+    .domain-reg-spinner { display: inline-block; font-size: 13px; color: #64748b; }
 
     /* hide default banner/features on dashboard */
     #banner-wrapper, #features-wrapper { display: none; }
@@ -696,7 +826,7 @@
               <div class="launch-guide-head">
                 <div>
                   <h3 class="launch-guide-title" data-i18n="dashboard_launch.guide_title">Start Here: launch in small steps</h3>
-                  <p class="launch-guide-copy" data-i18n="dashboard_launch.guide_copy">You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build tours, destinations, accommodations, and gallery content. Properties will live later in the separate engine for hotels and other venues.</p>
+                  <p class="launch-guide-copy" data-i18n="dashboard_launch.guide_copy">You already signed up without a credit card and your launch plan stays free for 6 months. Next, lock a clean subdomain, design your website, then build tours, destinations, accommodations, and gallery content.</p>
                 </div>
               </div>
               <div class="launch-settings-toolbar">
@@ -729,6 +859,7 @@
                 </div>
               </div>
               <div class="launch-steps" id="launch-steps"></div>
+              <div class="go-live-banner" id="go-live-banner" hidden></div>
               <div class="launch-publish-panel" id="launch-publish-panel">
                 <div class="launch-publish-head">
                   <div>
@@ -787,6 +918,32 @@
                 </div>
               </div>
             </section>
+
+            <!-- ═══ Commerce Activation Wizard ═══ -->
+            <div class="commerce-wizard" id="commerce-wizard" style="display:none">
+              <div class="commerce-wizard-head">
+                <div>
+                  <h3>🚀 Go Live &amp; Accept Bookings</h3>
+                  <p>Complete these steps to activate your commercial storefront.</p>
+                </div>
+                <span class="wizard-live-badge" id="wizard-live-badge" style="display:none">🟢 Store is Live</span>
+              </div>
+              <div class="wizard-steps" id="wizard-steps"></div>
+            </div>
+
+            <!-- ═══ Domain Registration Panel (shown from wizard Step 2 "Register new domain") ═══ -->
+            <div class="domain-reg-panel" id="domain-reg-panel" style="display:none">
+              <div class="domain-reg-panel-head">
+                <h4>🌐 Register a New Domain</h4>
+                <button type="button" id="domain-reg-close" class="domain-reg-close" aria-label="Close">×</button>
+              </div>
+              <p class="domain-reg-desc">Enter a domain name to check availability. Registration includes automatic DNS setup — your domain is live immediately after payment, no CNAME configuration required.</p>
+              <div class="domain-search-row">
+                <input type="text" id="domain-reg-input" placeholder="yourbrand.com" autocomplete="off" spellcheck="false" maxlength="253">
+                <button type="button" id="domain-reg-check" class="button small">Check Availability</button>
+              </div>
+              <div id="domain-reg-result"></div>
+            </div>
 
             </div><!-- /pane-start-here -->
 
@@ -1584,7 +1741,6 @@ window.addEventListener('dashboard:langchange', () => {
     const publishedToursCount = tours.filter((t) => t.status === 'published' || Boolean(t.published_at)).length;
     const destinationCount = toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0;
     const accommodationsCount = Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0;
-    const propertiesCount = 0;
     const featuredCollectionImages = Array.isArray(runtime.featured_collection?.gallery_images) ? runtime.featured_collection.gallery_images : [];
     const homeGalleryBlock = Array.isArray(homePage?.blocks)
       ? homePage.blocks.find((block) => block?.type === 'gallery')
@@ -1625,31 +1781,29 @@ window.addEventListener('dashboard:langchange', () => {
         label: hasSubdomain ? i18n.t('dashboard_launch.subdomain_label_locked') : i18n.t('dashboard_launch.subdomain_label_action'),
       },
       {
-        key: 'skin',
-        complete: hasTheme,
-        title: i18n.t('dashboard_launch.skin_title'),
-        description: hasTheme
-          ? `Website skin selected: ${selectedVariantKey}.${selectedSkin ? ` Accent theme: ${selectedSkin}.` : ''}`
-          : 'Choose the active storefront skin in Website Design before refining pages and launch details.',
-        href: withTenant('universal-admin.html?panel=system&onboarding=skin'),
-        label: hasTheme ? 'Refine skin' : 'Choose skin',
-      },
-      {
-        key: 'website',
-        complete: hasWebsiteBase,
-        title: i18n.t('dashboard_launch.website_title'),
-        description: hasWebsiteBase
-          ? i18n.t('dashboard_launch.website_desc_ready')
-          : i18n.t('dashboard_launch.website_desc_empty'),
-        href: withTenant('universal-admin.html'),
-        label: hasWebsiteBase ? i18n.t('dashboard_launch.website_label_ready') : i18n.t('dashboard_launch.website_label_empty'),
+        key: 'design',
+        complete: hasTheme && hasWebsiteBase,
+        title: i18n.t('dashboard_launch.design_title'),
+        description: (hasTheme && hasWebsiteBase)
+          ? i18n.t('dashboard_launch.design_desc_ready')
+          : !hasTheme
+            ? i18n.t('dashboard_launch.design_desc_skin_first')
+            : i18n.t('dashboard_launch.design_desc_shell_next'),
+        href: !hasTheme
+          ? withTenant('universal-admin.html?panel=system&onboarding=skin')
+          : withTenant('universal-admin.html'),
+        label: (hasTheme && hasWebsiteBase)
+          ? i18n.t('dashboard_launch.design_label_ready')
+          : !hasTheme
+            ? i18n.t('dashboard_launch.design_label_skin')
+            : i18n.t('dashboard_launch.design_label_shell'),
       },
       {
         key: 'tours',
         complete: toursCount > 0,
         title: i18n.t('dashboard_launch.tours_title'),
         description: toursCount > 0
-          ? `${toursCount} ${i18n.t(toursCount === 1 ? 'dashboard_launch.tours_count_single' : 'dashboard_launch.tours_count_plural')}. ${i18n.t('dashboard_launch.tours_desc_ready')}`
+          ? `${toursCount} ${i18n.t(toursCount === 1 ? 'dashboard_launch.tours_count_single' : 'dashboard_launch.tours_count_plural')}${publishedToursCount > 0 ? `, ${publishedToursCount} published` : ''}. ${i18n.t('dashboard_launch.tours_desc_ready')}`
           : i18n.t('dashboard_launch.tours_desc_empty'),
         href: withTenant('tour-config.html'),
         label: toursCount > 0 ? i18n.t('dashboard_launch.tours_label_ready') : i18n.t('dashboard_launch.tours_label_empty'),
@@ -1675,16 +1829,6 @@ window.addEventListener('dashboard:langchange', () => {
         label: accommodationsCount > 0 ? i18n.t('dashboard_launch.accommodations_label_ready') : i18n.t('dashboard_launch.accommodations_label_empty'),
       },
       {
-        key: 'properties',
-        complete: propertiesCount > 0,
-        title: i18n.t('dashboard_launch.properties_title'),
-        description: propertiesCount > 0
-          ? `${propertiesCount} ${i18n.t(propertiesCount === 1 ? 'dashboard_launch.properties_count_single' : 'dashboard_launch.properties_count_plural')} ${i18n.t('dashboard_launch.properties_desc_ready')}`
-          : i18n.t('dashboard_launch.properties_desc_empty'),
-        href: withTenant('properties-engine.html?tier=hotel_operator_pro'),
-        label: propertiesCount > 0 ? i18n.t('dashboard_launch.properties_label_ready') : i18n.t('dashboard_launch.properties_label_empty'),
-      },
-      {
         key: 'gallery',
         complete: galleryCount > 0,
         title: i18n.t('dashboard_launch.gallery_title'),
@@ -1704,26 +1848,6 @@ window.addEventListener('dashboard:langchange', () => {
         href: withTenant('universal-admin.html?panel=system&onboarding=system'),
         label: hasSystemSettings ? i18n.t('dashboard_launch.system_label_ready') : i18n.t('dashboard_launch.system_label_empty'),
       },
-      {
-        key: 'pricing',
-        complete: publishedToursCount > 0,
-        title: 'Publish & Price Your First Tour',
-        description: publishedToursCount > 0
-          ? `${publishedToursCount} published tour${publishedToursCount > 1 ? 's' : ''} — guests can now discover and book.`
-          : 'Set pricing segments and publish at least one tour so guests can browse and book.',
-        href: withTenant('tour-config.html'),
-        label: publishedToursCount > 0 ? 'Manage Tours' : 'Go to Tour Config',
-      },
-      {
-        key: 'go_live',
-        complete: hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0,
-        title: 'Ready to Go Live',
-        description: (hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0)
-          ? '🎉 Your site is configured and ready. Public indexing is under platform review.'
-          : 'Complete all steps above, then your site will be queued for public discovery.',
-        href: '#launch-guide',
-        label: (hasSubdomain && toursCount > 0 && hasSystemSettings && publishedToursCount > 0) ? '✅ All done!' : 'Complete above steps',
-      },
     ];
 
     const nextIndex = sequence.findIndex((step) => !step.complete);
@@ -1737,6 +1861,12 @@ window.addEventListener('dashboard:langchange', () => {
     ));
 
     document.getElementById('launch-steps').innerHTML = steps.join('');
+    const goLiveBanner = document.getElementById('go-live-banner');
+    if (goLiveBanner) {
+      const allComplete = sequence.every((s) => s.complete);
+      goLiveBanner.textContent = allComplete ? i18n.t('dashboard_launch.go_live_banner') : '';
+      goLiveBanner.hidden = !allComplete;
+    }
     applyLaunchFocus();
     renderPublishPanel();
     renderReviewStatusPanel();
@@ -2206,11 +2336,12 @@ window.addEventListener('dashboard:langchange', () => {
             customDomainInstructions.innerHTML = `
               <strong>DNS Setup Instructions</strong><br>
               1. ${inst.step1}<br>
-              2. Add <strong>TXT</strong>: name <code>${'_tm-verify.' + payload.domain}</code> → value <code>${payload.token}</code><br>
-              3. Add <strong>CNAME</strong>: name <code>${payload.domain}</code> → target <code>square-wind-2594.divine-shape-9f0a.workers.dev</code><br>
+              2. Add <strong>TXT</strong>: name <code>${'_tours-market-verify.' + payload.domain}</code> → value <code>${payload.token}</code><br>
+              3. Add <strong>CNAME</strong>: name <code>${payload.domain}</code> → target <code>proxy.tours-market.com</code><br>
               4. Click <strong>Check DNS</strong> below once propagated (may take up to 24 h).
             `;
           }
+          startDnsAutoPoll();
         } else {
           setDomainStatus('Enter your custom domain above and save.', 'pending');
         }
@@ -2265,7 +2396,11 @@ window.addEventListener('dashboard:langchange', () => {
           setDomainStatus(`✅ ${payload.message}`, 'verified');
           if (customDomainInstructions) customDomainInstructions.style.display = 'none';
           btnVerifyCustomDomain.style.display = 'none';
+          stopDnsAutoPoll();
           onboardingState.settings = { ...(onboardingState.settings || {}), custom_domain_verified_at: Math.floor(Date.now() / 1000) };
+          if (payload.trust_promoted) {
+            onboardingState.settings.trust_status = 'PROBATION';
+          }
         } else {
           setDomainStatus(payload?.message || 'TXT record not found yet. Try again after propagation.', 'pending');
         }
@@ -2275,6 +2410,35 @@ window.addEventListener('dashboard:langchange', () => {
         if (btnVerifyCustomDomain.style.display !== 'none') btnVerifyCustomDomain.textContent = 'Check DNS';
       }
     });
+  }
+
+  // ── Auto-poll DNS verification every 30 s while panel is open ─────────────
+  let _dnsAutoPollTimer = null;
+  function startDnsAutoPoll() {
+    if (_dnsAutoPollTimer) return;
+    _dnsAutoPollTimer = setInterval(async () => {
+      // Stop polling once verified
+      const already = Number(onboardingState.settings?.custom_domain_verified_at || 0);
+      if (already > 0) { stopDnsAutoPoll(); return; }
+      try {
+        const res = await fetch('/api/tenants/custom-domain-verify', {
+          method: 'POST',
+          headers: buildTenantHeaders(),
+        });
+        const payload = await res.json().catch(() => null);
+        if (payload?.verified) {
+          setDomainStatus(`✅ ${payload.message}`, 'verified');
+          if (customDomainInstructions) customDomainInstructions.style.display = 'none';
+          if (btnVerifyCustomDomain) btnVerifyCustomDomain.style.display = 'none';
+          stopDnsAutoPoll();
+          onboardingState.settings = { ...(onboardingState.settings || {}), custom_domain_verified_at: Math.floor(Date.now() / 1000) };
+          if (payload.trust_promoted) onboardingState.settings.trust_status = 'PROBATION';
+        }
+      } catch (_) {}
+    }, 30_000);
+  }
+  function stopDnsAutoPoll() {
+    if (_dnsAutoPollTimer) { clearInterval(_dnsAutoPollTimer); _dnsAutoPollTimer = null; }
   }
 
   if (btnRequestTrustUpgrade) {
@@ -2348,6 +2512,7 @@ window.addEventListener('dashboard:langchange', () => {
 
       renderMarketSkinControl();
       renderLaunchGuide();
+      renderCommerceWizard(onboardingState.settings);
       renderDashboardStats();
       loadCustomDomainStatus();
       loadOrders(); // ← live bookings
@@ -2439,6 +2604,302 @@ window.addEventListener('dashboard:langchange', () => {
     console.warn('[dashboard:init] Could not load tenant settings:', err.message);
     renderLaunchGuide();
   }
+
+  // ── Commerce Activation Wizard ─────────────────────────────────────────────
+  function renderCommerceWizard(settings) {
+    const el = document.getElementById('commerce-wizard');
+    const stepsEl = document.getElementById('wizard-steps');
+    const liveBadge = document.getElementById('wizard-live-badge');
+    if (!el || !stepsEl) return;
+
+    const tierKey = settings?.product_tier_key || '';
+    const isStarterTier = tierKey === 'starter_landing';
+    const hasSubdomain = Boolean(settings?.subdomain);
+    const hasCustomDomain = Boolean(settings?.custom_domain);
+    const domainVerified = Number(settings?.custom_domain_verified_at || 0) > 0;
+    const termsAccepted = settings?.terms_accepted === 1 || settings?.terms_accepted === true;
+    const termsAt = settings?.terms_accepted_at ? new Date(Number(settings.terms_accepted_at) * 1000).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : null;
+
+    let paymentMethods = [];
+    if (Array.isArray(settings?.payment_methods)) {
+      paymentMethods = settings.payment_methods;
+    } else {
+      try { paymentMethods = JSON.parse(settings?.payment_methods || '[]'); } catch { paymentMethods = []; }
+    }
+    const electronicIds = new Set(['STRIPE','MOMO','VNPAY','ZALOPAY','CREDIT_CARD','PAYPAL','GRABPAY']);
+    const hasElectronic = paymentMethods.some(m => m.enabled && electronicIds.has(String(m.id||'').toUpperCase()));
+    const hasBankTransfer = paymentMethods.some(m => m.enabled && m.id === 'BANK_TRANSFER');
+
+    const commercialLive = !isStarterTier && hasCustomDomain && domainVerified && termsAccepted && hasElectronic;
+
+    // Only show wizard for paid tiers that support commerce
+    if (isStarterTier) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    if (liveBadge) liveBadge.style.display = commercialLive ? 'inline-flex' : 'none';
+
+    // ── Step 1: Site Builder ──────────────────────────────────────────────────
+    const step1Done = hasSubdomain || hasCustomDomain;
+    const step1 = `
+      <div class="wizard-step">
+        <div class="wizard-step-icon ${step1Done ? 'done' : 'next'}">${step1Done ? '✓' : '1'}</div>
+        <div class="wizard-step-body">
+          <div class="wizard-step-title">Build your site <span class="step-status ${step1Done ? 'done' : 'next'}">${step1Done ? 'Done' : 'Start here'}</span></div>
+          <p class="wizard-step-desc">Use the Visual Editor to design your tour pages, add photos, and configure your brand.</p>
+          <div class="wizard-step-action">
+            <a href="universal-admin.html" class="button small">Open Website Editor</a>
+          </div>
+        </div>
+      </div>`;
+
+    // ── Step 2: Connect Domain ────────────────────────────────────────────────
+    let step2Status, step2Icon, step2Desc, step2Action;
+    if (hasCustomDomain && domainVerified) {
+      step2Status = 'done'; step2Icon = '✓';
+      step2Desc = `Custom domain <strong>${escapeHtml(settings.custom_domain)}</strong> is verified.`;
+      step2Action = '';
+    } else if (hasCustomDomain && !domainVerified) {
+      step2Status = 'next'; step2Icon = '2';
+      step2Desc = `Domain <strong>${escapeHtml(settings.custom_domain)}</strong> is set but not yet verified. Add the DNS records shown in Settings → Custom Domain, then click Check DNS.`;
+      step2Action = `<a href="#" id="wizard-btn-check-dns" class="button small">Check DNS</a>`;
+    } else {
+      step2Status = step1Done ? 'next' : 'later'; step2Icon = '2';
+      step2Desc = 'Connect your own domain (BYOD) or register a new one through the platform — your store will go live on that domain.';
+      step2Action = `
+        <a href="#" id="wizard-btn-byod" class="button small">Connect my domain</a>
+        <a href="#" id="wizard-btn-register-domain" class="button alt small" title="Register a new domain — CF cost + 30% platform fee">Register new domain ✨</a>`;
+    }
+    const step2 = `
+      <div class="wizard-step">
+        <div class="wizard-step-icon ${step2Status}">${step2Icon}</div>
+        <div class="wizard-step-body">
+          <div class="wizard-step-title">Connect your domain <span class="step-status ${step2Status}">${step2Status === 'done' ? 'Verified' : step2Status === 'next' ? 'Pending' : 'Later'}</span></div>
+          <p class="wizard-step-desc ${step2Status === 'later' ? 'later' : ''}">${step2Desc}</p>
+          ${step2Action ? `<div class="wizard-step-action">${step2Action}</div>` : ''}
+        </div>
+      </div>`;
+
+    // ── Step 3: Terms & Conditions ────────────────────────────────────────────
+    const step3Ready = step1Done || hasCustomDomain;
+    let step3Content;
+    if (termsAccepted) {
+      step3Content = `<p class="wizard-step-desc">Accepted${termsAt ? ` on ${termsAt}` : ''}. You agreed to the platform Terms of Service and commercial activation policy.</p>`;
+    } else {
+      step3Content = `
+        <p class="wizard-step-desc ${!step3Ready ? 'later' : ''}">Read and accept the platform Terms of Service before your store can go live.</p>
+        ${step3Ready ? `
+        <div class="wizard-tc-box">
+          By activating your commercial storefront you agree to: (1) pay the applicable monthly subscription fee; (2) a platform commission on all bookings processed through the platform (rate per your product tier); (3) the platform Commercial Activation Policy including: all public booking flows must use a verified custom domain, at least one electronic payment gateway must be active, and bank transfer may only be used as a supplementary option alongside an active electronic gateway; (4) not to circumvent platform tracking by directing customers off-platform after initial contact; (5) Cloudflare's acceptable use policies for Workers and D1.
+        </div>
+        <label class="wizard-tc-check"><input type="checkbox" id="wizard-tc-checkbox"> I have read and agree to the Terms of Service and Commercial Activation Policy</label>
+        <div class="wizard-step-action">
+          <button class="button small" id="wizard-btn-accept-terms" disabled>Accept &amp; Continue</button>
+        </div>` : ''}`;
+    }
+    const step3 = `
+      <div class="wizard-step">
+        <div class="wizard-step-icon ${termsAccepted ? 'done' : (step3Ready ? 'next' : 'later')}">${termsAccepted ? '✓' : '3'}</div>
+        <div class="wizard-step-body">
+          <div class="wizard-step-title">Agree to Terms &amp; Conditions <span class="step-status ${termsAccepted ? 'done' : (step3Ready ? 'next' : 'later')}">${termsAccepted ? 'Accepted' : (step3Ready ? 'Action needed' : 'Later')}</span></div>
+          ${step3Content}
+        </div>
+      </div>`;
+
+    // ── Step 4: Payment Gateway ───────────────────────────────────────────────
+    const step4Ready = termsAccepted && hasCustomDomain;
+    const gatewayOptions = [
+      { id: 'STRIPE',     icon: '💳', label: 'Stripe',     tag: 'required' },
+      { id: 'MOMO',       icon: '📱', label: 'MoMo',       tag: 'required' },
+      { id: 'VNPAY',      icon: '🏦', label: 'VNPay',      tag: 'required' },
+      { id: 'ZALOPAY',    icon: '💜', label: 'ZaloPay',    tag: 'required' },
+    ];
+    const connectedGateway = gatewayOptions.find(g => paymentMethods.some(m => m.enabled && m.id === g.id));
+    const paymentRows = gatewayOptions.map(g => {
+      const isConnected = paymentMethods.some(m => m.enabled && m.id === g.id);
+      return `<div class="wizard-payment-row ${isConnected ? 'active' : ''}">
+        <span class="wizard-payment-icon">${g.icon}</span>
+        <span class="wizard-payment-label">${g.label}</span>
+        <span class="wizard-payment-tag ${isConnected ? 'connected' : 'required'}">${isConnected ? '✓ Connected' : 'Required'}</span>
+      </div>`;
+    }).join('');
+    const bankRow = `<div class="wizard-payment-row ${hasBankTransfer ? 'supplementary' : ''}" style="margin-top:8px">
+        <span class="wizard-payment-icon">🏧</span>
+        <span class="wizard-payment-label">Bank Transfer</span>
+        <span class="wizard-payment-tag supplementary">${hasBankTransfer ? '✓ Added' : 'Supplementary only'}</span>
+      </div>`;
+
+    let step4Desc, step4Action;
+    if (hasElectronic) {
+      step4Desc = `${connectedGateway?.label || 'Electronic gateway'} is connected. Customers can pay online. Bookings are trackable and commissionable.`;
+      step4Action = `<a href="#" id="wizard-btn-manage-payments" class="button alt small">Manage Payments</a>`;
+    } else {
+      step4Desc = step4Ready
+        ? 'Connect at least one electronic payment gateway to unlock bookings. Bank transfer can be added as a supplementary option after.'
+        : 'Available after your domain is connected and terms are accepted.';
+      step4Action = step4Ready ? `<a href="#" id="wizard-btn-manage-payments" class="button small">Set up Payment Gateway</a>` : '';
+    }
+    const step4 = `
+      <div class="wizard-step">
+        <div class="wizard-step-icon ${hasElectronic ? 'done' : (step4Ready ? 'next' : 'later')}">${hasElectronic ? '✓' : '4'}</div>
+        <div class="wizard-step-body">
+          <div class="wizard-step-title">Set up payment gateway <span class="step-status ${hasElectronic ? 'done' : (step4Ready ? 'next' : 'later')}">${hasElectronic ? 'Connected' : (step4Ready ? 'Action needed' : 'Later')}</span></div>
+          <p class="wizard-step-desc ${(!step4Ready && !hasElectronic) ? 'later' : ''}">${step4Desc}</p>
+          <div class="wizard-payment-list">${paymentRows}${bankRow}</div>
+          ${step4Action ? `<div class="wizard-step-action">${step4Action}</div>` : ''}
+        </div>
+      </div>`;
+
+    stepsEl.innerHTML = step1 + step2 + step3 + step4;
+
+    // ── Wizard button wiring ──────────────────────────────────────────────────
+    const byodBtn = document.getElementById('wizard-btn-byod');
+    if (byodBtn) byodBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('custom-domain-section')?.scrollIntoView({behavior:'smooth'}); });
+
+    const registerBtn = document.getElementById('wizard-btn-register-domain');
+    if (registerBtn) registerBtn.addEventListener('click', (e) => { e.preventDefault(); openDomainRegPanel(); });
+
+    const dnsBtn = document.getElementById('wizard-btn-check-dns');
+    if (dnsBtn) dnsBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('btn-verify-custom-domain')?.click(); });
+
+    const paymentsBtn = document.getElementById('wizard-btn-manage-payments');
+    if (paymentsBtn) paymentsBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('btn-payment-settings')?.click(); });
+
+    const tcCheckbox = document.getElementById('wizard-tc-checkbox');
+    const acceptBtn  = document.getElementById('wizard-btn-accept-terms');
+    if (tcCheckbox && acceptBtn) {
+      tcCheckbox.addEventListener('change', () => { acceptBtn.disabled = !tcCheckbox.checked; });
+      acceptBtn.addEventListener('click', async () => {
+        acceptBtn.disabled = true; acceptBtn.textContent = 'Saving…';
+        try {
+          const res = await fetch('/api/tenant/accept-terms', { method: 'POST', headers: buildTenantHeaders() });
+          const data = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+          // Reload settings to re-render wizard with updated state
+          const settingsRes = await fetch('/api/tenants/settings', { headers: buildTenantHeaders() });
+          const settingsData = await settingsRes.json().catch(() => null);
+          if (settingsData?.settings) renderCommerceWizard(settingsData.settings);
+          else window.location.reload();
+        } catch (err) {
+          acceptBtn.disabled = false; acceptBtn.textContent = 'Accept & Continue';
+          alert('Could not save terms acceptance: ' + err.message);
+        }
+      });
+    }
+  }
+
+  // ── Domain Registration Panel ─────────────────────────────────────────────
+  // Wired to wizard Step 2 "Register new domain" button.
+  // Handles: open/close, search, price display, and Stripe checkout redirect.
+  (function initDomainRegPanel() {
+    const panel     = document.getElementById('domain-reg-panel');
+    const closeBtn  = document.getElementById('domain-reg-close');
+    const checkBtn  = document.getElementById('domain-reg-check');
+    const inputEl   = document.getElementById('domain-reg-input');
+    const resultEl  = document.getElementById('domain-reg-result');
+    if (!panel || !checkBtn || !inputEl || !resultEl) return;
+
+    closeBtn?.addEventListener('click', () => {
+      panel.style.display = 'none';
+      resultEl.innerHTML = '';
+      inputEl.value = '';
+    });
+
+    // Handle ?domain_purchase=success redirect from Stripe
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('domain_purchase') === 'success') {
+      const notif = document.createElement('div');
+      notif.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;background:#16a34a;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.18)';
+      notif.textContent = '✓ Domain purchase complete! Your domain has been registered and will be active shortly.';
+      document.body.appendChild(notif);
+      setTimeout(() => notif.remove(), 7000);
+      history.replaceState({}, '', window.location.pathname);
+    }
+    if (urlParams.get('domain_purchase') === 'cancelled') {
+      history.replaceState({}, '', window.location.pathname);
+    }
+
+    async function searchDomain() {
+      const q = inputEl.value.trim();
+      if (!q) { inputEl.focus(); return; }
+      checkBtn.disabled = true;
+      checkBtn.textContent = 'Checking…';
+      resultEl.innerHTML = '<span class="domain-reg-spinner">Checking availability…</span>';
+      try {
+        const res  = await fetch(`/api/domains/search?q=${encodeURIComponent(q)}`, { headers: buildTenantHeaders() });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          resultEl.innerHTML = `<div class="domain-result-unavail">⚠ ${escapeHtml(data?.error ?? 'Search failed. Try again.')}</div>`;
+          return;
+        }
+        renderDomainSearchResult(data);
+      } catch (err) {
+        resultEl.innerHTML = `<div class="domain-result-unavail">⚠ Network error: ${escapeHtml(err.message)}</div>`;
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = 'Check Availability';
+      }
+    }
+
+    checkBtn.addEventListener('click', searchDomain);
+    inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchDomain(); });
+
+    function renderDomainSearchResult(d) {
+      if (d.available === false) {
+        resultEl.innerHTML = `<div class="domain-result-unavail">❌ <strong>${escapeHtml(d.domain)}</strong> is not available. Try a different name or variation.</div>`;
+        return;
+      }
+      if (d.available === null) {
+        resultEl.innerHTML = `<div class="domain-result-unavail">⚠ Could not determine availability for <strong>${escapeHtml(d.domain)}</strong>. The TLD may not support real-time lookup. Try registering anyway or contact support.</div>`;
+        // still show price + purchase CTA since null = uncertain
+      }
+      const regPrice  = Number(d.registrar_price_usd ?? 0).toFixed(2);
+      const platPrice = Number(d.platform_price_usd  ?? 0).toFixed(2);
+      const markup    = (Number(d.platform_price_usd ?? 0) - Number(d.registrar_price_usd ?? 0)).toFixed(2);
+      resultEl.innerHTML = `
+        <div class="domain-result-avail">
+          <div class="domain-avail-badge">✓ Available</div>
+          <div class="domain-result-name">${escapeHtml(d.domain)}</div>
+          <div class="domain-price-breakdown">
+            <div class="domain-price-row"><span>Registrar cost</span><span>$${regPrice}/yr</span></div>
+            <div class="domain-price-row markup"><span>Platform service fee (${d.markup_pct ?? 30}%)</span><span>$${markup}/yr</span></div>
+            <div class="domain-price-row total"><span>Total (1 year)</span><span>$${platPrice}</span></div>
+          </div>
+          <p class="domain-reg-note">Your domain is auto-verified upon payment — no DNS configuration required. Renewals are billed annually. 30% platform service fee covers registration management, DNS hosting, and auto-SSL.</p>
+          <button type="button" class="button small" id="domain-reg-buy" data-domain="${escapeHtml(d.domain)}" data-price="${platPrice}">
+            Purchase ${escapeHtml(d.domain)} for $${platPrice}/yr
+          </button>
+        </div>`;
+      document.getElementById('domain-reg-buy')?.addEventListener('click', startDomainPurchase);
+    }
+
+    async function startDomainPurchase(e) {
+      const btn = e.currentTarget;
+      const dom = btn.dataset.domain;
+      btn.disabled = true;
+      btn.textContent = 'Preparing checkout…';
+      try {
+        const res = await fetch('/api/domains/purchase', {
+          method:  'POST',
+          headers: buildTenantHeaders({ 'Content-Type': 'application/json' }),
+          body:    JSON.stringify({ domain: dom }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        window.location.href = data.checkout_url;
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = `Purchase ${dom} for $${btn.dataset.price}/yr`;
+        alert('Could not start checkout: ' + err.message);
+      }
+    }
+  })();
+
+  window.openDomainRegPanel = function () {
+    const panel = document.getElementById('domain-reg-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => document.getElementById('domain-reg-input')?.focus(), 300);
+  };
 
   window.addEventListener('dashboard:langchange', () => {
     renderMarketSkinControl();

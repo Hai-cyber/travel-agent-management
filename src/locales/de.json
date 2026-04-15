@@ -516,7 +516,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Hier starten: in kleinen Schritten live gehen",
-    "guide_copy": "Sie haben sich bereits ohne Kreditkarte registriert und Ihr Launch-Plan bleibt 6 Monate lang kostenlos. Als Nächstes legen Sie eine klare Subdomain fest, wählen oder verfeinern das Website-Skin und bauen dann Touren, Reiseziele, Unterkünfte und Galerie-Inhalte. Objektverwaltung kommt später in die separate Engine für Hotels und andere Standorte.",
+    "guide_copy": "Sie haben sich bereits ohne Kreditkarte registriert und Ihr Launch-Plan bleibt 6 Monate lang kostenlos. Als Nächstes sperren Sie eine klare Subdomain, gestalten Ihre Website und bauen dann Touren, Reiseziele, Unterkünfte und Galerie-Inhalte.",
     "status_done": "Erledigt",
     "status_next": "Als Nächstes",
     "status_later": "Später",
@@ -541,10 +541,17 @@
     "website_desc_empty": "Legen Sie jetzt die erste Website-Struktur fest: Startseiten-Story, Bereiche und visuelle Identität.",
     "website_label_ready": "Website bearbeiten",
     "website_label_empty": "Website erstellen",
+    "design_title": "Website gestalten",
+    "design_desc_skin_first": "Wählen Sie zunächst ein visuelles Design in der Website-Gestaltung, dann passen Sie Abschnitte und Layout Ihrer Startseite an.",
+    "design_desc_shell_next": "Design ausgewählt. Erstellen Sie jetzt Ihre Website-Basis — Startseiten-Abschnitte, Texte und Layout.",
+    "design_desc_ready": "Design und Website-Basis sind bereit. Passen Sie diese jederzeit in der Website-Gestaltung an.",
+    "design_label_skin": "Design wählen",
+    "design_label_shell": "Website erstellen",
+    "design_label_ready": "Website bearbeiten",
     "tours_title": "Touren konfigurieren",
     "tours_count_single": "Tour ist bereits geladen",
     "tours_count_plural": "Touren sind bereits geladen",
-    "tours_desc_ready": "Verfeinern Sie Preise, Stops und Sales Copy.",
+    "tours_desc_ready": "Verfeinern Sie Preise, Stops und Sales Copy. Veröffentlichen Sie Touren, um sie buchbar zu machen.",
     "tours_desc_empty": "Fügen Sie Touren, Preise, Stops und verkaufsbereite Inhalte hinzu. Das ist heute der wichtigste kommerzielle Setup-Schritt.",
     "tours_label_ready": "Touren verfeinern",
     "tours_label_empty": "Touren konfigurieren",
@@ -580,7 +587,8 @@
     "system_desc_ready": "Kontakt- oder Rechtsgrundlagen sind bereits vorhanden. Prüfen Sie sie vor dem Go-Live noch einmal.",
     "system_desc_empty": "Schließen Sie Kontaktkanäle, Rechtsseiten und zentrale Systemstandards vor dem Launch ab.",
     "system_label_ready": "Systemeinstellungen prüfen",
-    "system_label_empty": "Systemeinstellungen abschließen"
+    "system_label_empty": "Systemeinstellungen abschließen",
+    "go_live_banner": "🎉 Ihre Website ist vollständig konfiguriert und bereit. Jetzt veröffentlichen, um live zu gehen."
   },
   "tour_config_market_skin": {
     "settings_title": "Markt-Skin-Einstellungen",

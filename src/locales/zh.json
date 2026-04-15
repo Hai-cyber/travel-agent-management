@@ -910,7 +910,7 @@
   },
   "dashboard_launch": {
     "guide_title": "从这里开始：分小步完成上线",
-    "guide_copy": "你已经在无需信用卡的情况下完成注册，而且 launch 方案可免费使用 6 个月。接下来，请先设置一个干净的子域名，选择或微调网站 skin，然后继续建立 tours、destinations、accommodations 和 gallery 内容。properties 之后会进入面向酒店和其他 venues 的独立 engine。",
+    "guide_copy": "你已经在无需信用卡的情况下完成注册，而且 launch 方案可免费使用 6 个月。接下来，请先锁定一个干净的子域名，设计您的网站，然后继续建立 tours、destinations、accommodations 和 gallery 内容。",
     "status_done": "完成",
     "status_next": "下一步",
     "status_later": "稍后",
@@ -934,11 +934,16 @@
     "website_desc_ready": "网站基础已经存在。继续在 Website Design 中调整首页 sections、文案与布局。",
     "website_desc_empty": "现在先搭建第一版网站结构：首页故事、sections 和视觉识别。",
     "website_label_ready": "编辑网站",
-    "website_label_empty": "创建网站",
-    "tours_title": "配置行程",
+    "website_label_empty": "创建网站",    "design_title": "设计您的网站",
+    "design_desc_skin_first": "首先在网站设计中选择视觉皮肤，然后设置首页的各个部分和布局。",
+    "design_desc_shell_next": "皮肤已选择。现在创建您的网站基础 — 首页部分、文案和布局。",
+    "design_desc_ready": "网站皮肤和基础已就绪，随时可在网站设计中进行优化。",
+    "design_label_skin": "选择皮肤",
+    "design_label_shell": "创建网站",
+    "design_label_ready": "编辑网站",    "tours_title": "配置行程",
     "tours_count_single": "个行程已加载",
     "tours_count_plural": "个行程已加载",
-    "tours_desc_ready": "继续优化价格、stops 与销售文案。",
+    "tours_desc_ready": "继续优化价格、stops 与销售文案。发布 tours 以开启预订。",
     "tours_desc_empty": "添加行程、价格、stops 与可销售内容。这是当前最核心的商业配置步骤。",
     "tours_label_ready": "优化行程",
     "tours_label_empty": "配置行程",
@@ -974,7 +979,8 @@
     "system_desc_ready": "联系信息或法律基础内容已经具备。上线前请再检查一遍。",
     "system_desc_empty": "上线前完成联系渠道、法律页面和核心系统默认值。",
     "system_label_ready": "检查系统设置",
-    "system_label_empty": "完成系统设置"
+    "system_label_empty": "完成系统设置",
+    "go_live_banner": "🎉 您的网站已完全配置就绪，立即发布上线。"
   },
   "tour_config_market_skin": {
     "settings_title": "Market Skin 设置",

@@ -61,6 +61,8 @@ Only mark work as done when it is rebuilt and verified in the current repo.
 | CHK-R53 | Booking lifecycle email notifications | done | Built `src/lib/bookingEmails.js` with 4 dispatch functions: `dispatchBookingCreatedEmail` (guest), `dispatchNewBookingAgentEmail` (agent/owner), `dispatchProofUploadedEmail` (agent), `dispatchBookingConfirmedEmail` (guest). Hooked into `bookings.js` via `executionCtx.waitUntil` (non-blocking) at: order creation (both guest + agent emails fired in parallel), agent-side proof upload, guest portal proof upload, and confirm-receipt. POST /order waitUntil now fetches agentRow via owner membership JOIN. `admin.js` smoke test updated to fire all 4 emails. GAS v6 handles all event types generically. UTF-8/Latin-1 HMAC mismatch fixed by escaping non-ASCII before signing. Verified: real booking TSZSJMVL — guest received `booking.created` ✅, owner (`thuyvan7878@gmail.com`) received `new_booking` ✅. | 2026-04-13 | Smoke test (`test-booking-emails`) sends all 4 to a single address for QA — expected inbox clutter is not a production issue; production routes each email to correct recipient only. |
 | CHK-R52 | Email delivery verified — info@tours-market.com sender | done | Fixed Worker `POST /api/admin/test-email`: `ta_sig`+`ta_sig_v` now passed as URL query params (GAS Web Apps cannot read custom HTTP headers — previously signature was header-only causing silent `missing_signature_material` failures). GAS script updated to `gas-password-reset-v3`: `from: 'info@tours-market.com'` added to `GmailApp.sendEmail()` options; `SENDER_NAME` → `'Tours Market'`. Deployed GAS Version 5 (2026-04-13). Live test confirmed email to `saophuongbac@gmail.com` received from `info@tours-market.com` signed by `tours-market.com`. | 2026-04-13 | `info@tours-market.com` must remain a verified "Send As" alias in the `info@quan-esskultur.de` Gmail account that executes the GAS script. |
 | CHK-R51 | Booking widget full i18n — all 9 locales | done | `public/tour-booking-view.js`: triple/private PAX_TYPES rows filtered out for day tours; `DEFAULT_MESSAGES.public_booking` now includes English fallbacks for all traveller keys. `universal_site.pricing` extended with `adult/child/infant/segment/season/pax` in all 9 locales. `renderPricing()` column headers replaced with `systemCopy.pricing.*` (no hardcoded English). `public_booking` section with translated traveller-type/definitions added to de/es/fr/ja/ko. Full `tour_config.pricing` booking-view keys (booking_view, live_price_notice, phase1_* sentence fragments, pricing_tier, calculate_final_price, total_for_group, band_summary etc.) added to de/es/fr/ja/ko. | 2026-04-10 | All 9 locales (en/vi/zh/th/de/fr/es/ja/ko) verified. Deployed as version 3d1295cb. |
+| CHK-R70 | Launch guide UX refactor + full i18n (11 locales) | done | Merged skin+website → single "Design your website" card; removed Properties, pricing, and go_live cards (11→7 cards); tours card now shows published count; go-live auto-banner when all 7 complete; `design_*` and `go_live_banner` keys added to all 11 locales; static `guide_copy` updated. Deployed `0357b7c7`. | 2026-04-15 | No migrations, no schema changes. Locale-only + frontend change. |
+
 - CHK-R49 completed: `src/routes/universalSites.js` adds `normalizeMediaLibrary()`, full CRUD routes (`GET/POST /media-libraries`, `GET/PATCH/DELETE /media-libraries/:id`), and junction routes (`GET/POST /tours/:tourId/library-links`, `DELETE /library-links/:id`). Hotel PATCH/POST routes now accept `star_rating` (1–5, nullable) and `region`. `listHotels` orders by `region ASC, star_rating DESC NULLS LAST, sort_order ASC`.
 
 ```powershell
@@ -780,3 +782,116 @@ All service CRUD, validation, and task system logic is now implemented and teste
 - Summary:
 - Risks / TODO:
 - Verification:
+
+---
+
+## Upcoming Checkpoints (prioritized, not yet started)
+
+| Priority | Checkpoint | Title | Status |
+|---|---|---|---|
+| 1 | CHK-R65 | Electronic gateway policy lock | done |
+| 2 | CHK-R66 | Commercial activation onboarding wizard | done |
+| 3 | CHK-R67 | CF Registrar domain purchase + 30% markup | done |
+| 4 | CHK-R68 | BYOD domain DNS verification flow | done |
+| 5 | CHK-R69 | Platform admin tenant management panel | done |
+
+### CHK-R65 — Electronic Gateway Commerce Policy Lock (2026-04-15)
+- Checkpoint: CHK-R65
+- Status: done
+- Files changed:
+  - `src/lib/publishGuard.js` — `commercialActivationEnabled` now requires `electronicGatewayConfigured` (Stripe/MoMo/VNPay/ZaloPay/PayPal/GrabPay/CreditCard). Bank transfer alone no longer unlocks commerce. Added `bank_transfer_only` flag to policy response. Updated messages to explain electronic gateway requirement.
+  - `src/lib/productTiers.js` — renamed `online_payment` → `payment_enabled`; added `electronic_gateway_required: true` and `bank_transfer_supplementary: true` flags to all paid tiers.
+  - `scripts/smoke-local.mjs` — smoke booking confirm test now asserts `STRIPE` (electronic) is active, not just `BANK_TRANSFER`.
+  - `.github/copilot-instructions.md` — added Section 5: Commercial Activation Policy (non-negotiable rules for all future AI sessions).
+- Summary:
+  - Policy: bank transfer is supplementary-only, never a gateway to commerce. Commission-trackable electronic gateways are the prerequisite.
+  - CF Registrar direction locked in instructions: domain purchase = CF cost + 30% markup, auto-verified on checkout success.
+- Risks / TODO:
+  - `starter_landing` tier UI copy ("Contact form only, no online payment") must be updated in locale files to say "no payment" unambiguously.
+  - Existing tenants with `BANK_TRANSFER` only as sole enabled method will lose `commercial_activation_enabled=true` after this deploy — confirm none in production before deploying.
+- Verification:
+  ```bash
+  node scripts/smoke-local.mjs
+  # PASS Confirmed electronic payment gateway (STRIPE) enabled through the live payment settings route
+  # PASS Created booking order ...
+  ```
+
+### CHK-R66 — Commercial Activation Onboarding Wizard (2026-04-15)
+- Checkpoint: CHK-R66
+- Status: done
+- Scope:
+  - Dashboard wizard panel with 4 steps, each with status badge (done / pending / locked):
+    1. **Build your site** — always unlocked; links to Visual Editor
+    2. **Connect your domain** — BYOD (DNS instructions + verify button) OR "Register via platform" (CF Registrar flow, CHK-R67)
+    3. **Agree to Terms & Conditions** — T&C acceptance with timestamp
+    4. **Set up payment gateway** — Stripe / MoMo / VNPay connect; at least 1 required; bank transfer shown as optional add-on below
+  - `starter_landing` tier: wizard shows steps 1–3 only, Step 4 locked with "upgrade to Tour Operator Pro" CTA
+  - On all 4 complete: "🎉 Your store is live" banner + publish button
+- Files changed:
+  - `public/dashboard.html` — wizard CSS, HTML panel (`#commerce-wizard`), and full `renderCommerceWizard(settings)` JS function injected; payment_methods array handling (accepts both parsed array and JSON string)
+  - `src/routes/tenants.js` — `GET /api/tenants/settings` SELECT extended with `payment_methods` and `product_tier_key` columns; `payment_methods` JSON auto-parsed to array in response
+- Summary:
+  - 4-step wizard displayed in the "Start Here" pane for all paid tiers; `starter_landing` hidden entirely
+  - Step states: done (✓ green) / next (blue) / later (grey) computed from live settings
+  - Step 3 T&C box posts to existing `POST /api/tenant/accept-terms` (idempotent), auto-reloads wizard on success
+  - Step 4 payment gateway renders connected/required badges per method; bank transfer shown as supplementary row
+  - Domain register button placeholder fires alert for CHK-R67; Step 2 BYOD scrolls to `#custom-domain-section`
+- Verification:
+  ```bash
+  node scripts/smoke-local.mjs  # ALL PASS
+  ```
+
+### CHK-R67 — CF Registrar Domain Purchase + 30% Platform Markup (2026-04-15)
+- Checkpoint: CHK-R67
+- Status: done
+- Files changed:
+  - `db/migrations/0051_tenant_domain_purchases.sql` — new table: `id, tenant_id, domain, cf_zone_id, stripe_session_id, stripe_payment_intent, registrar_price_cents, markup_pct, amount_charged_cents, registration_years, payment_status, domain_status, purchased_at, registered_at, expires_at, created_at`
+  - `src/routes/domains.js` — new route file: `GET /api/domains/search`, `POST /api/domains/purchase`, `POST /api/domains/stripe-webhook`, `GET /api/domains/purchases`
+  - `src/index.js` — imported + registered `registerDomainRoutes`; added `/api/domains/search` and `/api/domains/purchase` to `PROTECTED_API_PREFIXES`
+  - `wrangler.jsonc` — added `CF_ACCOUNT_ID` and `CF_REGISTRAR_API_TOKEN` placeholder vars (set via `wrangler secret put` in production)
+  - `src/routes/billing.js` — added guard in `checkout.session.completed` case to skip sessions where `metadata.purchase_type === 'domain'`
+  - `public/dashboard.html` — domain-reg-panel CSS + HTML + JS; `openDomainRegPanel()` global; `?domain_purchase=success` toast on Stripe redirect-back
+- Summary:
+  - Availability check: RDAP via `rdap.cloudflare.com` (404 = available)
+  - Pricing: hardcoded TLD price map (CF at-cost); 30% markup enforced server-side
+  - Checkout: Stripe `payment` mode (one-time, not subscription); metadata `purchase_type=domain` differentiates from subscription sessions
+  - Webhook: `POST /api/domains/stripe-webhook` with `STRIPE_DOMAIN_WEBHOOK_SECRET`; Stripe sig HMAC-verified; idempotent; on success calls CF Registrar API → writes `custom_domain + custom_domain_verified_at` to tenant (auto-verified, no CNAME wait)
+  - Billing webhook guard: skips `checkout.session.completed` where `metadata.purchase_type === 'domain'`
+- Env vars to configure in production:
+  - `CF_ACCOUNT_ID` — wrangler secret put
+  - `CF_REGISTRAR_API_TOKEN` — wrangler secret put (Registrar:Edit scope)
+  - `STRIPE_DOMAIN_WEBHOOK_SECRET` — wrangler secret put (from Stripe webhook for `/api/domains/stripe-webhook`)
+- Verification:
+  ```bash
+  node scripts/smoke-local.mjs  # ALL PASS (6 domain smoke tests)
+  # PASS Domain search route requires authentication
+  # PASS Rejected invalid domain names with 400
+  # PASS Rejected unsupported TLD with 422
+  # PASS Valid domain search returns 200 with correct 30% markup pricing structure
+  # PASS Domain purchases history endpoint responds with empty list
+  # PASS Domain purchase returns 503 gracefully when Stripe not configured
+  ```
+- Production env secrets set: `CF_ACCOUNT_ID` ✓, `CF_REGISTRAR_API_TOKEN` ✓ (via wrangler secret put)
+- Still pending: `STRIPE_SECRET_KEY`, `STRIPE_DOMAIN_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`
+
+### CHK-R68 — BYOD Domain DNS Verification Flow (done)
+- Checkpoint: CHK-R68
+- Status: done
+- Scope:
+  - Dashboard: BYOD panel shows DNS instructions (CNAME `@` → `proxy.tours-market.com` + TXT `_tours-market-verify.{domain}={token}`)
+  - `POST /api/tenants/custom-domain-verify` endpoint: resolves TXT record via CF DNS-over-HTTPS, checks HMAC token, on success sets `custom_domain_verified_at` + promotes trust PREVIEW_ONLY → PROBATION
+  - Polling: dashboard auto-polls every 30s via `startDnsAutoPoll()` while domain is unverified; `stopDnsAutoPoll()` called on success
+  - Security: token is `HMAC-SHA256(tenantId:domain, ADMIN_SECRET).slice(0,16)` — deterministic, no extra D1 column
+- Implementation summary:
+  - `buildDomainVerifyToken(adminSecret, tenantId, domain)` now uses `crypto.subtle` HMAC-SHA256; fallback for local dev without `ADMIN_SECRET`
+  - TXT record prefix changed from `_tm-verify.{domain}` to `_tours-market-verify.{domain}`
+  - CNAME target changed from workers.dev URL to `proxy.tours-market.com`
+  - GET handler returns `txt_record_name`, `txt_record_value`, `cname_target` fields
+  - POST handler: on success, checks `trust_status === 'PREVIEW_ONLY'` → updates to `PROBATION`; returns `trust_promoted: true` if upgraded
+  - Dashboard `loadCustomDomainStatus()`: calls `startDnsAutoPoll()` when domain pending
+  - `btnVerifyCustomDomain` click handler: calls `stopDnsAutoPoll()` + updates `trust_status` in `onboardingState.settings` if promoted
+  - `scripts/smoke-local.mjs`: added `runDomainVerifySmoke()` with 3 tests (auth guard, GET structure + CNAME, POST NO_DOMAIN)
+- Verification:
+  ```bash
+  node scripts/smoke-local.mjs  # ALL PASS
+  ```

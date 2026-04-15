@@ -520,7 +520,7 @@
   },
   "dashboard_launch": {
     "guide_title": "ここから開始: 小さなステップで公開準備",
-    "guide_copy": "クレジットカードなしで登録は完了しており、launch プランは 6 か月間無料のままです。次に、わかりやすいサブドメインを確定し、サイトのスキンを選ぶか微調整し、その後ツアー、目的地、宿泊、ギャラリー内容を整備してください。物件管理は後でホテルや他の会場向けの専用エンジンに移ります。",
+    "guide_copy": "クレジットカードなしで登録は完了しており、launch プランは 6 か月間無料のままです。次に、サブドメインを確定し、website をデザインし、その後 tours、目的地、宿泊、ギャラリー内容を整備してください。",
     "status_done": "完了",
     "status_next": "次へ",
     "status_later": "後で",
@@ -544,11 +544,16 @@
     "website_desc_ready": "website base はすでにあります。次は Website Design で homepage section、コピー、レイアウトを整えてください。",
     "website_desc_empty": "まず最初の website structure を設定しましょう。homepage story、sections、visual identity をここで固めます。",
     "website_label_ready": "website を編集",
-    "website_label_empty": "website を作成",
-    "tours_title": "tours を設定",
+    "website_label_empty": "website を作成",    "design_title": "ウェブサイトをデザインする",
+    "design_desc_skin_first": "ウェブサイトデザインでビジュアルスキンを選択してから、ホームページのセクションとレイアウトを設定してください。",
+    "design_desc_shell_next": "スキンが選択されました。次にウェブサイトの基盤を作成します — ホームページのセクション、コピー、レイアウト。",
+    "design_desc_ready": "サイトのスキンとウェブサイトの基盤が整っています。ウェブサイトデザインからいつでも調整できます。",
+    "design_label_skin": "スキンを選択",
+    "design_label_shell": "website作成",
+    "design_label_ready": "website編集",    "tours_title": "tours を設定",
     "tours_count_single": "tour はすでに読み込まれています",
     "tours_count_plural": "tours はすでに読み込まれています",
-    "tours_desc_ready": "価格、stops、sales copy をさらに調整してください。",
+    "tours_desc_ready": "価格、stops、sales copy をさらに調整してください。tours を公開して予約可能にしてください。",
     "tours_desc_empty": "tours、価格、stops、販売向けコンテンツを追加してください。これは今進めるべき主要な商用セットアップです。",
     "tours_label_ready": "tours を調整",
     "tours_label_empty": "tours を設定",
@@ -584,7 +589,8 @@
     "system_desc_ready": "contact または legal の基本設定はすでにあります。公開前に見直してください。",
     "system_desc_empty": "公開前に contact channels、legal pages、主要な system defaults を完了してください。",
     "system_label_ready": "system settings を確認",
-    "system_label_empty": "system settings を完了"
+    "system_label_empty": "system settings を完了",
+    "go_live_banner": "🎉 サイトの設定が完了しました。今すぐ公開して公開しましょう。"
   },
   "tour_config_market_skin": {
     "settings_title": "マーケットスキン設定",

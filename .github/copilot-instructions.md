@@ -39,5 +39,13 @@ Always follow the "Rescue Rebuild" rules defined in:
 - **Consistency**: When adding or changing copy, update the English catalog first, then keep `vi` and `zh` aligned.
 - **Fallbacks**: If a translation is missing, fall back to English rather than inventing inconsistent copy inline.
 
-## 5. Communication Tone
+## 5. Commercial Activation Policy (Non-negotiable)
+- **Platform subdomain** = showcase only. Zero payment, zero commerce, zero bank transfer, zero lead-gen forms that initiate a transaction.
+- **Electronic gateway required**: `commercialActivationEnabled` in `publishGuard.js` requires `electronicGatewayConfigured` (Stripe, MoMo, VNPay, ZaloPay, PayPal, GrabPay, or Credit Card). Bank transfer (`BANK_TRANSFER`) alone is NEVER sufficient to unlock commerce.
+- **Bank transfer = supplementary only**: tenants may add bank transfer as an additional payment option AFTER an electronic gateway is already active.
+- **Reason**: bank transfer is untrackable — platform cannot enforce commission, cannot detect cancellations, and it signals an unmodern commerce surface to end-customers.
+- **CF Registrar flow**: when a tenant registers a domain through the platform Cloudflare Registrar integration, the domain purchase checkout charges CF domain cost + 30% platform markup, auto-verifies the domain on success, and the tenant proceeds directly to commercial activation without a DNS wait period.
+- **BYOD domain flow**: tenant brings their own domain → sets DNS → platform verifies → manual trust review → commercial activation.
+
+## 6. Communication Tone
 - Be a Senior Lead Developer: Concise, focused on performance, and proactive in spotting security flaws (like missing tenant isolation).

@@ -65,12 +65,16 @@ export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
   const electronicGatewayConfigured = hasEnabledElectronicGateway(paymentMethods);
   const domainConfigured = hasSubdomain || hasCustomDomain;
   const showcasePublishEnabled = showcaseSubscriptionEnabled && termsAccepted && domainConfigured && trustPolicy.allow_publish;
+  // [POLICY] Commercial activation requires ≥1 ELECTRONIC gateway (Stripe, MoMo, VNPay, etc.).
+  // Bank transfer alone is NOT sufficient: it is untrackable, cannot yield platform commission,
+  // and undermines the modern commerce signal for end-customers.
+  // Bank transfer may be enabled as a SUPPLEMENTARY method after electronic is active.
   const commercialActivationEnabled = commercialSubscriptionEnabled
     && termsAccepted
     && trustPolicy.can_bind_custom_domain
     && hasCustomDomain
     && customDomainVerified
-    && paymentConfigured;
+    && electronicGatewayConfigured;
   const publicBookingEnabled = commercialActivationEnabled && hostType === 'custom_domain';
 
   let message = 'This tenant is not ready for public publishing yet.';
@@ -81,7 +85,9 @@ export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
   } else if (showcasePublishEnabled && hasCustomDomain && !customDomainVerified) {
     message = 'Showcase publishing is live, but commercial activation remains locked until the custom domain is verified.';
   } else if (showcasePublishEnabled && !paymentConfigured) {
-    message = 'Showcase publishing is live. Add at least one payment method after custom-domain activation to accept bookings.';
+    message = 'Showcase publishing is live. Connect a verified custom domain and set up an online payment gateway (Stripe, MoMo, VNPay…) to accept bookings.';
+  } else if (showcasePublishEnabled && paymentConfigured && !electronicGatewayConfigured) {
+    message = 'Bank transfer is configured but an electronic payment gateway (Stripe, MoMo, VNPay…) is required to unlock commerce. Bank transfer can be added as a supplementary method.';
   }
 
   return {
@@ -96,8 +102,11 @@ export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
     has_subdomain: hasSubdomain,
     has_custom_domain: hasCustomDomain,
     custom_domain_verified: customDomainVerified,
+    // payment_configured = any method (including bank transfer)
+    // electronic_gateway_configured = the gate for commerce unlock
     payment_configured: paymentConfigured,
     electronic_gateway_configured: electronicGatewayConfigured,
+    bank_transfer_only: paymentConfigured && !electronicGatewayConfigured,
     message,
   };
 }

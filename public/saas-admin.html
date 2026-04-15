@@ -79,6 +79,44 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
+    /* ── Tabs ── */
+    .tab-bar { display: flex; gap: 10px; margin-bottom: 18px; }
+    .tab-btn {
+      appearance: none; border: 0; cursor: pointer;
+      padding: 10px 20px; border-radius: 999px;
+      font: 700 13px/1 "Segoe UI", sans-serif; letter-spacing: 0.03em;
+      background: rgba(255,255,255,0.45); color: var(--ink);
+      transition: background 0.15s;
+    }
+    .tab-btn.active { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #eff6ff; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    /* ── Tenant table ── */
+    .tenants-panel { background: var(--surface); border: 1px solid rgba(191,219,254,0.45); border-radius: 22px; box-shadow: var(--shadow); backdrop-filter: blur(18px); padding: 22px; }
+    .tenant-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+    .tenant-table th { text-align: left; padding: 8px 10px; background: rgba(37,99,235,0.07); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .tenant-table td { padding: 9px 10px; border-top: 1px solid rgba(16,33,45,0.07); vertical-align: middle; }
+    .tenant-table tr:hover td { background: rgba(37,99,235,0.04); }
+    .sub-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font: 700 10px/1.4 "Segoe UI", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .sub-badge.TRIAL     { background: #fef9c3; color: #713f12; }
+    .sub-badge.ACTIVE    { background: #dcfce7; color: #166534; }
+    .sub-badge.SUSPENDED { background: #fee2e2; color: #991b1b; }
+    .sub-badge.CANCELLED { background: #f1f5f9; color: #64748b; }
+    .trust-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font: 700 10px/1.4 "Segoe UI", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .trust-badge.TRUSTED      { background: #dcfce7; color: #166534; }
+    .trust-badge.PROBATION    { background: #dbeafe; color: #1d4ed8; }
+    .trust-badge.PREVIEW_ONLY { background: #fef9c3; color: #713f12; }
+    .trust-badge.SUSPENDED    { background: #fee2e2; color: #991b1b; }
+    .tenant-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tenant-filters input, .tenant-filters select {
+      flex: 1 1 160px; padding: 9px 12px; border-radius: 12px;
+      border: 1px solid rgba(16,33,45,0.12); font-size: 13px; background: rgba(255,255,255,0.72);
+    }
+    .action-select {
+      appearance: none; border: 1px solid rgba(37,99,235,0.25); border-radius: 999px;
+      padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+      background: rgba(37,99,235,0.08); color: #1d4ed8;
+    }
     @media (max-width: 920px) {
       .grid, .tier-grid, .row { grid-template-columns: 1fr; }
     }
@@ -97,6 +135,13 @@
       </div>
     </section>
     <div class="status" id="status">Enter your admin secret, then load the current marketing config.</div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="marketing">Marketing Editor</button>
+      <button class="tab-btn" data-tab="tenants">Tenants</button>
+    </div>
+
+    <div class="tab-pane active" id="tab-marketing">
 
     <section class="panel" style="margin-bottom:18px">
       <h2>Access</h2>
@@ -175,9 +220,170 @@
         <button class="btn btn-secondary" id="btn-reset" type="button">Reload from server</button>
       </div>
     </form>
+    </div><!-- /tab-marketing -->
+
+    <div class="tab-pane" id="tab-tenants">
+      <div class="tenants-panel">
+        <h2>Tenant Management</h2>
+        <p class="hint">View all tenants. Manually set subscription status without Stripe.</p>
+        <div class="tenant-filters">
+          <input id="tenant-search" type="search" placeholder="Search name / email / subdomain / domain…" />
+          <select id="tenant-filter-sub">
+            <option value="">All subscription</option>
+            <option value="TRIAL">TRIAL</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </select>
+          <select id="tenant-filter-trust">
+            <option value="">All trust</option>
+            <option value="TRUSTED">TRUSTED</option>
+            <option value="PROBATION">PROBATION</option>
+            <option value="PREVIEW_ONLY">PREVIEW_ONLY</option>
+            <option value="SUSPENDED">SUSPENDED</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-load-tenants" type="button">Load tenants</button>
+        </div>
+        <div id="tenant-table-wrap">
+          <p style="color:var(--muted)">Click "Load tenants" to fetch the list.</p>
+        </div>
+      </div>
+    </div><!-- /tab-tenants -->
   </main>
 
   <script>
+    // ── Tab switching ─────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // ── Tenant management ─────────────────────────────────────────────────────
+    document.getElementById('btn-load-tenants').addEventListener('click', loadTenants);
+
+    let _tenantSearchTimer = null;
+    document.getElementById('tenant-search').addEventListener('input', () => {
+      clearTimeout(_tenantSearchTimer);
+      _tenantSearchTimer = setTimeout(loadTenants, 350);
+    });
+    document.getElementById('tenant-filter-sub').addEventListener('change', loadTenants);
+    document.getElementById('tenant-filter-trust').addEventListener('change', loadTenants);
+
+    async function loadTenants() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      const wrap = document.getElementById('tenant-table-wrap');
+      wrap.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+
+      const q      = document.getElementById('tenant-search').value.trim();
+      const status = document.getElementById('tenant-filter-sub').value;
+      const trust  = document.getElementById('tenant-filter-trust').value;
+
+      const qs = new URLSearchParams({ limit: '200' });
+      if (q)      qs.set('q', q);
+      if (status) qs.set('status', status);
+      if (trust)  qs.set('trust', trust);
+
+      try {
+        const res = await fetch(`/api/admin/tenants?${qs}`, { headers: { 'X-Admin-Secret': secret } });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load tenants.');
+        renderTenantTable(payload.tenants || []);
+        setStatus(`${payload.count} tenant(s) loaded.`);
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:#8a2c2e">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function renderTenantTable(tenants) {
+      const wrap = document.getElementById('tenant-table-wrap');
+      if (!tenants.length) {
+        wrap.innerHTML = '<p style="color:var(--muted)">No tenants match the current filters.</p>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="tenant-table">
+          <thead>
+            <tr>
+              <th>Name / Email</th>
+              <th>Subdomain</th>
+              <th>Domain</th>
+              <th>Subscription</th>
+              <th>Trust</th>
+              <th>Trial left</th>
+              <th>Created</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tenants.map((t) => `
+              <tr data-tenant-id="${escapeHtml(t.id)}">
+                <td><strong>${escapeHtml(t.name || '—')}</strong><br><small style="color:var(--muted)">${escapeHtml(t.email || '')}</small></td>
+                <td>${escapeHtml(t.subdomain || '—')}</td>
+                <td>${t.custom_domain ? `<span title="${t.domain_verified ? 'Verified' : 'Unverified'}">${escapeHtml(t.custom_domain)} ${t.domain_verified ? '✅' : '⏳'}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+                <td><span class="sub-badge ${escapeHtml(t.subscription_status || '')}">${escapeHtml(t.subscription_status || '—')}</span></td>
+                <td><span class="trust-badge ${escapeHtml(t.trust_status || '')}">${escapeHtml(t.trust_status || '—')}</span></td>
+                <td>${t.trial_days_left !== null ? (t.trial_days_left > 0 ? `${t.trial_days_left}d` : '<span style="color:#991b1b">Expired</span>') : '—'}</td>
+                <td><small>${t.created_at ? new Date(t.created_at * 1000).toLocaleDateString() : '—'}</small></td>
+                <td>
+                  <select class="action-select" data-tenant-id="${escapeHtml(t.id)}" title="Set subscription status">
+                    <option value="">Set status…</option>
+                    <option value="TRIAL"${t.subscription_status==='TRIAL'?' selected':''}>TRIAL</option>
+                    <option value="ACTIVE"${t.subscription_status==='ACTIVE'?' selected':''}>ACTIVE</option>
+                    <option value="SUSPENDED"${t.subscription_status==='SUSPENDED'?' selected':''}>SUSPENDED</option>
+                    <option value="CANCELLED"${t.subscription_status==='CANCELLED'?' selected':''}>CANCELLED</option>
+                  </select>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      wrap.querySelectorAll('.action-select').forEach((sel) => {
+        sel.addEventListener('change', async () => {
+          const tenantId = sel.dataset.tenantId;
+          const newStatus = sel.value;
+          if (!newStatus) return;
+          const secret = getSecret();
+          if (!secret) return setStatus('Admin secret is required.', true);
+          if (!confirm(`Set subscription_status = "${newStatus}" for tenant ${tenantId}?`)) {
+            sel.value = '';
+            return;
+          }
+          sel.disabled = true;
+          try {
+            const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/set-subscription`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+              body: JSON.stringify({ status: newStatus }),
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed.');
+            setStatus(`Tenant ${tenantId}: subscription set to ${newStatus}.`);
+            // Update badge inline
+            const row = wrap.querySelector(`tr[data-tenant-id="${CSS.escape(tenantId)}"]`);
+            if (row) {
+              const badge = row.querySelector('.sub-badge');
+              if (badge) { badge.textContent = newStatus; badge.className = `sub-badge ${newStatus}`; }
+              const trialCell = row.cells[5];
+              if (trialCell && newStatus !== 'TRIAL') trialCell.innerHTML = '—';
+            }
+          } catch (err) {
+            setStatus(err.message || 'Action failed.', true);
+            sel.value = '';
+          } finally {
+            sel.disabled = false;
+          }
+        });
+      });
+    }
+
+    // ── Marketing editor ──────────────────────────────────────────────────────
     const fieldIds = [
       'announcement_bar', 'launch_offer_badge', 'launch_offer_terms', 'signup_title', 'signup_requirement_copy', 'hero_badge', 'hero_title', 'hero_subtitle',
       'plans_title', 'plans_subtitle', 'transparency_title', 'transparency_body',

@@ -1,4 +1,209 @@
 ## Latest Handoff
+Date: 2026-04-15
+Checkpoint: CHK-R70 — Launch Guide UX Refactor + Full i18n (11 Locales)
+
+### What was completed
+
+- **`public/dashboard.html`** — `renderLaunchGuide()` sequence refactored:
+  - `skin` + `website` cards merged → single **`design`** card with 3-state progressive description (no skin → pick skin first; skin only → build shell; both done → edit anytime)
+  - Tours description now inline-shows published count: `3 tours, 1 published. Refine pricing…`
+  - **Removed** `properties` card (was hardcoded `propertiesCount = 0`, always stuck at NEXT)
+  - **Removed** `pricing` card (redundant with tours card)
+  - **Removed** `go_live` card (converted to auto-banner)
+  - Total sequence: **11 cards → 7 cards** (subdomain, design, tours, destinations, accommodations, gallery, system)
+  - Added `<div class="go-live-banner" id="go-live-banner" hidden>` to HTML, CSS `.go-live-banner {}` added
+  - Banner auto-shows green 🎉 message when `sequence.every(s => s.complete)`
+  - Static `guide_copy` in HTML updated — "Properties will live later…" sentence removed
+  - Removed `const propertiesCount = 0` dead variable
+
+- **`src/locales/en.json`** — `dashboard_launch` block updated:
+  - `guide_copy` updated (Properties sentence removed)
+  - `tours_desc_ready` updated to mention publishing tours
+  - Added: `design_title`, `design_desc_skin_first`, `design_desc_shell_next`, `design_desc_ready`, `design_label_skin`, `design_label_shell`, `design_label_ready`
+  - Added: `go_live_banner`
+  - Old `skin_*` / `website_*` keys preserved (still referenced by other consumers)
+
+- **All 10 other locale files** (`vi`, `zh`, `th`, `de`, `fr`, `es`, `ja`, `ko`, `en-gb`, `en-au`) — same structural additions:
+  - All fully localized; all 11 files confirmed valid JSON before deploy
+
+- **Deployed** `0357b7c7` — `npx wrangler deploy --env=""`; no migrations, no schema changes
+
+### What is still not done
+
+- Stripe secrets still not configured:
+  - `wrangler secret put STRIPE_SECRET_KEY` (production Stripe secret)
+  - `wrangler secret put STRIPE_PRICE_ID` (replace `price_REPLACE_ME` in wrangler.jsonc)
+  - `wrangler secret put STRIPE_DOMAIN_WEBHOOK_SECRET`
+- CF Registrar secrets: `CF_ACCOUNT_ID` ✓, `CF_REGISTRAR_API_TOKEN` ✓ already set in production
+- Old `skin_*` and `website_*` locale keys kept for backwards compatibility — can be removed in a future cleanup once confirmed unused
+
+### Suggested next prompt
+"Build CHK-R71: Trust ladder admin UI integration. Add a 'Review Cases' tab to saas-admin.html that lists open `tenant_review_cases` rows (GET /api/admin/tenant-review-cases), shows tenant name + reason + created_at, with Approve and Reject inline buttons that call POST /api/admin/tenants/:id/set-trust. Wire smoke coverage for the two actions."
+
+---
+
+## Previous Handoff
+Date: 2026-04-16
+Checkpoint: CHK-R69 — Platform Admin Tenant Management Panel
+
+### What was completed
+
+- **`src/routes/admin.js`** — two new admin-only endpoints appended before `export default`:
+  - `GET /api/admin/tenants` — list tenants with optional query filters (`status`, `trust`, `q` LIKE, `page`, `limit`); returns `tenants[]` + `total` + `page`; computes `trial_days_left` for TRIAL tenants
+  - `POST /api/admin/tenants/:id/set-subscription` — validates `status` against `VALID_SUB_STATUSES = {TRIAL,ACTIVE,SUSPENDED,CANCELLED}`; D1 batch: `UPDATE tenants SET subscription_status` + `INSERT INTO tenant_audit_log (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by)`; returns `{ ok, tenant_id, status, previous_status, note }`
+  - Bug fixed: original INSERT used column name `created_at` and extra `action` column — both wrong for actual schema (`changed_at`, no `action`). Fixed to match `tenant_audit_log` schema.
+- **`public/saas-admin.html`** — tab system added:
+  - CSS: `.tab-bar`, `.tab-btn.active`, `.tab-pane.active`, `.tenants-panel`, `.tenant-table`, `.sub-badge.{STATUS}`, `.trust-badge.{STATUS}`, `.action-select`, `.tenant-filters`
+  - HTML: `<div class="tab-bar">` with Marketing Editor | Tenants tabs; existing marketing form wrapped in `<div class="tab-pane active" id="tab-marketing">`; new `<div class="tab-pane" id="tab-tenants">` with search/filter controls + `#tenant-table-wrap`
+  - JS (at top of `<script>`): tab switching; `loadTenants()` (builds query from filters, calls `GET /api/admin/tenants`); `renderTenantTable(tenants)` (builds table with per-row inline `<select>` status dropdowns); inline action handler (PATCH-style `POST /api/admin/tenants/:id/set-subscription` → updates badge inline); 350ms debounce on search input
+- **`scripts/smoke-local.mjs`** — two new smoke functions:
+  - `runDomainVerifySmoke(baseUrl, token)` — 3 tests (auth guard, GET returns token+cname_target, POST returns structured DNS response)
+  - `runAdminTenantSmoke(baseUrl, adminSecret)` — 6 tests (GET auth guard, GET returns list, GET ?status=TRIAL filter, POST auth guard, POST invalid status 400, POST TRIAL→ACTIVE→TRIAL round-trip)
+  - Bug fixed: original functions used undeclared `assert()` — rewritten to use `pass()` / `fail(); return` pattern consistent with the rest of the smoke script
+  - Bug fixed: domain verify POST test expected `400 NO_DOMAIN` but booking smoke had already bound a domain — updated to accept either `400 NO_DOMAIN` or a structured `{ verified, domain }` DNS check response
+
+### What is still not done
+
+- Stripe secrets still not configured:
+  - `wrangler secret put STRIPE_SECRET_KEY` (production Stripe secret)
+  - `wrangler secret put STRIPE_PRICE_ID` (replace `price_REPLACE_ME` in wrangler.jsonc)
+  - `wrangler secret put STRIPE_DOMAIN_WEBHOOK_SECRET`
+- CF Registrar secrets: `CF_ACCOUNT_ID` ✓, `CF_REGISTRAR_API_TOKEN` ✓ already set in production
+
+### Suggested next prompt
+"We still don't have Stripe. Build CHK-R70: Trust ladder admin UI integration. Add a 'Review Cases' tab to saas-admin.html that lists open `tenant_review_cases` rows (GET /api/admin/tenant-review-cases), shows tenant name + reason + created_at, with Approve and Reject inline buttons that call POST /api/admin/tenants/:id/set-trust. Wire smoke coverage for the two actions."
+
+---
+
+## Previous Handoff
+Date: 2026-04-16
+Checkpoint: CHK-R68 — BYOD Domain DNS TXT Verification
+
+### What was completed
+
+- **`src/routes/tenants.js`** — upgraded `buildDomainVerifyToken`:
+  - New signature: `async buildDomainVerifyToken(adminSecret, tenantId, domain)`
+  - Algorithm: `HMAC-SHA256(tenantId:domain, ADMIN_SECRET).slice(0,16)` via `crypto.subtle`
+  - Fallback for local dev when `ADMIN_SECRET` not set: `tm-verify-${tenantId.slice(0,12)}`
+  - Both `GET /api/tenants/custom-domain-verify` and `POST /api/tenants/custom-domain-verify` updated to use new async token
+- **TXT record prefix**: `_tm-verify.{domain}` → `_tours-market-verify.{domain}`
+- **CNAME target**: `square-wind-2594.divine-shape-9f0a.workers.dev` → `proxy.tours-market.com`
+- **GET endpoint** now returns `txt_record_name`, `txt_record_value`, `cname_target` fields
+- **POST endpoint** on success:
+  - Sets `custom_domain_verified_at`
+  - Promotes `trust_status` PREVIEW_ONLY → PROBATION (single `UPDATE`)
+  - Returns `trust_promoted: true` when promotion happened
+- **`public/dashboard.html`** — DNS verification panel:
+  - `loadCustomDomainStatus()` calls `startDnsAutoPoll()` when domain is pending
+  - `startDnsAutoPoll()` / `stopDnsAutoPoll()` — 30-second interval polling while panel open
+  - On poll success: status badge updated, instructions hidden, button hidden, `onboardingState.settings.trust_status` updated if promoted
+  - `btnVerifyCustomDomain` click also calls `stopDnsAutoPoll()` + handles `trust_promoted`
+  - DNS instructions updated with correct TXT prefix and CNAME target
+- **`scripts/smoke-local.mjs`**: added `runDomainVerifySmoke()` (3 tests):
+  - Auth guard on GET
+  - GET structure + CNAME target value
+  - POST returns 400 `NO_DOMAIN` when no custom domain set
+
+### What is still not done
+
+- Env vars to set in production before domain purchase works end-to-end:
+  - `wrangler secret put STRIPE_SECRET_KEY`
+  - `wrangler secret put STRIPE_DOMAIN_WEBHOOK_SECRET`
+  - `STRIPE_PRICE_ID` still `price_REPLACE_ME` in wrangler.jsonc vars
+- Production CF credentials: `CF_ACCOUNT_ID` ✓, `CF_REGISTRAR_API_TOKEN` ✓ already set
+
+### Suggested next prompt
+"Do `wrangler secret put STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` for subscription checkout. Then build CHK-R69: Stripe subscription checkout flow — tenant clicks 'Subscribe' in wizard Step 4, `POST /api/billing/create-checkout` creates a Stripe Subscription mode Session with `subscription_data.trial_period_days`, success URL includes `?billing_success=1`, dashboard shows live subscription status badge."
+
+---
+
+## Previous Handoff
+Date: 2026-04-15
+Checkpoint: CHK-R67 — CF Registrar domain purchase + 30% platform markup
+
+### What was completed
+
+- **New route file `src/routes/domains.js`**:
+  - `GET /api/domains/search?q=example.com` — RDAP availability check + TLD price lookup (30% markup enforced server-side)
+  - `POST /api/domains/purchase` — Stripe one-time Checkout Session (mode: payment); creates PENDING D1 record; skips if duplicate PENDING/COMPLETED
+  - `POST /api/domains/stripe-webhook` — HMAC-verified; idempotent; on `checkout.session.completed` calls CF Registrar API → writes `custom_domain + custom_domain_verified_at` to tenant (auto-verified, no CNAME wait)
+  - `GET /api/domains/purchases` — tenant purchase history
+- **Migration `0051_tenant_domain_purchases.sql`**: `tenant_domain_purchases` table
+- **`src/index.js`**: import + register domains; `/api/domains/search` + `/api/domains/purchase` added to `PROTECTED_API_PREFIXES`
+- **`wrangler.jsonc`**: `CF_ACCOUNT_ID` and `CF_REGISTRAR_API_TOKEN` placeholder vars added
+- **`src/routes/billing.js`**: billing webhook now skips `checkout.session.completed` where `metadata.purchase_type === 'domain'`
+- **`public/dashboard.html`**: domain-reg-panel CSS + HTML + JS; `openDomainRegPanel()` replaces the old `alert()`; `?domain_purchase=success` toast notification on Stripe redirect-back
+- **Smoke test**: ALL PASS (6 domain smoke tests)
+- **Production secrets**: `CF_ACCOUNT_ID` ✓, `CF_REGISTRAR_API_TOKEN` ✓ set via `wrangler secret put`
+
+### What is still not done
+
+### What was completed
+
+- **`renderCommerceWizard(settings)` injected into `public/dashboard.html`**:
+  - 4-step panel displayed in the "Start Here" pane for all paid tiers (`starter_landing` hidden entirely)
+  - Step badges: done (✓ green) / next (blue) / later (grey) computed from live settings at render time
+  - Step 1: Build your site → links to Visual Editor (always unlocked)
+  - Step 2: Connect domain → BYOD scrolls to `#custom-domain-section`; "Register new domain ✨" fires alert placeholder for CHK-R67; if domain set+unverified shows "Check DNS" button
+  - Step 3: T&C → scrollable box, checkbox gating, posts to `POST /api/tenant/accept-terms` (idempotent), reloads wizard on success
+  - Step 4: Payment gateway → Stripe/MoMo/VNPay/ZaloPay with connected/required badges; bank transfer shown as supplementary row
+  - `wizard-live-badge` shown when all 4 steps complete
+- **`GET /api/tenants/settings` SELECT extended** (`src/routes/tenants.js`):
+  - Added `payment_methods` and `product_tier_key` columns
+  - `payment_methods` JSON string auto-parsed to array in the response
+- **Smoke test**: ALL PASS
+
+### What is still not done
+
+- CHK-R67: CF Registrar API integration not started (`CF_ACCOUNT_ID`, `CF_REGISTRAR_API_TOKEN` not yet wired)
+- CHK-R68: DNS TXT verification endpoint not yet built
+- `STRIPE_PRICE_ID` env var is still `price_REPLACE_ME`
+- Existing production tenants with bank-transfer-only lose `commercial_activation_enabled=true` after CHK-R65 — verify before deploying
+
+### Suggested next prompt
+"Build CHK-R67: CF Registrar domain purchase flow. Add a 'Register a domain' panel in the dashboard (or expand wizard Step 2). Search box → CF Registrar availability API → price display (CF cost × 1.30 with breakdown). Checkout via Stripe one-time payment. On webhook: call CF Registrar API to register, bind Workers route, write custom_domain + custom_domain_verified_at to D1. Create migration 0051_tenant_domain_purchases.sql."
+
+---
+
+## Previous Handoff
+Date: 2026-04-15
+Checkpoint: CHK-R65 — Electronic gateway commerce policy lock + roadmap for CF Registrar
+
+### What was completed
+
+- **Commercial activation policy locked** (non-negotiable, now enforced in code and instructions):
+  - `publishGuard.js`: `commercialActivationEnabled` now gates on `electronicGatewayConfigured` (Stripe, MoMo, VNPay, ZaloPay, PayPal, GrabPay, Credit Card) — NOT on `paymentConfigured` (which accepted bank transfer)
+  - Bank transfer is now explicitly `supplementary_only`: permitted as an add-on AFTER an electronic gateway is active; never sufficient to unlock commerce alone
+  - Reason: bank transfer is untrackable → no platform commission, no cancellation detection, no modern commerce signal
+  - Added `bank_transfer_only` flag to `buildTenantCommercialPolicy()` response so dashboard can show a targeted nudge
+- **`productTiers.js` capability names clarified**: `online_payment` → `payment_enabled`; `electronic_gateway_required: true` and `bank_transfer_supplementary: true` flags added to all `payment_enabled` tiers
+- **Smoke test hardened**: booking confirm flow now asserts STRIPE (electronic gateway) is what enables commerce, not bank transfer
+- **`copilot-instructions.md` updated**: Section 5 "Commercial Activation Policy" written as non-negotiable rules — locks the CF Registrar direction (domain cost + 30% markup, auto-verified on checkout)
+- **Roadmap checkpoints written** into `03_PROGRESS_LEDGER.md`:
+  - CHK-R66: Commercial activation onboarding wizard (4-step dashboard panel)
+  - CHK-R67: CF Registrar domain purchase + 30% platform markup (Stripe one-time checkout → CF API → auto-verify)
+  - CHK-R68: BYOD domain DNS TXT verification flow
+
+### What is still not done
+
+- CHK-R66: 4-step dashboard wizard UI not yet built
+- CHK-R67: CF Registrar API integration not started (`CF_ACCOUNT_ID`, `CF_REGISTRAR_API_TOKEN` env vars not yet wired)
+- CHK-R68: DNS TXT verification endpoint not yet built
+- `starter_landing` tier locale copy ("Contact form only, no online payment") should be updated to unambiguously say "no payment"
+- Existing production tenants with bank-transfer-only as sole enabled method will lose `commercial_activation_enabled=true` after CHK-R65 deploys — verify zero such tenants in production before deploying
+
+### Known risks / TODOs
+
+- CF Registrar API: CF only allows registrar purchases on Cloudflare-managed domains — confirm platform CF account has registrar access before building CHK-R67
+- 30% domain markup must be disclosed to tenants in T&C before charging — legal/copy needed as part of CHK-R66 T&C step
+- `STRIPE_PRICE_ID` env var is still `price_REPLACE_ME` — Stripe subscription checkout will fail until replaced
+
+### Suggested next prompt
+"Build CHK-R66: add the 4-step commercial activation wizard panel to dashboard.html. Step 1 = site builder link (always unlocked). Step 2 = domain connect (BYOD instructions OR 'Register via platform' button placeholder). Step 3 = T&C accept with timestamp. Step 4 = payment gateway setup (electronic required, bank transfer as optional add-on). starter_landing tier locks Step 4 with upgrade CTA."
+
+---
+
+## Previous Handoff
 Date: 2026-04-14
 Checkpoint: CHK-R64 — Showcase-only platform subdomains + commercial activation backbone
 

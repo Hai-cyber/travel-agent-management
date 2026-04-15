@@ -23,6 +23,7 @@ import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.
 import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
+import registerDomainRoutes from './routes/domains.js';
 import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
 import registerReportsRoutes from './routes/reports.js';
@@ -191,6 +192,8 @@ const PROTECTED_API_PREFIXES = [
   '/api/tours',
   '/api/universal',
   '/api/billing/checkout',
+  '/api/domains/search',    // domain availability + price lookup
+  '/api/domains/purchase',  // covers /purchase and /purchases (startsWith)
 ];
 
 app.use('/api/*', async (c, next) => {
@@ -232,6 +235,7 @@ registerCategoryRoutes && registerCategoryRoutes(app);
 registerPaymentRoutes && registerPaymentRoutes(app);
 registerAdminRoutes && registerAdminRoutes(app);
 registerBillingRoutes && registerBillingRoutes(app);
+registerDomainRoutes && registerDomainRoutes(app);
 registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 registerReportsRoutes && registerReportsRoutes(app);

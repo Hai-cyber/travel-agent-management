@@ -516,7 +516,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Commencez ici : lancer par petites étapes",
-    "guide_copy": "Vous êtes déjà inscrit sans carte bancaire et votre plan de lancement reste gratuit pendant 6 mois. Ensuite, choisissez un sous-domaine propre, sélectionnez ou affinez l'habillage du site, puis construisez les circuits, destinations, hébergements et contenus de galerie. Les propriétés arriveront plus tard dans un moteur séparé pour les hôtels et autres lieux.",
+    "guide_copy": "Vous êtes déjà inscrit sans carte bancaire et votre plan de lancement reste gratuit pendant 6 mois. Ensuite, verrouillez un sous-domaine propre, concevez votre site, puis construisez les circuits, destinations, hébergements et contenus de galerie.",
     "status_done": "Terminé",
     "status_next": "Suivant",
     "status_later": "Plus tard",
@@ -541,10 +541,17 @@
     "website_desc_empty": "Définissez maintenant la première structure du site : histoire de la page d'accueil, sections et identité visuelle.",
     "website_label_ready": "Modifier le site",
     "website_label_empty": "Créer le site",
+    "design_title": "Concevoir votre site web",
+    "design_desc_skin_first": "Choisissez d'abord un thème visuel dans Conception du site, puis définissez les sections et la mise en page de votre page d'accueil.",
+    "design_desc_shell_next": "Thème sélectionné. Créez maintenant la base de votre site — sections de la page d'accueil, textes et mise en page.",
+    "design_desc_ready": "Le thème et la base du site sont en place. Modifiez-les à tout moment depuis Conception du site.",
+    "design_label_skin": "Choisir un thème",
+    "design_label_shell": "Créer le site",
+    "design_label_ready": "Modifier le site",
     "tours_title": "Configurer les tours",
     "tours_count_single": "tour est déjà chargé",
     "tours_count_plural": "tours sont déjà chargés",
-    "tours_desc_ready": "Affinez les prix, les stops et le sales copy.",
+    "tours_desc_ready": "Affinez les prix, les stops et le sales copy. Publiez des tours pour les rendre réservables.",
     "tours_desc_empty": "Ajoutez des tours, des prix, des stops et un contenu prêt à vendre. C'est aujourd'hui l'étape commerciale principale.",
     "tours_label_ready": "Affiner les tours",
     "tours_label_empty": "Configurer les tours",
@@ -580,7 +587,8 @@
     "system_desc_ready": "Les bases contact ou juridiques sont déjà en place. Vérifiez-les avant la mise en ligne.",
     "system_desc_empty": "Finalisez les canaux de contact, les pages juridiques et les paramètres système clés avant le lancement.",
     "system_label_ready": "Vérifier les paramètres système",
-    "system_label_empty": "Finaliser les paramètres système"
+    "system_label_empty": "Finaliser les paramètres système",
+    "go_live_banner": "🎉 Votre site est entièrement configuré et prêt. Publiez maintenant pour le mettre en ligne."
   },
   "tour_config_market_skin": {
     "settings_title": "Paramètres du market skin",

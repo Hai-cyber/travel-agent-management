@@ -516,7 +516,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Empiece aquí: lanzar en pasos pequeños",
-    "guide_copy": "Ya se ha registrado sin tarjeta de crédito y su plan de lanzamiento sigue siendo gratuito durante 6 meses. A continuación, fije un subdominio limpio, elija o refine el estilo del sitio y después construya tours, destinos, alojamientos y contenido de galería. Las propiedades vivirán más adelante en un motor separado para hoteles y otros espacios.",
+    "guide_copy": "Ya se ha registrado sin tarjeta de crédito y su plan de lanzamiento sigue siendo gratuito durante 6 meses. A continuación, bloquee un subdominio limpio, diseñe su sitio web y después construya tours, destinos, alojamientos y contenido de galería.",
     "status_done": "Hecho",
     "status_next": "Siguiente",
     "status_later": "Más tarde",
@@ -541,10 +541,17 @@
     "website_desc_empty": "Defina ahora la primera estructura del sitio: historia de homepage, sections e identidad visual.",
     "website_label_ready": "Editar sitio web",
     "website_label_empty": "Crear sitio web",
+    "design_title": "Diseña tu sitio web",
+    "design_desc_skin_first": "Primero elige un diseño visual en Diseño web, luego personaliza las secciones y el diseño de tu página de inicio.",
+    "design_desc_shell_next": "Diseño seleccionado. Ahora crea la base de tu sitio — secciones de la página de inicio, textos y diseño.",
+    "design_desc_ready": "El diseño y la base del sitio están en su lugar. Refínalos en Diseño web en cualquier momento.",
+    "design_label_skin": "Elegir diseño",
+    "design_label_shell": "Crear sitio",
+    "design_label_ready": "Editar sitio",
     "tours_title": "Configurar tours",
     "tours_count_single": "tour ya está cargado",
     "tours_count_plural": "tours ya están cargados",
-    "tours_desc_ready": "Refine precios, stops y sales copy.",
+    "tours_desc_ready": "Refine precios, stops y sales copy. Publique tours para hacerlos reservables.",
     "tours_desc_empty": "Añada tours, precios, stops y contenido listo para vender. Este es hoy el paso comercial principal.",
     "tours_label_ready": "Refinar tours",
     "tours_label_empty": "Configurar tours",
@@ -580,7 +587,8 @@
     "system_desc_ready": "Lo básico de contacto o legal ya está preparado. Revíselo antes de salir en vivo.",
     "system_desc_empty": "Complete canales de contacto, páginas legales y los valores centrales del sistema antes del lanzamiento.",
     "system_label_ready": "Revisar system settings",
-    "system_label_empty": "Completar system settings"
+    "system_label_empty": "Completar system settings",
+    "go_live_banner": "🎉 Tu sitio está completamente configurado y listo. Publica ahora para activarlo."
   },
   "tour_config_market_skin": {
     "settings_title": "Configuración del skin de mercado",

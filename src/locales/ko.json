@@ -520,7 +520,7 @@
   },
   "dashboard_launch": {
     "guide_title": "여기서 시작: 작은 단계로 런칭 준비",
-    "guide_copy": "신용카드 없이 이미 가입이 완료되었고 launch 플랜은 6개월 동안 무료로 유지됩니다. 다음으로 깔끔한 서브도메인을 확정하고, 사이트 스킨을 선택하거나 다듬은 뒤, 투어, 목적지, 숙박, 갤러리 콘텐츠를 구축하세요. 프로퍼티 관리는 나중에 호텔과 다른 장소를 위한 별도 엔진으로 이동합니다.",
+    "guide_copy": "신용카드 없이 이미 가입이 완료되었고 launch 플랜은 6개월 동안 무료로 유지됩니다. 다음으로 서브도메인을 잠근 20 후, 웹사이트를 디자인하고, 투어, 목적지, 숙박, 갤러리 콘텐츠를 구축하세요.",
     "status_done": "완료",
     "status_next": "다음",
     "status_later": "나중에",
@@ -544,11 +544,16 @@
     "website_desc_ready": "website base 가 이미 있습니다. 이제 Website Design 에서 homepage section, 카피, 레이아웃을 다듬으세요.",
     "website_desc_empty": "지금 첫 website structure 를 설정하세요: homepage story, sections, visual identity 가 여기서 시작됩니다.",
     "website_label_ready": "website 수정",
-    "website_label_empty": "website 만들기",
-    "tours_title": "tours 설정",
+    "website_label_empty": "website 만들기",    "design_title": "웹사이트 디자인",
+    "design_desc_skin_first": "웹사이트 디자인에서 비주얼 스킨을 먼저 선택한 후 홈페이지 섹션과 레이아웃을 설정하세요.",
+    "design_desc_shell_next": "스킨이 선택되었습니다. 이제 웹사이트 기반을 만드세요 — 홈페이지 섹션, 콘텐츠, 레이아웃.",
+    "design_desc_ready": "사이트 스킨과 웹사이트 기반이 완료되었습니다. 웹사이트 디자인에서 언제든지 수정할 수 있습니다.",
+    "design_label_skin": "스킨 선택",
+    "design_label_shell": "웹사이트 만들기",
+    "design_label_ready": "웹사이트 편집",    "tours_title": "tours 설정",
     "tours_count_single": "tour 가 이미 로드되었습니다",
     "tours_count_plural": "tours 가 이미 로드되었습니다",
-    "tours_desc_ready": "가격, stops, sales copy 를 더 다듬으세요.",
+    "tours_desc_ready": "가격, stops, sales copy 를 더 다듬으세요. tours 를 게시해 예약 가능하게 만드세요.",
     "tours_desc_empty": "tours, 가격, stops, 판매 준비가 된 콘텐츠를 추가하세요. 지금 가장 중요한 상업 설정 단계입니다.",
     "tours_label_ready": "tours 다듬기",
     "tours_label_empty": "tours 설정",
@@ -584,7 +589,8 @@
     "system_desc_ready": "contact 또는 legal 기본 설정이 이미 준비되어 있습니다. 공개 전에 다시 검토하세요.",
     "system_desc_empty": "런칭 전에 contact channels, legal pages, 핵심 system defaults 를 마무리하세요.",
     "system_label_ready": "system settings 검토",
-    "system_label_empty": "system settings 완료"
+    "system_label_empty": "system settings 완료",
+    "go_live_banner": "🎉 사이트 설정이 완료되었습니다. 지금 게시하여 라이브로 전환하세요."
   },
   "tour_config_market_skin": {
     "settings_title": "마켓 스킨 설정",

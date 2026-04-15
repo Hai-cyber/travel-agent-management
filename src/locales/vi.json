@@ -905,7 +905,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Bắt đầu tại đây: launch theo từng bước nhỏ",
-    "guide_copy": "Bạn đã đăng ký mà không cần thẻ tín dụng và gói launch của bạn vẫn miễn phí trong 6 tháng. Tiếp theo, hãy chốt một subdomain gọn, chọn hoặc tinh chỉnh giao diện website, rồi xây tour, điểm đến, lưu trú và thư viện hình ảnh. Phần bất động sản sẽ đi sau trong engine riêng cho khách sạn và các địa điểm khác.",
+    "guide_copy": "Bạn đã đăng ký mà không cần thẻ tín dụng và gói launch của bạn vữn miễn phí trong 6 tháng. Tiếp theo, hãy khóa một subdomain gọn, thiết kế website, rồi xây tour, điểm đến, lưu trú và thư viện hình ảnh.",
     "status_done": "Xong",
     "status_next": "Tiếp theo",
     "status_later": "Để sau",
@@ -929,11 +929,16 @@
     "website_desc_ready": "Website base đã có. Tiếp tục chỉnh homepage section, nội dung và layout trong Website Design.",
     "website_desc_empty": "Thiết lập cấu trúc website đầu tiên ngay bây giờ: câu chuyện trang chủ, section và định hướng hình ảnh.",
     "website_label_ready": "Sửa website",
-    "website_label_empty": "Tạo website",
-    "tours_title": "Cấu hình tours",
+    "website_label_empty": "Tạo website",    "design_title": "Thiết kế website",
+    "design_desc_skin_first": "Chọn skin trực quan trong Thiết kế website trước, sau đó định hình các phần và bố cục trang chủ.",
+    "design_desc_shell_next": "Đã chọn skin. Bây giờ tạo website shell — các phần trang chủ, nội dung và bố cục.",
+    "design_desc_ready": "Skin và nền tảng website đã sẵn sàng. Có thể tinh chỉnh từ Thiết kế website bất cứ lúc nào.",
+    "design_label_skin": "Chọn skin",
+    "design_label_shell": "Tạo website",
+    "design_label_ready": "Chỉnh sửa website",    "tours_title": "Cấu hình tours",
     "tours_count_single": "tour đã được nạp",
     "tours_count_plural": "tours đã được nạp",
-    "tours_desc_ready": "Tinh chỉnh giá, stops và sales copy.",
+    "tours_desc_ready": "Tinh chỉnh giá, stops và sales copy. Xuất bản tours để cho phép đặt chỗ.",
     "tours_desc_empty": "Thêm tours, giá, stops và nội dung sẵn sàng bán hàng. Đây là bước setup thương mại chính hôm nay.",
     "tours_label_ready": "Tinh chỉnh tours",
     "tours_label_empty": "Cấu hình tours",
@@ -969,7 +974,8 @@
     "system_desc_ready": "Phần contact hoặc legal cơ bản đã có. Hãy rà lại trước khi lên live.",
     "system_desc_empty": "Hoàn tất contact channels, legal pages và các mặc định hệ thống cốt lõi trước khi launch.",
     "system_label_ready": "Rà system settings",
-    "system_label_empty": "Hoàn tất system settings"
+    "system_label_empty": "Hoàn tất system settings",
+    "go_live_banner": "🎉 Website của bạn đã được cấu hình đầy đủ và sẵn sàng. Xuất bản ngay để ra mắt."
   },
   "tour_config_market_skin": {
     "settings_title": "Thiết lập Market Skin",

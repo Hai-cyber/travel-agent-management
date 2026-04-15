@@ -815,7 +815,7 @@ tenants.get('/settings', async (c) => {
 
   try {
     const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, site_published_at, published_template_id FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, payment_methods, product_tier_key, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, site_published_at, published_template_id FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
 
@@ -823,10 +823,14 @@ tenants.get('/settings', async (c) => {
       return c.json({ error: 'Tenant not found.' }, 404);
     }
 
-    // Parse payment_config_json back to object for the API response
+    // Parse JSON columns back to objects for the API response
     if (settings.payment_config_json) {
       try { settings.payment_config_json = JSON.parse(settings.payment_config_json); }
       catch { /* leave as string if malformed */ }
+    }
+    if (settings.payment_methods) {
+      try { settings.payment_methods = JSON.parse(settings.payment_methods); }
+      catch { settings.payment_methods = []; }
     }
 
     const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), settings);
@@ -3183,10 +3187,25 @@ tenants.post('/request-trust-upgrade', async (c) => {
 
 // ─── Custom-domain DNS verification ──────────────────────────────────────────
 // Token value tenants must add as a DNS TXT record to prove ownership.
-// Derived from the tenant ID so no extra DB column is needed.
-function buildDomainVerifyToken(tenantId) {
-  // e.g.  tours-market-verify=abc123tenant
-  return `tours-market-verify=${tenantId.toLowerCase()}`;
+// Derived from HMAC-SHA256(tenantId:domain, ADMIN_SECRET) — deterministic,
+// no extra D1 column needed. First 16 hex chars only (64-bit entropy).
+async function buildDomainVerifyToken(adminSecret, tenantId, domain) {
+  const raw = `${tenantId.toLowerCase()}:${String(domain || '').trim().toLowerCase()}`;
+  if (!adminSecret) {
+    // Fallback for local dev without ADMIN_SECRET — readable but insecure
+    return `tm-verify-${raw.slice(0, 12)}`;
+  }
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(String(adminSecret)),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(raw));
+  const hex = Array.from(new Uint8Array(sig), b => b.toString(16).padStart(2, '0')).join('');
+  return hex.slice(0, 16);
 }
 
 // GET /api/tenants/custom-domain-verify
@@ -3205,7 +3224,8 @@ tenants.get('/custom-domain-verify', async (c) => {
   if (!row) return c.json({ error: 'Tenant not found' }, 404);
 
   const domain = row.custom_domain ? String(row.custom_domain).trim().toLowerCase() : null;
-  const token  = buildDomainVerifyToken(tenantId);
+  const token  = await buildDomainVerifyToken(c.env.ADMIN_SECRET, tenantId, domain);
+  const txtName = domain ? `_tours-market-verify.${domain}` : null;
 
   return c.json({
     ok: true,
@@ -3213,10 +3233,13 @@ tenants.get('/custom-domain-verify', async (c) => {
     verified: Boolean(Number(row.custom_domain_verified_at) > 0),
     verified_at: row.custom_domain_verified_at ? new Date(Number(row.custom_domain_verified_at) * 1000).toISOString() : null,
     token,
+    txt_record_name:  txtName,
+    txt_record_value: token,
+    cname_target:     'proxy.tours-market.com',
     instructions: domain ? {
       step1: `Log in to your DNS provider (e.g. Cloudflare, GoDaddy).`,
-      step2: `Add a TXT record: name = "_tm-verify.${domain}", value = "${token}"`,
-      step3: `Add a CNAME record: name = "${domain}", target = "square-wind-2594.divine-shape-9f0a.workers.dev"`,
+      step2: `Add a TXT record: name = "${txtName}", value = "${token}"`,
+      step3: `Add a CNAME record: name = "${domain}", target = "proxy.tours-market.com"`,
       step4: `Click "Check DNS" below once the records have propagated (may take up to 24 h).`,
     } : null,
   });
@@ -3232,7 +3255,7 @@ tenants.post('/custom-domain-verify', async (c) => {
   if (authError) return authError;
 
   const row = await c.env.DB
-    .prepare('SELECT custom_domain, custom_domain_verified_at FROM tenants WHERE id = ?')
+    .prepare('SELECT custom_domain, custom_domain_verified_at, trust_status FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!row) return c.json({ error: 'Tenant not found' }, 404);
@@ -3242,8 +3265,8 @@ tenants.post('/custom-domain-verify', async (c) => {
     return c.json({ error: 'No custom domain set. Save a custom domain first.', code: 'NO_DOMAIN' }, 400);
   }
 
-  const expectedToken = buildDomainVerifyToken(tenantId);
-  const txtName = `_tm-verify.${domain}`;
+  const expectedToken = await buildDomainVerifyToken(c.env.ADMIN_SECRET, tenantId, domain);
+  const txtName = `_tours-market-verify.${domain}`;
 
   // DNS-over-HTTPS lookup via Cloudflare public resolver
   let dnsAnswer = null;
@@ -3285,12 +3308,25 @@ tenants.post('/custom-domain-verify', async (c) => {
     .bind(now, tenantId)
     .run();
 
+  // Promote trust: PREVIEW_ONLY → PROBATION once domain ownership is proven
+  let trustPromoted = false;
+  const currentTrust = normalizeTrustStatus(row.trust_status);
+  if (currentTrust === 'PREVIEW_ONLY') {
+    await c.env.DB
+      .prepare('UPDATE tenants SET trust_status = ? WHERE id = ?')
+      .bind('PROBATION', tenantId)
+      .run();
+    trustPromoted = true;
+    console.info(`[DOMAIN_VERIFY_TRUST_PROMOTED] tenant=${tenantId} PREVIEW_ONLY → PROBATION`);
+  }
+
   console.info(`[DOMAIN_VERIFIED] tenant=${tenantId} domain=${domain}`);
   return c.json({
     ok: true,
     verified: true,
     domain,
     verified_at: new Date(now * 1000).toISOString(),
+    trust_promoted: trustPromoted,
     message: `Domain ${domain} successfully verified!`,
   });
 });

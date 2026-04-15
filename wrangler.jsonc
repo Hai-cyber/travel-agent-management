@@ -77,11 +77,18 @@
 	// Stripe billing vars — override with real values in .dev.vars (local) or
 	// wrangler secret put STRIPE_SECRET_KEY (production).
 	// NEVER commit real keys here — these are placeholder strings only.
+	//
+	// CF Registrar vars — required for domain purchase (CHK-R67).
+	//   CF_ACCOUNT_ID          — Cloudflare account ID (from CF dashboard)
+	//   CF_REGISTRAR_API_TOKEN — CF API token with Registrar:Edit scope
+	//   STRIPE_DOMAIN_WEBHOOK_SECRET — Stripe webhook secret for /api/domains/stripe-webhook
 	"vars": {
 		"STRIPE_PRICE_ID": "price_REPLACE_ME",
 		"PLATFORM_BASE_URL": "https://tours-market.com",
 		"GOOGLE_CLIENT_ID": "373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com",
-		"TURNSTILE_SITE_KEY": "0x4AAAAAAC0RoU63f5ipBatl"
+		"TURNSTILE_SITE_KEY": "0x4AAAAAAC0RoU63f5ipBatl",
+		"CF_ACCOUNT_ID": "REPLACE_ME",
+		"CF_REGISTRAR_API_TOKEN": "REPLACE_ME"
 	},
 	"env": {
 		"staging": {

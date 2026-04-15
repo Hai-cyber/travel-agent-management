@@ -241,6 +241,11 @@ billing.post('/webhook', async (c) => {
         return c.json({ ok: true, note: 'no_tenant_ref' });
       }
 
+      // Domain purchases are handled by /api/domains/stripe-webhook — skip here.
+      if (obj.metadata?.purchase_type === 'domain') {
+        return c.json({ ok: true, note: 'domain_purchase_skip' });
+      }
+
       // Idempotency: check if this session was already processed
       const alreadyProcessed = await c.env.DB
         .prepare(

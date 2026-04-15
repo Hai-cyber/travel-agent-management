@@ -910,7 +910,7 @@
   },
   "dashboard_launch": {
     "guide_title": "Start Here: launch in small steps",
-    "guide_copy": "You already signed up without a credit card and your launch plan stays free for 6 months. Next, set a clean subdomain, choose or refine the website skin, then build tours, destinations, accommodations, and gallery content. Properties will live later in the separate engine for hotels and other venues.",
+    "guide_copy": "You already signed up without a credit card and your launch plan stays free for 6 months. Next, lock a clean subdomain, design your website, then build tours, destinations, accommodations, and gallery content.",
     "status_done": "Done",
     "status_next": "Next",
     "status_later": "Later",
@@ -935,10 +935,17 @@
     "website_desc_empty": "Set the first website structure now: homepage story, sections, and visual identity.",
     "website_label_ready": "Edit website",
     "website_label_empty": "Create website",
+    "design_title": "Design your website",
+    "design_desc_skin_first": "Choose a visual skin in Website Design, then shape your homepage sections and layout.",
+    "design_desc_shell_next": "Skin selected. Now build your website shell — homepage sections, copy, and layout.",
+    "design_desc_ready": "Site skin and website base are in place. Refine from Website Design any time.",
+    "design_label_skin": "Choose skin",
+    "design_label_shell": "Build website",
+    "design_label_ready": "Edit website",
     "tours_title": "Configure tours",
     "tours_count_single": "tour is already loaded",
     "tours_count_plural": "tours are already loaded",
-    "tours_desc_ready": "Refine pricing, stops, and sales copy.",
+    "tours_desc_ready": "Refine pricing, stops, and sales copy. Publish tours to make them bookable.",
     "tours_desc_empty": "Add tours, pricing, stops, and sales-ready content. This is the main commercial setup step today.",
     "tours_label_ready": "Refine tours",
     "tours_label_empty": "Configure tours",
@@ -974,7 +981,8 @@
     "system_desc_ready": "Contact or legal basics are already in place. Review them before going live.",
     "system_desc_empty": "Finish contact channels, legal pages, and core system defaults before launch.",
     "system_label_ready": "Review system settings",
-    "system_label_empty": "Finish system settings"
+    "system_label_empty": "Finish system settings",
+    "go_live_banner": "🎉 Your site is fully configured and ready. Publish now to go live."
   },
   "tour_config_market_skin": {
     "settings_title": "Market Skin Settings",

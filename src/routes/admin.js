@@ -986,6 +986,120 @@ admin.post('/test-booking-emails', async (c) => {
   });
 });
 
+// ── GET /api/admin/tenants ────────────────────────────────────────────────────
+// Lists all tenants with key operational fields + computed trial_days_left.
+// Supports optional query params:
+//   ?status=TRIAL|ACTIVE|SUSPENDED|CANCELLED  — filter by subscription_status
+//   ?trust=PREVIEW_ONLY|PROBATION|TRUSTED|SUSPENDED — filter by trust_status
+//   ?q=<string>  — search name/email/subdomain/custom_domain (case-insensitive LIKE)
+//   ?page=<n>&limit=<n>  — pagination (default limit 50, max 200)
+// [SEC] Admin-only via X-Admin-Secret middleware above.
+admin.get('/tenants', async (c) => {
+  const TRIAL_DAYS = 180;
+  const nowS = Math.floor(Date.now() / 1000);
+
+  const status = c.req.query('status')?.toUpperCase()?.trim() || null;
+  const trust  = c.req.query('trust')?.toUpperCase()?.trim() || null;
+  const q      = c.req.query('q')?.trim() || null;
+  const page   = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit  = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '50', 10)));
+  const offset = (page - 1) * limit;
+
+  let sql = `SELECT id, name, email, subdomain, custom_domain, custom_domain_verified_at,
+                    subscription_status, trust_status, trust_score, product_tier_key,
+                    payment_methods, terms_accepted, created_at, stripe_customer_id
+             FROM tenants WHERE 1=1`;
+  const params = [];
+
+  if (status) { sql += ` AND subscription_status = ?`; params.push(status); }
+  if (trust)  { sql += ` AND trust_status = ?`;        params.push(trust); }
+  if (q) {
+    const like = `%${q}%`;
+    sql += ` AND (name LIKE ? OR email LIKE ? OR subdomain LIKE ? OR custom_domain LIKE ?)`;
+    params.push(like, like, like, like);
+  }
+
+  sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const rows = (await c.env.DB.prepare(sql).bind(...params).all()).results ?? [];
+
+  const tenants = rows.map((t) => {
+    const createdAt = Number(t.created_at || 0);
+    const trialEndsAt = createdAt + TRIAL_DAYS * 86400;
+    const trialDaysLeft = t.subscription_status === 'TRIAL'
+      ? Math.max(0, Math.ceil((trialEndsAt - nowS) / 86400))
+      : null;
+    return {
+      id:                       t.id,
+      name:                     t.name,
+      email:                    t.email,
+      subdomain:                t.subdomain,
+      custom_domain:            t.custom_domain || null,
+      domain_verified:          Boolean(Number(t.custom_domain_verified_at) > 0),
+      subscription_status:      t.subscription_status,
+      trust_status:             t.trust_status,
+      trust_score:              t.trust_score,
+      product_tier_key:         t.product_tier_key,
+      terms_accepted:           Boolean(t.terms_accepted),
+      has_stripe_customer:      Boolean(t.stripe_customer_id),
+      trial_days_left:          trialDaysLeft,
+      trial_ends_at:            t.subscription_status === 'TRIAL' ? trialEndsAt : null,
+      created_at:               createdAt,
+    };
+  });
+
+  return c.json({ ok: true, tenants, page, limit, count: tenants.length });
+});
+
+// ── POST /api/admin/tenants/:id/set-subscription ──────────────────────────────
+// Manually override a tenant's subscription_status. Useful for:
+//   - Granting early-access ACTIVE status without Stripe
+//   - Extending trial (set back to TRIAL)
+//   - Suspending / cancelling accounts
+// Body: { status: 'TRIAL'|'ACTIVE'|'SUSPENDED'|'CANCELLED', note?: string }
+// [SEC] Admin-only via X-Admin-Secret middleware above.
+const VALID_SUB_STATUSES = new Set(['TRIAL', 'ACTIVE', 'SUSPENDED', 'CANCELLED']);
+
+admin.post('/tenants/:id/set-subscription', async (c) => {
+  const tenantId = c.req.param('id')?.trim();
+  if (!tenantId) return c.json({ error: 'Tenant ID is required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'JSON body required.' }, 400); }
+
+  const newStatus = String(body?.status || '').toUpperCase().trim();
+  if (!VALID_SUB_STATUSES.has(newStatus)) {
+    return c.json({ error: `status must be one of: ${[...VALID_SUB_STATUSES].join(', ')}` }, 400);
+  }
+
+  const note = String(body?.note || '').trim().slice(0, 500) || null;
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const oldStatus = tenant.subscription_status;
+  if (oldStatus === newStatus) {
+    return c.json({ ok: true, unchanged: true, status: newStatus });
+  }
+
+  const nowS = Math.floor(Date.now() / 1000);
+  await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE tenants SET subscription_status = ? WHERE id = ?')
+      .bind(newStatus, tenantId),
+    c.env.DB.prepare(
+      `INSERT INTO tenant_audit_log (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by)
+       VALUES (?, ?, 'subscription_status', ?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), tenantId, oldStatus, newStatus, nowS, 'platform_admin'),
+  ]);
+
+  console.info(`[ADMIN_SET_SUBSCRIPTION] tenant=${tenantId} ${oldStatus}→${newStatus} note=${note}`);
+  return c.json({ ok: true, tenant_id: tenantId, status: newStatus, previous_status: oldStatus, note });
+});
+
 export default function registerAdminRoutes(app) {
   app.route('/api/admin', admin);
 }
