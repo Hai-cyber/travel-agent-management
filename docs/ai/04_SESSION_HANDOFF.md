@@ -1,10 +1,59 @@
 ## Latest Handoff
 Date: 2026-04-15
-Checkpoint: CHK-R70 — Launch Guide UX Refactor + Full i18n (11 Locales)
+Checkpoint: CHK-R71 — Stripe-ready legal pages + commission model
 
 ### What was completed
 
-- **`public/dashboard.html`** — `renderLaunchGuide()` sequence refactored:
+- **`public/terms.html`** (new) — 17-section Terms of Service:
+  - Explicitly positions Tours Market as SaaS software only
+  - Section 4: "We Do Not Provide Travel Services" — no payment processing, no marketplace, operators fully responsible
+  - Section 6: Commission defined as threshold-invoiced (0% under €500 / 1% €500–1499 / 2% €1500+/month), not deducted from customer payments
+  - Section 7: Refund policy — 14-day refund on first paid period if no live storefront or bookings
+  - Section 15: Wyoming LLC jurisdiction, AAA arbitration, class action waiver
+  - `[COMPANY ADDRESS]` placeholder — fill after entity formation
+
+- **`public/privacy.html`** (new) — GDPR-friendly Privacy Policy:
+  - Two-table data inventory (operator-provided vs auto-collected)
+  - Cookies: only `tam_session` (HTTP-only, no ad tracking)
+  - Sub-processors: Cloudflare (DPA), Stripe (independent controller), Google (auth only)
+  - Full data subject rights section (access, erasure, portability, restriction)
+  - International transfer basis: Cloudflare SCCs
+
+- **`public/pricing.html`** (new) — Real pricing page for Stripe reviewer:
+  - Starter €4.98/mo, Tour Operator Pro €9.98/mo with commission table
+  - Commission displayed as 3-row inline table (0% / 1% / 2% by threshold)
+  - Future tiers (Hotel Pro €9.98, Suite €19) shown as greyed "coming soon"
+  - FAQ 8 questions including commission mechanics, refund, cancellation
+
+- **`public/contact.html`** (new) — Professional contact page:
+  - 3 public addresses: support@, legal@, privacy@tours-market.com
+  - Validated contact form with inquiry type select
+  - Mailto fallback if `/api/contact` fails (endpoint not yet implemented — form degrades gracefully)
+
+- **`public/index.html`** (updated):
+  - Title/brand consistently "Tours Market" (was "TravelAgent")
+  - Hero headline and copy rewritten — SaaS positioning, not marketing fluff
+  - CTA buttons: "Start free — no card required" + "See pricing"
+  - Pricing nav link added to header
+  - Legal footer added: Terms · Privacy · Pricing · Contact
+
+- **`src/lib/productTiers.js`** (updated):
+  - All 3 `revenue_share` objects replaced: `percent_min/max` + `cap_policy: 'to_be_defined'` → `billing_model: 'threshold_invoiced'` + `tiers[]` array with explicit thresholds and percentages
+
+### What is still not done
+
+- `[COMPANY ADDRESS]` placeholder in terms.html, privacy.html, contact.html — fill after Wyoming LLC formation
+- `/api/contact` endpoint not implemented — contact form falls back to mailto gracefully
+- Stripe secrets still not configured: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` (replace `price_REPLACE_ME`), `STRIPE_DOMAIN_WEBHOOK_SECRET`
+- `CF_ACCOUNT_ID` and `CF_REGISTRAR_API_TOKEN` show `REPLACE_ME` in wrangler output — non-blocking for current features
+- Old `skin_*` and `website_*` locale keys can be removed in future cleanup
+
+### Suggested next prompt
+"Build CHK-R72: Trust ladder admin UI integration. Add a 'Review Cases' tab to saas-admin.html that lists open `tenant_review_cases` rows (GET /api/admin/tenant-review-cases), shows tenant name + reason + created_at, with Approve and Reject inline buttons that call POST /api/admin/tenants/:id/set-trust. Wire smoke coverage for the two actions."
+
+---
+
+## Previous Handoff
   - `skin` + `website` cards merged → single **`design`** card with 3-state progressive description (no skin → pick skin first; skin only → build shell; both done → edit anytime)
   - Tours description now inline-shows published count: `3 tours, 1 published. Refine pricing…`
   - **Removed** `properties` card (was hardcoded `propertiesCount = 0`, always stuck at NEXT)

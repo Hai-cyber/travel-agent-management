@@ -45,9 +45,14 @@ const PRODUCT_TIERS = [
     },
     revenue_share: {
       applies_to: 'tour',
-      percent_min: 5,
-      percent_max: 10,
-      cap_policy: 'to_be_defined',
+      billing_model: 'threshold_invoiced',
+      // Commission is invoiced monthly to the operator — never deducted from customer payments.
+      // Thresholds based on confirmed booking volume in EUR per calendar month:
+      tiers: [
+        { threshold_eur_min: 0,    threshold_eur_max: 499,  percent: 0 },
+        { threshold_eur_min: 500,  threshold_eur_max: 1499, percent: 1 },
+        { threshold_eur_min: 1500, threshold_eur_max: null, percent: 2 },
+      ],
     },
   },
   {
@@ -71,9 +76,12 @@ const PRODUCT_TIERS = [
     },
     revenue_share: {
       applies_to: 'hotel',
-      percent_min: 1,
-      percent_max: 2,
-      cap_policy: 'to_be_defined',
+      billing_model: 'threshold_invoiced',
+      tiers: [
+        { threshold_eur_min: 0,    threshold_eur_max: 499,  percent: 0 },
+        { threshold_eur_min: 500,  threshold_eur_max: 1499, percent: 1 },
+        { threshold_eur_min: 1500, threshold_eur_max: null, percent: 2 },
+      ],
     },
   },
   {
@@ -97,11 +105,12 @@ const PRODUCT_TIERS = [
     },
     revenue_share: {
       applies_to: 'mixed',
-      tour_percent_min: 5,
-      tour_percent_max: 10,
-      hotel_percent_min: 1,
-      hotel_percent_max: 2,
-      cap_policy: 'to_be_defined',
+      billing_model: 'threshold_invoiced',
+      tiers: [
+        { threshold_eur_min: 0,    threshold_eur_max: 499,  percent: 0 },
+        { threshold_eur_min: 500,  threshold_eur_max: 1499, percent: 1 },
+        { threshold_eur_min: 1500, threshold_eur_max: null, percent: 2 },
+      ],
     },
   },
 ];

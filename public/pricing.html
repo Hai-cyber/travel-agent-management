@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pricing — Tours Market</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --border: #e2e8f0;
+      --surface: #f8fafc;
+      --green: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { border-bottom: 1px solid var(--border); padding: 18px 0; }
+    .shell { width: min(1060px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #60a5fa, #2563eb);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 13px;
+    }
+    .brand strong { font-size: 15px; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      padding: 9px 18px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: all .15s;
+      font-family: inherit; border: none; display: inline-block;
+    }
+    .btn-secondary {
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); text-decoration: none; }
+
+    /* Hero */
+    .pricing-hero {
+      text-align: center;
+      padding: 72px 0 56px;
+    }
+    .label {
+      font-size: 12px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+    }
+    .pricing-hero h1 {
+      font-size: 2.4rem; font-weight: 700; line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .pricing-hero p {
+      color: var(--muted); font-size: 1.05rem;
+      max-width: 540px; margin: 0 auto 10px;
+    }
+    .trial-badge {
+      display: inline-block;
+      background: #ecfdf5; color: #065f46;
+      border: 1px solid #a7f3d0; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px; font-weight: 600;
+      margin-top: 10px;
+    }
+
+    /* Cards */
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 64px;
+    }
+    @media (max-width: 700px) {
+      .pricing-cards { grid-template-columns: 1fr; }
+      .pricing-hero h1 { font-size: 1.75rem; }
+    }
+
+    .pricing-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      position: relative;
+    }
+    .pricing-card.featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 12px 32px rgba(37,99,235,.1);
+    }
+    .featured-tag {
+      position: absolute;
+      top: -13px; left: 28px;
+      background: var(--accent); color: #fff;
+      font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 4px 12px; border-radius: 20px;
+    }
+    .card-tier {
+      font-size: 12px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+    }
+    .card-name {
+      font-size: 1.25rem; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .card-tagline {
+      font-size: 14px; color: var(--muted); margin-bottom: 28px;
+    }
+    .card-price {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .price-amount {
+      font-size: 2.4rem; font-weight: 800; color: var(--ink);
+    }
+    .price-period {
+      font-size: 14px; color: var(--muted);
+    }
+    .price-note {
+      font-size: 13px; color: var(--muted); margin-bottom: 28px;
+    }
+    .card-commission {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+    }
+    .card-commission strong { font-size: 13px; display: block; margin-bottom: 2px; color: #0369a1; }
+    .card-commission p { font-size: 12px; color: #0284c7; margin: 0; }
+    .card-features {
+      list-style: none;
+      margin-bottom: 32px;
+    }
+    .card-features li {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 14px; margin-bottom: 10px; color: #334155;
+    }
+    .card-features li .check {
+      color: var(--green); font-size: 14px; flex-shrink: 0; margin-top: 2px;
+    }
+    .card-features li .dash {
+      color: #cbd5e1; font-size: 14px; flex-shrink: 0;
+    }
+    .card-cta {
+      display: block; width: 100%;
+      padding: 13px; border-radius: 9px; text-align: center;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: all .15s;
+    }
+    .cta-primary {
+      background: var(--accent); color: #fff;
+    }
+    .cta-primary:hover { background: var(--accent-hover); text-decoration: none; }
+    .cta-secondary {
+      background: transparent; color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .cta-secondary:hover { background: #eff6ff; text-decoration: none; }
+    .cta-muted {
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); cursor: default;
+    }
+
+    /* Coming soon cards */
+    .future-section {
+      margin-bottom: 80px;
+    }
+    .future-section h2 {
+      font-size: 1rem; font-weight: 700;
+      color: var(--muted); margin-bottom: 16px;
+      text-transform: uppercase; letter-spacing: .06em;
+      font-size: 12px;
+    }
+    .future-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .future-cards { grid-template-columns: 1fr; } }
+    .future-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      background: var(--surface);
+      opacity: .65;
+    }
+    .future-card .future-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .future-card .future-price { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .future-card .future-note {
+      display: inline-block;
+      background: #f1f5f9; color: #64748b;
+      border-radius: 6px; padding: 3px 10px;
+      font-size: 11px; font-weight: 600;
+    }
+
+    /* FAQ */
+    .faq-section { margin-bottom: 100px; }
+    .faq-section h2 {
+      font-size: 1.35rem; font-weight: 700;
+      margin-bottom: 32px; text-align: center;
+    }
+    .faq-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px 40px;
+    }
+    @media (max-width: 700px) { .faq-grid { grid-template-columns: 1fr; } }
+    .faq-item { }
+    .faq-item strong {
+      display: block; font-size: 14px;
+      font-weight: 700; margin-bottom: 6px;
+    }
+    .faq-item p { font-size: 14px; color: var(--muted); }
+
+    /* Callout */
+    .cta-band {
+      background: linear-gradient(135deg, #1e40af, #1d4ed8);
+      border-radius: 20px;
+      padding: 52px 48px;
+      text-align: center;
+      margin-bottom: 80px;
+      color: #fff;
+    }
+    .cta-band h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 10px; }
+    .cta-band p { font-size: 15px; opacity: .85; margin-bottom: 28px; }
+    .cta-band a {
+      display: inline-block;
+      background: #fff; color: #1d4ed8;
+      padding: 13px 32px; border-radius: 9px;
+      font-weight: 700; font-size: 15px;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .cta-band a:hover { opacity: .9; }
+
+    footer { border-top: 1px solid var(--border); padding: 28px 0; font-size: 13px; color: var(--muted); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: var(--muted); font-size: 13px; }
+    .footer-links a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="shell topbar-inner">
+    <a class="brand" href="/">
+      <div class="brand-mark">TM</div>
+      <strong>Tours Market</strong>
+    </a>
+    <div class="nav-links">
+      <a class="btn btn-secondary" href="/login.html">Log in</a>
+      <a class="btn btn-primary" href="/signup.html">Start free</a>
+    </div>
+  </div>
+</header>
+
+<main class="shell">
+
+  <section class="pricing-hero">
+    <div class="label">Pricing</div>
+    <h1>Simple pricing for independent operators</h1>
+    <p>One flat monthly fee. No hidden charges. No lock-in. Cancel any time.</p>
+    <div class="trial-badge">6 months free · No card required at signup</div>
+  </section>
+
+  <!-- Active tiers -->
+  <section class="pricing-cards">
+
+    <!-- Starter -->
+    <div class="pricing-card">
+      <div class="card-tier">Starter</div>
+      <div class="card-name">Landing &amp; Presence</div>
+      <div class="card-tagline">For operators building their public presence first.</div>
+      <div class="card-price">
+        <span class="price-amount">€4.98</span>
+        <span class="price-period">/ month</span>
+      </div>
+      <div class="price-note">After the free period. No card needed to start.</div>
+      <ul class="card-features">
+        <li><span class="check">✓</span> Professional travel storefront on a platform subdomain</li>
+        <li><span class="check">✓</span> Website editor — homepage, sections, copy</li>
+        <li><span class="check">✓</span> Contact form and inquiry capture</li>
+        <li><span class="check">✓</span> Destination and content management</li>
+        <li><span class="check">✓</span> SSL, edge delivery, automatic updates</li>
+        <li><span class="dash">–</span> Booking and payment flow (Pro tier)</li>
+        <li><span class="dash">–</span> Custom domain (Pro tier)</li>
+        <li><span class="dash">–</span> Task and operations management (Pro tier)</li>
+      </ul>
+      <a href="/signup.html?tier=starter_landing" class="card-cta cta-secondary">Start free — Starter</a>
+    </div>
+
+    <!-- Tour Operator Pro -->
+    <div class="pricing-card featured">
+      <div class="featured-tag">Most popular</div>
+      <div class="card-tier">Pro</div>
+      <div class="card-name">Tour Operator Pro</div>
+      <div class="card-tagline">Full operations for growing travel businesses.</div>
+      <div class="card-price">
+        <span class="price-amount">€9.98</span>
+        <span class="price-period">/ month</span>
+      </div>
+      <div class="price-note">After the free period. No card needed to start.</div>
+      <div class="card-commission">
+        <strong>+ Platform commission — invoiced monthly</strong>
+        <p>Based on your confirmed booking volume that month. We invoice you at month-end — never deducted from your customers' payments.</p>
+        <div style="margin-top:10px;display:grid;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #bae6fd">
+            <span>Under €500 / month</span><strong style="color:#0369a1">Free</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #bae6fd">
+            <span>€500 – €1,499 / month</span><strong style="color:#0369a1">1%</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0">
+            <span>€1,500+ / month</span><strong style="color:#0369a1">2%</strong>
+          </div>
+        </div>
+      </div>
+      <ul class="card-features">
+        <li><span class="check">✓</span> Everything in Starter</li>
+        <li><span class="check">✓</span> Custom domain support</li>
+        <li><span class="check">✓</span> Booking management and order tracking</li>
+        <li><span class="check">✓</span> Service delivery tracking (stops, accommodation, transport, meals)</li>
+        <li><span class="check">✓</span> Internal task and to-do system for your team</li>
+        <li><span class="check">✓</span> Pricing engine (seasons, segments, pax bands)</li>
+        <li><span class="check">✓</span> Bank transfer payment collection support</li>
+        <li><span class="check">✓</span> Multi-locale storefront (11 languages)</li>
+      </ul>
+      <a href="/signup.html?tier=tour_operator_pro" class="card-cta cta-primary">Start free — Pro</a>
+    </div>
+
+  </section>
+
+  <!-- Future tiers -->
+  <section class="future-section">
+    <h2>Coming next</h2>
+    <div class="future-cards">
+      <div class="future-card">
+        <div class="future-name">Hotel Operator Pro</div>
+        <div class="future-price">€9.98 / month + 0–2% commission (same thresholds)</div>
+        <span class="future-note">In development</span>
+      </div>
+      <div class="future-card">
+        <div class="future-name">Tour + Hotel Suite</div>
+        <div class="future-price">€19 / month + 0–2% commission (same thresholds)</div>
+        <span class="future-note">Roadmap</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section">
+    <h2>Common questions</h2>
+    <div class="faq-grid">
+
+      <div class="faq-item">
+        <strong>What does "platform commission" mean?</strong>
+        <p>At month-end, we calculate your total confirmed booking volume for that calendar month. If it's under €500, no commission applies. From €500–€1,499 we invoice 1%; €1,500 and above we invoice 2%. This is a separate invoice from us to you — we never deduct anything from your customers' payments.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>Do you process customer payments?</strong>
+        <p>No. Tours Market is a software platform. Your customers pay you directly — by bank transfer, cash, or via payment methods you configure. We are not a payment processor or marketplace.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>What happens after the 6-month free period?</strong>
+        <p>We will notify you by email before your trial ends. You can subscribe with a card to continue, or your account will move to a limited read-only state. You always retain access to export your data.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>Can I cancel anytime?</strong>
+        <p>Yes. Cancel from your account settings at any time. You keep access until the end of the current billing period. There are no cancellation fees.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>Is there a refund policy?</strong>
+        <p>We offer a 14-day refund on your first paid period if you have not published a live storefront or processed any bookings. See our <a href="/terms.html">Terms of Service</a> for full details.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>What is included in "multi-locale storefront"?</strong>
+        <p>Your Tours Market storefront can serve customers in 11 languages (English, German, French, Spanish, Japanese, Korean, Vietnamese, Chinese, Thai, and regional English variants) based on the visitor's browser language or your configured default.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>What currency are fees charged in?</strong>
+        <p>Subscription fees are listed in EUR. Your actual charge may vary slightly depending on your card's currency and issuer exchange rate. Commission invoices are also in EUR unless otherwise agreed.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>Do I need a custom domain?</strong>
+        <p>Not to start. The Starter tier gives you a free platform subdomain (yourbrand.tours-market.com). The Pro tier unlocks custom domain support once your account is verified.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-band">
+    <h2>Start building your travel platform today</h2>
+    <p>6 months free. No card required. Your storefront live in minutes.</p>
+    <a href="/signup.html">Create your platform</a>
+  </section>
+
+</main>
+
+<footer>
+  <div class="shell footer-inner">
+    <span>&copy; 2026 Tours Market LLC. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

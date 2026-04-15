@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contact — Tours Market</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --border: #e2e8f0;
+      --surface: #f8fafc;
+      --error: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { border-bottom: 1px solid var(--border); padding: 18px 0; }
+    .shell { width: min(960px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar-inner { display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #60a5fa, #2563eb);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 13px;
+    }
+    .brand strong { font-size: 15px; }
+
+    .page-hero {
+      padding: 64px 0 48px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 64px;
+    }
+    .page-hero .label {
+      font-size: 12px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 12px; }
+    .page-hero p { color: var(--muted); max-width: 500px; }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      padding-bottom: 100px;
+    }
+    @media (max-width: 680px) {
+      .contact-grid { grid-template-columns: 1fr; gap: 48px; }
+    }
+
+    .contact-info h2 {
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 24px;
+    }
+    .info-item {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 28px;
+      align-items: flex-start;
+    }
+    .info-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: #eff6ff; display: grid; place-items: center;
+      font-size: 18px; flex-shrink: 0; margin-top: 2px;
+    }
+    .info-item strong { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .info-item p, .info-item a { font-size: 14px; color: var(--muted); }
+    .info-item a:hover { color: var(--accent); }
+
+    .response-note {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 32px;
+    }
+    .response-note strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .response-note p { font-size: 13px; color: var(--muted); margin: 0; }
+
+    /* Form */
+    .contact-form h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; }
+    .form-row { margin-bottom: 18px; }
+    .form-row label {
+      display: block; font-size: 13px; font-weight: 600;
+      margin-bottom: 6px; color: var(--ink);
+    }
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--ink);
+      background: #fff;
+      transition: border-color .15s;
+      outline: none;
+    }
+    .form-row input:focus,
+    .form-row select:focus,
+    .form-row textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    .form-row textarea { resize: vertical; min-height: 120px; }
+    .form-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .form-error { font-size: 12px; color: var(--error); margin-top: 5px; display: none; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    #form-success {
+      display: none;
+      background: #ecfdf5;
+      border: 1px solid #6ee7b7;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    #form-success strong { display: block; font-size: 15px; margin-bottom: 6px; color: #065f46; }
+    #form-success p { font-size: 13px; color: #047857; margin: 0; }
+
+    footer { border-top: 1px solid var(--border); padding: 28px 0; font-size: 13px; color: var(--muted); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: var(--muted); font-size: 13px; }
+    .footer-links a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="shell topbar-inner">
+    <a class="brand" href="/">
+      <div class="brand-mark">TM</div>
+      <strong>Tours Market</strong>
+    </a>
+    <a href="/" style="font-size:14px;color:var(--muted)">← Back to home</a>
+  </div>
+</header>
+
+<main class="shell">
+  <div class="page-hero">
+    <div class="label">Support</div>
+    <h1>Get in touch</h1>
+    <p>We typically respond to all inquiries within one business day. For urgent technical issues, use the subject line "Urgent" to prioritize your message.</p>
+  </div>
+
+  <div class="contact-grid">
+    <div class="contact-info">
+      <h2>Contact details</h2>
+
+      <div class="info-item">
+        <div class="info-icon">✉</div>
+        <div>
+          <strong>General support</strong>
+          <a href="mailto:support@tours-market.com">support@tours-market.com</a>
+          <p>Billing, account access, general questions</p>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">⚖</div>
+        <div>
+          <strong>Legal inquiries</strong>
+          <a href="mailto:legal@tours-market.com">legal@tours-market.com</a>
+          <p>Terms, data requests, compliance questions</p>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">🔒</div>
+        <div>
+          <strong>Privacy &amp; data requests</strong>
+          <a href="mailto:privacy@tours-market.com">privacy@tours-market.com</a>
+          <p>GDPR requests, data export, account deletion</p>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-icon">🏢</div>
+        <div>
+          <strong>Business address</strong>
+          <p>Tours Market LLC<br>[Company address — US]</p>
+        </div>
+      </div>
+
+      <div class="response-note">
+        <strong>Response time</strong>
+        <p>Monday – Friday, 9 AM – 6 PM (UTC+7). We aim to respond to all messages within 1 business day. Complex technical or legal requests may take up to 3 business days.</p>
+      </div>
+    </div>
+
+    <div class="contact-form">
+      <h2>Send a message</h2>
+
+      <div id="form-success">
+        <strong>Message received</strong>
+        <p>We'll get back to you at the email address you provided, usually within one business day.</p>
+      </div>
+
+      <form id="contact-form" novalidate>
+        <div class="form-row">
+          <label for="f-name">Your name *</label>
+          <input type="text" id="f-name" name="name" autocomplete="name" placeholder="Jane Smith" required />
+          <div class="form-error" id="err-name">Please enter your name.</div>
+        </div>
+
+        <div class="form-row">
+          <label for="f-email">Email address *</label>
+          <input type="email" id="f-email" name="email" autocomplete="email" placeholder="you@example.com" required />
+          <div class="form-error" id="err-email">Please enter a valid email address.</div>
+        </div>
+
+        <div class="form-row">
+          <label for="f-type">Inquiry type *</label>
+          <select id="f-type" name="type" required>
+            <option value="">Select a topic…</option>
+            <option value="account">Account or billing</option>
+            <option value="technical">Technical issue</option>
+            <option value="onboarding">Getting started / onboarding</option>
+            <option value="legal">Legal or privacy</option>
+            <option value="partnership">Partnership or press</option>
+            <option value="other">Other</option>
+          </select>
+          <div class="form-error" id="err-type">Please select an inquiry type.</div>
+        </div>
+
+        <div class="form-row">
+          <label for="f-message">Message *</label>
+          <textarea id="f-message" name="message" placeholder="Describe your question or issue. Include your account email if relevant." required></textarea>
+          <div class="form-hint">Minimum 20 characters</div>
+          <div class="form-error" id="err-message">Please enter a message of at least 20 characters.</div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">Send message</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="shell footer-inner">
+    <span>&copy; 2026 Tours Market LLC. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const form = document.getElementById('contact-form');
+  const successBox = document.getElementById('form-success');
+  const submitBtn = document.getElementById('submit-btn');
+
+  function showError(id, show) {
+    document.getElementById(id).style.display = show ? 'block' : 'none';
+  }
+
+  function validateEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const name    = document.getElementById('f-name').value.trim();
+    const email   = document.getElementById('f-email').value.trim();
+    const type    = document.getElementById('f-type').value;
+    const message = document.getElementById('f-message').value.trim();
+
+    let valid = true;
+
+    if (!name)                         { showError('err-name', true);    valid = false; } else { showError('err-name', false); }
+    if (!validateEmail(email))         { showError('err-email', true);   valid = false; } else { showError('err-email', false); }
+    if (!type)                         { showError('err-type', true);    valid = false; } else { showError('err-type', false); }
+    if (message.length < 20)          { showError('err-message', true); valid = false; } else { showError('err-message', false); }
+
+    if (!valid) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, type, message })
+      });
+
+      if (res.ok) {
+        form.style.display = 'none';
+        successBox.style.display = 'block';
+      } else {
+        throw new Error('server_error');
+      }
+    } catch {
+      // Fallback: show mailto link
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send message';
+      const mailtoFallback = document.createElement('p');
+      mailtoFallback.style.cssText = 'font-size:13px;color:var(--error);margin-top:12px;';
+      mailtoFallback.innerHTML = 'Could not submit the form. Please email us directly at <a href="mailto:support@tours-market.com">support@tours-market.com</a>.';
+      if (!document.getElementById('mailto-fallback')) {
+        mailtoFallback.id = 'mailto-fallback';
+        submitBtn.after(mailtoFallback);
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
