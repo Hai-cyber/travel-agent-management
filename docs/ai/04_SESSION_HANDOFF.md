@@ -1,6 +1,49 @@
 ## Latest Handoff
-Date: 2026-04-15
-Checkpoint: CHK-R71 — Stripe-ready legal pages + commission model
+Date: 2026-04-16
+Checkpoint: CHK-R77 — Billing safety: enforcement middleware, lifecycle emails, trial cron, dashboard banners
+
+### What was completed
+
+- **Subscription enforcement middleware** (`src/index.js`):
+  - All write operations (POST/PUT/PATCH/DELETE) return HTTP 402 for SUSPENDED, CANCELLED, and trial-expired tenants
+  - `/api/billing/*` always exempt so tenants can reactivate regardless of status
+  - `getAuthSession()` in `src/lib/auth.js` extended to also return `subscription_status` and `tenant_created_at` from the tenants JOIN
+
+- **Activation email** (`src/routes/billing.js` + `src/lib/bookingEmails.js`):
+  - `dispatchBillingActivationEmail()` fired after `checkout.session.completed` activates tenant
+  - "Welcome to Tours Market Pro 🎉" email with dashboard CTA
+
+- **Status change emails** (`dispatchBillingStatusEmail()`):
+  - SUSPENDED email (red) on `invoice.payment_failed` — "Update Payment Method →" CTA
+  - CANCELLED email (grey) on `customer.subscription.deleted` — "Reactivate →" CTA
+
+- **Admin alert email** (`dispatchAdminAlertEmail()`):
+  - Sent to `info@tours-market.com` on payment failures and trial expiry events
+
+- **Trial expiry cron** (`runTrialMaintenance(env)` in `src/index.js`):
+  - Runs every `*/15 * * * *` cron tick
+  - Auto-expires TRIAL tenants past 180 days → SUSPENDED + audit_log + email + admin alert
+  - Sends reminder emails at 30 / 7 / 1 days before expiry
+  - Deduplication via `tenant_audit_log` action keys `BILLING_TRIAL_REMINDER_30/7/1` and `BILLING_TRIAL_EXPIRED`
+
+- **Dashboard SUSPENDED/CANCELLED banners** (`public/dashboard.html`):
+  - Reuses existing `#trial-banner` element
+  - SUSPENDED → red bg + "Fix billing →" opens billing pane
+  - CANCELLED → grey bg + "Reactivate →" opens billing pane
+  - Removed duplicate billing pane JS block (fix for CHK-R76 regression)
+
+### What is still not done
+- Stripe secrets must be configured: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_DOMAIN_WEBHOOK_SECRET`
+- `[COMPANY ADDRESS]` placeholder in terms.html, privacy.html, contact.html — fill after Wyoming LLC formation
+- `CF_ACCOUNT_ID` and `CF_REGISTRAR_API_TOKEN` show `REPLACE_ME` — non-blocking for current features
+- Stripe webhook events to register in Stripe Dashboard: `checkout.session.completed`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.payment_succeeded`
+
+### Suggested next prompt
+"Build CHK-R78: Tenant subscription management in saas-admin.html. Add a Subscriptions tab that lists all tenants with their subscription_status, trial remaining days, and stripe_customer_id. Allow manual override of subscription_status from admin (for support use). Add a search/filter by status."
+
+---
+
+## Previous Handoff
 
 ### What was completed
 

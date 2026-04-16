@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-14 (CHK-R56/R57: dashboard pane system + order detail + booking_order_todos + showPane hotfix; deployed `02cec6b7`)
+Last updated: 2026-04-16 (CHK-R77: billing safety — subscription enforcement middleware, lifecycle emails, trial expiry cron, dashboard SUSPENDED/CANCELLED banners; deployed `47a8f44`)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -27,7 +27,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 ### Infrastructure
 - Cloudflare Workers runtime, D1 SQLite (binding: `DB`), R2 (bindings: `TOUR_PAGES`, `BOOKING_PROOFS`)
 - KV (binding: `TOUR_PRESETS`)
-- Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)`
+- Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)` + `runTrialMaintenance(env)` (trial expiry, reminder emails)
 - Local dev: `npx wrangler dev` on `http://127.0.0.1:8787`
 - i18n: Accept-Language → `translate()`, dual-price formatter, `resolveLocaleFromAcceptLanguage()`
 - Currency/runtime note: booking email dispatches (`dispatchBookingCreatedEmail`, `dispatchNewBookingAgentEmail`, `dispatchProofUploadedEmail`, `dispatchBookingConfirmedEmail`) now receive the tenant's `booking_currency` from D1 instead of `null`; `bookingEmails.js` `|| 'USD'` fallback is now only a safety net. Storefront formatter/invoice USD-primary legacy in non-email surfaces is still transitional.
