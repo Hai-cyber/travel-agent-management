@@ -1303,18 +1303,29 @@ bookings.post('/order/:orderId/todos', async (c) => {
   const title = String(body?.title || '').trim().slice(0, 200);
   if (!title) return c.json({ error: 'title is required' }, 400);
 
-  const id  = nanoid();
-  const now = Math.floor(Date.now() / 1000);
+  const id           = nanoid();
+  const now          = Math.floor(Date.now() / 1000);
+  const serviceType  = body?.service_type  ? String(body.service_type).slice(0, 50)  : null;
+  const personCharge = body?.person_in_charge ? String(body.person_in_charge).slice(0, 200) : null;
+  const cPhone       = body?.contact_phone ? String(body.contact_phone).slice(0, 50)  : null;
+  const cEmail       = body?.contact_email ? String(body.contact_email).slice(0, 200) : null;
+  const metaJson     = body?.service_meta_json ? JSON.stringify(body.service_meta_json) : null;
+
   await c.env.DB
-    .prepare('INSERT INTO booking_order_todos (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at) VALUES (?,?,?,NULL,?,0,999,?)')
-    .bind(id, tenantId, orderId, title, now)
+    .prepare(`INSERT INTO booking_order_todos
+      (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at,
+       service_type, status, person_in_charge, contact_phone, contact_email, service_meta_json)
+      VALUES (?,?,?,NULL,?,0,999,?, ?,?,?,?,?,?)`)
+    .bind(id, tenantId, orderId, title, now,
+          serviceType, 'pending', personCharge, cPhone, cEmail, metaJson)
     .run();
 
-  return c.json({ ok: true, todo: { id, tenant_id: tenantId, order_id: orderId, stop_id: null, title, done: 0, done_at: null, sort_order: 999, created_at: now } }, 201);
+  return c.json({ ok: true, todo: { id, tenant_id: tenantId, order_id: orderId, stop_id: null, title, done: 0, done_at: null, sort_order: 999, created_at: now, service_type: serviceType, status: 'pending' } }, 201);
 });
 
 // ── PATCH /api/bookings/order/:orderId/todos/:todoId ─────────────────────
-// Toggle done / undone on a single todo item.
+// Update status (pending/contacted/confirmed/cancelled/rebooked) and/or done flag.
+// status is the canonical field; done is derived from it for backward compat.
 bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
@@ -1325,16 +1336,117 @@ bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
   let body;
   try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
 
-  const done = body?.done ? 1 : 0;
-  const now  = Math.floor(Date.now() / 1000);
+  const VALID_STATUSES = new Set(['pending', 'contacted', 'confirmed', 'cancelled', 'rebooked']);
+  const now    = Math.floor(Date.now() / 1000);
+  let   status, done;
+
+  if (body?.status !== undefined) {
+    if (!VALID_STATUSES.has(body.status)) {
+      return c.json({ error: `Invalid status. Allowed: ${[...VALID_STATUSES].join(', ')}` }, 400);
+    }
+    status = body.status;
+    done   = (status === 'confirmed' || status === 'cancelled') ? 1 : 0;
+  } else {
+    // backward compat: accept bare done=true/false
+    done   = body?.done ? 1 : 0;
+    status = done ? 'confirmed' : 'pending';
+  }
 
   const result = await c.env.DB
-    .prepare('UPDATE booking_order_todos SET done = ?, done_at = ? WHERE id = ? AND order_id = ? AND tenant_id = ?')
-    .bind(done, done ? now : null, todoId, orderId, tenantId)
+    .prepare('UPDATE booking_order_todos SET done = ?, done_at = ?, status = ? WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(done, done ? now : null, status, todoId, orderId, tenantId)
     .run();
 
   if (!result.meta?.changes) return c.json({ error: 'Todo not found' }, 404);
-  return c.json({ ok: true, id: todoId, done, done_at: done ? now : null });
+  return c.json({ ok: true, id: todoId, done, done_at: done ? now : null, status });
+});
+
+// ── GET /api/bookings/order/:orderId/todos/:todoId/thread ─────────────────
+// Returns all communication thread entries for a single todo item.
+// [SEC] tenant_id enforced on both todo and thread lookups.
+bookings.get('/order/:orderId/todos/:todoId/thread', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const todoId  = c.req.param('todoId');
+
+  // Confirm todo belongs to this tenant's order
+  const todo = await c.env.DB
+    .prepare('SELECT id FROM booking_order_todos WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(todoId, orderId, tenantId)
+    .first();
+  if (!todo) return c.json({ error: 'Todo not found' }, 404);
+
+  const { results: entries } = await c.env.DB
+    .prepare('SELECT * FROM booking_todo_threads WHERE todo_id = ? AND tenant_id = ? ORDER BY created_at ASC')
+    .bind(todoId, tenantId)
+    .all();
+
+  return c.json({ ok: true, todo_id: todoId, entries: entries || [] });
+});
+
+// ── POST /api/bookings/order/:orderId/todos/:todoId/thread ────────────────
+// Add a communication entry to a todo's thread.
+// channel: phone | whatsapp | zalo | email | note
+// direction: out | in | note
+// Auto-advances todo status from 'pending' → 'contacted' on first outbound contact.
+bookings.post('/order/:orderId/todos/:todoId/thread', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const todoId  = c.req.param('todoId');
+
+  // Confirm todo belongs to this tenant's order, fetch current status
+  const todo = await c.env.DB
+    .prepare('SELECT id, status FROM booking_order_todos WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(todoId, orderId, tenantId)
+    .first();
+  if (!todo) return c.json({ error: 'Todo not found' }, 404);
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+
+  const message = String(body?.message || '').trim();
+  if (!message) return c.json({ error: 'message is required' }, 400);
+
+  const VALID_CHANNELS   = new Set(['phone', 'whatsapp', 'zalo', 'email', 'note']);
+  const VALID_DIRECTIONS = new Set(['out', 'in', 'note']);
+
+  const channel   = VALID_CHANNELS.has(body?.channel)   ? body.channel   : 'note';
+  const direction = VALID_DIRECTIONS.has(body?.direction) ? body.direction : 'out';
+  const sentBy    = String(body?.sent_by || 'agent').slice(0, 100);
+
+  const entryId = nanoid();
+  const now     = Math.floor(Date.now() / 1000);
+
+  await c.env.DB
+    .prepare('INSERT INTO booking_todo_threads (id, tenant_id, todo_id, order_id, channel, direction, message, sent_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .bind(entryId, tenantId, todoId, orderId, channel, direction, message, sentBy, now)
+    .run();
+
+  // Auto-advance: pending → contacted on first outbound contact
+  let newTodoStatus = todo.status;
+  if (todo.status === 'pending' && direction === 'out') {
+    await c.env.DB
+      .prepare('UPDATE booking_order_todos SET status = ? WHERE id = ? AND tenant_id = ?')
+      .bind('contacted', todoId, tenantId)
+      .run();
+    newTodoStatus = 'contacted';
+  }
+
+  return c.json({
+    ok:         true,
+    entry_id:   entryId,
+    todo_id:    todoId,
+    channel,
+    direction,
+    message,
+    sent_by:    sentBy,
+    created_at: now,
+    todo_status: newTodoStatus,
+  }, 201);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -17,6 +17,7 @@ import {
 import registerTaskRoutes from "./routes/tasks.js";
 import registerTenantRoutes from './routes/tenants.js';
 import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js';
+import { runTodoReminders } from './lib/bookingOps.js';
 import registerTourRoutes from './routes/tours.js';
 import registerCategoryRoutes from './routes/categories.js';
 import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.js';
@@ -652,5 +653,6 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(purgeExpiredOrders(env));
     ctx.waitUntil(runTrialMaintenance(env));
+    ctx.waitUntil(runTodoReminders(env));
   },
 };

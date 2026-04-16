@@ -128,33 +128,56 @@
     .order-detail-meta-cell .meta-val {
       font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 2px;
     }
-    /* ── Todo checklist ── */
-    .todo-card {
-      background: #fff; border: 1px solid #e2e8f0;
-      border-radius: 12px; padding: 20px;
-    }
-    .todo-card-header {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-bottom: 14px;
-    }
-    .todo-card-title { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
-    #todos-list { list-style: none; padding: 0; margin: 0; }
-    .todo-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 4px; border-bottom: 1px solid #f1f5f9;
-    }
-    .todo-item:last-child { border-bottom: none; }
-    .todo-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #1d4ed8; flex-shrink: 0; }
-    .todo-item .todo-title { font-size: 14px; flex: 1; line-height: 1.4; color: #1e293b; }
-    .todo-item.done .todo-title { text-decoration: line-through; color: #94a3b8; }
-    .todo-item .todo-date { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-    .add-todo-row {
-      display: flex; gap: 8px; margin-top: 14px;
-      border-top: 1px solid #f1f5f9; padding-top: 14px;
-    }
-    .add-todo-row input {
-      flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0;
-      border-radius: 8px; font-size: 13px;
+    /* ── Todo checklist — service cards ── */
+    .todo-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; }
+    .todo-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .todo-card-title { margin:0; font-size:15px; font-weight:700; color:#1e293b; }
+    #todos-list { list-style:none; padding:0; margin:0; }
+    .svc-todo { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:hidden; background:#fff; }
+    .svc-todo-head { display:flex; align-items:center; gap:10px; padding:12px 14px; }
+    .svc-todo-icon { font-size:18px; flex-shrink:0; }
+    .svc-todo-name { font-size:14px; font-weight:600; color:#1e293b; flex:1; min-width:0; overflow:hidden; }
+    .svc-todo-name small { display:block; font-size:11px; font-weight:400; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .svc-status-chip { font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+    .status-pending   { background:#fef3c7; color:#92400e; }
+    .status-contacted { background:#dbeafe; color:#1e40af; }
+    .status-confirmed { background:#dcfce7; color:#166534; }
+    .status-cancelled { background:#fee2e2; color:#991b1b; }
+    .status-rebooked  { background:#ede9fe; color:#5b21b6; }
+    .svc-status-select { font-size:12px; padding:4px 8px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; cursor:pointer; flex-shrink:0; }
+    .svc-contact-btns { display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:0 14px 12px; }
+    .svc-contact-btn { display:inline-flex; align-items:center; gap:3px; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:500; text-decoration:none; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; transition:background 0.15s; }
+    .svc-contact-btn:hover { background:#f1f5f9; }
+    .svc-contact-btn.phone     { border-color:#bbf7d0; color:#166534; background:#f0fdf4; }
+    .svc-contact-btn.email     { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
+    .svc-contact-btn.whatsapp  { border-color:#bbf7d0; color:#15803d; background:#f0fdf4; }
+    .svc-contact-btn.zalo      { border-color:#a5f3fc; color:#0e7490; background:#ecfeff; }
+    .svc-contact-btn.note      { border-color:#e9d5ff; color:#7c3aed; background:#faf5ff; }
+    .svc-thread-btn { margin-left:auto; }
+    .svc-thread-badge { background:#1d4ed8; color:#fff; font-size:10px; padding:1px 6px; border-radius:10px; margin-left:3px; }
+    .svc-meta { padding:8px 14px 12px; border-top:1px solid #f1f5f9; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px 14px; }
+    .svc-meta-field { font-size:12px; }
+    .svc-meta-label { color:#94a3b8; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .svc-meta-val   { color:#1e293b; font-weight:500; margin-top:1px; }
+    .svc-thread-panel { display:none; border-top:1px solid #f1f5f9; padding:12px 14px; }
+    .svc-thread-panel.open { display:block; }
+    .thread-entry { display:flex; gap:8px; margin-bottom:8px; font-size:12px; align-items:flex-start; }
+    .thread-entry .ch-badge { font-size:10px; padding:2px 7px; border-radius:10px; background:#e2e8f0; color:#64748b; white-space:nowrap; flex-shrink:0; margin-top:1px; }
+    .thread-entry.out .ch-badge { background:#dbeafe; color:#1e40af; }
+    .thread-entry.in  .ch-badge { background:#dcfce7; color:#166534; }
+    .thread-entry-msg  { color:#1e293b; line-height:1.5; flex:1; }
+    .thread-entry-time { color:#94a3b8; font-size:10px; white-space:nowrap; }
+    .thread-reply { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+    .thread-reply select { font-size:12px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; }
+    .thread-reply input { flex:1; min-width:120px; font-size:12px; padding:6px 10px; border:1px solid #e2e8f0; border-radius:8px; }
+    .btn-thread-send { padding:6px 14px; font-size:12px; background:#1d4ed8; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+    .btn-thread-send:hover { background:#1e40af; }
+    .add-todo-row { display:flex; gap:8px; margin-top:14px; border-top:1px solid #f1f5f9; padding-top:14px; }
+    .add-todo-row input { flex:1; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; }
+    @media (max-width:640px) {
+      .svc-meta { display:none; }
+      .svc-todo-name small { display:none; }
+      .svc-contact-btn span { display:none; }
     }
 
     .launch-guide {
@@ -3428,30 +3451,231 @@ window.addEventListener('dashboard:langchange', () => {
   function renderTodos(todos) {
     const listEl = document.getElementById('todos-list');
     if (!listEl) return;
-    listEl.innerHTML = todos.map(todo => `
-      <li class="todo-item${todo.done ? ' done' : ''}" data-todo-id="${escapeHtml(String(todo.id))}">
-        <input type="checkbox" class="todo-checkbox" data-todo-id="${escapeHtml(String(todo.id))}"${todo.done ? ' checked' : ''} />
-        <span class="todo-title">${escapeHtml(todo.title)}</span>
-        ${todo.done && todo.done_at ? `<span class="todo-date">${fmtDateShort(todo.done_at)}</span>` : ''}
-      </li>`).join('');
+
+    const STATUS_META = {
+      pending:   { cls: 'status-pending',   label: 'Pending' },
+      contacted: { cls: 'status-contacted', label: 'Contacted' },
+      confirmed: { cls: 'status-confirmed', label: 'Confirmed' },
+      cancelled: { cls: 'status-cancelled', label: 'Cancelled' },
+      rebooked:  { cls: 'status-rebooked',  label: 'Rebooked' },
+    };
+    const SVC_ICONS = {
+      accommodation: '🏨', meal: '🍽️', guide: '🧭',
+      local_transport: '🚐', intercity_leg: '✈️', custom: '📋',
+    };
+    const META_LABELS = {
+      hotel_name: 'Hotel', address: 'Address', check_in: 'Check-in', check_out: 'Check-out',
+      room_type: 'Room', contact_name: 'Contact', notes: 'Notes',
+      restaurant_name: 'Restaurant', meal_type: 'Meal type', meal_datetime: 'Date/time',
+      guide_name: 'Guide', languages: 'Languages', time_from: 'From', time_to: 'To',
+      supplier: 'Supplier', mode: 'Mode', driver_name: 'Driver',
+      pickup_time: 'Pickup time', pickup_place: 'Pickup', dropoff_place: 'Drop-off',
+      depart_time: 'Depart', depart_point: 'From', arrive_point: 'To', ticket_ref: 'Ticket ref',
+    };
+    const TS_FIELDS = new Set(['check_in','check_out','meal_datetime','depart_time','time_from','time_to','pickup_time']);
+
+    function buildMetaHtml(todo) {
+      if (!todo.service_meta_json) return '';
+      let meta; try { meta = JSON.parse(todo.service_meta_json); } catch { return ''; }
+      const fields = Object.entries(meta).filter(([,v]) => v != null && String(v).trim());
+      if (!fields.length) return '';
+      return `<div class="svc-meta">${fields.map(([k,v]) => {
+        const label = META_LABELS[k] || k;
+        const val   = TS_FIELDS.has(k) && typeof v === 'number' ? fmtDateShort(v) : escapeHtml(String(v));
+        return `<div class="svc-meta-field"><div class="svc-meta-label">${escapeHtml(label)}</div><div class="svc-meta-val">${val}</div></div>`;
+      }).join('')}</div>`;
+    }
+
+    function buildContactBtns(todo, tid) {
+      const btns = [];
+      if (todo.contact_phone) {
+        const p = todo.contact_phone.replace(/\D/g,'');
+        btns.push(`<a class="svc-contact-btn phone" href="tel:${escapeHtml(todo.contact_phone)}" title="${escapeHtml(todo.contact_phone)}">📞 <span>Call</span></a>`);
+        btns.push(`<a class="svc-contact-btn whatsapp" href="https://wa.me/${encodeURIComponent(p)}" target="_blank" rel="noopener noreferrer" title="WhatsApp ${escapeHtml(todo.contact_phone)}">💬 <span>WhatsApp</span></a>`);
+        btns.push(`<a class="svc-contact-btn zalo" href="https://zalo.me/${encodeURIComponent(p)}" target="_blank" rel="noopener noreferrer" title="Zalo ${escapeHtml(todo.contact_phone)}">🔵 <span>Zalo</span></a>`);
+      }
+      if (todo.contact_email) {
+        btns.push(`<a class="svc-contact-btn email" href="mailto:${escapeHtml(todo.contact_email)}" title="${escapeHtml(todo.contact_email)}">✉️ <span>Email</span></a>`);
+      }
+      btns.push(`<button class="svc-contact-btn note btn-add-note" data-todo-id="${escapeHtml(tid)}">📝 <span>Note</span></button>`);
+      btns.push(`<button class="svc-contact-btn svc-thread-btn btn-show-thread" data-todo-id="${escapeHtml(tid)}">💬 Thread <span class="svc-thread-badge" id="thread-count-${escapeHtml(tid)}">…</span></button>`);
+      return btns.join('');
+    }
+
+    listEl.innerHTML = todos.map(todo => {
+      const tid    = String(todo.id);
+      const status = todo.status || 'pending';
+      const sm     = STATUS_META[status] || STATUS_META.pending;
+      const icon   = SVC_ICONS[todo.service_type] || SVC_ICONS.custom;
+      const subTxt = todo.person_in_charge
+        ? `In charge: ${todo.person_in_charge}`
+        : (todo.service_type ? todo.service_type.replace(/_/g,' ') : '');
+      return `<li class="svc-todo" data-todo-id="${escapeHtml(tid)}" data-status="${escapeHtml(status)}">
+        <div class="svc-todo-head">
+          <span class="svc-todo-icon">${icon}</span>
+          <span class="svc-todo-name">${escapeHtml(todo.title)}${subTxt ? `<small>${escapeHtml(subTxt)}</small>` : ''}</span>
+          <select class="svc-status-select" data-todo-id="${escapeHtml(tid)}" title="Change status">
+            ${['pending','contacted','confirmed','cancelled','rebooked'].map(s =>
+              `<option value="${s}"${s===status?' selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
+            ).join('')}
+          </select>
+          <span class="svc-status-chip ${sm.cls}">${sm.label}</span>
+        </div>
+        <div class="svc-contact-btns">${buildContactBtns(todo, tid)}</div>
+        ${buildMetaHtml(todo)}
+        <div class="svc-thread-panel" id="thread-panel-${escapeHtml(tid)}">
+          <div class="thread-entries" id="thread-entries-${escapeHtml(tid)}"><p style="color:#94a3b8;font-size:12px;margin:0 0 8px">Loading…</p></div>
+          <div class="thread-reply">
+            <select class="thread-channel-sel" data-todo-id="${escapeHtml(tid)}">
+              <option value="note">📝 Note</option>
+              <option value="phone">📞 Phone</option>
+              <option value="whatsapp">💬 WhatsApp</option>
+              <option value="zalo">🔵 Zalo</option>
+              <option value="email">✉️ Email</option>
+            </select>
+            <select class="thread-dir-sel" data-todo-id="${escapeHtml(tid)}">
+              <option value="out">Outbound</option>
+              <option value="in">Inbound</option>
+              <option value="note">Note</option>
+            </select>
+            <input type="text" class="thread-msg-input" data-todo-id="${escapeHtml(tid)}" placeholder="Add a message or note…" maxlength="1000" />
+            <button class="btn-thread-send" data-todo-id="${escapeHtml(tid)}">Send</button>
+          </div>
+        </div>
+      </li>`;
+    }).join('');
+
+    // Load thread counts for all todos
+    todos.forEach(t => _loadThreadCount(String(t.id)));
   }
 
+  async function _loadThreadCount(todoId) {
+    if (!currentOrderId) return;
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}/thread`, { headers: buildTenantHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const el = document.getElementById(`thread-count-${todoId}`);
+      if (el) el.textContent = data.entries?.length ?? 0;
+    } catch { /* ignore */ }
+  }
+
+  async function _loadAndRenderThread(todoId) {
+    if (!currentOrderId) return;
+    const entriesEl = document.getElementById(`thread-entries-${todoId}`);
+    if (!entriesEl) return;
+    const CH = { phone:'📞 Phone', whatsapp:'💬 WhatsApp', zalo:'🔵 Zalo', email:'✉️ Email', note:'📝 Note' };
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}/thread`, { headers: buildTenantHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
+      const entries = data.entries || [];
+      entriesEl.innerHTML = entries.length
+        ? entries.map(e => `<div class="thread-entry ${escapeHtml(e.direction||'out')}"><span class="ch-badge">${CH[e.channel]||escapeHtml(e.channel)}</span><span class="thread-entry-msg">${escapeHtml(e.message)}</span><span class="thread-entry-time">${fmtDateShort(e.created_at)}</span></div>`).join('')
+        : '<p style="color:#94a3b8;font-size:12px;margin:0 0 8px">No messages yet.</p>';
+      const badgeEl = document.getElementById(`thread-count-${todoId}`);
+      if (badgeEl) badgeEl.textContent = entries.length;
+    } catch (err) {
+      entriesEl.innerHTML = `<p style="color:#ef4444;font-size:12px">Error: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  // ── Status change ─────────────────────────────────────────────────────────
   document.getElementById('todos-list')?.addEventListener('change', async (e) => {
-    const cb = e.target.closest('.todo-checkbox');
-    if (!cb || !currentOrderId) return;
-    const todoId = cb.dataset.todoId;
-    const done   = cb.checked ? 1 : 0;
+    const sel = e.target.closest('.svc-status-select');
+    if (!sel || !currentOrderId) return;
+    const todoId    = sel.dataset.todoId;
+    const newStatus = sel.value;
+    const STATUS_META = {
+      pending:   { cls:'status-pending',   label:'Pending' },
+      contacted: { cls:'status-contacted', label:'Contacted' },
+      confirmed: { cls:'status-confirmed', label:'Confirmed' },
+      cancelled: { cls:'status-cancelled', label:'Cancelled' },
+      rebooked:  { cls:'status-rebooked',  label:'Rebooked' },
+    };
     try {
       const res = await fetch(
         `/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}`,
-        { method: 'PATCH', headers: buildTenantHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ done }) }
+        { method:'PATCH', headers:buildTenantHeaders({'Content-Type':'application/json'}), body:JSON.stringify({ status:newStatus }) }
       );
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
-      cb.closest('li')?.classList.toggle('done', !!done);
-    } catch (err) {
-      cb.checked = !cb.checked;
-      alert(`Could not update task: ${err.message}`);
+      const liEl = sel.closest('.svc-todo');
+      const sm   = STATUS_META[newStatus] || STATUS_META.pending;
+      liEl?.querySelector('.svc-status-chip')?.setAttribute('class', `svc-status-chip ${sm.cls}`);
+      if (liEl?.querySelector('.svc-status-chip')) liEl.querySelector('.svc-status-chip').textContent = sm.label;
+      liEl?.setAttribute('data-status', newStatus);
+    } catch (err) { alert(`Could not update status: ${err.message}`); sel.value = sel.dataset.todoId ? sel.value : 'pending'; }
+  });
+
+  // ── Thread / contact actions ────────────────────────────────────────────
+  document.getElementById('todos-list')?.addEventListener('click', async (e) => {
+    // Toggle thread panel
+    const threadBtn = e.target.closest('.btn-show-thread');
+    if (threadBtn) {
+      const todoId  = threadBtn.dataset.todoId;
+      const panelEl = document.getElementById(`thread-panel-${todoId}`);
+      if (!panelEl) return;
+      if (panelEl.classList.toggle('open')) await _loadAndRenderThread(todoId);
+      return;
+    }
+
+    // Note shortcut — open thread panel, set channel=note
+    const noteBtn = e.target.closest('.btn-add-note');
+    if (noteBtn) {
+      const todoId  = noteBtn.dataset.todoId;
+      const panelEl = document.getElementById(`thread-panel-${todoId}`);
+      if (!panelEl) return;
+      panelEl.classList.add('open');
+      await _loadAndRenderThread(todoId);
+      const chSel = panelEl.querySelector('.thread-channel-sel');
+      const dirSel = panelEl.querySelector('.thread-dir-sel');
+      if (chSel)  chSel.value  = 'note';
+      if (dirSel) dirSel.value = 'note';
+      panelEl.querySelector('.thread-msg-input')?.focus();
+      return;
+    }
+
+    // Send thread entry
+    const sendBtn = e.target.closest('.btn-thread-send');
+    if (sendBtn && currentOrderId) {
+      const todoId    = sendBtn.dataset.todoId;
+      const panelEl   = document.getElementById(`thread-panel-${todoId}`);
+      const msg       = panelEl?.querySelector('.thread-msg-input')?.value.trim();
+      if (!msg) { panelEl?.querySelector('.thread-msg-input')?.focus(); return; }
+      const channel   = panelEl?.querySelector('.thread-channel-sel')?.value || 'note';
+      const direction = panelEl?.querySelector('.thread-dir-sel')?.value   || 'out';
+      sendBtn.disabled = true; sendBtn.textContent = '…';
+      try {
+        const res = await fetch(
+          `/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}/thread`,
+          { method:'POST', headers:buildTenantHeaders({'Content-Type':'application/json'}),
+            body:JSON.stringify({ message:msg, channel, direction }) }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
+        if (panelEl?.querySelector('.thread-msg-input')) panelEl.querySelector('.thread-msg-input').value = '';
+        // Auto-bump status chip if todo was advanced to 'contacted'
+        if (data.todo_status) {
+          const STATUS_META = {
+            pending:   { cls:'status-pending',   label:'Pending' },
+            contacted: { cls:'status-contacted', label:'Contacted' },
+            confirmed: { cls:'status-confirmed', label:'Confirmed' },
+            cancelled: { cls:'status-cancelled', label:'Cancelled' },
+            rebooked:  { cls:'status-rebooked',  label:'Rebooked' },
+          };
+          const liEl = document.querySelector(`.svc-todo[data-todo-id="${CSS.escape(todoId)}"]`);
+          const sm   = STATUS_META[data.todo_status] || STATUS_META.pending;
+          liEl?.querySelector('.svc-status-chip')?.setAttribute('class', `svc-status-chip ${sm.cls}`);
+          if (liEl?.querySelector('.svc-status-chip')) liEl.querySelector('.svc-status-chip').textContent = sm.label;
+          liEl?.setAttribute('data-status', data.todo_status);
+          const selEl = liEl?.querySelector('.svc-status-select');
+          if (selEl) selEl.value = data.todo_status;
+        }
+        await _loadAndRenderThread(todoId);
+      } catch (err) { alert(`Could not send: ${err.message}`); }
+      finally { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+      return;
     }
   });
 
