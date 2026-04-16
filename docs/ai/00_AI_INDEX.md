@@ -58,6 +58,8 @@ AI behavior / guardrails:
 
 ## AI module map
 - `21_GROWTH_SEO_MODULE.md` -> Distribution & Growth layer scope
+- `26_PROPERTY_ENGINE_AND_STAFF_SEATS.md` -> Standalone property/hotel engine (future, not implemented)
+- `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary
 - `25_MOBILE_OPS_RULES.md` -> mobile operational interaction rules
