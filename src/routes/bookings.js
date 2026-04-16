@@ -1233,8 +1233,10 @@ bookings.post('/order/:orderId/manual-unlock', async (c) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── GET /api/bookings/order/:orderId/todos ─────────────────────────────────
-// Returns todos for this order.
-// ?seed=1 → auto-seed from tour stops if no todos exist yet.
+// Returns todos for this order, each enriched with stop label + day range.
+// ?seed=1 → seeds from service items if:
+//   (a) no todos exist yet, OR
+//   (b) all existing todos are legacy-style (service_type IS NULL) → deletes + re-seeds
 // [SEC] WHERE tenant_id — cross-tenant isolation enforced.
 bookings.get('/order/:orderId/todos', async (c) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
@@ -1249,37 +1251,43 @@ bookings.get('/order/:orderId/todos', async (c) => {
     .first();
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  let { results: todos } = await c.env.DB
-    .prepare('SELECT * FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? ORDER BY sort_order, created_at')
-    .bind(orderId, tenantId)
-    .all();
+  if (seed) {
+    // Detect legacy-style todos (all have service_type IS NULL → seeded before CHK-R79)
+    const richTodo = await c.env.DB
+      .prepare('SELECT id FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? AND service_type IS NOT NULL LIMIT 1')
+      .bind(orderId, tenantId)
+      .first();
+    const anyTodo = !richTodo && await c.env.DB
+      .prepare('SELECT id FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? LIMIT 1')
+      .bind(orderId, tenantId)
+      .first();
 
-  if (seed && todos.length === 0) {
-    const { results: stops } = await c.env.DB
-      .prepare('SELECT id, label, day_from, day_to FROM tour_stops WHERE tour_id = ? AND tenant_id = ? ORDER BY sort_order, day_from')
-      .bind(order.tour_id, tenantId)
-      .all();
-
-    if (stops.length > 0) {
-      const now   = Math.floor(Date.now() / 1000);
-      const stmts = stops.map((stop, i) => {
-        const id    = nanoid();
-        const days  = stop.day_from != null
-          ? ` (Day ${stop.day_from}${stop.day_to && stop.day_to !== stop.day_from ? '–' + stop.day_to : ''})`
-          : '';
-        const title = String(stop.label || 'Stop').slice(0, 200) + days;
-        return c.env.DB.prepare(
-          'INSERT OR IGNORE INTO booking_order_todos (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at) VALUES (?,?,?,?,?,0,?,?)'
-        ).bind(id, tenantId, orderId, stop.id, title, i, now);
-      });
-      try { await c.env.DB.batch(stmts); } catch (err) { console.warn('[TODOS_SEED]', err.message); }
-      const seeded = await c.env.DB
-        .prepare('SELECT * FROM booking_order_todos WHERE order_id = ? AND tenant_id = ? ORDER BY sort_order, created_at')
-        .bind(orderId, tenantId)
-        .all();
-      todos = seeded.results;
+    if (!richTodo) {
+      // Either no todos yet, or all are legacy — delete legacy and re-seed
+      if (anyTodo) {
+        await c.env.DB
+          .prepare('DELETE FROM booking_order_todos WHERE order_id = ? AND tenant_id = ?')
+          .bind(orderId, tenantId)
+          .run();
+      }
+      await seedOrderTodos(c.env, tenantId, orderId, order.tour_id);
     }
   }
+
+  // Fetch todos enriched with stop label + day range via LEFT JOIN
+  const { results: todos } = await c.env.DB
+    .prepare(`
+      SELECT bot.*,
+             ts.label    AS stop_label,
+             ts.day_from AS stop_day_from,
+             ts.day_to   AS stop_day_to
+      FROM booking_order_todos bot
+      LEFT JOIN tour_stops ts ON ts.id = bot.stop_id
+      WHERE bot.order_id = ? AND bot.tenant_id = ?
+      ORDER BY bot.sort_order, bot.created_at
+    `)
+    .bind(orderId, tenantId)
+    .all();
 
   return c.json({ ok: true, todos: todos || [] });
 });

@@ -128,11 +128,31 @@
     .order-detail-meta-cell .meta-val {
       font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 2px;
     }
-    /* ── Todo checklist — service cards ── */
+    /* ── Todo checklist — stop-grouped service cards ── */
     .todo-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; }
     .todo-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
     .todo-card-title { margin:0; font-size:15px; font-weight:700; color:#1e293b; }
     #todos-list { list-style:none; padding:0; margin:0; }
+    /* Stop group */
+    .stop-group { margin-bottom:14px; }
+    .stop-group-header { display:flex; align-items:center; gap:8px; padding:9px 14px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px 10px 0 0; }
+    .stop-group-icon { font-size:13px; flex-shrink:0; }
+    .stop-group-name { font-size:13px; font-weight:700; color:#334155; flex:1; }
+    .stop-group-count { font-size:11px; color:#94a3b8; white-space:nowrap; }
+    .stop-todos-list { list-style:none; padding:0; margin:0; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 10px 10px; overflow:hidden; }
+    .stop-todos-list > .svc-todo { border:none; border-radius:0; border-bottom:1px solid #f1f5f9; }
+    .stop-todos-list > .svc-todo:last-child { border-bottom:none; }
+    /* Service todo card */
+    /* Stop group */
+    .stop-group { margin-bottom:14px; }
+    .stop-group-header { display:flex; align-items:center; gap:8px; padding:9px 14px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px 10px 0 0; }
+    .stop-group-icon { font-size:13px; flex-shrink:0; }
+    .stop-group-name { font-size:13px; font-weight:700; color:#334155; flex:1; }
+    .stop-group-count { font-size:11px; color:#94a3b8; white-space:nowrap; }
+    .stop-todos-list { list-style:none; padding:0; margin:0; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 10px 10px; overflow:hidden; }
+    .stop-todos-list > .svc-todo { border:none; border-radius:0; border-bottom:1px solid #f1f5f9; }
+    .stop-todos-list > .svc-todo:last-child { border-bottom:none; }
+    /* Service todo card */
     .svc-todo { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:hidden; background:#fff; }
     .svc-todo-head { display:flex; align-items:center; gap:10px; padding:12px 14px; }
     .svc-todo-icon { font-size:18px; flex-shrink:0; }
@@ -3502,7 +3522,7 @@ window.addEventListener('dashboard:langchange', () => {
       return btns.join('');
     }
 
-    listEl.innerHTML = todos.map(todo => {
+    function buildTodoCard(todo) {
       const tid    = String(todo.id);
       const status = todo.status || 'pending';
       const sm     = STATUS_META[status] || STATUS_META.pending;
@@ -3543,7 +3563,59 @@ window.addEventListener('dashboard:langchange', () => {
           </div>
         </div>
       </li>`;
-    }).join('');
+    }
+
+    // ── Group todos by stop_id ────────────────────────────────────────────
+    const stopOrder   = [];        // ordered unique stop_ids
+    const stopMap     = new Map(); // stop_id → { label, day_from, day_to, todos[] }
+    const noStopTodos = [];
+
+    for (const todo of todos) {
+      if (!todo.stop_id) {
+        noStopTodos.push(todo);
+      } else {
+        if (!stopMap.has(todo.stop_id)) {
+          stopOrder.push(todo.stop_id);
+          stopMap.set(todo.stop_id, {
+            label:    todo.stop_label    || 'Stop',
+            day_from: todo.stop_day_from ?? null,
+            day_to:   todo.stop_day_to   ?? null,
+            todos:    [],
+          });
+        }
+        stopMap.get(todo.stop_id).todos.push(todo);
+      }
+    }
+
+    let html = '';
+
+    for (const stopId of stopOrder) {
+      const grp = stopMap.get(stopId);
+      const dayStr = grp.day_from != null
+        ? ` · Day ${grp.day_from}${grp.day_to && grp.day_to !== grp.day_from ? '–' + grp.day_to : ''}`
+        : '';
+      const total     = grp.todos.length;
+      const confirmed = grp.todos.filter(t => t.status === 'confirmed').length;
+      const countTxt  = confirmed === total && total > 0
+        ? `<span style="color:#166534;font-weight:700">✓ ${total}/${total}</span>`
+        : `${confirmed}/${total} confirmed`;
+
+      html += `<li class="stop-group">
+        <div class="stop-group-header">
+          <span class="stop-group-icon">📍</span>
+          <span class="stop-group-name">${escapeHtml(grp.label)}${escapeHtml(dayStr)}</span>
+          <span class="stop-group-count">${countTxt}</span>
+        </div>
+        <ul class="stop-todos-list">${grp.todos.map(buildTodoCard).join('')}</ul>
+      </li>`;
+    }
+
+    // Orphan todos (no stop_id) rendered flat at bottom
+    if (noStopTodos.length) {
+      html += noStopTodos.map(buildTodoCard).join('');
+    }
+
+    listEl.innerHTML = html;
 
     // Load thread counts for all todos
     todos.forEach(t => _loadThreadCount(String(t.id)));
