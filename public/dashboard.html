@@ -1101,7 +1101,10 @@
               <div class="todo-card">
                 <div class="todo-card-header">
                   <h3 class="todo-card-title">Service Checklist</h3>
-                  <button id="btn-add-todo" class="button alt small">+ Add Task</button>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <button id="btn-reseed-todos" class="button alt small" title="Delete all tasks and regenerate from tour stops">🔄 Re-seed</button>
+                    <button id="btn-add-todo" class="button alt small">+ Add Task</button>
+                  </div>
                 </div>
                 <div id="todos-loading" style="color:#94a3b8; font-size:13px; padding:8px 0">Loading tasks…</div>
                 <div id="todos-empty" style="display:none; color:#94a3b8; font-size:13px; padding:8px 0">No tasks yet. Add a custom task above, or create tour stops on this tour to auto-generate a checklist.</div>
@@ -3749,6 +3752,27 @@ window.addEventListener('dashboard:langchange', () => {
       finally { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
       return;
     }
+  });
+
+  document.getElementById('btn-reseed-todos')?.addEventListener('click', async () => {
+    if (!currentOrderId) return;
+    const btn = document.getElementById('btn-reseed-todos');
+    if (!confirm('This will delete all current tasks and regenerate from the tour stops. Continue?')) return;
+    btn.disabled = true; btn.textContent = '⏳ Reseeding…';
+    try {
+      const res  = await fetch(`/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/reseed`, {
+        method: 'POST',
+        headers: buildTenantHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Reseed failed');
+      renderTodos(data.todos || []);
+      const listEl = document.getElementById('todos-list');
+      const emptyEl = document.getElementById('todos-empty');
+      if (listEl)  listEl.style.display  = data.todos?.length ? 'block' : 'none';
+      if (emptyEl) emptyEl.style.display = data.todos?.length ? 'none'  : '';
+    } catch (err) { alert(`Re-seed failed: ${err.message}`); }
+    finally { btn.disabled = false; btn.textContent = '🔄 Re-seed'; }
   });
 
   document.getElementById('btn-add-todo')?.addEventListener('click', () => {

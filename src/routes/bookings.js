@@ -1394,6 +1394,46 @@ bookings.get('/order/:orderId/todos/:todoId/thread', async (c) => {
   return c.json({ ok: true, todo_id: todoId, entries: entries || [] });
 });
 
+// ── POST /api/bookings/order/:orderId/todos/reseed ────────────────────────
+// Force-delete all existing todos for an order and re-seed from tour service items.
+// Idempotent — safe to call multiple times.
+bookings.post('/order/:orderId/todos/reseed', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const order   = await c.env.DB
+    .prepare('SELECT id, tour_id FROM booking_orders WHERE id = ? AND tenant_id = ?')
+    .bind(orderId, tenantId)
+    .first();
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  // Delete existing todos (cascade also removes threads via ON DELETE CASCADE if set,
+  // otherwise threads will be orphaned — acceptable for a reseed).
+  await c.env.DB
+    .prepare('DELETE FROM booking_order_todos WHERE order_id = ? AND tenant_id = ?')
+    .bind(orderId, tenantId)
+    .run();
+
+  await seedOrderTodos(c.env, tenantId, orderId, order.tour_id);
+
+  const { results: todos } = await c.env.DB
+    .prepare(`
+      SELECT bot.*,
+             ts.label    AS stop_label,
+             ts.day_from AS stop_day_from,
+             ts.day_to   AS stop_day_to
+      FROM booking_order_todos bot
+      LEFT JOIN tour_stops ts ON ts.id = bot.stop_id
+      WHERE bot.order_id = ? AND bot.tenant_id = ?
+      ORDER BY bot.sort_order, bot.created_at
+    `)
+    .bind(orderId, tenantId)
+    .all();
+
+  return c.json({ ok: true, seeded: todos?.length ?? 0, todos: todos || [] });
+});
+
 // ── POST /api/bookings/order/:orderId/todos/:todoId/thread ────────────────
 // Add a communication entry to a todo's thread.
 // channel: phone | whatsapp | zalo | email | note

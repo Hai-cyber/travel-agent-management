@@ -75,6 +75,16 @@ function buildMeta(cfg, item) {
  * @param {string} orderId
  * @param {string|null} tourId
  */
+// Default placeholder service types seeded for every stop regardless of configured items.
+// Sorted in the order they appear in the todo card list within a stop.
+const PLACEHOLDER_SERVICES = [
+  { type: 'accommodation',  icon: '🏨', label: 'Accommodation',     sortOffset: 10 },
+  { type: 'intercity_leg',  icon: '✈️', label: 'Intercity Transfer', sortOffset: 20 },
+  { type: 'local_transport',icon: '🚐', label: 'Local Transport',    sortOffset: 30 },
+  { type: 'guide',          icon: '🧭', label: 'Guide',              sortOffset: 40 },
+  // meals seeded separately using stop meal flags (see below)
+];
+
 export async function seedOrderTodos(env, tenantId, orderId, tourId) {
   if (!tourId || !orderId || !tenantId) return;
   try {
@@ -85,9 +95,10 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
       .first();
     if (existing) return;
 
-    // Fetch all stops for the tour
+    // Fetch all stops for the tour (include meal/night flags for placeholder decisions)
     const { results: stops } = await env.DB
-      .prepare(`SELECT id, label, day_from, day_to, sort_order
+      .prepare(`SELECT id, label, day_from, day_to, sort_order,
+                       nights, meal_breakfast, meal_lunch, meal_dinner
                 FROM tour_stops
                 WHERE tour_id = ? AND tenant_id = ?
                 ORDER BY sort_order, day_from`)
@@ -97,23 +108,26 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
 
     const stopIds = stops.map(s => s.id);
     const stopMap = Object.fromEntries(stops.map(s => [s.id, s]));
-    const now = Math.floor(Date.now() / 1000);
-    const stmts = [];
+    const now     = Math.floor(Date.now() / 1000);
+    const stmts   = [];
 
-    // Query each service type and build todo rows
+    // Track which (stopId:serviceType) combos already have configured items
+    const seeded = new Set();
+
+    // ── 1. Seed todos from configured service item tables ─────────────────
     for (const [serviceType, cfg] of Object.entries(SERVICE_QUERIES)) {
-      // D1 doesn't support IN (?) with array — batch single queries per stop
       for (const stopId of stopIds) {
         const { results: items } = await env.DB
           .prepare(`SELECT * FROM ${cfg.table} WHERE tour_stop_id = ? AND tenant_id = ? ORDER BY position, created_at`)
           .bind(stopId, tenantId)
           .all();
 
-        const stop = stopMap[stopId];
+        const stop      = stopMap[stopId];
         const daySuffix = buildDaySuffix(stop);
 
         for (const item of items) {
-          const id = nanoid();
+          seeded.add(`${stopId}:${serviceType}`);
+          const id       = nanoid();
           const itemName = String(item[cfg.titleField] || serviceType).slice(0, 120);
           const title    = `${cfg.icon} ${itemName}${daySuffix}`.slice(0, 200);
           const meta     = buildMeta(cfg, item);
@@ -129,28 +143,67 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
             id, tenantId, orderId, stopId, title, sortKey, now,
             serviceType, item.id, 'pending',
             item.person_in_charge || null,
-            item.contact_name || null,
-            item[cfg.phone] || null,
-            item[cfg.email] || null,
+            item.contact_name     || null,
+            item[cfg.phone]       || null,
+            item[cfg.email]       || null,
             meta,
           ));
         }
       }
     }
 
-    if (!stmts.length) {
-      // No service items found — fall back to one generic todo per stop
-      for (const [i, stop] of stops.entries()) {
+    // ── 2. Fill gaps: placeholder todos for service types not yet configured ─
+    for (const stop of stops) {
+      const daySuffix = buildDaySuffix(stop);
+      const baseSort  = (stop.sort_order ?? 0) * 100;
+
+      // Non-meal services — always add a placeholder if not already seeded
+      for (const svc of PLACEHOLDER_SERVICES) {
+        if (seeded.has(`${stop.id}:${svc.type}`)) continue;
         const id    = nanoid();
-        const days  = buildDaySuffix(stop);
-        const title = String(stop.label || 'Stop').slice(0, 200) + days;
+        const title = `${svc.icon} ${svc.label}${daySuffix}`.slice(0, 200);
         stmts.push(env.DB.prepare(
           `INSERT OR IGNORE INTO booking_order_todos
-           (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at, service_type, status)
-           VALUES (?,?,?,?,?,0,?,?, 'custom','pending')`
-        ).bind(id, tenantId, orderId, stop.id, title, i, now));
+           (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at,
+            service_type, service_item_id, status, person_in_charge,
+            contact_name, contact_phone, contact_email, service_meta_json)
+           VALUES (?,?,?,?,?,0,?,?,  ?,?,?,?,  ?,?,?,?)`
+        ).bind(
+          id, tenantId, orderId, stop.id, title, baseSort + svc.sortOffset, now,
+          svc.type, null, 'pending', null, null, null, null, null,
+        ));
+      }
+
+      // Meal placeholders — respect meal flags; fall back to one generic if all 0
+      if (!seeded.has(`${stop.id}:meal`)) {
+        const hasMealFlags = stop.meal_breakfast || stop.meal_lunch || stop.meal_dinner;
+        const mealItems = hasMealFlags
+          ? [
+              stop.meal_breakfast ? { label: 'Breakfast', type: 'breakfast', off: 51 } : null,
+              stop.meal_lunch     ? { label: 'Lunch',     type: 'lunch',     off: 52 } : null,
+              stop.meal_dinner    ? { label: 'Dinner',    type: 'dinner',    off: 53 } : null,
+            ].filter(Boolean)
+          : [{ label: 'Meal', type: null, off: 51 }];
+
+        for (const meal of mealItems) {
+          const id   = nanoid();
+          const title = `🍽️ ${meal.label}${daySuffix}`.slice(0, 200);
+          const meta  = meal.type ? JSON.stringify({ meal_type: meal.type }) : null;
+          stmts.push(env.DB.prepare(
+            `INSERT OR IGNORE INTO booking_order_todos
+             (id, tenant_id, order_id, stop_id, title, done, sort_order, created_at,
+              service_type, service_item_id, status, person_in_charge,
+              contact_name, contact_phone, contact_email, service_meta_json)
+             VALUES (?,?,?,?,?,0,?,?,  ?,?,?,?,  ?,?,?,?)`
+          ).bind(
+            id, tenantId, orderId, stop.id, title, baseSort + meal.off, now,
+            'meal', null, 'pending', null, null, null, null, meta,
+          ));
+        }
       }
     }
+
+    if (!stmts.length) return;
 
     // D1 batch max = 100 statements; chunk to be safe
     const BATCH_SIZE = 80;
