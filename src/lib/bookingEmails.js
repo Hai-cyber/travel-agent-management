@@ -505,3 +505,33 @@ export async function dispatchContactFormEmail(env, { name, email, type, message
     platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
   });
 }
+
+// ── Billing payment confirmed email ───────────────────────────────────────────
+// Sent to the tenant owner when a Stripe invoice.payment_succeeded event fires.
+export async function dispatchBillingPaymentEmail(env, { tenantId, tenantName, tenantEmail, amountFormatted, periodEnd, invoiceUrl }) {
+  const subject = `Payment confirmed — Tours Market subscription`;
+  const periodEndStr = periodEnd ? new Date(periodEnd * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+  const text = `Hi ${tenantName || 'there'},\n\nYour payment of ${amountFormatted || 'your subscription fee'} has been received.\nNext billing date: ${periodEndStr}.\n${invoiceUrl ? `\nView invoice: ${invoiceUrl}` : ''}\n\nThank you for using Tours Market.\ninfo@tours-market.com`;
+  const html = `<div style="font-family:sans-serif;max-width:600px">
+<h2 style="color:#0f172a">Payment confirmed ✓</h2>
+<p style="color:#475569;margin-top:8px">Hi ${esc(tenantName || 'there')},</p>
+<p style="color:#475569">Your Tours Market subscription payment has been received successfully.</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+  <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:12px 16px;color:#64748b;width:45%">Amount paid</td><td style="padding:12px 16px;font-weight:700;color:#0f172a">${esc(amountFormatted || '—')}</td></tr>
+  <tr><td style="padding:12px 16px;color:#64748b">Next billing date</td><td style="padding:12px 16px;color:#0f172a">${esc(periodEndStr)}</td></tr>
+</table>
+${invoiceUrl ? `<p style="margin:20px 0"><a href="${esc(invoiceUrl)}" style="background:#2563eb;color:#fff;padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:700;font-size:13px">Download invoice</a></p>` : ''}
+<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+<p style="color:#64748b;font-size:13px">To manage your subscription or update your payment method, visit your dashboard billing section.</p>
+<p style="color:#64748b;font-size:13px">Questions? Reply to <a href="mailto:info@tours-market.com">info@tours-market.com</a></p>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: 'billing.payment_succeeded',
+    tenantId: tenantId || 'platform',
+    recipientEmail: tenantEmail,
+    emailContent: { subject, text, html },
+    bookingData: { amount: amountFormatted, period_end: periodEndStr },
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}

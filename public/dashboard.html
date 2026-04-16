@@ -786,6 +786,7 @@
                 <li><a id="sidebar-universal-admin" href="universal-admin.html"><span class="icon">🧩</span> Website Design</a></li>
                 <li><a id="sidebar-system-settings" href="#"><span class="icon">⚙️</span> Settings</a></li>
                 <li><a id="sidebar-payments" href="#"><span class="icon">💳</span> <span data-i18n="nav.payments">Payments</span></a></li>
+                <li><a id="sidebar-billing" href="#"><span class="icon">🧾</span> Billing</a></li>
                 <li><a href="#"><span class="icon">🔔</span> <span data-i18n="nav.notifications">Notifications</span></a></li>
               </ul>
             </div>
@@ -1072,6 +1073,17 @@
               </div>
 
             </div><!-- /pane-order-detail -->
+
+            <!-- ── Billing Pane ── -->
+            <div id="pane-billing" data-pane="billing">
+              <div style="max-width:560px">
+                <h2 style="margin-bottom:6px">Billing</h2>
+                <p style="color:#64748b;font-size:14px;margin-bottom:24px">Manage your subscription, view invoices, and update your payment method.</p>
+                <div id="billing-pane-content">
+                  <p style="color:#94a3b8;font-size:13px">Loading billing info…</p>
+                </div>
+              </div>
+            </div><!-- /pane-billing -->
 
             <!-- Confirm modal -->
             <div id="confirm-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
@@ -2917,6 +2929,139 @@ window.addEventListener('dashboard:langchange', () => {
     // sync sidebar Dashboard link active state
     const dashLink = document.querySelector('[data-pane-target]');
     if (dashLink) dashLink.classList.toggle('active', name === 'start-here');
+  }
+
+  // ── Billing pane ──────────────────────────────────────────────────────────
+  document.getElementById('sidebar-billing')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showPane('billing');
+    loadBillingPane();
+  });
+
+  async function loadBillingPane() {
+    const wrap = document.getElementById('billing-pane-content');
+    if (!wrap) return;
+    wrap.innerHTML = '<p style="color:#94a3b8;font-size:13px">Loading…</p>';
+
+    try {
+      const res = await fetch('/api/billing/status', {
+        credentials: 'include',
+        headers: { 'X-Tenant-ID': tenantId },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load billing info.');
+      renderBillingPane(data);
+    } catch (err) {
+      wrap.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:12px 0">${escHtml(err.message)}</div>`;
+    }
+  }
+
+  function renderBillingPane(data) {
+    const wrap = document.getElementById('billing-pane-content');
+    if (!wrap) return;
+
+    const status   = data.subscription_status || 'TRIAL';
+    const trial    = data.trial_info || {};
+    const hasSub   = !!data.stripe_customer_id;
+
+    const statusColor = { ACTIVE: '#166534', TRIAL: '#713f12', SUSPENDED: '#991b1b', CANCELLED: '#475569' };
+    const statusBg    = { ACTIVE: '#dcfce7', TRIAL: '#fef9c3', SUSPENDED: '#fee2e2', CANCELLED: '#f1f5f9' };
+
+    const trialEndDate = trial.trial_ends_at
+      ? new Date(trial.trial_ends_at * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '—';
+
+    let actionBlock = '';
+    if (status === 'TRIAL' || !hasSub) {
+      actionBlock = `
+        <button id="btn-billing-checkout" class="button" style="margin-top:8px">Upgrade — activate subscription</button>
+        <p style="font-size:12px;color:#94a3b8;margin-top:8px">You won't be charged until your trial ends or you choose to upgrade early.</p>
+      `;
+    } else if (hasSub) {
+      actionBlock = `
+        <button id="btn-billing-portal" class="button alt" style="margin-top:8px">Manage billing (invoices, payment method, cancel)</button>
+      `;
+    }
+
+    wrap.innerHTML = `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <span style="display:inline-block;padding:4px 12px;border-radius:999px;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase;background:${statusBg[status]||'#f1f5f9'};color:${statusColor[status]||'#475569'}">${status}</span>
+          <span style="font-size:13px;color:#64748b">Tours Market Pro</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:9px 0;color:#64748b;width:45%">Plan</td>
+            <td style="padding:9px 0;font-weight:600">Tour Operator Pro — €9.98 / month</td>
+          </tr>
+          <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:9px 0;color:#64748b">Status</td>
+            <td style="padding:9px 0">${status === 'ACTIVE' ? '✅ Active — subscription running' : status === 'TRIAL' ? `⏳ Free trial — ${trial.trial_days_left ?? '—'} days left` : status === 'SUSPENDED' ? '⚠️ Suspended — payment issue' : '— Cancelled'}</td>
+          </tr>
+          ${status === 'TRIAL' ? `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:9px 0;color:#64748b">Trial ends</td><td style="padding:9px 0">${escHtml(trialEndDate)}</td></tr>` : ''}
+          <tr>
+            <td style="padding:9px 0;color:#64748b">Billing</td>
+            <td style="padding:9px 0">${hasSub ? 'Monthly · Managed by Stripe' : 'No payment method on file'}</td>
+          </tr>
+        </table>
+        ${actionBlock}
+      </div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6">
+        Questions about your invoice or subscription? Email <a href="mailto:info@tours-market.com?subject=Billing%20question" style="color:#2563eb">info@tours-market.com</a>.
+      </div>
+    `;
+
+    document.getElementById('btn-billing-checkout')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Redirecting to Stripe…';
+      try {
+        const res = await fetch('/api/billing/checkout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Tenant-ID': tenantId },
+        });
+        const payload = await res.json().catch(() => null);
+        if (res.ok && payload?.ok && payload?.checkout_url) {
+          window.location.href = payload.checkout_url;
+        } else if (payload?.skipped) {
+          wrap.innerHTML += '<p style="color:#166534;font-size:13px;margin-top:8px">✅ Your subscription is already active.</p>';
+        } else {
+          throw new Error(payload?.error || 'Could not start checkout.');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Upgrade — activate subscription';
+        wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
+      }
+    });
+
+    document.getElementById('btn-billing-portal')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Opening billing portal…';
+      try {
+        const res = await fetch('/api/billing/portal', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Tenant-ID': tenantId },
+        });
+        const payload = await res.json().catch(() => null);
+        if (res.ok && payload?.ok && payload?.portal_url) {
+          window.location.href = payload.portal_url;
+        } else {
+          throw new Error(payload?.error || 'Could not open billing portal.');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Manage billing (invoices, payment method, cancel)';
+        wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
+      }
+    });
+  }
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
   // ── Live Orders ───────────────────────────────────────────────────────────

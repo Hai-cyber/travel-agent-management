@@ -3,6 +3,7 @@
 //
 // Endpoints:
 //   POST /api/billing/checkout  — creates a Stripe Checkout Session (Subscription mode)
+//   POST /api/billing/portal    — creates a Stripe Customer Portal session (manage/cancel/invoices)
 //   POST /api/billing/webhook   — receives Stripe events, upgrades subscription on success
 //   GET  /api/billing/status    — returns current subscription + trial info for the tenant
 //
@@ -19,9 +20,10 @@
 //         webhook can resolve it without trusting user-supplied payload fields.
 //   [SEC] Stripe-Signature header is validated via HMAC-SHA256 with timestamp
 //         tolerance (±5 minutes) before any DB mutation occurs.
-//   [SEC] X-Tenant-ID header is required for /checkout — no anonymous sessions.
+//   [SEC] X-Tenant-ID header is required for /checkout and /portal — no anonymous sessions.
 
 import { Hono } from 'hono';
+import { dispatchBillingPaymentEmail } from '../lib/bookingEmails.js';
 
 const billing = new Hono();
 
@@ -361,6 +363,48 @@ billing.post('/webhook', async (c) => {
       return c.json({ ok: true, suspended: tenant.id });
     }
 
+    // ── Invoice paid → send confirmation email ────────────────────────────────
+    case 'invoice.payment_succeeded': {
+      const customerId     = obj.customer ?? null;
+      const amountPaid     = obj.amount_paid ?? 0;          // in cents
+      const currency       = (obj.currency ?? 'eur').toUpperCase();
+      const periodEnd      = obj.lines?.data?.[0]?.period?.end ?? null; // Unix timestamp
+      const invoiceUrl     = obj.hosted_invoice_url ?? null;
+      const billingReason  = obj.billing_reason ?? '';
+
+      // Skip the very first invoice that's part of checkout.session.completed
+      // to avoid duplicate "you're activated" + "payment confirmed" emails.
+      if (billingReason === 'subscription_create') {
+        return c.json({ ok: true, note: 'first_invoice_skip' });
+      }
+
+      if (!customerId) return c.json({ ok: true, note: 'no_customer' });
+
+      const tenant = await c.env.DB
+        .prepare('SELECT id, name, email, subscription_status FROM tenants WHERE stripe_customer_id = ?')
+        .bind(customerId)
+        .first();
+
+      if (!tenant) return c.json({ ok: true, note: 'tenant_not_found' });
+
+      // Format amount: cents → human-readable
+      const amountFormatted = `${currency} ${(amountPaid / 100).toFixed(2)}`;
+
+      c.executionCtx.waitUntil(
+        dispatchBillingPaymentEmail(c.env, {
+          tenantId:        tenant.id,
+          tenantName:      tenant.name,
+          tenantEmail:     tenant.email,
+          amountFormatted,
+          periodEnd,
+          invoiceUrl,
+        })
+      );
+
+      console.log(`[BILLING_WEBHOOK] ✓ Invoice paid for tenant ${tenant.id}: ${amountFormatted}`);
+      return c.json({ ok: true, notified: tenant.id });
+    }
+
     // ── Unhandled event type — return 200 silently ─────────────────────────
     default:
       return c.json({ ok: true, note: `unhandled_event:${eventType}` });
@@ -401,6 +445,73 @@ billing.get('/status', async (c) => {
     },
     checkout_url_hint: '/api/billing/checkout',
   });
+});
+
+// ── POST /api/billing/portal ──────────────────────────────────────────────────
+// Creates a Stripe Customer Portal session so the tenant can:
+//   - View and download past invoices
+//   - Update their payment method (card)
+//   - Cancel their subscription
+//
+// Request headers:
+//   X-Tenant-ID  (required)
+//
+// Response 200:
+//   { ok: true, portal_url: "https://billing.stripe.com/..." }
+//
+// [SEC] tenant_id resolved from session header — never trusted from body.
+// [SEC] STRIPE_SECRET_KEY never exposed to client.
+// [SEC] Tenant must have an existing stripe_customer_id (i.e. they have paid before).
+billing.post('/portal', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const stripeKey = c.env.STRIPE_SECRET_KEY?.trim();
+  const baseUrl   = (c.env.PLATFORM_BASE_URL ?? '').replace(/\/$/, '');
+
+  if (!stripeKey) return c.json({ error: 'Stripe is not configured on this platform.' }, 503);
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, stripe_customer_id, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  if (!tenant.stripe_customer_id) {
+    return c.json({ error: 'No billing account found. Please complete checkout first.' }, 400);
+  }
+
+  const portalParams = new URLSearchParams({
+    customer:   tenant.stripe_customer_id,
+    return_url: `${baseUrl}/dashboard.html`,
+  });
+
+  let portalSession;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeKey}`,
+        'Content-Type':  'application/x-www-form-urlencoded',
+      },
+      body: portalParams.toString(),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[BILLING_PORTAL_ERROR]', data);
+      return c.json({
+        error: `Stripe error: ${data?.error?.message ?? 'Unknown error'}.`,
+        stripe_code: data?.error?.code,
+      }, 502);
+    }
+    portalSession = data;
+  } catch (err) {
+    console.error('[BILLING_PORTAL_FETCH_ERROR]', err.message);
+    return c.json({ error: 'Failed to reach Stripe API. Try again.' }, 502);
+  }
+
+  return c.json({ ok: true, portal_url: portalSession.url });
 });
 
 export default function registerBillingRoutes(app) {

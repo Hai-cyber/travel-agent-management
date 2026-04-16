@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checkout Cancelled — Tours Market</title>
+  <style>
+    :root { --ink: #0f172a; --muted: #475569; --accent: #2563eb; --border: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 60%, #0f172a 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.35);
+    }
+    .icon {
+      width: 72px; height: 72px;
+      background: #f1f5f9;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 36px;
+    }
+    h1 { font-size: 28px; color: var(--ink); letter-spacing: -0.03em; margin-bottom: 12px; }
+    .sub { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 32px; }
+    .actions { display: flex; gap: 12px; flex-direction: column; }
+    .btn {
+      display: block; width: 100%;
+      padding: 14px 24px;
+      border-radius: 999px;
+      font: 700 14px/1 "Segoe UI", sans-serif;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; }
+    .btn-secondary { background: #f1f5f9; color: var(--ink); }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .faq { margin-top: 20px; text-align: left; }
+    .faq-item { margin-bottom: 14px; }
+    .faq-item strong { display: block; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+    .faq-item p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">←</div>
+    <h1>No worries</h1>
+    <p class="sub">You cancelled the checkout. Your account is still in the free trial — no changes were made and nothing was charged.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="/pricing.html">See pricing again</a>
+      <a class="btn btn-secondary" href="/dashboard.html">Back to dashboard</a>
+    </div>
+    <hr class="divider" />
+    <div class="faq">
+      <div class="faq-item">
+        <strong>Will I lose my data?</strong>
+        <p>No. Your tours, settings, and bookings are safe. You can upgrade any time during your free trial.</p>
+      </div>
+      <div class="faq-item">
+        <strong>How long is my free trial?</strong>
+        <p>6 months from signup. No card required during the trial period.</p>
+      </div>
+      <div class="faq-item">
+        <strong>Questions?</strong>
+        <p>Email us at <a href="mailto:info@tours-market.com?subject=Billing%20question" style="color:#2563eb">info@tours-market.com</a> — we typically reply within one business day.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
