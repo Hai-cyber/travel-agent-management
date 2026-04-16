@@ -117,6 +117,26 @@
       padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
       background: rgba(37,99,235,0.08); color: #1d4ed8;
     }
+    /* ── Review Cases tab ── */
+    .review-panel { background: var(--surface); border: 1px solid rgba(191,219,254,0.45); border-radius: 22px; box-shadow: var(--shadow); backdrop-filter: blur(18px); padding: 22px; }
+    .review-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+    .review-table th { text-align: left; padding: 8px 10px; background: rgba(37,99,235,0.07); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .review-table td { padding: 9px 10px; border-top: 1px solid rgba(16,33,45,0.07); vertical-align: top; }
+    .review-table tr:hover td { background: rgba(37,99,235,0.04); }
+    .sev-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font: 700 10px/1.4 "Segoe UI", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .sev-badge.block  { background: #fee2e2; color: #991b1b; }
+    .sev-badge.review { background: #fef9c3; color: #713f12; }
+    .sev-badge.info   { background: #dbeafe; color: #1d4ed8; }
+    .review-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-approve { appearance: none; border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer; font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: 0.04em; background: #dcfce7; color: #166534; }
+    .btn-approve:hover { background: #bbf7d0; }
+    .btn-reject  { appearance: none; border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer; font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: 0.04em; background: #fee2e2; color: #991b1b; }
+    .btn-reject:hover  { background: #fecaca; }
+    .review-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .review-filters select, .review-filters input {
+      flex: 1 1 160px; padding: 9px 12px; border-radius: 12px;
+      border: 1px solid rgba(16,33,45,0.12); font-size: 13px; background: rgba(255,255,255,0.72);
+    }
     @media (max-width: 920px) {
       .grid, .tier-grid, .row { grid-template-columns: 1fr; }
     }
@@ -139,6 +159,7 @@
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="marketing">Marketing Editor</button>
       <button class="tab-btn" data-tab="tenants">Tenants</button>
+      <button class="tab-btn" data-tab="review">Review Cases</button>
     </div>
 
     <div class="tab-pane active" id="tab-marketing">
@@ -249,6 +270,26 @@
         </div>
       </div>
     </div><!-- /tab-tenants -->
+
+    <div class="tab-pane" id="tab-review">
+      <div class="review-panel">
+        <h2>Review Cases</h2>
+        <p class="hint">Open trust review cases. Approve to promote tenant to TRUSTED (enables indexing). Reject to SUSPEND (disables indexing).</p>
+        <div class="review-filters">
+          <select id="review-filter-status">
+            <option value="OPEN">OPEN</option>
+            <option value="APPROVED">APPROVED</option>
+            <option value="REJECTED">REJECTED</option>
+            <option value="RESOLVED">RESOLVED</option>
+          </select>
+          <input id="review-filter-tenant" type="search" placeholder="Filter by tenant ID…" />
+          <button class="btn btn-secondary" id="btn-load-review" type="button">Load cases</button>
+        </div>
+        <div id="review-table-wrap">
+          <p style="color:var(--muted)">Click "Load cases" to fetch review cases.</p>
+        </div>
+      </div>
+    </div><!-- /tab-review -->
   </main>
 
   <script>
@@ -261,6 +302,104 @@
         document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
       });
     });
+
+    // ── Review Cases ──────────────────────────────────────────────────────────
+    document.getElementById('btn-load-review').addEventListener('click', loadReviewCases);
+    document.getElementById('review-filter-status').addEventListener('change', loadReviewCases);
+
+    async function loadReviewCases() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      const wrap = document.getElementById('review-table-wrap');
+      wrap.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+
+      const status  = document.getElementById('review-filter-status').value || 'OPEN';
+      const tenantQ = document.getElementById('review-filter-tenant').value.trim();
+      const qs = new URLSearchParams({ status, limit: '100' });
+      if (tenantQ) qs.set('tenant_id', tenantQ);
+
+      try {
+        const res = await fetch(`/api/admin/tenant-review-cases?${qs}`, { headers: { 'X-Admin-Secret': secret } });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load review cases.');
+        renderReviewTable(payload.review_cases || []);
+        setStatus(`${(payload.review_cases || []).length} review case(s) loaded (${status}).`);
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:#8a2c2e">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function renderReviewTable(cases) {
+      const wrap = document.getElementById('review-table-wrap');
+      if (!cases.length) {
+        wrap.innerHTML = '<p style="color:var(--muted)">No review cases match the current filter.</p>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th>Tenant</th>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Summary</th>
+              <th>Trust</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cases.map((rc) => `
+              <tr data-case-id="${escapeHtml(rc.id)}" data-tenant-id="${escapeHtml(rc.tenant_id)}">
+                <td><strong>${escapeHtml(rc.tenant_name || '—')}</strong><br><small style="color:var(--muted)">${escapeHtml(rc.tenant_email || rc.tenant_id)}</small></td>
+                <td><small>${escapeHtml(rc.category || '—')}</small></td>
+                <td><span class="sev-badge ${escapeHtml(rc.severity || 'info')}">${escapeHtml(rc.severity || '—')}</span></td>
+                <td style="max-width:240px;word-break:break-word"><small>${escapeHtml(rc.summary || '—')}</small></td>
+                <td><span class="trust-badge ${escapeHtml(rc.trust_status || '')}">${escapeHtml(rc.trust_status || '—')}</span></td>
+                <td><small>${rc.created_at ? new Date(rc.created_at * 1000).toLocaleDateString() : '—'}</small></td>
+                <td>
+                  <div class="review-actions">
+                    <button class="btn-approve" data-tenant-id="${escapeHtml(rc.tenant_id)}" data-action="approve">Approve</button>
+                    <button class="btn-reject"  data-tenant-id="${escapeHtml(rc.tenant_id)}" data-action="reject">Reject</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      wrap.querySelectorAll('[data-action]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const tenantId   = btn.dataset.tenantId;
+          const action     = btn.dataset.action;
+          const trustStatus = action === 'approve' ? 'TRUSTED' : 'SUSPENDED';
+          const secret     = getSecret();
+          if (!secret) return setStatus('Admin secret is required.', true);
+          if (!confirm(`${action === 'approve' ? 'Approve → TRUSTED' : 'Reject → SUSPENDED'} for tenant ${tenantId}?`)) return;
+          btn.disabled = true;
+          try {
+            const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/trust`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+              body: JSON.stringify({
+                trust_status: trustStatus,
+                public_indexing_enabled: action === 'approve',
+                close_open_cases: true,
+                reviewed_by: 'admin:ui',
+              }),
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Action failed.');
+            setStatus(`Tenant ${tenantId} set to ${trustStatus}.`);
+            btn.closest('tr')?.remove();
+          } catch (err) {
+            setStatus(err.message || 'Action failed.', true);
+            btn.disabled = false;
+          }
+        });
+      });
+    }
 
     // ── Tenant management ─────────────────────────────────────────────────────
     document.getElementById('btn-load-tenants').addEventListener('click', loadTenants);
