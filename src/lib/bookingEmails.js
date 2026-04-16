@@ -535,3 +535,191 @@ ${invoiceUrl ? `<p style="margin:20px 0"><a href="${esc(invoiceUrl)}" style="bac
     platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
   });
 }
+
+// ── Billing: subscription activated (first payment) ───────────────────────────
+export async function dispatchBillingActivationEmail(env, { tenantId, tenantName, tenantEmail }) {
+  const dashUrl = `${(env.PLATFORM_BASE_URL || 'https://tours-market.com').replace(/\/$/, '')}/dashboard.html`;
+  const subject = `You're now on Tours Market Pro 🎉`;
+  const text = [
+    `Hi ${tenantName || 'there'},`,
+    ``,
+    `Welcome to Tours Market Pro! Your subscription is now active.`,
+    ``,
+    `You have full access to all platform features:`,
+    `  • Unlimited tours and bookings`,
+    `  • Custom domain support`,
+    `  • Priority support`,
+    ``,
+    `Head to your dashboard to continue building your tour business:`,
+    dashUrl,
+    ``,
+    `Thank you for choosing Tours Market.`,
+    `— The Tours Market Team`,
+  ].join('\n');
+  const html = `<div style="font-family:sans-serif;max-width:600px">
+<div style="background:#1d4ed8;padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:22px">Welcome to Tours Market Pro 🎉</h1>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(tenantName || 'there')}</strong>,</p>
+  <p>Your subscription is now <strong style="color:#15803d">active</strong>. You have full access to all platform features.</p>
+  <ul style="color:#475569;line-height:1.8">
+    <li>Unlimited tours and bookings</li>
+    <li>Custom domain support</li>
+    <li>Priority support</li>
+  </ul>
+  <p style="margin:20px 0"><a href="${esc(dashUrl)}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px">Go to Dashboard →</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+  <p style="color:#64748b;font-size:13px">Questions? Reply to <a href="mailto:info@tours-market.com">info@tours-market.com</a></p>
+</div>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: 'billing.activated',
+    tenantId: tenantId || 'platform',
+    recipientEmail: tenantEmail,
+    emailContent: { subject, text, html },
+    bookingData: {},
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}
+
+// ── Billing: subscription status change (SUSPENDED or CANCELLED) ──────────────
+export async function dispatchBillingStatusEmail(env, { tenantId, tenantName, tenantEmail, status }) {
+  const dashUrl = `${(env.PLATFORM_BASE_URL || 'https://tours-market.com').replace(/\/$/, '')}/dashboard.html`;
+
+  const isSuspended = status === 'SUSPENDED';
+  const subject = isSuspended
+    ? `Action required — Tours Market account suspended`
+    : `Tours Market subscription cancelled`;
+
+  const text = isSuspended
+    ? [
+        `Hi ${tenantName || 'there'},`,
+        ``,
+        `Your Tours Market account has been suspended due to a payment failure.`,
+        ``,
+        `To restore access, please update your payment method:`,
+        `${dashUrl}`,
+        ``,
+        `If you believe this is an error, contact us at info@tours-market.com.`,
+      ].join('\n')
+    : [
+        `Hi ${tenantName || 'there'},`,
+        ``,
+        `Your Tours Market subscription has been cancelled.`,
+        ``,
+        `Your data is safe and you can reactivate at any time by logging in:`,
+        `${dashUrl}`,
+        ``,
+        `Questions? Contact us at info@tours-market.com.`,
+      ].join('\n');
+
+  const html = isSuspended
+    ? `<div style="font-family:sans-serif;max-width:600px">
+<div style="background:#dc2626;padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:22px">⚠️ Account Suspended</h1>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(tenantName || 'there')}</strong>,</p>
+  <p>Your account has been suspended due to a <strong>payment failure</strong>. Tour booking pages are temporarily offline.</p>
+  <p>To restore access immediately, update your payment method:</p>
+  <p style="margin:20px 0"><a href="${esc(dashUrl)}" style="background:#dc2626;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px">Update Payment Method →</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+  <p style="color:#64748b;font-size:13px">If you believe this is an error, reply to this email or contact <a href="mailto:info@tours-market.com">info@tours-market.com</a>.</p>
+</div>
+</div>`.trim()
+    : `<div style="font-family:sans-serif;max-width:600px">
+<div style="background:#64748b;padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:22px">Subscription Cancelled</h1>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(tenantName || 'there')}</strong>,</p>
+  <p>Your Tours Market subscription has been cancelled. Your data is safe and your account is preserved.</p>
+  <p>If you'd like to continue, you can reactivate at any time:</p>
+  <p style="margin:20px 0"><a href="${esc(dashUrl)}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px">Reactivate Account →</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+  <p style="color:#64748b;font-size:13px">Questions? Contact us at <a href="mailto:info@tours-market.com">info@tours-market.com</a>.</p>
+</div>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: isSuspended ? 'billing.suspended' : 'billing.cancelled',
+    tenantId: tenantId || 'platform',
+    recipientEmail: tenantEmail,
+    emailContent: { subject, text, html },
+    bookingData: {},
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}
+
+// ── Billing: trial expiry reminder ────────────────────────────────────────────
+export async function dispatchTrialReminderEmail(env, { tenantId, tenantName, tenantEmail, daysLeft, expired }) {
+  const dashUrl = `${(env.PLATFORM_BASE_URL || 'https://tours-market.com').replace(/\/$/, '')}/dashboard.html`;
+  const subject = expired
+    ? `Your Tours Market trial has ended`
+    : `Your Tours Market trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+
+  const urgency = daysLeft <= 1 ? '#dc2626' : daysLeft <= 7 ? '#d97706' : '#1d4ed8';
+
+  const text = expired
+    ? [
+        `Hi ${tenantName || 'there'},`,
+        ``,
+        `Your 180-day free trial has ended. Subscribe to continue using Tours Market:`,
+        dashUrl,
+        ``,
+        `Your data is safe — subscribe at any time to restore full access.`,
+        ``,
+        `info@tours-market.com`,
+      ].join('\n')
+    : [
+        `Hi ${tenantName || 'there'},`,
+        ``,
+        `Your Tours Market free trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+        ``,
+        `Subscribe now to avoid any interruption to your service:`,
+        dashUrl,
+        ``,
+        `info@tours-market.com`,
+      ].join('\n');
+
+  const html = `<div style="font-family:sans-serif;max-width:600px">
+<div style="background:${urgency};padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:22px">${expired ? 'Trial Ended' : `Trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}</h1>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(tenantName || 'there')}</strong>,</p>
+  ${expired
+    ? `<p>Your 180-day free trial has ended. Subscribe to restore full access to Tours Market.</p>`
+    : `<p>Your free trial ends in <strong>${daysLeft} day${daysLeft === 1 ? '' : 's'}</strong>. Subscribe now to keep your tours live and continue accepting bookings.</p>`}
+  <p style="margin:20px 0"><a href="${esc(dashUrl)}" style="background:${urgency};color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px">Subscribe Now →</a></p>
+  <p style="color:#64748b;font-size:13px">Your data is safe. You can subscribe at any time.</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+  <p style="color:#64748b;font-size:13px">Questions? Reply to <a href="mailto:info@tours-market.com">info@tours-market.com</a>.</p>
+</div>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: expired ? 'billing.trial_expired' : 'billing.trial_reminder',
+    tenantId: tenantId || 'platform',
+    recipientEmail: tenantEmail,
+    emailContent: { subject, text, html },
+    bookingData: { days_left: daysLeft, expired },
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}
+
+// ── Admin alert (internal — sent to info@tours-market.com) ───────────────────
+export async function dispatchAdminAlertEmail(env, { subject, bodyText, bodyHtml }) {
+  const adminEmail = 'info@tours-market.com';
+  const html = bodyHtml || `<div style="font-family:sans-serif;max-width:600px"><pre style="background:#f8fafc;padding:16px;border-radius:8px;font-size:13px">${esc(bodyText || '')}</pre></div>`;
+  return dispatchWebhook(env, {
+    event: 'admin.alert',
+    tenantId: 'platform',
+    recipientEmail: adminEmail,
+    emailContent: { subject, text: bodyText || subject, html },
+    bookingData: {},
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}

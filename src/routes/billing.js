@@ -23,7 +23,7 @@
 //   [SEC] X-Tenant-ID header is required for /checkout and /portal — no anonymous sessions.
 
 import { Hono } from 'hono';
-import { dispatchBillingPaymentEmail } from '../lib/bookingEmails.js';
+import { dispatchBillingPaymentEmail, dispatchBillingActivationEmail, dispatchBillingStatusEmail, dispatchAdminAlertEmail } from '../lib/bookingEmails.js';
 
 const billing = new Hono();
 
@@ -290,6 +290,22 @@ billing.post('/webhook', async (c) => {
         .run();
 
       console.log(`[BILLING_WEBHOOK] ✓ Tenant ${tenantId} activated via session ${sessionId}`);
+
+      // Send welcome / activation email to the tenant
+      const activatedTenant = await c.env.DB
+        .prepare('SELECT name, email FROM tenants WHERE id = ?')
+        .bind(tenantId)
+        .first();
+      if (activatedTenant?.email) {
+        c.executionCtx.waitUntil(
+          dispatchBillingActivationEmail(c.env, {
+            tenantId,
+            tenantName:  activatedTenant.name,
+            tenantEmail: activatedTenant.email,
+          })
+        );
+      }
+
       return c.json({ ok: true, activated: tenantId });
     }
 
@@ -299,7 +315,7 @@ billing.post('/webhook', async (c) => {
       if (!customerId) return c.json({ ok: true, note: 'no_customer' });
 
       const tenant = await c.env.DB
-        .prepare('SELECT id, subscription_status FROM tenants WHERE stripe_customer_id = ?')
+        .prepare('SELECT id, name, email, subscription_status FROM tenants WHERE stripe_customer_id = ?')
         .bind(customerId)
         .first();
 
@@ -323,6 +339,18 @@ billing.post('/webhook', async (c) => {
         )
         .run();
 
+      // Notify tenant
+      if (tenant.email) {
+        c.executionCtx.waitUntil(
+          dispatchBillingStatusEmail(c.env, {
+            tenantId:    tenant.id,
+            tenantName:  tenant.name,
+            tenantEmail: tenant.email,
+            status:      'CANCELLED',
+          })
+        );
+      }
+
       console.log(`[BILLING_WEBHOOK] ✓ Tenant ${tenant.id} subscription cancelled.`);
       return c.json({ ok: true, cancelled: tenant.id });
     }
@@ -333,7 +361,7 @@ billing.post('/webhook', async (c) => {
       if (!customerId) return c.json({ ok: true, note: 'no_customer' });
 
       const tenant = await c.env.DB
-        .prepare('SELECT id, subscription_status FROM tenants WHERE stripe_customer_id = ?')
+        .prepare('SELECT id, name, email, subscription_status FROM tenants WHERE stripe_customer_id = ?')
         .bind(customerId)
         .first();
 
@@ -358,6 +386,26 @@ billing.post('/webhook', async (c) => {
           Math.floor(Date.now() / 1000)
         )
         .run();
+
+      // Notify tenant
+      if (tenant.email) {
+        c.executionCtx.waitUntil(
+          dispatchBillingStatusEmail(c.env, {
+            tenantId:    tenant.id,
+            tenantName:  tenant.name,
+            tenantEmail: tenant.email,
+            status:      'SUSPENDED',
+          })
+        );
+      }
+
+      // Notify platform admin
+      c.executionCtx.waitUntil(
+        dispatchAdminAlertEmail(c.env, {
+          subject:  `[Tours Market] Tenant SUSPENDED — payment failed`,
+          bodyText: `Tenant ID: ${tenant.id}\nName: ${tenant.name || '—'}\nEmail: ${tenant.email || '—'}\nStatus: SUSPENDED\n\nAction required: check Stripe for failed invoice details.`,
+        })
+      );
 
       console.warn(`[BILLING_WEBHOOK] ⚠ Tenant ${tenant.id} SUSPENDED due to payment failure.`);
       return c.json({ ok: true, suspended: tenant.id });

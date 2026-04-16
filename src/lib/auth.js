@@ -261,7 +261,9 @@ export async function getAuthSession(db, token, now = Math.floor(Date.now() / 10
       `SELECT s.id, s.user_id, s.tenant_id, s.created_at, s.expires_at, s.last_seen_at,
               u.email,
               COALESCE(m.role, 'owner') AS role,
-              t.name AS tenant_name
+              t.name AS tenant_name,
+              t.subscription_status,
+              t.created_at AS tenant_created_at
          FROM auth_sessions s
          JOIN users u
            ON u.id = s.user_id

@@ -23,6 +23,7 @@ import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.
 import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
+import { dispatchTrialReminderEmail, dispatchAdminAlertEmail } from './lib/bookingEmails.js';
 import registerDomainRoutes from './routes/domains.js';
 import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
@@ -222,6 +223,41 @@ app.use('/api/*', async (c, next) => {
   }
 
   c.set('authSession', session);
+
+  // ── Subscription enforcement ──────────────────────────────────────────────
+  // Block mutating operations for SUSPENDED, CANCELLED, and trial-expired tenants.
+  // GET requests and /api/billing/* (so tenants can reactivate) are always allowed.
+  const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  const BILLING_EXEMPT = '/api/billing';
+  if (WRITE_METHODS.has(c.req.method) && !pathname.startsWith(BILLING_EXEMPT)) {
+    const subStatus = session.subscription_status || 'TRIAL';
+    const tenantCreatedAt = Number(session.tenant_created_at ?? 0);
+    const TRIAL_DAYS_LIMIT = 180;
+    const nowS = Math.floor(Date.now() / 1000);
+
+    if (subStatus === 'SUSPENDED') {
+      return c.json({
+        error: 'Account suspended — update your payment method to restore access.',
+        billing_status: 'SUSPENDED',
+        billing_url: '/dashboard.html#billing',
+      }, 402);
+    }
+    if (subStatus === 'CANCELLED') {
+      return c.json({
+        error: 'Subscription cancelled — reactivate your plan to continue.',
+        billing_status: 'CANCELLED',
+        billing_url: '/dashboard.html#billing',
+      }, 402);
+    }
+    if (subStatus === 'TRIAL' && tenantCreatedAt > 0 && nowS > tenantCreatedAt + TRIAL_DAYS_LIMIT * 86400) {
+      return c.json({
+        error: 'Your free trial has ended — subscribe to continue using the platform.',
+        billing_status: 'TRIAL_EXPIRED',
+        billing_url: '/dashboard.html#billing',
+      }, 402);
+    }
+  }
+
   await next();
 });
 
@@ -369,6 +405,130 @@ const patterns = [
   })),
 ];
 
+// ── Trial maintenance — runs on every cron tick (*/15 * * * *) ────────────────
+// 1. Expire TRIAL tenants whose 180-day trial has ended → set SUSPENDED
+// 2. Send reminder emails at 30 / 7 / 1 days before trial ends (deduplicated via audit_log)
+async function runTrialMaintenance(env) {
+  const TRIAL_DAYS = 180;
+  const REMINDER_MILESTONES = [30, 7, 1]; // days before expiry
+  const nowS = Math.floor(Date.now() / 1000);
+
+  let trials;
+  try {
+    const result = await env.DB
+      .prepare("SELECT id, name, email, created_at FROM tenants WHERE subscription_status = 'TRIAL'")
+      .all();
+    trials = result.results ?? [];
+  } catch (err) {
+    console.error('[TRIAL_MAINTENANCE] DB query failed:', err.message);
+    return;
+  }
+
+  for (const tenant of trials) {
+    if (!tenant.id || !tenant.email) continue;
+    const trialEndsAt  = Number(tenant.created_at) + TRIAL_DAYS * 86400;
+    const trialDaysLeft = Math.max(0, Math.ceil((trialEndsAt - nowS) / 86400));
+    const expired = nowS >= trialEndsAt;
+
+    // ── Auto-expire: trial ended → SUSPENDED ─────────────────────────────
+    if (expired) {
+      try {
+        // Guard: only process if still TRIAL (race-safe re-check)
+        const alreadyProcessed = await env.DB
+          .prepare(
+            `SELECT id FROM tenant_audit_log
+              WHERE tenant_id = ? AND action = 'BILLING_TRIAL_EXPIRED'
+              LIMIT 1`
+          )
+          .bind(tenant.id)
+          .first();
+        if (alreadyProcessed) continue;
+
+        await env.DB
+          .prepare("UPDATE tenants SET subscription_status = 'SUSPENDED' WHERE id = ? AND subscription_status = 'TRIAL'")
+          .bind(tenant.id)
+          .run();
+
+        await env.DB
+          .prepare(
+            `INSERT INTO tenant_audit_log (id, tenant_id, action, field_name, old_value, new_value, created_at)
+             VALUES (?, ?, 'BILLING_TRIAL_EXPIRED', 'subscription_status', 'TRIAL', 'SUSPENDED', ?)`
+          )
+          .bind(
+            crypto.randomUUID().replace(/-/g, '').slice(0, 21),
+            tenant.id,
+            nowS
+          )
+          .run();
+
+        await dispatchTrialReminderEmail(env, {
+          tenantId:    tenant.id,
+          tenantName:  tenant.name,
+          tenantEmail: tenant.email,
+          daysLeft:    0,
+          expired:     true,
+        });
+
+        await dispatchAdminAlertEmail(env, {
+          subject:  `[Tours Market] Trial expired — ${tenant.name || tenant.id}`,
+          bodyText: `Tenant: ${tenant.name || '—'} (${tenant.id})\nEmail: ${tenant.email}\nTrial ended. Status set to SUSPENDED.`,
+        });
+
+        console.log(`[TRIAL_MAINTENANCE] ✓ Tenant ${tenant.id} trial expired — set to SUSPENDED.`);
+      } catch (err) {
+        console.error(`[TRIAL_MAINTENANCE] Failed to expire tenant ${tenant.id}:`, err.message);
+      }
+      continue;
+    }
+
+    // ── Reminder emails at 30 / 7 / 1 days before expiry ─────────────────
+    for (const milestone of REMINDER_MILESTONES) {
+      if (trialDaysLeft > milestone) continue; // not yet in window
+
+      const auditAction = `BILLING_TRIAL_REMINDER_${milestone}`;
+      try {
+        const alreadySent = await env.DB
+          .prepare(
+            `SELECT id FROM tenant_audit_log
+              WHERE tenant_id = ? AND action = ?
+              LIMIT 1`
+          )
+          .bind(tenant.id, auditAction)
+          .first();
+        if (alreadySent) break; // already sent this (and lower milestones) — skip
+
+        await dispatchTrialReminderEmail(env, {
+          tenantId:    tenant.id,
+          tenantName:  tenant.name,
+          tenantEmail: tenant.email,
+          daysLeft:    trialDaysLeft,
+          expired:     false,
+        });
+
+        await env.DB
+          .prepare(
+            `INSERT INTO tenant_audit_log (id, tenant_id, action, field_name, old_value, new_value, created_at)
+             VALUES (?, ?, ?, 'subscription_status', ?, ?, ?)`
+          )
+          .bind(
+            crypto.randomUUID().replace(/-/g, '').slice(0, 21),
+            tenant.id,
+            auditAction,
+            'TRIAL',
+            String(trialDaysLeft),
+            nowS
+          )
+          .run();
+
+        console.log(`[TRIAL_MAINTENANCE] ✓ Sent ${milestone}-day reminder to tenant ${tenant.id} (${trialDaysLeft} days left).`);
+        break; // only send one milestone per cron tick per tenant
+      } catch (err) {
+        console.error(`[TRIAL_MAINTENANCE] Reminder failed for tenant ${tenant.id}:`, err.message);
+      }
+    }
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -491,5 +651,6 @@ export default {
   // Expires AWAITING_PROOF orders past payment_deadline; NULLs guest identity (data minimisation).
   async scheduled(event, env, ctx) {
     ctx.waitUntil(purgeExpiredOrders(env));
+    ctx.waitUntil(runTrialMaintenance(env));
   },
 };

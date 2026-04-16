@@ -2531,6 +2531,7 @@ window.addEventListener('dashboard:langchange', () => {
 
       let daysLeft = null;
       let hasStripeSubscription = false;
+      let billingStatusForBanner = null;
       try {
         const billingRes = await fetch('/api/billing/status', {
           headers: buildTenantHeaders()
@@ -2542,6 +2543,9 @@ window.addEventListener('dashboard:langchange', () => {
           }
           if (billing?.ok && billing?.stripe_customer_id) {
             hasStripeSubscription = true;
+          }
+          if (billing?.ok) {
+            billingStatusForBanner = billing.subscription_status;
           }
         }
       } catch (_) {}
@@ -2609,6 +2613,28 @@ window.addEventListener('dashboard:langchange', () => {
               btnUpgrade.style.pointerEvents = '';
             }
           });
+        }
+      }
+
+      // ── SUSPENDED / CANCELLED banner ──────────────────────────────────────
+      // Shown in place of (or alongside) the trial banner for payment-problem states.
+      if (billingStatusForBanner === 'SUSPENDED' || billingStatusForBanner === 'CANCELLED') {
+        const banner = document.getElementById('trial-banner');
+        const text   = document.getElementById('trial-banner-text');
+        const btn    = document.getElementById('btn-upgrade');
+        if (banner) {
+          const isSuspended = billingStatusForBanner === 'SUSPENDED';
+          banner.style.display      = 'flex';
+          banner.style.background   = isSuspended ? '#fee2e2' : '#f1f5f9';
+          banner.style.borderColor  = isSuspended ? '#fca5a5' : '#cbd5e1';
+          banner.style.color        = isSuspended ? '#991b1b' : '#475569';
+          if (text) text.textContent = isSuspended
+            ? '⚠️ Account suspended — payment failed. Update your payment method to restore access.'
+            : 'Subscription cancelled — reactivate your plan to continue.';
+          if (btn) {
+            btn.textContent = isSuspended ? 'Fix billing →' : 'Reactivate →';
+            btn.onclick = (e) => { e.preventDefault(); showPane('billing'); loadBillingPane(); };
+          }
         }
       }
     }
