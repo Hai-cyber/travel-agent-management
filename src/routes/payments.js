@@ -24,6 +24,8 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { notifyAgent } from '../lib/notifications.js';
 import { normalizeLocale, translate } from '../utils/formatter.js';
+import { dispatchBookingConfirmedEmail } from '../lib/bookingEmails.js';
+import { seedOrderTodos } from '../lib/bookingOps.js';
 
 const payments = new Hono();
 
@@ -160,11 +162,12 @@ payments.post('/webhook/:provider', async (c) => {
       return c.json({ ok: true, note: 'Already settled' });
     }
 
-    // Instant unlock: set PAID + identity_unlocked = 1
+    // Auto-confirm instantly: set CONFIRMED + identity_unlocked = 1
+    // (instant payment providers confirm payment before this webhook fires)
     const upd = await c.env.DB
       .prepare(
         `UPDATE booking_orders
-         SET status = 'PAID', identity_unlocked = 1, confirmed_at = ?
+         SET status = 'CONFIRMED', identity_unlocked = 1, confirmed_at = ?
          WHERE id = ? AND tenant_id = ?`
       )
       .bind(now, order.id, order.tenant_id)
@@ -181,11 +184,11 @@ payments.post('/webhook/:provider', async (c) => {
       .run();
 
     console.info(
-      `[WEBHOOK_INSTANT_PAID] provider=${provider} order=${order.id} ` +
+      `[WEBHOOK_INSTANT_CONFIRMED] provider=${provider} order=${order.id} ` +
       `tenant=${order.tenant_id} amount=${order.grand_total_usd}`
     );
 
-    // Push notification + audit log — both non-blocking (do not extend response time)
+    // Post-confirmation operations — all non-blocking
     c.executionCtx.waitUntil(
       Promise.all([
         notifyAgent(c.env, order.tenant_id, 'WEBHOOK_PAID', {
@@ -195,10 +198,10 @@ payments.post('/webhook/:provider', async (c) => {
           grand_total: order.grand_total_usd,
           tour_id:     order.tour_id,
         }),
-        // [AUDIT] Record instant unlock for anti-ghosting compliance trail
+        // [AUDIT] Record instant confirm for compliance trail
         c.env.DB
           .prepare(`INSERT INTO tenant_audit_log (id, tenant_id, actor, action, entity_type, entity_id, meta_json, created_at)
-                    VALUES (?, ?, ?, 'INSTANT_UNLOCK_WEBHOOK', 'booking_order', ?, ?, ?)`)
+                    VALUES (?, ?, ?, 'INSTANT_CONFIRM_WEBHOOK', 'booking_order', ?, ?, ?)`)
           .bind(
             nanoid(),
             order.tenant_id,
@@ -208,6 +211,48 @@ payments.post('/webhook/:provider', async (c) => {
             now
           )
           .run(),
+        // Send booking.confirmed email to guest
+        (async () => {
+          try {
+            const [fullOrder, tenantRow] = await Promise.all([
+              c.env.DB.prepare(
+                `SELECT o.travel_date, o.pax_shared, o.pax_private, o.pax_children, o.pax_infants,
+                        o.guest_email, t.title AS tour_title
+                 FROM booking_orders o LEFT JOIN tours t ON t.id = o.tour_id
+                 WHERE o.id = ? LIMIT 1`
+              ).bind(order.id).first(),
+              c.env.DB.prepare('SELECT name, booking_currency FROM tenants WHERE id = ? LIMIT 1').bind(order.tenant_id).first(),
+            ]);
+            const shared   = fullOrder?.pax_shared   || 0;
+            const priv     = fullOrder?.pax_private  || 0;
+            const children = fullOrder?.pax_children || 0;
+            const infants  = fullOrder?.pax_infants  || 0;
+            const paxParts = [];
+            if (shared   > 0) paxParts.push(`${shared} adult${shared   > 1 ? 's' : ''} (shared room)`);
+            if (priv     > 0) paxParts.push(`${priv} adult${priv     > 1 ? 's' : ''} (private room)`);
+            if (children > 0) paxParts.push(`${children} child${children > 1 ? 'ren' : ''}`);
+            if (infants  > 0) paxParts.push(`${infants} infant${infants  > 1 ? 's' : ''}`);
+            const platformBase = String(c.env.PLATFORM_BASE_URL || '').trim();
+            await dispatchBookingConfirmedEmail(c.env, {
+              orderId:    order.id,
+              tenantId:   order.tenant_id,
+              tenantName: tenantRow?.name       || null,
+              guestName:  order.guest_name      || null,
+              guestEmail: fullOrder?.guest_email || null,
+              tourTitle:  fullOrder?.tour_title  || null,
+              travelDate: fullOrder?.travel_date || null,
+              segmentName: null,
+              paxSummary: paxParts.join(', ') || 'See booking details',
+              grandTotal:  order.grand_total_usd,
+              currency:    tenantRow?.booking_currency || 'USD',
+              platformBaseUrl: platformBase,
+            });
+          } catch (err) {
+            console.warn('[BOOKING_EMAIL] booking.confirmed (webhook) error:', err.message);
+          }
+        })(),
+        // Auto-seed order todos from tour stops
+        seedOrderTodos(c.env, order.tenant_id, order.id, order.tour_id),
       ])
     );
 

@@ -13,6 +13,7 @@ import {
   dispatchProofUploadedEmail,
   dispatchBookingConfirmedEmail,
 } from '../lib/bookingEmails.js';
+import { seedOrderTodos } from '../lib/bookingOps.js';
 
 const bookings = new Hono();
 
@@ -870,6 +871,8 @@ bookings.post('/order/:orderId/confirm-receipt', async (c) => {
         currency:    tenantRow?.booking_currency || 'USD',
         platformBaseUrl: platformBase,
       });
+      // Auto-seed todos from tour stops after confirmation
+      await seedOrderTodos(c.env, tenantId, orderId, fullOrder?.tour_id || null);
     } catch (err) {
       console.warn('[BOOKING_EMAIL] booking.confirmed error:', err.message);
     }

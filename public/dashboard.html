@@ -1061,7 +1061,7 @@
                   <button id="btn-add-todo" class="button alt small">+ Add Task</button>
                 </div>
                 <div id="todos-loading" style="color:#94a3b8; font-size:13px; padding:8px 0">Loading tasks…</div>
-                <div id="todos-empty" style="display:none; color:#94a3b8; font-size:13px; padding:8px 0">No tasks yet. Tasks are seeded from tour stops when available.</div>
+                <div id="todos-empty" style="display:none; color:#94a3b8; font-size:13px; padding:8px 0">No tasks yet. Add a custom task above, or create tour stops on this tour to auto-generate a checklist.</div>
                 <ul id="todos-list" style="display:none;"></ul>
                 <div id="add-todo-form" style="display:none;">
                   <div class="add-todo-row">
@@ -3092,13 +3092,15 @@ window.addEventListener('dashboard:langchange', () => {
 
   // ── Live Orders ───────────────────────────────────────────────────────────
   const STATUS_BADGE = {
-    AWAITING_PROOF:  { cls: 'badge-yellow',  label: 'Awaiting Proof'  },
-    PROOF_UPLOADED:  { cls: 'badge-blue',    label: 'Proof Uploaded'  },
-    CONFIRMED:       { cls: 'badge-green',   label: 'Confirmed'       },
-    EXPIRED:         { cls: 'badge-gray',    label: 'Expired'         },
-    CANCELLED:       { cls: 'badge-red',     label: 'Cancelled'       },
-    INSTANT_PAID:    { cls: 'badge-green',   label: 'Instant Paid'    },
-    AWAITING_PAYMENT:{ cls: 'badge-yellow',  label: 'Awaiting Payment'},
+    AWAITING_PROOF:   { cls: 'badge-yellow',  label: 'Awaiting Proof'  },
+    PROOF_UPLOADED:   { cls: 'badge-blue',    label: 'Proof Uploaded'  },
+    CONFIRMED:        { cls: 'badge-green',   label: 'Confirmed'       },
+    PAID:             { cls: 'badge-green',   label: 'Confirmed'       },
+    EXPIRED:          { cls: 'badge-gray',    label: 'Expired'         },
+    CANCELLED:        { cls: 'badge-red',     label: 'Cancelled'       },
+    INSTANT_PAID:     { cls: 'badge-green',   label: 'Confirmed'       },
+    AWAITING_PAYMENT: { cls: 'badge-yellow',  label: 'Awaiting Payment'},
+    PENDING_ARRIVAL:  { cls: 'badge-yellow',  label: 'Pay on Arrival'  },
   };
 
   function fmtDateShort(unix) {
@@ -3177,8 +3179,8 @@ window.addEventListener('dashboard:langchange', () => {
       // ── update stat cards ──
       const awaitingCnt = allOrders.filter(o => o.status === 'AWAITING_PROOF').length;
       const proofCnt    = allOrders.filter(o => o.status === 'PROOF_UPLOADED').length;
-      const confCnt     = allOrders.filter(o => o.status === 'CONFIRMED').length;
-      const revenue     = allOrders.filter(o => o.status === 'CONFIRMED').reduce((s,o) => s + (Number(o.grand_total_usd)||0), 0);
+      const confCnt     = allOrders.filter(o => o.status === 'CONFIRMED' || o.status === 'PAID').length;
+      const revenue     = allOrders.filter(o => o.status === 'CONFIRMED' || o.status === 'PAID').reduce((s,o) => s + (Number(o.grand_total_usd)||0), 0);
       const currency    = getTenantCurrencyPreference?.() || 'USD';
 
       const el = (id) => document.getElementById(id);
@@ -3344,8 +3346,12 @@ window.addEventListener('dashboard:langchange', () => {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Server error');
       document.getElementById('confirm-modal').style.display = 'none';
+      const confirmedId = pendingConfirmId;
       pendingConfirmId = null;
-      await loadOrders(); // refresh table
+      await loadOrders(); // refresh table + stats
+      // Open the order detail pane so todos are immediately visible
+      const confirmedOrder = allOrdersCache.find(o => o.id === confirmedId);
+      if (confirmedOrder) openOrderDetail(confirmedOrder);
     } catch (err) {
       errEl.textContent   = err.message;
       errEl.style.display = 'block';
