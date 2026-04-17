@@ -575,6 +575,20 @@ function readMeta(val) {
   return val;
 }
 
+// Returns true for auto-seeded placeholder todos that have never been touched.
+// These are hidden from the board to reduce noise.
+// A todo is "empty" if: seeded as placeholder (no service_item_id), has no meaningful
+// service_meta_json, no contact fields, and status is still 'pending'.
+function isEmptyPlaceholder(t) {
+  if (t.service_item_id)  return false; // was seeded from a real configured item
+  if (t.status !== 'pending') return false; // agent has interacted with it
+  if (t.contact_name || t.contact_phone || t.contact_email || t.person_in_charge) return false;
+  const meta = readMeta(t.service_meta_json);
+  // If meta has any meaningful value beyond meal_type, it has been filled in
+  const meaningfulKeys = Object.keys(meta).filter(k => k !== 'meal_type' && meta[k] != null && meta[k] !== '');
+  return meaningfulKeys.length === 0;
+}
+
 // ── Service config ───────────────────────────────────────────────────────────
 const SVC = {
   accommodation:   { icon:'🏨', label:'Hotel',         nameKey:'hotel_name',      type:'accommodation' },
@@ -761,6 +775,11 @@ async function loadBoard(orderId) {
     <span>💰 $${Number(order.grand_total_usd||0).toLocaleString()}</span>
     <span class="status-pill ${getStatusClass(order.status?.toLowerCase?.())} " style="font-size:.7rem">${esc(order.status)}</span>
   `;
+
+  // Filter out pure empty placeholders — seeded automatically but never touched.
+  // A todo is a placeholder if it has no service_item_id, no service_meta_json data,
+  // no contact info, and is still pending (agent has not interacted with it).
+  todos = todos.filter(t => !isEmptyPlaceholder(t));
 
   // Progress
   const confirmed = todos.filter(t => t.status === 'confirmed' || t.status === 'cancelled').length;
