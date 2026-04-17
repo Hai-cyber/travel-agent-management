@@ -1392,6 +1392,37 @@ bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
   return c.json({ ok: true, id: todoId, done, done_at: done ? now : null, status });
 });
 
+// ── DELETE /api/bookings/order/:orderId/todos/:todoId ────────────────────
+// Remove a single todo (and its thread entries) from an order's checklist.
+// Only tenant-owned todos can be deleted. [SEC] tenant_id enforced.
+bookings.delete('/order/:orderId/todos/:todoId', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const orderId = c.req.param('orderId');
+  const todoId  = c.req.param('todoId');
+
+  // Verify ownership before delete
+  const todo = await c.env.DB
+    .prepare('SELECT id FROM booking_order_todos WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(todoId, orderId, tenantId)
+    .first();
+  if (!todo) return c.json({ error: 'Todo not found' }, 404);
+
+  // Delete thread entries first (no ON DELETE CASCADE guaranteed)
+  await c.env.DB
+    .prepare('DELETE FROM booking_todo_threads WHERE todo_id = ? AND tenant_id = ?')
+    .bind(todoId, tenantId)
+    .run();
+
+  await c.env.DB
+    .prepare('DELETE FROM booking_order_todos WHERE id = ? AND order_id = ? AND tenant_id = ?')
+    .bind(todoId, orderId, tenantId)
+    .run();
+
+  return c.json({ ok: true, deleted: todoId });
+});
+
 // ── GET /api/bookings/order/:orderId/todos/:todoId/thread ─────────────────
 // Returns all communication thread entries for a single todo item.
 // [SEC] tenant_id enforced on both todo and thread lookups.

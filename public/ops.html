@@ -243,6 +243,35 @@
     #error-view { padding:40px 16px; text-align:center; color:rgba(255,255,255,.7) }
     #error-view h2 { color:#fff; margin-bottom:8px }
 
+    /* ── Delete button ───────────────────────────── */
+    .btn-delete {
+      background:none; border:none; color:var(--muted); cursor:pointer;
+      font-size:1rem; padding:2px 4px; border-radius:6px; line-height:1;
+      transition:color .15s, background .15s; flex-shrink:0;
+    }
+    .btn-delete:hover { color:var(--pill-cancelled); background:rgba(239,68,68,.08) }
+
+    /* ── Add task form ─────────────────────────── */
+    .add-task-btn {
+      display:flex; align-items:center; gap:8px; width:100%;
+      background:rgba(255,255,255,.06); border:1.5px dashed rgba(255,255,255,.2);
+      border-radius:var(--radius); padding:10px 14px; cursor:pointer;
+      color:rgba(255,255,255,.6); font-size:.85rem; font-weight:600;
+      transition:all .15s; margin-bottom:10px;
+    }
+    .add-task-btn:hover { background:rgba(255,255,255,.1); color:#fff; border-color:rgba(255,255,255,.4) }
+    .add-task-form {
+      background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+      padding:16px 14px; margin-bottom:10px; display:none;
+    }
+    .add-task-form.open { display:block }
+    .add-task-form h4 { font-size:.88rem; font-weight:700; color:var(--text); margin-bottom:12px }
+    .add-form-btns { display:flex; gap:8px; margin-top:10px }
+    .btn-cancel-add {
+      background:var(--surface-dim); color:var(--muted); border:1px solid var(--border);
+      border-radius:8px; padding:7px 16px; font-size:.85rem; cursor:pointer; font-weight:600;
+    }
+
     /* ── Responsive ─────────────────────────────── */
     @media (max-width:480px) {
       .field-row { grid-template-columns:1fr }
@@ -530,6 +559,7 @@ async function loadBoard(orderId) {
   const pax = (order.pax?.shared||0) + (order.pax?.private||0) + (order.pax?.children||0);
 
   $('board-title').textContent = tourName;
+  $('ops-board-view').dataset.travelDate = order.travel_date || '';
   $('order-meta-bar').innerHTML = `
     <span><strong>${esc(tourName)}</strong></span>
     <span>📅 ${esc(fmtDate(order.travel_date))}</span>
@@ -587,6 +617,7 @@ function renderStops(todos, order) {
       <div class="stop-cards" id="stop-${CSS.escape(key)}">
         ${items.map(t => renderCardCollapsed(t, order, stopDateFrom, stopDateTo)).join('')}
       </div>
+      ${renderAddTaskButton(key, order.id, stopDateFrom)}
     </div>`);
   }
 
@@ -676,6 +707,7 @@ function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
       </div>
       <div class="card-right">
         <span class="status-pill ${sc}">${sl}</span>
+        <button class="btn-delete" data-delete-id="${esc(todo.id)}" data-delete-order="${esc(order.id)}" title="Delete task" onclick="event.stopPropagation()">🗑</button>
         <span class="expand-icon">▼</span>
       </div>
     </div>
@@ -830,11 +862,104 @@ function renderCardForm(todo, order, stopDateFrom, stopDateTo) {
     </div>`;
 }
 
+// ── ADD TASK BUTTON + FORM ────────────────────────────────────────────────────
+function renderAddTaskButton(stopKey, orderId, stopDateFrom) {
+  const safeKey = CSS.escape(stopKey);
+  return `
+    <button class="add-task-btn" data-stop-key="${esc(stopKey)}" data-order="${esc(orderId)}">
+      ＋ Add task to this stop
+    </button>
+    <div class="add-task-form" id="add-form-${safeKey}">
+      <h4>New task</h4>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Service type</label>
+          <select data-af="service_type">
+            <option value="">— Custom —</option>
+            <option value="accommodation">🏨 Hotel / Accommodation</option>
+            <option value="meal">🍽️ Meal</option>
+            <option value="guide">🧭 Guide</option>
+            <option value="local_transport">🚐 Local Transport</option>
+            <option value="intercity_leg">✈️ Intercity Leg</option>
+          </select>
+        </div>
+        <div class="field-group"><label>Service name / title</label><input type="text" data-af="title" placeholder="e.g. Dinner at Nomad" autocomplete="off"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Date</label><input type="date" data-af="date" value="${esc(stopDateFrom || '')}"></div>
+        <div class="field-group"><label>Time (from)</label><input type="time" data-af="time_from" value="08:00"></div>
+      </div>
+      <div class="field-group full"><label>Address / location</label><input type="text" data-af="address" placeholder="Hotel, restaurant, pickup point…"></div>
+      <div class="field-row">
+        <div class="field-group"><label>Contact name</label><input type="text" data-af="contact_name"></div>
+        <div class="field-group"><label>Phone / WhatsApp</label><input type="tel" data-af="contact_phone"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Email</label><input type="email" data-af="contact_email"></div>
+        <div class="field-group"><label>Person in charge</label><input type="text" data-af="person_in_charge"></div>
+      </div>
+      <div class="field-group full"><label>Notes</label><textarea data-af="notes" rows="2"></textarea></div>
+      <div class="add-form-btns">
+        <button class="btn-cancel-add" data-cancel-stop="${esc(stopKey)}">Cancel</button>
+        <button class="btn-save" data-submit-add="${esc(stopKey)}" data-order="${esc(orderId)}" data-stop-key="${esc(stopKey)}">Add task</button>
+      </div>
+    </div>`;
+}
+
 function v(k, val) { return val || ''; }
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 document.addEventListener('click', async e => {
-  // Status radio
+  // ── Delete todo ─────────────────────────────────────────────────────────
+  const delBtn = e.target.closest('.btn-delete');
+  if (delBtn) {
+    e.stopPropagation();
+    const todoId  = delBtn.dataset.deleteId;
+    const orderId = delBtn.dataset.deleteOrder;
+    if (!todoId || !orderId) return;
+    if (!confirm('Delete this task? This cannot be undone.')) return;
+    delBtn.disabled = true;
+    delBtn.textContent = '⏳';
+    try {
+      const res = await api(`/api/bookings/order/${orderId}/todos/${todoId}`, { method: 'DELETE' });
+      if (!res.ok) { const e2 = await res.json().catch(() => ({})); alert('Delete failed: ' + (e2.error || res.status)); delBtn.disabled = false; delBtn.textContent = '🗑'; return; }
+      const card = document.querySelector(`.todo-card[data-id="${CSS.escape(todoId)}"]`);
+      card?.remove();
+      updateProgress();
+    } catch(err) { alert('Error: ' + err.message); delBtn.disabled = false; delBtn.textContent = '🗑'; }
+    return;
+  }
+
+  // ── Show add-task form ───────────────────────────────────────────────────
+  const addBtn = e.target.closest('.add-task-btn');
+  if (addBtn) {
+    const stopKey = addBtn.dataset.stopKey;
+    const form = document.getElementById(`add-form-${CSS.escape(stopKey)}`);
+    if (form) { form.classList.toggle('open'); addBtn.style.display = form.classList.contains('open') ? 'none' : ''; }
+    return;
+  }
+
+  // ── Cancel add-task form ─────────────────────────────────────────────────
+  const cancelBtn = e.target.closest('.btn-cancel-add');
+  if (cancelBtn) {
+    const stopKey = cancelBtn.dataset.cancelStop;
+    const form = document.getElementById(`add-form-${CSS.escape(stopKey)}`);
+    if (form) {
+      form.classList.remove('open');
+      const addBtn = document.querySelector(`.add-task-btn[data-stop-key="${CSS.escape(stopKey)}"]`);
+      if (addBtn) addBtn.style.display = '';
+    }
+    return;
+  }
+
+  // ── Submit add-task form ─────────────────────────────────────────────────
+  const submitBtn = e.target.closest('[data-submit-add]');
+  if (submitBtn && !submitBtn.disabled) {
+    await handleAddTask(submitBtn);
+    return;
+  }
+
+  // ── Status radio ─────────────────────────────────────────────────────────
   const radio = e.target.closest('.status-radio');
   if (radio) {
     const inp = radio.querySelector('input');
@@ -863,9 +988,9 @@ document.addEventListener('click', async e => {
     }
   }
 
-  // Save button
+  // ── Save existing card ───────────────────────────────────────────────────
   const saveBtn = e.target.closest('.btn-save');
-  if (saveBtn && !saveBtn.disabled) {
+  if (saveBtn && !saveBtn.disabled && !saveBtn.dataset.submitAdd) {
     const form = saveBtn.closest('.detail-form');
     if (!form) return;
     await handleSave(form);
@@ -986,6 +1111,110 @@ async function handleSave(form) {
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save';
+  }
+}
+
+async function handleAddTask(submitBtn) {
+  const stopKey = submitBtn.dataset.stopKey;
+  const orderId = submitBtn.dataset.order;
+  const form    = document.getElementById(`add-form-${CSS.escape(stopKey)}`);
+  if (!form) return;
+
+  const get = key => form.querySelector(`[data-af="${key}"]`)?.value?.trim() || '';
+  const svc      = get('service_type');
+  const titleVal = get('title');
+  const dateVal  = get('date');
+  const timeVal  = get('time_from');
+  const address  = get('address');
+  const cName    = get('contact_name');
+  const cPhone   = get('contact_phone');
+  const cEmail   = get('contact_email');
+  const pic      = get('person_in_charge');
+  const notes    = get('notes');
+
+  // Derive a sensible title if blank
+  const SVC_LABELS = { accommodation:'Hotel', meal:'Meal', guide:'Guide', local_transport:'Local Transport', intercity_leg:'Intercity Leg' };
+  const title = titleVal || (svc ? SVC_LABELS[svc] || 'Task' : 'Custom Task');
+
+  // Build service_meta_json
+  const meta = {};
+  if (address) meta.address = address;
+  if (notes)   meta.notes   = notes;
+  if (cName)   meta.contact_name = cName;
+  if (svc === 'accommodation') { if (title) meta.hotel_name       = title; if (dateVal) meta.check_in = dateStrToUnix(dateVal); }
+  else if (svc === 'meal')     { if (title) meta.restaurant_name  = title; if (dateVal && timeVal) meta.meal_datetime = timeStrToUnix(timeVal, dateVal); }
+  else if (svc === 'guide')    { if (title) meta.guide_name       = title; if (dateVal && timeVal) meta.time_from = timeStrToUnix(timeVal, dateVal); }
+  else if (svc === 'local_transport') { if (title) meta.supplier  = title; if (dateVal && timeVal) meta.pickup_time = timeStrToUnix(timeVal, dateVal); }
+  else if (svc === 'intercity_leg')   { if (title) meta.supplier  = title; if (dateVal && timeVal) meta.depart_time = timeStrToUnix(timeVal, dateVal); }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Adding…';
+  try {
+    const res = await api(`/api/bookings/order/${orderId}/todos`, {
+      method: 'POST',
+      body: {
+        title,
+        service_type:      svc || null,
+        person_in_charge:  pic  || null,
+        contact_name:      cName  || null,
+        contact_phone:     cPhone || null,
+        contact_email:     cEmail || null,
+        service_meta_json: Object.keys(meta).length ? meta : null,
+      },
+    });
+    if (!res.ok) { const e2 = await res.json().catch(() => ({})); alert('Error: ' + (e2.error || res.status)); return; }
+    const data = await res.json();
+
+    // Append the new card to the stop's card list
+    const stopCardsEl = document.getElementById(`stop-${CSS.escape(stopKey)}`);
+    if (stopCardsEl) {
+      // Build a minimal todo object to render the card
+      // We need the order object — get travel_date from order meta bar text is fragile;
+      // instead store it on the board container as a data attribute when we load the board.
+      const orderEl = document.getElementById('ops-board-view');
+      const travelDate = orderEl?.dataset.travelDate || '';
+      const newTodo = {
+        ...data.todo,
+        stop_id: stopKey === '__custom__' ? null : stopKey,
+        stop_label: null, stop_day_from: null, stop_day_to: null,
+        service_meta_json: Object.keys(meta).length ? JSON.stringify(meta) : null,
+        contact_phone: cPhone || null, person_in_charge: pic || null,
+      };
+      const mockOrder = { id: orderId, travel_date: travelDate };
+      const wrapper   = document.createElement('div');
+      wrapper.innerHTML = renderCardCollapsed(newTodo, mockOrder, dateVal || null, null);
+      const newCard = wrapper.firstElementChild;
+      stopCardsEl.appendChild(newCard);
+
+      // Attach expand listener to new card
+      newCard.querySelector('.card-header')?.addEventListener('click', () => {
+        const body = newCard.querySelector('.card-body');
+        const isOpen = body.classList.contains('open');
+        stopCardsEl.querySelectorAll('.card-body.open').forEach(b => {
+          b.classList.remove('open');
+          b.closest('.todo-card').querySelector('.expand-icon').textContent = '▼';
+        });
+        if (!isOpen) {
+          body.classList.add('open');
+          newCard.querySelector('.expand-icon').textContent = '▲';
+          if (!body.dataset.loaded) { loadThreadInto(body, newTodo.id, orderId); body.dataset.loaded = '1'; }
+        }
+      });
+    }
+
+    // Reset + close form
+    form.querySelectorAll('input,textarea,select').forEach(el => {
+      if (el.type === 'date') return; // keep date
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else if (el.type !== 'time') el.value = '';
+    });
+    form.classList.remove('open');
+    const addBtn = document.querySelector(`.add-task-btn[data-stop-key="${CSS.escape(stopKey)}"]`);
+    if (addBtn) addBtn.style.display = '';
+    updateProgress();
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add task';
   }
 }
 
