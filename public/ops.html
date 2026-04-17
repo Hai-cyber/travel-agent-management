@@ -818,7 +818,8 @@ function renderStops(todos, order) {
 
   // Attach expand listeners
   container.querySelectorAll('.card-header').forEach(header => {
-    header.addEventListener('click', () => {
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-delete')) return; // let delete handler take it
       const card = header.closest('.todo-card');
       const body = card.querySelector('.card-body');
       const isOpen = body.classList.contains('open');
@@ -900,7 +901,7 @@ function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
       </div>
       <div class="card-right">
         <span class="status-pill ${sc}">${sl}</span>
-        <button class="btn-delete" data-delete-id="${esc(todo.id)}" data-delete-order="${esc(order.id)}" title="Delete task" onclick="event.stopPropagation()">🗑</button>
+        <button class="btn-delete" data-delete-id="${esc(todo.id)}" data-delete-order="${esc(order.id)}" title="Delete task">🗑</button>
         <span class="expand-icon">▼</span>
       </div>
     </div>
@@ -1380,7 +1381,8 @@ async function handleAddTask(submitBtn) {
       stopCardsEl.appendChild(newCard);
 
       // Attach expand listener to new card
-      newCard.querySelector('.card-header')?.addEventListener('click', () => {
+      newCard.querySelector('.card-header')?.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-delete')) return;
         const body = newCard.querySelector('.card-body');
         const isOpen = body.classList.contains('open');
         stopCardsEl.querySelectorAll('.card-body.open').forEach(b => {
