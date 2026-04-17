@@ -140,10 +140,60 @@
     @media (max-width: 920px) {
       .grid, .tier-grid, .row { grid-template-columns: 1fr; }
     }
+
+    /* ── Auth overlay ── */
+    #admin-overlay {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
+    }
+    .auth-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 24px;
+      box-shadow: 0 32px 96px rgba(15,23,42,0.4);
+      padding: 40px 36px 32px;
+      width: min(400px, calc(100vw - 32px));
+      text-align: center;
+    }
+    .auth-card .lock-icon { font-size: 2.4rem; margin-bottom: 12px; }
+    .auth-card h2 { font-size: 22px; margin-bottom: 6px; }
+    .auth-card p  { font-size: 13px; color: #64748b; margin: 0 0 24px; }
+    #overlay-msg  { min-height: 18px; font-size: 13px; margin-top: 14px; font-weight: 600; }
+    #g_id_signin  { display: flex; justify-content: center; }
+    .auth-footer  { margin-top: 20px; font-size: 11px; color: #94a3b8; }
   </style>
+  <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
-  <main class="shell">
+
+  <!-- ── Auth overlay (shown until Google sign-in is verified) ── -->
+  <div id="admin-overlay">
+    <div class="auth-card">
+      <div class="lock-icon">🔐</div>
+      <h2>SaaS Admin</h2>
+      <p>Sign in with your authorized Google account to continue.</p>
+      <div id="g_id_onload"
+           data-client_id="373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com"
+           data-callback="handleGoogleCredential"
+           data-auto_prompt="true">
+      </div>
+      <div class="g_id_signin"
+           data-type="standard"
+           data-theme="outline"
+           data-size="large"
+           data-text="signin_with"
+           data-shape="pill">
+      </div>
+      <div id="overlay-msg"></div>
+      <div class="auth-footer">Access restricted to authorized admins only.</div>
+    </div>
+  </div>
+
+  <main class="shell" id="main-content" style="display:none">
     <section class="masthead">
       <div>
         <h1>SaaS Pricing Page Editor</h1>
@@ -152,6 +202,10 @@
       <div class="actions">
         <a class="btn btn-secondary" href="/">Open public page</a>
         <a class="btn btn-secondary" href="/signup.html">Open signup</a>
+        <span id="admin-user-badge" style="display:none;align-items:center;gap:10px;font-size:13px;color:#64748b">
+          <span id="admin-user-email"></span>
+          <button id="btn-admin-signout" class="btn btn-secondary" type="button" style="padding:8px 14px;font-size:12px">Sign out</button>
+        </span>
       </div>
     </section>
     <div class="status" id="status">Enter your admin secret, then load the current marketing config.</div>
@@ -836,6 +890,66 @@
         '"': '&quot;',
         "'": '&#39;'
       }[char] || char));
+    }
+
+    // ── Google Sign-In auth gate ──────────────────────────────────────────────
+    const ADMIN_EMAIL    = 'info@quan-esskultur.de';
+    const AUTHED_KEY     = 'tam_admin_authed';
+    const EMAIL_KEY      = 'tam_admin_email';
+
+    function _decodeJwt(token) {
+      const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(atob(b64));
+    }
+
+    function _isAuthed() {
+      return sessionStorage.getItem(AUTHED_KEY) === '1'
+          && sessionStorage.getItem(EMAIL_KEY)  === ADMIN_EMAIL;
+    }
+
+    function _showAdmin() {
+      document.getElementById('admin-overlay').style.display    = 'none';
+      document.getElementById('main-content').style.display     = '';
+      document.getElementById('admin-user-badge').style.display = 'flex';
+      document.getElementById('admin-user-email').textContent   = sessionStorage.getItem(EMAIL_KEY) || '';
+    }
+
+    function _showLogin(msg) {
+      document.getElementById('admin-overlay').style.display    = 'flex';
+      document.getElementById('main-content').style.display     = 'none';
+      document.getElementById('admin-user-badge').style.display = 'none';
+      const el = document.getElementById('overlay-msg');
+      if (el) { el.textContent = msg || ''; el.style.color = msg ? '#dc2626' : ''; }
+    }
+
+    // Called by Google GSI on successful credential response
+    function handleGoogleCredential(response) {
+      try {
+        const payload = _decodeJwt(response.credential);
+        if (payload.email === ADMIN_EMAIL && payload.email_verified) {
+          sessionStorage.setItem(AUTHED_KEY, '1');
+          sessionStorage.setItem(EMAIL_KEY, payload.email);
+          _showAdmin();
+        } else {
+          _showLogin(`Access denied — this admin is restricted to ${ADMIN_EMAIL}.`);
+        }
+      } catch (e) {
+        _showLogin('Sign-in failed. Please try again.');
+      }
+    }
+
+    document.getElementById('btn-admin-signout').addEventListener('click', () => {
+      sessionStorage.removeItem(AUTHED_KEY);
+      sessionStorage.removeItem(EMAIL_KEY);
+      try { google?.accounts?.id?.disableAutoSelect(); } catch (_) {}
+      _showLogin('You have been signed out.');
+    });
+
+    // Gate check on load
+    if (_isAuthed()) {
+      _showAdmin();
+    } else {
+      _showLogin();
     }
   </script>
 </body>
