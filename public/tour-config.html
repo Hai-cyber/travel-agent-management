@@ -672,6 +672,31 @@
     /* -- Code pill -- */
     code { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #6366F1; }
     hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+
+    /* -- Help (?) button & popover -- */
+    .help-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 17px; height: 17px; border-radius: 50%;
+      border: 1.5px solid #6366F1; background: transparent;
+      color: #6366F1; font-size: 10px; font-weight: 800;
+      cursor: pointer; flex-shrink: 0; line-height: 1;
+      transition: background .15s, color .15s;
+    }
+    .help-btn:hover { background: #6366F1; color: #fff; }
+    .help-btn[aria-expanded="true"] { background: #6366F1; color: #fff; }
+    .help-popover {
+      display: none; margin: 0; padding: 11px 15px;
+      background: #EEF2FF; border: 1px solid #C7D2FE;
+      border-top: none; border-radius: 0 0 8px 8px;
+      font-size: 12.5px; line-height: 1.65; color: #3730A3;
+      font-family: 'Inter', sans-serif;
+    }
+    .help-popover.help-popover--warn {
+      background: #FFFBEB; border-color: #FDE68A; color: #92400E;
+    }
+    .help-popover p { margin: 0 0 6px; }
+    .help-popover p:last-child { margin: 0; }
+    .help-popover strong { font-weight: 700; }
   </style>
 </head>
 <body>
@@ -764,12 +789,19 @@
                 </select>
               </div>
               <div class="field">
-                <label data-i18n="tour_config.tours.tour_type">Tour Type</label>
+                <label style="display:flex;align-items:center;gap:5px">
+                  <span data-i18n="tour_config.tours.tour_type">Tour Type</span>
+                  <button type="button" class="help-btn" data-help="tour_type" aria-expanded="false" aria-label="Help">?</button>
+                </label>
                 <select id="new-tour-type">
                   <option value="package" data-i18n="tour_config.tours.tour_type_package">Multi-day Package</option>
                   <option value="day_tour" data-i18n="tour_config.tours.tour_type_day_tour">Day Tour (no overnight)</option>
                 </select>
               </div>
+            </div>
+            <div class="help-popover" id="help-tour_type">
+              <p><strong data-i18n="tour_config.help.tour_type_package_label">Multi-day Package</strong> — <span data-i18n="tour_config.help.tour_type_package_desc">Overnight trip spanning multiple days. Requires Stops (for auto-todos) and full pricing with room types.</span></p>
+              <p><strong data-i18n="tour_config.help.tour_type_day_label">Day Tour</strong> — <span data-i18n="tour_config.help.tour_type_day_desc">Starts and ends same day. No room pricing — only adult and child price per person.</span></p>
             </div>
             <div class="btn-row" style="margin-top:4px">
               <button type="submit" class="btn btn-success" data-i18n="tour_config.tours.create">+ Create Tour</button>
@@ -886,7 +918,13 @@
 
   <!-- Basic fields (PATCH /api/tours/:id) -->
   <div class="card">
-    <div class="card-header"><h2 data-i18n="tour_config.content.metadata">Tour Metadata</h2></div>
+    <div class="card-header">
+      <h2 data-i18n="tour_config.content.metadata">Tour Metadata</h2>
+      <button type="button" class="help-btn" data-help="metadata" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+    </div>
+    <div class="help-popover" id="help-metadata">
+      <p data-i18n="tour_config.help.metadata">Core system fields. Title and Duration appear in lists and search. Status controls customer visibility. Set Language correctly so translations work. These are internal — customers see the richer Content Data section below.</p>
+    </div>
     <div class="card-body">
       <form id="meta-form">
         <div class="field-row cols-2">
@@ -928,7 +966,13 @@
 
   <!-- content_data editor -->
   <div class="card">
-    <div class="card-header"><h2 data-i18n="tour_config.content.content_data">Content Data (website copy)</h2></div>
+    <div class="card-header">
+      <h2 data-i18n="tour_config.content.content_data">Content Data (website copy)</h2>
+      <button type="button" class="help-btn" data-help="content_data" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+    </div>
+    <div class="help-popover" id="help-content_data">
+      <p data-i18n="tour_config.help.content_data">Everything the customer sees on the tour page. Tour Name is the big headline, Base Price shows as the "from" price in tour cards, Highlights appear as bullet icons, Includes/Excludes as a checklist, Hero Summary is the 2-3 sell lines at the top, and Story is the long editorial body text.</p>
+    </div>
     <div class="card-body">
       <div class="field-row cols-2">
         <div class="field">
@@ -978,7 +1022,13 @@
 
       <div class="field-row cols-2">
         <div class="field media-field">
-          <label data-i18n="tour_config.content.hero_image_url">Hero Image URL</label>
+          <label style="display:flex;align-items:center;gap:5px">
+            <span data-i18n="tour_config.content.hero_image_url">Hero Image URL</span>
+            <button type="button" class="help-btn" data-help="hero_image" aria-expanded="false" aria-label="Help">?</button>
+          </label>
+          <div class="help-popover" id="help-hero_image">
+            <p data-i18n="tour_config.help.hero_image">The full-width banner at the top of the tour page. Use the Add hero image button to pick from your tenant gallery or upload a new file. The hero is always set explicitly — it does not auto-pull from the gallery list.</p>
+          </div>
           <input type="text" id="cd-hero-image" placeholder="https://..." spellcheck="false" data-i18n-placeholder="tour_config.content.image_url_placeholder" />
           <div class="asset-tools">
             <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-hero-image" data-i18n="tour_config.content.asset_add_hero">Add hero image</button>
@@ -987,7 +1037,14 @@
           <div id="cd-hero-image-preview" class="image-preview is-empty" data-i18n="tour_config.content.hero_image_preview_empty">Hero image preview appears here.</div>
         </div>
         <div class="field media-field">
-          <label><span data-i18n="tour_config.content.gallery_images">Gallery Images</span> <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One URL per line</small></label>
+          <label style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+            <span data-i18n="tour_config.content.gallery_images">Gallery Images</span>
+            <small style="font-weight:400;text-transform:none" data-i18n="tour_config.content.one_per_line">One URL per line</small>
+            <button type="button" class="help-btn" data-help="gallery_images" aria-expanded="false" aria-label="Help">?</button>
+          </label>
+          <div class="help-popover" id="help-gallery_images">
+            <p data-i18n="tour_config.help.gallery_images">A collection of photos shown in the tour's image gallery section. Add images with the Add gallery image button — each one appends to the list without touching the hero or other fields. You can also link an entire Photo Library below for a shared pool of reusable images.</p>
+          </div>
           <textarea id="cd-gallery-images" placeholder="https://...&#10;https://..." style="min-height:120px" spellcheck="false" data-i18n-placeholder="tour_config.content.gallery_images_placeholder"></textarea>
           <div class="asset-tools">
             <button type="button" class="asset-upload asset-picker-btn" data-open-media-picker data-target-field="cd-gallery-images" data-append="1" data-i18n="tour_config.content.asset_add_gallery">Add gallery image</button>
@@ -999,7 +1056,13 @@
 
       <div class="field-row cols-2">
         <div class="field">
-          <label data-i18n="tour_config.content.destination_name">Destination Name</label>
+          <label style="display:flex;align-items:center;gap:5px">
+            <span data-i18n="tour_config.content.destination_name">Destination Name</span>
+            <button type="button" class="help-btn" data-help="destination" aria-expanded="false" aria-label="Help">?</button>
+          </label>
+          <div class="help-popover" id="help-destination">
+            <p data-i18n="tour_config.help.destination">The featured destination card on the tour page — name plus a photo. Tick Destinations under Universal Site Placement to also show this tour on your website's Destinations listing page.</p>
+          </div>
           <input type="text" id="cd-destination-name" placeholder="e.g. Hoi An" data-i18n-placeholder="tour_config.content.destination_name_placeholder" />
         </div>
         <div class="field media-field">
@@ -1014,7 +1077,13 @@
 
       <div class="field-row cols-2">
         <div class="field">
-          <label data-i18n="tour_config.content.accommodation_title">Accommodation Title</label>
+          <label style="display:flex;align-items:center;gap:5px">
+            <span data-i18n="tour_config.content.accommodation_title">Accommodation Title</span>
+            <button type="button" class="help-btn" data-help="accommodation" aria-expanded="false" aria-label="Help">?</button>
+          </label>
+          <div class="help-popover" id="help-accommodation">
+            <p data-i18n="tour_config.help.accommodation">The hotel or lodging featured on the tour page — title, image, and a short description. Tick Accommodation under Universal Site Placement to include it in your website's accommodation showcase.</p>
+          </div>
           <input type="text" id="cd-accommodation-title" placeholder="e.g. Lotus Heritage Suites" data-i18n-placeholder="tour_config.content.accommodation_title_placeholder" />
         </div>
         <div class="field media-field">
@@ -1033,7 +1102,13 @@
       </div>
 
       <div style="margin-top:14px;padding:14px;border:1px solid #E5E7EB;border-radius:10px;background:#FAFAFA">
-        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:10px" data-i18n="tour_config.content.universal_site_placement">Universal Site Placement</div>
+        <div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span data-i18n="tour_config.content.universal_site_placement">Universal Site Placement</span>
+          <button type="button" class="help-btn" data-help="site_placement" aria-expanded="false" aria-label="Help">?</button>
+        </div>
+        <div class="help-popover" id="help-site_placement" style="border-radius:6px;border:1px solid #C7D2FE;margin-bottom:10px">
+          <p data-i18n="tour_config.help.site_placement">Controls where this tour appears on your website beyond its own page. Featured Tours shows it in the homepage featured row. Destinations adds it to the destinations catalog page. Accommodation shows it in the accommodation showcase. Hero Spotlight rotates this tour into the homepage hero banner.</p>
+        </div>
         <div class="field-row cols-2">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-featured" /> <span data-i18n="tour_config.content.featured_tours">Featured Tours</span></label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;font-weight:600"><input type="checkbox" id="cd-flag-destination" /> <span data-i18n="tour_config.content.destinations">Destinations</span></label>
@@ -1049,12 +1124,18 @@
       <!-- Itinerary builder -->
       <div>
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
-        <strong style="font-size:13px" data-i18n="tour_config.content.itinerary">Itinerary</strong>
+        <div style="display:flex;align-items:center;gap:6px">
+          <strong style="font-size:13px" data-i18n="tour_config.content.itinerary">Itinerary</strong>
+          <button type="button" class="help-btn" data-help="itinerary_copy" aria-expanded="false" aria-label="Help">?</button>
+        </div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day" data-i18n="tour_config.content.add_day">+ Add Day</button>
       </div>
       <ul class="itin-list" id="itin-list"></ul>
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-day-bottom" data-i18n="tour_config.content.add_day">+ Add Day</button>
+      </div>
+      <div class="help-popover" id="help-itinerary_copy" style="margin-bottom:10px;border-radius:6px;border:1px solid #C7D2FE">
+        <p data-i18n="tour_config.help.itinerary_copy">Day-by-day narrative shown on the public tour page. Write it to sell the experience to the customer. This is separate from the Stops tab — Stops drive the operations workflow and auto-generate staff todos.</p>
       </div>
       <div id="add-day-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px">
         <div class="field-row cols-4">
@@ -1086,8 +1167,14 @@
 
       <!-- Linked Destinations -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <strong style="font-size:13px">Linked Destinations</strong>
+        <div style="display:flex;align-items:center;gap:6px">
+          <strong style="font-size:13px" data-i18n="tour_config.help.linked_destinations_label">Linked Destinations</strong>
+          <button type="button" class="help-btn" data-help="linked_destinations" aria-expanded="false" aria-label="Help">?</button>
+        </div>
         <a href="/product-modules.html?mode=destinations" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage catalog</a>
+      </div>
+      <div class="help-popover" id="help-linked_destinations" style="margin-bottom:8px;border-radius:6px;border:1px solid #C7D2FE">
+        <p data-i18n="tour_config.help.linked_destinations">Connect this tour to entries in your Destinations catalog. Linked destinations appear as a related-destinations block on the tour page and enable cross-linking between tours. Manage the catalog via the Manage catalog link.</p>
       </div>
       <div id="dest-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:16px">
@@ -1099,8 +1186,14 @@
 
       <!-- Linked Hotels -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <strong style="font-size:13px">Linked Hotels</strong>
+        <div style="display:flex;align-items:center;gap:6px">
+          <strong style="font-size:13px" data-i18n="tour_config.help.linked_hotels_label">Linked Hotels</strong>
+          <button type="button" class="help-btn" data-help="linked_hotels" aria-expanded="false" aria-label="Help">?</button>
+        </div>
         <a href="/product-modules.html?mode=hotels" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage catalog</a>
+      </div>
+      <div class="help-popover" id="help-linked_hotels" style="margin-bottom:8px;border-radius:6px;border:1px solid #C7D2FE">
+        <p data-i18n="tour_config.help.linked_hotels">Attach hotels from your Hotels catalog with the number of nights stayed. These power the accommodation section of the tour page and are also used by the ops workflow. Manage the hotel catalog via the Manage catalog link.</p>
       </div>
       <div id="hotel-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
@@ -1113,8 +1206,14 @@
 
       <!-- Linked Photo Libraries -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <strong style="font-size:13px">Linked Photo Libraries</strong>
+        <div style="display:flex;align-items:center;gap:6px">
+          <strong style="font-size:13px" data-i18n="tour_config.help.linked_libraries_label">Linked Photo Libraries</strong>
+          <button type="button" class="help-btn" data-help="linked_libraries" aria-expanded="false" aria-label="Help">?</button>
+        </div>
         <a href="/product-modules.html?mode=libraries" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">Manage libraries</a>
+      </div>
+      <div class="help-popover" id="help-linked_libraries" style="margin-bottom:8px;border-radius:6px;border:1px solid #C7D2FE">
+        <p data-i18n="tour_config.help.linked_libraries">Shared collections of reusable photos — e.g. "Ha Long Bay photos". Linking a library makes those photos available in the tour's gallery and hero picker without duplicating uploads. Set the hint to gallery, hero, or itinerary to suggest where those photos are most relevant.</p>
       </div>
       <div id="library-links-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
@@ -1147,10 +1246,15 @@
       <div class="card">
         <div class="card-header">
           <h2 data-i18n="tour_config.stops.builder">Stop Builder</h2>
-          <div style="display:flex;gap:6px">
+          <button type="button" class="help-btn" data-help="stops_builder" aria-expanded="false" aria-label="Help" style="margin-left:4px">?</button>
+          <div style="display:flex;gap:6px;margin-left:auto">
             <button class="btn btn-ghost btn-sm" id="btn-refresh-stops" title="Reload from server" data-i18n-title="tour_config.stops.reload_title">&#x21BA;</button>
             <button class="btn btn-primary btn-sm" id="btn-show-add-stop" data-i18n="tour_config.stops.add_stop">+ Add Stop</button>
           </div>
+        </div>
+        <div class="help-popover help-popover--warn" id="help-stops_builder">
+          <p><strong data-i18n="tour_config.help.stops_builder_title">Stops power the Operations workflow.</strong> <span data-i18n="tour_config.help.stops_builder">Every stop you add here automatically generates a checklist of todos for your team — guides, drivers, hotels, meals — in the Ops Board. The more complete your stops (nights, meals, transport), the richer and more accurate the auto-generated task list.</span></p>
+          <p data-i18n="tour_config.help.stops_builder_note">Add stops in order: Arrival, each destination in sequence, then Departure. Set nights to 0 for transit or same-day stops.</p>
         </div>
         <div id="stops-rows-container">
           <div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div>
@@ -1159,18 +1263,26 @@
         <div class="stop-quick-form" id="stop-quick-form" style="display:none">
           <div class="stop-quick-row">
             <input type="text" id="sq-label" placeholder="e.g. Hanoi Arrival" autocomplete="off" data-i18n-placeholder="tour_config.stops.label_placeholder" />
-            <div class="nights-pill">
+            <div class="nights-pill" style="position:relative">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
               <input type="number" id="sq-nights" value="1" min="0" max="60" title="Nights" data-i18n-title="tour_config.stops.nights_title" />
               <span style="font-size:12px;color:#94a3b8" data-i18n="tour_config.stops.nights">nights</span>
+              <button type="button" class="help-btn" data-help="stop_nights" aria-expanded="false" aria-label="Help">?</button>
             </div>
-            <div class="stop-meal-group">
+            <div class="stop-meal-group" style="position:relative">
               <button type="button" class="meal-toggle" id="sq-b" title="Breakfast" data-i18n-title="tour_config.stops.breakfast">B</button>
               <button type="button" class="meal-toggle" id="sq-l" title="Lunch" data-i18n-title="tour_config.stops.lunch">L</button>
               <button type="button" class="meal-toggle" id="sq-d" title="Dinner" data-i18n-title="tour_config.stops.dinner">D</button>
+              <button type="button" class="help-btn" data-help="stop_meals" aria-expanded="false" aria-label="Help">?</button>
             </div>
             <button type="button" class="btn btn-success btn-sm" id="btn-confirm-add-stop" data-i18n="tour_config.stops.confirm_add">Add &rarr;</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-add-stop">&times;</button>
+          </div>
+          <div class="help-popover" id="help-stop_nights" style="border-radius:6px;border:1px solid #C7D2FE;margin-top:4px">
+            <p data-i18n="tour_config.help.stop_nights">Number of nights the group sleeps at this destination. Controls how many days this stop spans on the itinerary. Set to 0 for transit or departure stops — same day, no overnight, no hotel todo generated.</p>
+          </div>
+          <div class="help-popover" id="help-stop_meals" style="border-radius:6px;border:1px solid #C7D2FE;margin-top:4px">
+            <p data-i18n="tour_config.help.stop_meals">Toggle which meals are included at this stop (B = Breakfast, L = Lunch, D = Dinner). Generates meal-coordination todos for the ops team and appears in the customer-facing itinerary.</p>
           </div>
         </div>
         <div class="btn-row" style="margin-top:10px;justify-content:flex-end">
@@ -1220,6 +1332,7 @@
       <div class="card" style="margin-bottom:0">
         <div class="card-header" style="padding:12px 16px;gap:12px">
           <h2 style="font-size:13px" data-i18n="tour_config.pricing.settings">Price Settings</h2>
+          <button type="button" class="help-btn" data-help="price_settings" aria-expanded="false" aria-label="Help" style="margin-left:4px">?</button>
           <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
             <label for="price-currency-sel" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#94a3b8" data-i18n="currency.display_currency">Display Currency</label>
             <select id="price-currency-sel" style="border:1px solid #6366F1;border-radius:6px;padding:5px 12px;font-size:13px;font-weight:700;color:#6366F1;background:#EEF2FF;cursor:pointer;font-family:inherit">
@@ -1230,12 +1343,21 @@
             </select>
           </div>
         </div>
+        <div class="help-popover" id="help-price_settings">
+          <p data-i18n="tour_config.help.price_settings">The display currency is how prices are shown to customers on your website. It is separate from your booking currency. All price rows below are stored in your booking currency — the display currency is applied as a conversion on the public pages.</p>
+        </div>
       </div>
 
       <!-- Seasons + Pax Bands row -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
         <div class="card" style="margin-bottom:0">
-          <div class="card-header"><h2 data-i18n="tour_config.pricing.seasons">Seasons</h2></div>
+          <div class="card-header">
+            <h2 data-i18n="tour_config.pricing.seasons">Seasons</h2>
+            <button type="button" class="help-btn" data-help="seasons" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+          </div>
+          <div class="help-popover" id="help-seasons">
+            <p data-i18n="tour_config.help.seasons">Date ranges that determine which price row applies. Example: High Season Dec–Feb, Low Season Mar–Nov. The system automatically matches the customer's travel date to the correct season when calculating the price.</p>
+          </div>
           <div id="pricing-seasons-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
           <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_season">Add Season</div>
@@ -1251,7 +1373,13 @@
         </div>
 
         <div class="card" style="margin-bottom:0">
-          <div class="card-header"><h2 data-i18n="tour_config.pricing.pax_bands">Pax Bands</h2></div>
+          <div class="card-header">
+            <h2 data-i18n="tour_config.pricing.pax_bands">Pax Bands</h2>
+            <button type="button" class="help-btn" data-help="pax_bands" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+          </div>
+          <div class="help-popover" id="help-pax_bands">
+            <p data-i18n="tour_config.help.pax_bands">Group size brackets that set per-person prices. Larger groups often get a lower rate. Example: Solo (1–2 pax), Small Group (3–8), Group 9+. The booking engine picks the band by counting all adults and children in the booking.</p>
+          </div>
           <div id="pricing-paxbands-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
           <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_pax_band">Add Pax Band</div>
@@ -1267,7 +1395,14 @@
 
       <!-- Segments -->
       <div class="card" style="margin-bottom:0">
-        <div class="card-header"><h2 data-i18n="tour_config.pricing.segments">Segments</h2><span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.tenant_level_rename">Tenant-level · rename inline</span></div>
+        <div class="card-header">
+          <h2 data-i18n="tour_config.pricing.segments">Segments</h2>
+          <button type="button" class="help-btn" data-help="segments" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.tenant_level_rename">Tenant-level · rename inline</span>
+        </div>
+        <div class="help-popover" id="help-segments">
+          <p data-i18n="tour_config.help.segments">Tour variants at different service levels — e.g. Standard vs Premium. Each segment has its own price grid but shares the same itinerary. The customer sees and selects a segment when booking. If you only offer one level, keep the default segment as-is.</p>
+        </div>
         <div id="pricing-segments-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
         <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:6px" data-i18n="tour_config.pricing.add_segment">Add Segment</div>
@@ -1283,7 +1418,11 @@
       <div class="card" style="margin-bottom:0">
         <div class="card-header">
           <h2 data-i18n="tour_config.pricing.tour_prices">Tour Prices</h2>
+          <button type="button" class="help-btn" data-help="tour_prices" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
           <span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.per_person_note">Per person · season × segment × pax band</span>
+        </div>
+        <div class="help-popover" id="help-tour_prices">
+          <p data-i18n="tour_config.help.tour_prices">The price grid — one row per Season + Segment + Pax Band combination. Each row has per-person prices by traveller type: Shared room (adult in double), Triple room, Private room, Child (sharing parents' room), and Infant (usually free or discounted). For Day Tours only adult and child prices apply.</p>
         </div>
         <div id="pricing-prices-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
         <div class="card-body" id="pricing-add-form" style="border-top:1px solid #f1f5f9;display:none">
@@ -1308,7 +1447,11 @@
       <div class="card" style="margin-bottom:0">
         <div class="card-header">
           <h2 data-i18n="tour_config.pricing.definitions">Pricing Definitions</h2>
+          <button type="button" class="help-btn" data-help="pricing_definitions" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
           <span style="font-size:11px;color:#94a3b8;margin-left:auto" data-i18n="tour_config.pricing.booking_view">Booking View</span>
+        </div>
+        <div class="help-popover" id="help-pricing_definitions">
+          <p data-i18n="tour_config.help.pricing_definitions">Notes shown below the price total in the booking widget as a Good to Know block. Use this to list what's included (e.g. "Breakfast daily, all entrance fees"), age brackets for child pricing, and cancellation or deposit policies.</p>
         </div>
         <div class="card-body">
           <p style="font-size:11.5px;color:#64748b;line-height:1.55;margin:0 0 10px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.definitions_help">One definition per line. These appear as a Good to Know section below the price total.</p>
@@ -1847,6 +1990,17 @@ function formatUiDate(dateLike) {
   const locale = normalizeLocaleTag(S.uiLocaleTag || S.tenantSettings?.default_locale || S.uiLang || 'en-GB', 'en-GB');
   return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(dateLike));
 }
+
+// -- Help popovers (?): delegated toggle ----------------------------------------
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.help-btn');
+  if (!btn) return;
+  const popover = document.getElementById('help-' + btn.dataset.help);
+  if (!popover) return;
+  const open = popover.style.display === 'block';
+  popover.style.display = open ? 'none' : 'block';
+  btn.setAttribute('aria-expanded', String(!open));
+});
 
 function applyStaticTranslations(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((el) => {
