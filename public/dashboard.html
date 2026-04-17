@@ -175,6 +175,8 @@
     .svc-contact-btn.note      { border-color:#e9d5ff; color:#7c3aed; background:#faf5ff; }
     .svc-thread-btn { margin-left:auto; }
     .svc-thread-badge { background:#1d4ed8; color:#fff; font-size:10px; padding:1px 6px; border-radius:10px; margin-left:3px; }
+    .btn-del-todo { flex-shrink:0; background:none; border:none; cursor:pointer; color:#cbd5e1; padding:2px 4px; border-radius:6px; line-height:1; font-size:16px; transition:color .15s; }
+    .btn-del-todo:hover { color:#ef4444; background:#fee2e2; }
     .svc-meta { padding:8px 14px 12px; border-top:1px solid #f1f5f9; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px 14px; }
     .svc-meta-field { font-size:12px; }
     .svc-meta-label { color:#94a3b8; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
@@ -3604,6 +3606,7 @@ window.addEventListener('dashboard:langchange', () => {
             ).join('')}
           </select>
           <span class="svc-status-chip ${sm.cls}">${sm.label}</span>
+          <button class="btn-del-todo" data-todo-id="${escapeHtml(tid)}" title="Delete this task">✕</button>
         </div>
         <div class="svc-contact-btns">${buildContactBtns(todo, tid)}</div>
         ${buildMetaHtml(todo)}
@@ -3746,6 +3749,26 @@ window.addEventListener('dashboard:langchange', () => {
 
   // ── Thread / contact actions ────────────────────────────────────────────
   document.getElementById('todos-list')?.addEventListener('click', async (e) => {
+    // Delete individual todo
+    const delBtn = e.target.closest('.btn-del-todo');
+    if (delBtn && currentOrderId) {
+      const todoId = delBtn.dataset.todoId;
+      if (!confirm('Delete this task?')) return;
+      delBtn.disabled = true;
+      try {
+        const res = await fetch(
+          `/api/bookings/order/${encodeURIComponent(currentOrderId)}/todos/${encodeURIComponent(todoId)}`,
+          { method: 'DELETE', headers: buildTenantHeaders() }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Delete failed');
+        // Remove the li from the DOM
+        const liEl = document.querySelector(`.svc-todo[data-todo-id="${CSS.escape(todoId)}"]`);
+        liEl?.remove();
+      } catch (err) { alert(`Could not delete: ${err.message}`); delBtn.disabled = false; }
+      return;
+    }
+
     // Toggle thread panel
     const threadBtn = e.target.closest('.btn-show-thread');
     if (threadBtn) {
