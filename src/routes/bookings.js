@@ -1361,9 +1361,31 @@ bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
     status = done ? 'confirmed' : 'pending';
   }
 
+  // Optional field updates — only applied when present in the body
+  const personCharge = body?.person_in_charge !== undefined
+    ? (body.person_in_charge ? String(body.person_in_charge).slice(0, 200) : null) : undefined;
+  const contactName  = body?.contact_name  !== undefined
+    ? (body.contact_name  ? String(body.contact_name).slice(0, 200)  : null) : undefined;
+  const contactPhone = body?.contact_phone !== undefined
+    ? (body.contact_phone ? String(body.contact_phone).slice(0, 50)  : null) : undefined;
+  const contactEmail = body?.contact_email !== undefined
+    ? (body.contact_email ? String(body.contact_email).slice(0, 200) : null) : undefined;
+  const metaJson     = body?.service_meta_json !== undefined
+    ? (body.service_meta_json ? JSON.stringify(body.service_meta_json) : null) : undefined;
+
+  // Build dynamic SET clause for optional fields
+  const setClauses = ['done = ?', 'done_at = ?', 'status = ?'];
+  const binds      = [done, done ? now : null, status];
+  if (personCharge !== undefined) { setClauses.push('person_in_charge = ?'); binds.push(personCharge); }
+  if (contactName  !== undefined) { setClauses.push('contact_name = ?');     binds.push(contactName); }
+  if (contactPhone !== undefined) { setClauses.push('contact_phone = ?');    binds.push(contactPhone); }
+  if (contactEmail !== undefined) { setClauses.push('contact_email = ?');    binds.push(contactEmail); }
+  if (metaJson     !== undefined) { setClauses.push('service_meta_json = ?'); binds.push(metaJson); }
+  binds.push(todoId, orderId, tenantId);
+
   const result = await c.env.DB
-    .prepare('UPDATE booking_order_todos SET done = ?, done_at = ?, status = ? WHERE id = ? AND order_id = ? AND tenant_id = ?')
-    .bind(done, done ? now : null, status, todoId, orderId, tenantId)
+    .prepare(`UPDATE booking_order_todos SET ${setClauses.join(', ')} WHERE id = ? AND order_id = ? AND tenant_id = ?`)
+    .bind(...binds)
     .run();
 
   if (!result.meta?.changes) return c.json({ error: 'Todo not found' }, 404);
@@ -1496,6 +1518,89 @@ bookings.post('/order/:orderId/todos/:todoId/thread', async (c) => {
     created_at: now,
     todo_status: newTodoStatus,
   }, 201);
+});
+
+// ── GET /api/bookings/suppliers/suggest ───────────────────────────────────
+// Autocomplete suggestions from the tenant's supplier library.
+// ?q={query}     — name search (LIKE %q%)
+// ?type={type}   — filter by service type (accommodation|meal|guide|local_transport|intercity_leg)
+// ?limit={n}     — max results, default 10, max 30
+// Also de-duplicates against ad-hoc names used in existing service items.
+// [SEC] tenant_id enforced on all queries.
+bookings.get('/suppliers/suggest', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const q     = (c.req.query('q') || '').trim().slice(0, 100);
+  const type  = (c.req.query('type') || '').trim().toLowerCase();
+  const limit = Math.min(Number(c.req.query('limit') ?? 10), 30);
+
+  // Map service type to the corresponding stop table + name column for ad-hoc names
+  const typeTableMap = {
+    accommodation:  { table: 'stop_accommodations',  col: 'hotel_name' },
+    meal:           { table: 'stop_meals',            col: 'restaurant_name' },
+    guide:          { table: 'stop_guides',           col: 'guide_name' },
+    local_transport:{ table: 'stop_local_transports', col: 'supplier' },
+    intercity_leg:  { table: 'stop_intercity_legs',   col: 'supplier' },
+  };
+
+  const likeQ  = `%${q}%`;
+  const results = new Map(); // name → { name, type, contact, source }
+
+  // 1. Supplier library
+  let libSql  = 'SELECT name, type, contact FROM suppliers WHERE tenant_id = ?';
+  const libBinds = [tenantId];
+  if (q)    { libSql += ' AND name LIKE ?'; libBinds.push(likeQ); }
+  if (type) { libSql += ' AND type = ?';    libBinds.push(type); }
+  libSql += ' ORDER BY name ASC LIMIT ?';   libBinds.push(limit);
+
+  const { results: libRows } = await c.env.DB.prepare(libSql).bind(...libBinds).all();
+  for (const r of (libRows || [])) {
+    results.set(r.name.toLowerCase(), { name: r.name, type: r.type, contact: r.contact || null, source: 'library' });
+  }
+
+  // 2. Ad-hoc names from stop_* tables (if a specific type is requested and room remains)
+  if (type && typeTableMap[type] && results.size < limit) {
+    const { table, col } = typeTableMap[type];
+    const adSql = `SELECT DISTINCT ${col} AS name FROM ${table} WHERE tenant_id = ?${q ? ' AND ' + col + ' LIKE ?' : ''} ORDER BY ${col} ASC LIMIT ?`;
+    const adBinds = [tenantId, ...(q ? [likeQ] : []), limit - results.size];
+    const { results: adRows } = await c.env.DB.prepare(adSql).bind(...adBinds).all();
+    for (const r of (adRows || [])) {
+      if (r.name && !results.has(r.name.toLowerCase())) {
+        results.set(r.name.toLowerCase(), { name: r.name, type, contact: null, source: 'history' });
+      }
+    }
+  }
+
+  return c.json({ ok: true, suggestions: [...results.values()].slice(0, limit) });
+});
+
+// ── POST /api/bookings/suppliers ──────────────────────────────────────────
+// Save a supplier to the tenant's library.
+// [SEC] tenant_id from header, not body.
+bookings.post('/suppliers', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+
+  const name = String(body?.name || '').trim().slice(0, 200);
+  const type = String(body?.type || '').trim().slice(0, 50);
+  if (!name) return c.json({ error: 'name is required' }, 400);
+  if (!type) return c.json({ error: 'type is required' }, 400);
+
+  const contact = body?.contact ? String(body.contact).slice(0, 500) : null;
+  const notes   = body?.notes   ? String(body.notes).slice(0, 1000)  : null;
+  const id      = nanoid();
+  const now     = Math.floor(Date.now() / 1000);
+
+  await c.env.DB
+    .prepare('INSERT INTO suppliers (id, tenant_id, name, type, contact, notes, created_at) VALUES (?,?,?,?,?,?,?)')
+    .bind(id, tenantId, name, type, contact, notes, now)
+    .run();
+
+  return c.json({ ok: true, id, name, type }, 201);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

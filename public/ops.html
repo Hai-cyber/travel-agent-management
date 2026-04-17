@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operations Board</title>
+  <style>
+    :root {
+      --bg:          #0f172a;
+      --bg2:         #1e293b;
+      --blue:        #1d4ed8;
+      --blue-l:      #3b82f6;
+      --surface:     #ffffff;
+      --surface-dim: #f1f5f9;
+      --border:      #e2e8f0;
+      --text:        #1e293b;
+      --muted:       #64748b;
+      --pill-pending:   #94a3b8;
+      --pill-contacted: #f59e0b;
+      --pill-confirmed: #10b981;
+      --pill-cancelled: #ef4444;
+      --pill-rebooked:  #8b5cf6;
+      --radius:      12px;
+      --shadow:      0 2px 8px rgba(0,0,0,.08);
+    }
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+    html,body { height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:15px; line-height:1.5 }
+    a { color:var(--blue-l); text-decoration:none }
+
+    /* ── Layout ─────────────────────────────────── */
+    #app { max-width:680px; margin:0 auto; padding:0 0 80px }
+
+    /* ── Sticky top bar ─────────────────────────── */
+    .top-bar {
+      position:sticky; top:0; z-index:100;
+      background:linear-gradient(135deg,var(--bg) 0%,var(--blue) 100%);
+      padding:14px 16px 12px; display:flex; align-items:center; gap:12px;
+      border-bottom:1px solid rgba(255,255,255,.1);
+    }
+    .top-bar h1 { color:#fff; font-size:1.1rem; font-weight:700; flex:1 }
+    .top-bar .back-btn {
+      background:rgba(255,255,255,.15); color:#fff; border:none; border-radius:8px;
+      padding:6px 12px; cursor:pointer; font-size:.85rem; font-weight:600;
+      transition:background .15s;
+    }
+    .top-bar .back-btn:hover { background:rgba(255,255,255,.25) }
+    .top-bar .tenant-name { color:rgba(255,255,255,.7); font-size:.8rem; white-space:nowrap }
+
+    /* ── Progress bar ───────────────────────────── */
+    .order-meta {
+      background:var(--bg2); color:#e2e8f0; padding:10px 16px;
+      font-size:.82rem; border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
+    }
+    .order-meta strong { color:#fff }
+    .progress-strip { background:var(--bg2); padding:8px 16px 4px; display:flex; align-items:center; gap:10px }
+    .progress-bar-track { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.1) }
+    .progress-bar-fill { height:100%; border-radius:3px; background:var(--pill-confirmed); transition:width .4s }
+    .progress-label { color:rgba(255,255,255,.6); font-size:.78rem; white-space:nowrap }
+
+    /* ── Status filters ─────────────────────────── */
+    .filters { display:flex; gap:8px; padding:14px 16px 6px; overflow-x:auto; scrollbar-width:none }
+    .filters::-webkit-scrollbar { display:none }
+    .filter-btn {
+      background:rgba(255,255,255,.08); color:rgba(255,255,255,.7);
+      border:1px solid rgba(255,255,255,.12); border-radius:20px;
+      padding:5px 14px; cursor:pointer; font-size:.82rem; white-space:nowrap; transition:all .15s;
+    }
+    .filter-btn.active { background:var(--blue-l); color:#fff; border-color:var(--blue-l) }
+
+    /* ── Stop section ───────────────────────────── */
+    .stop-section { padding:16px 16px 0 }
+    .stop-header {
+      display:flex; align-items:center; gap:10px; margin-bottom:10px;
+      padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.1);
+    }
+    .stop-label { color:#e2e8f0; font-weight:700; font-size:.95rem }
+    .stop-days  { color:rgba(255,255,255,.5); font-size:.8rem }
+    .stop-progress {
+      margin-left:auto; background:rgba(255,255,255,.1); color:rgba(255,255,255,.7);
+      border-radius:20px; padding:2px 10px; font-size:.75rem; white-space:nowrap;
+    }
+    .stop-progress.all-done { background:rgba(16,185,129,.2); color:#6ee7b7 }
+
+    /* ── Todo card ──────────────────────────────── */
+    .todo-card {
+      background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+      margin-bottom:10px; overflow:hidden; transition:box-shadow .15s;
+    }
+    .todo-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.12) }
+
+    .card-header {
+      display:flex; align-items:flex-start; gap:12px; padding:13px 14px;
+      cursor:pointer; user-select:none;
+    }
+    .card-icon { font-size:1.4rem; flex-shrink:0; margin-top:1px }
+    .card-main { flex:1; min-width:0 }
+    .card-title { font-weight:700; font-size:.95rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .card-sub1  { font-size:.8rem; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .card-sub2  { font-size:.78rem; color:var(--muted); margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+    .card-sub2 .ch-icon { cursor:pointer; font-size:.95rem }
+    .thread-count { font-size:.72rem; background:var(--surface-dim); color:var(--muted); border-radius:10px; padding:1px 7px }
+
+    .card-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0 }
+    .status-pill {
+      font-size:.72rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+      padding:3px 9px; border-radius:12px; color:#fff; white-space:nowrap;
+    }
+    .pill-pending   { background:var(--pill-pending) }
+    .pill-contacted { background:var(--pill-contacted) }
+    .pill-confirmed { background:var(--pill-confirmed) }
+    .pill-cancelled { background:var(--pill-cancelled) }
+    .pill-rebooked  { background:var(--pill-rebooked) }
+    .expand-icon { color:var(--muted); font-size:.8rem; margin-top:4px }
+
+    /* ── Expanded panel ─────────────────────────── */
+    .card-body { display:none; border-top:1px solid var(--border) }
+    .card-body.open { display:block }
+
+    /* Status radios */
+    .status-row { display:flex; gap:6px; padding:12px 14px 4px; flex-wrap:wrap }
+    .status-radio {
+      display:flex; align-items:center; gap:5px; cursor:pointer; padding:5px 10px;
+      border-radius:20px; border:2px solid var(--border); font-size:.8rem; font-weight:600;
+      transition:all .15s;
+    }
+    .status-radio input { display:none }
+    .status-radio.sel-pending   { border-color:var(--pill-pending);   background:rgba(148,163,184,.1); color:var(--pill-pending) }
+    .status-radio.sel-contacted { border-color:var(--pill-contacted); background:rgba(245,158,11,.1);  color:var(--pill-contacted) }
+    .status-radio.sel-confirmed { border-color:var(--pill-confirmed); background:rgba(16,185,129,.1);  color:var(--pill-confirmed) }
+    .status-radio.sel-cancelled { border-color:var(--pill-cancelled); background:rgba(239,68,68,.1);   color:var(--pill-cancelled) }
+
+    /* Form fields */
+    .detail-form { padding:8px 14px 14px }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:0 }
+    .field-row.full { grid-template-columns:1fr }
+    .field-group { display:flex; flex-direction:column; gap:3px; position:relative; margin-bottom:8px }
+    .field-group label { font-size:.73rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em }
+    .field-group input, .field-group select, .field-group textarea {
+      border:1px solid var(--border); border-radius:8px; padding:8px 10px;
+      font-size:.88rem; color:var(--text); background:#fff; width:100%;
+      transition:border-color .15s; font-family:inherit;
+    }
+    .field-group input:focus, .field-group select:focus, .field-group textarea:focus {
+      outline:none; border-color:var(--blue-l); box-shadow:0 0 0 3px rgba(59,130,246,.1)
+    }
+    .field-group textarea { resize:vertical; min-height:64px }
+    .save-row { display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
+    .btn-save {
+      background:var(--blue); color:#fff; border:none; border-radius:8px;
+      padding:8px 20px; font-weight:700; cursor:pointer; font-size:.88rem; transition:background .15s;
+    }
+    .btn-save:hover { background:var(--blue-l) }
+    .btn-save:disabled { background:var(--muted); cursor:not-allowed }
+    .save-feedback { font-size:.8rem; color:var(--pill-confirmed); align-self:center; display:none }
+
+    /* Autocomplete dropdown */
+    .ac-drop {
+      position:absolute; top:100%; left:0; right:0; z-index:200;
+      background:#fff; border:1px solid var(--border); border-radius:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,.12); max-height:180px; overflow-y:auto;
+      display:none;
+    }
+    .ac-drop.open { display:block }
+    .ac-item {
+      padding:8px 12px; cursor:pointer; font-size:.87rem; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:8px;
+    }
+    .ac-item:last-child { border-bottom:none }
+    .ac-item:hover { background:var(--surface-dim) }
+    .ac-badge { font-size:.7rem; background:var(--surface-dim); color:var(--muted); border-radius:8px; padding:1px 6px }
+
+    /* ── Thread ─────────────────────────────────── */
+    .thread-section { border-top:1px solid var(--border); padding:12px 14px }
+    .thread-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px }
+    .thread-header h4 { font-size:.85rem; font-weight:700; color:var(--text) }
+    .thread-entries { display:flex; flex-direction:column; gap:8px; margin-bottom:12px }
+    .thread-entry {
+      background:var(--surface-dim); border-radius:8px; padding:8px 12px;
+      font-size:.83rem;
+    }
+    .thread-entry .te-meta { display:flex; align-items:center; gap:8px; margin-bottom:3px }
+    .te-channel { font-size:.9rem }
+    .te-direction { font-size:.7rem; color:var(--muted) }
+    .te-by { font-size:.72rem; color:var(--muted) }
+    .te-time { font-size:.72rem; color:var(--muted); margin-left:auto }
+    .te-msg { color:var(--text); line-height:1.4 }
+    .thread-empty { font-size:.82rem; color:var(--muted); font-style:italic }
+
+    /* Compose */
+    .compose { display:flex; flex-direction:column; gap:8px }
+    .compose textarea {
+      border:1px solid var(--border); border-radius:8px; padding:8px 10px;
+      font-size:.87rem; resize:none; height:68px; font-family:inherit;
+      transition:border-color .15s;
+    }
+    .compose textarea:focus { outline:none; border-color:var(--blue-l); box-shadow:0 0 0 3px rgba(59,130,246,.1) }
+    .compose-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+    .channel-tabs { display:flex; gap:4px }
+    .ch-tab {
+      padding:4px 10px; border-radius:16px; border:1px solid var(--border);
+      cursor:pointer; font-size:.78rem; color:var(--muted); background:#fff; transition:all .15s;
+    }
+    .ch-tab.active { background:var(--blue); color:#fff; border-color:var(--blue) }
+    .dir-label { font-size:.78rem; color:var(--muted) }
+    .dir-toggle { display:flex; gap:4px }
+    .dir-btn {
+      padding:4px 10px; border-radius:16px; border:1px solid var(--border);
+      cursor:pointer; font-size:.78rem; color:var(--muted); background:#fff; transition:all .15s;
+    }
+    .dir-btn.active { background:var(--surface-dim); color:var(--text); border-color:var(--muted); font-weight:600 }
+    .btn-send {
+      margin-left:auto; background:var(--blue); color:#fff; border:none; border-radius:8px;
+      padding:6px 16px; font-weight:700; cursor:pointer; font-size:.83rem; transition:background .15s;
+    }
+    .btn-send:hover { background:var(--blue-l) }
+
+    /* ── Order list cards ───────────────────────── */
+    .order-card {
+      background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+      padding:14px 16px; margin:0 16px 10px; cursor:pointer; transition:box-shadow .15s;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .order-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.12) }
+    .oc-top { display:flex; align-items:center; gap:10px }
+    .oc-title { font-weight:700; flex:1; color:var(--text); font-size:.95rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    .oc-date { font-size:.8rem; color:var(--muted); white-space:nowrap }
+    .oc-sub  { font-size:.8rem; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap }
+    .oc-prog { display:flex; align-items:center; gap:8px; margin-top:2px }
+    .oc-track { flex:1; height:5px; border-radius:3px; background:var(--border) }
+    .oc-fill  { height:100%; border-radius:3px; background:var(--pill-confirmed) }
+    .oc-pct   { font-size:.75rem; color:var(--muted); white-space:nowrap }
+    .empty-list { color:rgba(255,255,255,.5); text-align:center; padding:40px 16px; font-size:.9rem }
+
+    /* ── Loading / Spinner ─────────────────────── */
+    #loading { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:50vh; gap:14px }
+    .spinner { width:36px; height:36px; border:3px solid rgba(255,255,255,.15); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite }
+    @keyframes spin { to { transform:rotate(360deg) } }
+    #loading p { color:rgba(255,255,255,.6); font-size:.9rem }
+    .hidden { display:none !important }
+
+    /* ── Error ─────────────────────────────────── */
+    #error-view { padding:40px 16px; text-align:center; color:rgba(255,255,255,.7) }
+    #error-view h2 { color:#fff; margin-bottom:8px }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width:480px) {
+      .field-row { grid-template-columns:1fr }
+      .card-title { font-size:.9rem }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Loading operations board…</p>
+  </div>
+  <div id="error-view" class="hidden">
+    <h2>Unable to load</h2>
+    <p id="error-msg"></p>
+    <a href="/dashboard.html" style="color:var(--blue-l);margin-top:16px;display:inline-block">← Back to dashboard</a>
+  </div>
+  <div id="order-list-view" class="hidden">
+    <div class="top-bar">
+      <h1>🗂️ Operations Board</h1>
+      <span class="tenant-name" id="tenant-label"></span>
+    </div>
+    <div class="filters" id="filter-bar">
+      <button class="filter-btn active" data-status="">All active</button>
+      <button class="filter-btn" data-status="CONFIRMED">Confirmed</button>
+      <button class="filter-btn" data-status="PENDING_ARRIVAL">Pending arrival</button>
+      <button class="filter-btn" data-status="PROOF_UPLOADED">Proof uploaded</button>
+    </div>
+    <div id="orders-container"></div>
+  </div>
+  <div id="ops-board-view" class="hidden">
+    <div class="top-bar">
+      <button class="back-btn" id="back-btn">← Back</button>
+      <h1 id="board-title">Operations</h1>
+      <span class="tenant-name" id="board-tenant"></span>
+    </div>
+    <div class="order-meta" id="order-meta-bar"></div>
+    <div class="progress-strip">
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      <span class="progress-label" id="progress-label">0 / 0</span>
+    </div>
+    <div id="stops-container"></div>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const API = '';
+let TENANT_ID = '';
+let TENANT_NAME = '';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const h = f => ({ __html: f });
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split('T')[0];
+}
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+  } catch { return dateStr }
+}
+function unixToDateStr(unix) {
+  if (!unix) return '';
+  return new Date(unix * 1000).toISOString().split('T')[0];
+}
+function unixToTimeStr(unix) {
+  if (!unix) return '';
+  const d = new Date(unix * 1000);
+  return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+}
+function unixToDateTimeLocal(unix) {
+  if (!unix) return '';
+  return new Date(unix * 1000).toISOString().slice(0,16);
+}
+function dateStrToUnix(s) {
+  if (!s) return null;
+  return Math.floor(new Date(s + 'T00:00:00Z').getTime() / 1000);
+}
+function timeStrToUnix(t, dateStr) {
+  if (!t) return null;
+  const [h,m] = t.split(':').map(Number);
+  const base = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date();
+  base.setUTCHours(h, m, 0, 0);
+  return Math.floor(base.getTime() / 1000);
+}
+function dateTimeLocalToUnix(s) {
+  if (!s) return null;
+  return Math.floor(new Date(s + ':00Z').getTime() / 1000);
+}
+function relTime(unix) {
+  const diff = Math.floor(Date.now() / 1000) - unix;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+function readMeta(val) {
+  if (!val) return {};
+  if (typeof val === 'string') { try { return JSON.parse(val) } catch { return {} } }
+  return val;
+}
+
+// ── Service config ───────────────────────────────────────────────────────────
+const SVC = {
+  accommodation:   { icon:'🏨', label:'Hotel',         nameKey:'hotel_name',      type:'accommodation' },
+  meal:            { icon:'🍽️', label:'Meal',           nameKey:'restaurant_name', type:'meal' },
+  guide:           { icon:'🧭', label:'Guide',          nameKey:'guide_name',      type:'guide' },
+  local_transport: { icon:'🚐', label:'Local Transfer', nameKey:'supplier',        type:'local_transport' },
+  intercity_leg:   { icon:'✈️', label:'Intercity Leg',  nameKey:'supplier',        type:'intercity_leg' },
+};
+
+const MEAL_DEFAULTS = { breakfast:['07:30','09:00'], lunch:['12:30','14:00'], dinner:['19:00','21:00'] };
+
+function getTodoDisplayName(todo) {
+  const meta = readMeta(todo.service_meta_json);
+  const svc = SVC[todo.service_type];
+  if (svc && meta[svc.nameKey]) return meta[svc.nameKey];
+  if (todo.title) return todo.title;
+  return svc?.label || 'Task';
+}
+
+function getTodoIcon(todo) {
+  return SVC[todo.service_type]?.icon || '📋';
+}
+
+function getStatusClass(status) {
+  return { pending:'pill-pending', contacted:'pill-contacted', confirmed:'pill-confirmed', cancelled:'pill-cancelled', rebooked:'pill-rebooked' }[status] || 'pill-pending';
+}
+function getStatusLabel(s) {
+  return { pending:'Pending', contacted:'Contacted', confirmed:'Confirmed', cancelled:'Cancelled', rebooked:'Rebooked' }[s] || s;
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+function api(path, opts = {}) {
+  const headers = { 'X-Tenant-ID': TENANT_ID, ...(opts.headers || {}) };
+  if (opts.body && typeof opts.body === 'object') {
+    headers['Content-Type'] = 'application/json';
+    opts = { ...opts, body: JSON.stringify(opts.body) };
+  }
+  return fetch(API + path, { ...opts, headers });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const sess = await fetch('/api/auth/session').then(r => r.json()).catch(() => null);
+    if (!sess?.authenticated || !sess?.session?.tenant_id) {
+      window.location.href = '/login.html?next=' + encodeURIComponent(location.href);
+      return;
+    }
+    TENANT_ID   = sess.session.tenant_id;
+    TENANT_NAME = sess.session.tenant_name || '';
+    $('tenant-label').textContent = TENANT_NAME;
+    $('board-tenant').textContent  = TENANT_NAME;
+
+    const params = new URLSearchParams(location.search);
+    const orderId = params.get('order');
+
+    $('loading').classList.add('hidden');
+
+    if (orderId) {
+      await loadBoard(orderId);
+    } else {
+      await loadOrderList();
+    }
+  } catch(e) {
+    showError(e.message || 'Unknown error');
+  }
+}
+
+function showError(msg) {
+  $('loading').classList.add('hidden');
+  $('error-msg').textContent = msg;
+  $('error-view').classList.remove('hidden');
+}
+
+// ── ORDER LIST ────────────────────────────────────────────────────────────────
+let allOrders = [];
+async function loadOrderList(statusFilter = '') {
+  const view = $('order-list-view');
+  view.classList.remove('hidden');
+
+  let url = '/api/bookings/orders?limit=100';
+  if (statusFilter) url += '&status=' + statusFilter;
+  else url += '&status=CONFIRMED';  // default to confirmed
+
+  const r = await api(url).then(r => r.json());
+  allOrders = r.orders || [];
+
+  // Also fetch other active statuses when showing "all"
+  if (!statusFilter) {
+    const r2 = await api('/api/bookings/orders?limit=50&status=PROOF_UPLOADED').then(r => r.json()).catch(() => ({ orders:[] }));
+    const r3 = await api('/api/bookings/orders?limit=50&status=PENDING_ARRIVAL').then(r => r.json()).catch(() => ({ orders:[] }));
+    const seen = new Set(allOrders.map(o => o.id));
+    for (const o of [...(r2.orders||[]), ...(r3.orders||[])]) {
+      if (!seen.has(o.id)) { allOrders.push(o); seen.add(o.id); }
+    }
+    allOrders.sort((a,b) => b.created_at - a.created_at);
+  }
+
+  renderOrderList(allOrders);
+}
+
+function renderOrderList(orders) {
+  const container = $('orders-container');
+  if (!orders.length) {
+    container.innerHTML = '<div class="empty-list">No bookings found. Confirmed bookings will appear here.</div>';
+    return;
+  }
+  container.innerHTML = orders.map(o => {
+    let tourName = '—';
+    try { const snap = JSON.parse(o.price_snapshot_json); tourName = snap.tour_name || snap.tour_title || tourName; } catch {}
+    const guestName = o.identity_locked ? '(identity locked)' : (o.guest?.name || '—');
+    const pax = (o.pax?.shared || 0) + (o.pax?.private || 0);
+    const travelFmt = fmtDate(o.travel_date);
+    const statusPill = `<span class="status-pill ${getStatusClass(o.status?.toLowerCase?.())}" style="font-size:.7rem">${esc(o.status)}</span>`;
+    return `<div class="order-card" data-id="${esc(o.id)}">
+      <div class="oc-top">
+        <span class="oc-title">${esc(tourName)}</span>
+        ${statusPill}
+        <span class="oc-date">${esc(travelFmt)}</span>
+      </div>
+      <div class="oc-sub">
+        <span>👤 ${esc(guestName)}</span>
+        <span>🧑‍🤝‍🧑 ${pax} pax</span>
+        <span>💰 $${Number(o.grand_total_usd||0).toLocaleString()}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.order-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.id;
+      history.pushState({}, '', '?order=' + id);
+      $('order-list-view').classList.add('hidden');
+      loadBoard(id);
+    });
+  });
+}
+
+// Filter buttons
+document.addEventListener('DOMContentLoaded', () => {
+  $('filter-bar')?.addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    $('filter-bar').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadOrderList(btn.dataset.status || '');
+  });
+  $('back-btn')?.addEventListener('click', () => {
+    history.pushState({}, '', location.pathname);
+    $('ops-board-view').classList.add('hidden');
+    $('order-list-view').classList.remove('hidden');
+    loadOrderList();
+  });
+});
+
+// ── OPS BOARD ─────────────────────────────────────────────────────────────────
+async function loadBoard(orderId) {
+  const view = $('ops-board-view');
+  view.classList.remove('hidden');
+
+  // Fetch order details + todos in parallel
+  const [orderRes, todosRes] = await Promise.all([
+    api(`/api/bookings/order/${orderId}`).then(r => r.json()),
+    api(`/api/bookings/order/${orderId}/todos?seed=1`).then(r => r.json()),
+  ]);
+
+  if (!orderRes.ok) { showError(orderRes.error || 'Order not found'); return; }
+  const order = orderRes.order;
+  const todos  = todosRes.todos || [];
+
+  // Render header
+  let tourName = '—';
+  try { const snap = JSON.parse(order.price_snapshot_json); tourName = snap.tour_name || snap.tour_title || tourName; } catch {}
+  const guestName = order.identity_locked ? '(identity locked)' : (order.guest?.name || '—');
+  const pax = (order.pax?.shared||0) + (order.pax?.private||0) + (order.pax?.children||0);
+
+  $('board-title').textContent = tourName;
+  $('order-meta-bar').innerHTML = `
+    <span><strong>${esc(tourName)}</strong></span>
+    <span>📅 ${esc(fmtDate(order.travel_date))}</span>
+    <span>👤 ${esc(guestName)}</span>
+    <span>🧑‍🤝‍🧑 ${pax} pax</span>
+    <span>💰 $${Number(order.grand_total_usd||0).toLocaleString()}</span>
+    <span class="status-pill ${getStatusClass(order.status?.toLowerCase?.())} " style="font-size:.7rem">${esc(order.status)}</span>
+  `;
+
+  // Progress
+  const confirmed = todos.filter(t => t.status === 'confirmed' || t.status === 'cancelled').length;
+  const total     = todos.length;
+  const pct       = total ? Math.round(confirmed / total * 100) : 0;
+  $('progress-fill').style.width = pct + '%';
+  $('progress-label').textContent = `${confirmed} / ${total} done`;
+
+  // Group todos by stop
+  renderStops(todos, order);
+}
+
+function renderStops(todos, order) {
+  const container = $('stops-container');
+
+  // Group by stop_id (or 'custom' if null)
+  const groups = new Map();
+  const stopMeta = new Map();
+
+  for (const t of todos) {
+    const key = t.stop_id || '__custom__';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+    if (t.stop_id && !stopMeta.has(key)) {
+      stopMeta.set(key, { label: t.stop_label || 'Stop', day_from: t.stop_day_from, day_to: t.stop_day_to });
+    }
+  }
+
+  const html = [];
+  for (const [key, items] of groups) {
+    const meta = stopMeta.get(key) || { label: 'Custom Tasks', day_from:null, day_to:null };
+    const dayText = meta.day_from != null
+      ? `Day ${meta.day_from}${meta.day_to !== meta.day_from ? '–' + meta.day_to : ''}`
+      : '';
+    const doneCount = items.filter(t => t.status === 'confirmed' || t.status === 'cancelled').length;
+    const allDone   = doneCount === items.length;
+
+    const stopDateFrom = meta.day_from != null && order.travel_date ? addDays(order.travel_date, meta.day_from - 1) : null;
+    const stopDateTo   = meta.day_to   != null && order.travel_date ? addDays(order.travel_date, meta.day_to)       : null;
+
+    html.push(`<div class="stop-section">
+      <div class="stop-header">
+        <span class="stop-label">📍 ${esc(meta.label)}</span>
+        ${dayText ? `<span class="stop-days">${esc(dayText)}${stopDateFrom ? ' · ' + fmtDate(stopDateFrom) : ''}</span>` : ''}
+        <span class="stop-progress${allDone ? ' all-done' : ''}">${doneCount}/${items.length}</span>
+      </div>
+      <div class="stop-cards" id="stop-${CSS.escape(key)}">
+        ${items.map(t => renderCardCollapsed(t, order, stopDateFrom, stopDateTo)).join('')}
+      </div>
+    </div>`);
+  }
+
+  container.innerHTML = html.join('');
+
+  // Attach expand listeners
+  container.querySelectorAll('.card-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const card = header.closest('.todo-card');
+      const body = card.querySelector('.card-body');
+      const isOpen = body.classList.contains('open');
+      // Close all others in same stop
+      header.closest('.stop-cards').querySelectorAll('.card-body.open').forEach(b => {
+        b.classList.remove('open');
+        b.closest('.todo-card').querySelector('.expand-icon').textContent = '▼';
+      });
+      if (!isOpen) {
+        body.classList.add('open');
+        header.querySelector('.expand-icon').textContent = '▲';
+        const todoId  = card.dataset.id;
+        const orderId = card.dataset.order;
+        if (!body.dataset.loaded) {
+          loadThreadInto(body, todoId, orderId);
+          body.dataset.loaded = '1';
+        }
+      }
+    });
+  });
+}
+
+function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
+  const meta  = readMeta(todo.service_meta_json);
+  const icon  = getTodoIcon(todo);
+  const name  = getTodoDisplayName(todo);
+  const sc    = getStatusClass(todo.status || 'pending');
+  const sl    = getStatusLabel(todo.status || 'pending');
+
+  // Sub-line 1: dates or type summary
+  let sub1 = '';
+  if (todo.service_type === 'accommodation') {
+    const ci = meta.check_in  ? unixToDateStr(meta.check_in)  : stopDateFrom;
+    const co = meta.check_out ? unixToDateStr(meta.check_out) : stopDateTo;
+    const parts = [];
+    if (stopDateFrom) parts.push(`Day ${todo.stop_day_from ?? ''}${todo.stop_day_to && todo.stop_day_to !== todo.stop_day_from ? '–'+todo.stop_day_to : ''}`);
+    if (ci) parts.push(`Check-in ${fmtDate(ci)}`);
+    if (meta.room_type) parts.push(meta.room_type);
+    sub1 = parts.join(' · ');
+  } else if (todo.service_type === 'meal') {
+    const parts = [];
+    if (meta.meal_type) parts.push(meta.meal_type.charAt(0).toUpperCase() + meta.meal_type.slice(1));
+    if (meta.meal_datetime) parts.push(unixToDateStr(meta.meal_datetime));
+    if (meta.address) parts.push(meta.address.split(',')[0]);
+    sub1 = parts.join(' · ');
+  } else if (todo.service_type === 'guide') {
+    const tf = meta.time_from ? unixToTimeStr(meta.time_from) : '';
+    const tt = meta.time_to   ? unixToTimeStr(meta.time_to)   : '';
+    sub1 = [tf && tt ? tf+'–'+tt : (tf||tt), meta.languages].filter(Boolean).join(' · ');
+  } else if (todo.service_type === 'local_transport') {
+    sub1 = [meta.mode, meta.pickup_place, meta.dropoff_place].filter(Boolean).join(' → ');
+  } else if (todo.service_type === 'intercity_leg') {
+    const dt = meta.depart_time ? unixToDateStr(meta.depart_time) : '';
+    sub1 = [meta.mode, meta.depart_point && meta.arrive_point ? meta.depart_point+'→'+meta.arrive_point : (meta.depart_point||meta.arrive_point), dt].filter(Boolean).join(' · ');
+  } else {
+    sub1 = todo.title || '';
+  }
+
+  // Sub-line 2: channels + person
+  const picPhone = todo.contact_phone || '';
+  const pic      = todo.person_in_charge || '';
+
+  const formHtml = renderCardForm(todo, order, stopDateFrom, stopDateTo);
+
+  return `<div class="todo-card" data-id="${esc(todo.id)}" data-order="${esc(order.id)}">
+    <div class="card-header">
+      <span class="card-icon">${icon}</span>
+      <div class="card-main">
+        <div class="card-title">${esc(name)}</div>
+        ${sub1 ? `<div class="card-sub1">${esc(sub1)}</div>` : ''}
+        <div class="card-sub2">
+          ${picPhone ? `<span title="Phone">📞 ${esc(picPhone)}</span>` : ''}
+          ${pic ? `<span title="In charge">👤 ${esc(pic)}</span>` : ''}
+        </div>
+      </div>
+      <div class="card-right">
+        <span class="status-pill ${sc}">${sl}</span>
+        <span class="expand-icon">▼</span>
+      </div>
+    </div>
+    <div class="card-body">
+      ${formHtml}
+      <div class="thread-section" id="thread-${esc(todo.id)}">
+        <div class="thread-header"><h4>💬 Thread</h4></div>
+        <div class="thread-entries" id="entries-${esc(todo.id)}"><p class="thread-empty">Loading…</p></div>
+        ${renderCompose(todo.id, order.id)}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── CARD FORM ─────────────────────────────────────────────────────────────────
+function renderCardForm(todo, order, stopDateFrom, stopDateTo) {
+  const meta = readMeta(todo.service_meta_json);
+  const svc  = todo.service_type;
+  const id   = todo.id;
+  const oid  = order.id;
+
+  const statusRadios = ['pending','contacted','confirmed','cancelled'].map(s => {
+    const active = (todo.status || 'pending') === s ? `sel-${s}` : '';
+    return `<label class="status-radio ${active}"><input type="radio" name="status-${esc(id)}" value="${s}" ${(todo.status||'pending')===s?'checked':''}> ${getStatusLabel(s)}</label>`;
+  }).join('');
+
+  const pic = v('pic', todo.person_in_charge);
+  const cn  = v('cn',  todo.contact_name);
+  const cp  = v('cp',  todo.contact_phone);
+  const ce  = v('ce',  todo.contact_email);
+
+  let specificFields = '';
+
+  if (svc === 'accommodation') {
+    const ciDef = meta.check_in  ? unixToDateStr(meta.check_in)  : stopDateFrom || '';
+    const coDef = meta.check_out ? unixToDateStr(meta.check_out) : stopDateTo   || '';
+    specificFields = `
+      <div class="field-group full" style="margin-bottom:8px">
+        <label>Hotel name</label>
+        <input type="text" data-key="hotel_name" value="${esc(meta.hotel_name||'')}" placeholder="e.g. Grand Palace Hotel" autocomplete="off">
+        <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Check-in</label><input type="date" data-key="check_in_str" value="${esc(ciDef)}"></div>
+        <div class="field-group"><label>Check-out</label><input type="date" data-key="check_out_str" value="${esc(coDef)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Room type</label><input type="text" data-key="room_type" value="${esc(meta.room_type||'')}"></div>
+        <div class="field-group"><label>Guests</label><input type="number" data-key="guests" value="${esc(meta.guests||'')}" min="1"></div>
+      </div>
+      <div class="field-group full"><label>Address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>`;
+  } else if (svc === 'meal') {
+    const mtype = (meta.meal_type || '').toLowerCase();
+    const def = MEAL_DEFAULTS[mtype] || ['',''];
+    const mdStr = meta.meal_datetime ? unixToDateTimeLocal(meta.meal_datetime) : (stopDateFrom ? stopDateFrom + 'T' + def[0] : '');
+    specificFields = `
+      <div class="field-row">
+        <div class="field-group">
+          <label>Meal type</label>
+          <select data-key="meal_type">
+            ${['breakfast','lunch','dinner'].map(t => `<option value="${t}" ${mtype===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field-group"><label>Date &amp; time</label><input type="datetime-local" data-key="meal_datetime_str" value="${esc(mdStr)}"></div>
+      </div>
+      <div class="field-group full" style="margin-bottom:8px">
+        <label>Restaurant name</label>
+        <input type="text" data-key="restaurant_name" value="${esc(meta.restaurant_name||'')}" placeholder="e.g. Pho 24" autocomplete="off">
+        <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-group full"><label>Address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>`;
+  } else if (svc === 'guide') {
+    const tf = meta.time_from ? unixToTimeStr(meta.time_from) : '08:00';
+    const tt = meta.time_to   ? unixToTimeStr(meta.time_to)   : '18:00';
+    specificFields = `
+      <div class="field-group full" style="margin-bottom:8px">
+        <label>Guide name</label>
+        <input type="text" data-key="guide_name" value="${esc(meta.guide_name||'')}" placeholder="e.g. Nguyen Van Tuan" autocomplete="off">
+        <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>From</label><input type="time" data-key="time_from_str" value="${esc(tf)}"></div>
+        <div class="field-group"><label>To</label><input type="time" data-key="time_to_str" value="${esc(tt)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Languages</label><input type="text" data-key="languages" value="${esc(meta.languages||'')}" placeholder="English, French"></div>
+        <div class="field-group"><label>Meeting point</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>
+      </div>`;
+  } else if (svc === 'local_transport') {
+    const pt = meta.pickup_time ? unixToTimeStr(meta.pickup_time) : '08:00';
+    specificFields = `
+      <div class="field-group full" style="margin-bottom:8px">
+        <label>Supplier / company</label>
+        <input type="text" data-key="supplier" value="${esc(meta.supplier||'')}" placeholder="e.g. Hanoi Shuttle Co" autocomplete="off">
+        <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Mode</label><input type="text" data-key="mode" value="${esc(meta.mode||'')}" placeholder="Van, Bus, Car…"></div>
+        <div class="field-group"><label>Driver name</label><input type="text" data-key="driver_name" value="${esc(meta.driver_name||'')}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Pickup time</label><input type="time" data-key="pickup_time_str" value="${esc(pt)}"></div>
+        <div class="field-group"><label>Pickup place</label><input type="text" data-key="pickup_place" value="${esc(meta.pickup_place||'')}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Drop-off place</label><input type="text" data-key="dropoff_place" value="${esc(meta.dropoff_place||'')}"></div>
+        <div class="field-group"><label>Office / address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>
+      </div>`;
+  } else if (svc === 'intercity_leg') {
+    const dtStr = meta.depart_time ? unixToDateTimeLocal(meta.depart_time) : '';
+    specificFields = `
+      <div class="field-group full" style="margin-bottom:8px">
+        <label>Supplier / carrier</label>
+        <input type="text" data-key="supplier" value="${esc(meta.supplier||'')}" placeholder="e.g. Vietnam Airlines" autocomplete="off">
+        <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Mode</label><input type="text" data-key="mode" value="${esc(meta.mode||'')}" placeholder="Flight, Train, Bus…"></div>
+        <div class="field-group"><label>Depart time</label><input type="datetime-local" data-key="depart_time_str" value="${esc(dtStr)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>From</label><input type="text" data-key="depart_point" value="${esc(meta.depart_point||'')}"></div>
+        <div class="field-group"><label>To</label><input type="text" data-key="arrive_point" value="${esc(meta.arrive_point||'')}"></div>
+      </div>
+      <div class="field-group full"><label>Ticket / booking ref</label><input type="text" data-key="ticket_ref" value="${esc(meta.ticket_ref||'')}"></div>`;
+  }
+
+  return `
+    <div class="status-row" data-todo="${esc(id)}" data-order="${esc(oid)}">${statusRadios}</div>
+    <div class="detail-form" data-todo="${esc(id)}" data-order="${esc(oid)}" data-svc="${esc(svc||'')}">
+      ${specificFields}
+      <div class="field-row">
+        <div class="field-group"><label>Contact name</label><input type="text" data-key="cn" value="${esc(cn)}"></div>
+        <div class="field-group"><label>Phone / WhatsApp</label><input type="tel" data-key="cp" value="${esc(cp)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Email</label><input type="email" data-key="ce" value="${esc(ce)}"></div>
+        <div class="field-group"><label>In charge</label><input type="text" data-key="pic" value="${esc(pic)}"></div>
+      </div>
+      <div class="field-group full"><label>Notes</label><textarea data-key="notes" rows="2">${esc(meta.notes||'')}</textarea></div>
+      <div class="save-row">
+        <span class="save-feedback" id="sf-${esc(id)}">✓ Saved</span>
+        <button class="btn-save" id="save-${esc(id)}">Save</button>
+      </div>
+    </div>`;
+}
+
+function v(k, val) { return val || ''; }
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+document.addEventListener('click', async e => {
+  // Status radio
+  const radio = e.target.closest('.status-radio');
+  if (radio) {
+    const inp = radio.querySelector('input');
+    if (inp) {
+      const statusRow = radio.closest('.status-row');
+      statusRow.querySelectorAll('.status-radio').forEach(r => {
+        const s = r.querySelector('input')?.value;
+        r.className = 'status-radio';
+        if (s) r.classList.add(`sel-${s}`);
+      });
+      // Wait for radio click to propagate, then re-apply selected
+      setTimeout(() => {
+        statusRow.querySelectorAll('.status-radio').forEach(r => {
+          r.classList.remove('sel-pending','sel-contacted','sel-confirmed','sel-cancelled');
+          const v = r.querySelector('input')?.value;
+          if (v && r.querySelector('input')?.checked) r.classList.add(`sel-${v}`);
+          else if (v) r.classList.add(`sel-${v}`);
+        });
+        // reapply only selected
+        statusRow.querySelectorAll('.status-radio').forEach(r => {
+          r.className = 'status-radio';
+          const inp2 = r.querySelector('input');
+          if (inp2?.checked) r.classList.add(`sel-${inp2.value}`);
+        });
+      }, 10);
+    }
+  }
+
+  // Save button
+  const saveBtn = e.target.closest('.btn-save');
+  if (saveBtn && !saveBtn.disabled) {
+    const form = saveBtn.closest('.detail-form');
+    if (!form) return;
+    await handleSave(form);
+  }
+});
+
+async function handleSave(form) {
+  const todoId  = form.dataset.todo;
+  const orderId = form.dataset.order;
+  const svc     = form.dataset.svc;
+  const card    = document.querySelector(`.todo-card[data-id="${CSS.escape(todoId)}"]`);
+  const saveBtn = $(`save-${todoId}`);
+  const fb      = $(`sf-${todoId}`);
+
+  // Get status
+  const statusEl = card?.querySelector(`.status-row[data-todo="${CSS.escape(todoId)}"] input[type=radio]:checked`);
+  const status = statusEl?.value || 'pending';
+
+  // Collect form fields
+  const fields = {};
+  form.querySelectorAll('[data-key]').forEach(el => {
+    fields[el.dataset.key] = el.tagName === 'SELECT' ? el.value : el.value;
+  });
+
+  // Build service_meta_json based on service type
+  const meta = {};
+  const stopDate = null; // we'd need to pass this through if needed for time→unix
+
+  const nameField = { accommodation:'hotel_name', meal:'restaurant_name', guide:'guide_name', local_transport:'supplier', intercity_leg:'supplier' }[svc];
+
+  if (svc === 'accommodation') {
+    if (fields.hotel_name)    meta.hotel_name  = fields.hotel_name;
+    if (fields.address)       meta.address     = fields.address;
+    if (fields.check_in_str)  meta.check_in    = dateStrToUnix(fields.check_in_str);
+    if (fields.check_out_str) meta.check_out   = dateStrToUnix(fields.check_out_str);
+    if (fields.room_type)     meta.room_type   = fields.room_type;
+    if (fields.guests)        meta.guests      = Number(fields.guests) || undefined;
+    if (fields.notes)         meta.notes       = fields.notes;
+    if (fields.cn)            meta.contact_name= fields.cn;
+  } else if (svc === 'meal') {
+    if (fields.restaurant_name) meta.restaurant_name = fields.restaurant_name;
+    if (fields.meal_type)        meta.meal_type       = fields.meal_type;
+    if (fields.address)          meta.address         = fields.address;
+    if (fields.meal_datetime_str) meta.meal_datetime  = dateTimeLocalToUnix(fields.meal_datetime_str);
+    if (fields.notes)            meta.notes           = fields.notes;
+    if (fields.cn)               meta.contact_name    = fields.cn;
+  } else if (svc === 'guide') {
+    if (fields.guide_name)   meta.guide_name  = fields.guide_name;
+    if (fields.time_from_str) meta.time_from  = timeStrToUnix(fields.time_from_str, null);
+    if (fields.time_to_str)   meta.time_to    = timeStrToUnix(fields.time_to_str, null);
+    if (fields.languages)     meta.languages  = fields.languages;
+    if (fields.address)       meta.address    = fields.address;
+    if (fields.notes)         meta.notes      = fields.notes;
+    if (fields.cn)            meta.contact_name = fields.cn;
+  } else if (svc === 'local_transport') {
+    if (fields.supplier)      meta.supplier      = fields.supplier;
+    if (fields.mode)          meta.mode          = fields.mode;
+    if (fields.driver_name)   meta.driver_name   = fields.driver_name;
+    if (fields.pickup_time_str) meta.pickup_time = timeStrToUnix(fields.pickup_time_str, null);
+    if (fields.pickup_place)  meta.pickup_place  = fields.pickup_place;
+    if (fields.dropoff_place) meta.dropoff_place = fields.dropoff_place;
+    if (fields.address)       meta.address       = fields.address;
+    if (fields.notes)         meta.notes         = fields.notes;
+    if (fields.cn)            meta.contact_name  = fields.cn;
+  } else if (svc === 'intercity_leg') {
+    if (fields.supplier)      meta.supplier     = fields.supplier;
+    if (fields.mode)          meta.mode         = fields.mode;
+    if (fields.depart_time_str) meta.depart_time = dateTimeLocalToUnix(fields.depart_time_str);
+    if (fields.depart_point)  meta.depart_point = fields.depart_point;
+    if (fields.arrive_point)  meta.arrive_point = fields.arrive_point;
+    if (fields.ticket_ref)    meta.ticket_ref   = fields.ticket_ref;
+    if (fields.notes)         meta.notes        = fields.notes;
+    if (fields.cn)            meta.contact_name = fields.cn;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  try {
+    const body = {
+      status,
+      person_in_charge:  fields.pic    || null,
+      contact_name:      fields.cn     || null,
+      contact_phone:     fields.cp     || null,
+      contact_email:     fields.ce     || null,
+      service_meta_json: Object.keys(meta).length ? meta : null,
+    };
+    const res = await api(`/api/bookings/order/${orderId}/todos/${todoId}`, { method:'PATCH', body });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert('Save failed: ' + (err.error || res.status));
+      return;
+    }
+    // Update pill on card header
+    if (card) {
+      const pill = card.querySelector('.card-right .status-pill');
+      if (pill) { pill.className = 'status-pill ' + getStatusClass(status); pill.textContent = getStatusLabel(status); }
+    }
+    // Update title if name changed
+    if (nameField && meta[nameField] && card) {
+      const titleEl = card.querySelector('.card-title');
+      if (titleEl) titleEl.textContent = meta[nameField];
+    }
+    // Save contact_phone on card sub2
+    if (fields.cp && card) {
+      const sub2 = card.querySelector('.card-sub2');
+      if (sub2) {
+        let phoneSpan = sub2.querySelector('[title="Phone"]');
+        if (!phoneSpan) { phoneSpan = document.createElement('span'); phoneSpan.title = 'Phone'; sub2.prepend(phoneSpan); }
+        phoneSpan.textContent = '📞 ' + fields.cp;
+      }
+    }
+    fb.style.display = 'inline';
+    setTimeout(() => { fb.style.display = 'none'; }, 2000);
+    // Update the progress bar
+    updateProgress();
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  }
+}
+
+function updateProgress() {
+  const cards = document.querySelectorAll('.todo-card');
+  let total = cards.length, confirmed = 0;
+  cards.forEach(c => {
+    const pill = c.querySelector('.card-right .status-pill');
+    if (pill && (pill.textContent === 'Confirmed' || pill.textContent === 'Cancelled')) confirmed++;
+  });
+  const pct = total ? Math.round(confirmed/total*100) : 0;
+  $('progress-fill').style.width = pct + '%';
+  $('progress-label').textContent = `${confirmed} / ${total} done`;
+  // Update stop badges
+  document.querySelectorAll('.stop-section').forEach(section => {
+    const sCards = section.querySelectorAll('.todo-card');
+    const sDone  = [...sCards].filter(c => {
+      const pill = c.querySelector('.card-right .status-pill');
+      return pill && (pill.textContent === 'Confirmed' || pill.textContent === 'Cancelled');
+    }).length;
+    const badge = section.querySelector('.stop-progress');
+    if (badge) {
+      badge.textContent = `${sDone}/${sCards.length}`;
+      badge.classList.toggle('all-done', sDone === sCards.length);
+    }
+  });
+}
+
+// ── THREAD ────────────────────────────────────────────────────────────────────
+const CHANNEL_ICONS = { phone:'📞', whatsapp:'💬', zalo:'🔵', email:'✉️', note:'📝' };
+
+async function loadThreadInto(bodyEl, todoId, orderId) {
+  const container = bodyEl.querySelector(`#entries-${CSS.escape(todoId)}`);
+  if (!container) return;
+  try {
+    const r = await api(`/api/bookings/order/${orderId}/todos/${todoId}/thread`).then(r => r.json());
+    renderThreadEntries(container, r.entries || []);
+  } catch(e) {
+    container.innerHTML = `<p class="thread-empty">Failed to load thread</p>`;
+  }
+}
+
+function renderThreadEntries(container, entries) {
+  if (!entries.length) {
+    container.innerHTML = '<p class="thread-empty">No messages yet. Log a call, email, or note below.</p>';
+    return;
+  }
+  container.innerHTML = entries.map(e => `
+    <div class="thread-entry">
+      <div class="te-meta">
+        <span class="te-channel">${CHANNEL_ICONS[e.channel] || '📝'}</span>
+        <span class="te-direction">${e.direction === 'in' ? '← In' : e.direction === 'out' ? '→ Out' : 'Note'}</span>
+        <span class="te-by">${esc(e.sent_by || 'agent')}</span>
+        <span class="te-time">${relTime(e.created_at)}</span>
+      </div>
+      <div class="te-msg">${esc(e.message)}</div>
+    </div>`).join('');
+  // Scroll to bottom
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderCompose(todoId, orderId) {
+  const channels = ['note','phone','whatsapp','zalo','email'];
+  const chTabs = channels.map(c => `<button class="ch-tab${c==='note'?' active':''}" data-ch="${c}">${CHANNEL_ICONS[c]} ${c.charAt(0).toUpperCase()+c.slice(1)}</button>`).join('');
+  return `<div class="compose" id="compose-${esc(todoId)}" data-todo="${esc(todoId)}" data-order="${esc(orderId)}">
+    <textarea placeholder="Log a call, email, note, or paste text from WhatsApp…" id="compose-text-${esc(todoId)}"></textarea>
+    <div class="compose-meta">
+      <div class="channel-tabs" id="ch-${esc(todoId)}">${chTabs}</div>
+      <div class="dir-toggle" id="dir-${esc(todoId)}">
+        <button class="dir-btn active" data-dir="out">→ Out</button>
+        <button class="dir-btn" data-dir="in">← In</button>
+        <button class="dir-btn" data-dir="note">📝</button>
+      </div>
+      <button class="btn-send" id="send-${esc(todoId)}">Send</button>
+    </div>
+  </div>`;
+}
+
+// Channel / direction toggle
+document.addEventListener('click', e => {
+  const ch = e.target.closest('.ch-tab');
+  if (ch) {
+    ch.closest('.channel-tabs').querySelectorAll('.ch-tab').forEach(b => b.classList.remove('active'));
+    ch.classList.add('active');
+    return;
+  }
+  const dir = e.target.closest('.dir-btn');
+  if (dir) {
+    dir.closest('.dir-toggle').querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+    dir.classList.add('active');
+    return;
+  }
+});
+
+// Send button
+document.addEventListener('click', async e => {
+  const send = e.target.closest('.btn-send');
+  if (!send) return;
+  const compose = send.closest('.compose');
+  if (!compose) return;
+  const todoId  = compose.dataset.todo;
+  const orderId = compose.dataset.order;
+  const textEl  = $(`compose-text-${todoId}`);
+  const msg = textEl?.value?.trim();
+  if (!msg) return;
+
+  const channel   = compose.querySelector('.ch-tab.active')?.dataset.ch   || 'note';
+  const direction = compose.querySelector('.dir-btn.active')?.dataset.dir  || 'out';
+
+  send.disabled = true;
+  try {
+    const res = await api(`/api/bookings/order/${orderId}/todos/${todoId}/thread`, {
+      method: 'POST',
+      body: { message: msg, channel, direction },
+    });
+    if (!res.ok) { const e2 = await res.json().catch(() => ({})); alert('Error: ' + (e2.error || res.status)); return; }
+    const data = await res.json();
+    textEl.value = '';
+    // Re-render thread
+    const container = $(`entries-${todoId}`);
+    if (container) {
+      const r = await api(`/api/bookings/order/${orderId}/todos/${todoId}/thread`).then(r => r.json());
+      renderThreadEntries(container, r.entries || []);
+    }
+    // Auto-advance status pill if needed
+    if (data.todo_status && data.todo_status !== 'pending') {
+      const card = document.querySelector(`.todo-card[data-id="${CSS.escape(todoId)}"]`);
+      if (card) {
+        const pill = card.querySelector('.card-right .status-pill');
+        if (pill) { pill.className = 'status-pill ' + getStatusClass(data.todo_status); pill.textContent = getStatusLabel(data.todo_status); }
+        // Sync radio
+        const radios = card.querySelectorAll('.status-radio');
+        radios.forEach(r => {
+          r.className = 'status-radio';
+          const inp = r.querySelector('input');
+          if (inp?.value === data.todo_status) { inp.checked = true; r.classList.add(`sel-${data.todo_status}`); }
+        });
+      }
+    }
+  } finally {
+    send.disabled = false;
+  }
+});
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
+let acTimer;
+document.addEventListener('input', e => {
+  const input = e.target;
+  if (!input.matches('[data-key="hotel_name"],[data-key="restaurant_name"],[data-key="guide_name"],[data-key="supplier"]')) return;
+  clearTimeout(acTimer);
+  const todoId = input.closest('[data-todo]')?.dataset.todo;
+  const svc    = input.closest('[data-svc]')?.dataset.svc;
+  const drop   = todoId ? $(`ac-${todoId}`) : null;
+  if (!drop) return;
+
+  const q = input.value.trim();
+  if (q.length < 1) { drop.classList.remove('open'); return; }
+
+  acTimer = setTimeout(async () => {
+    try {
+      const r = await api(`/api/bookings/suppliers/suggest?q=${encodeURIComponent(q)}&type=${encodeURIComponent(svc||'')}&limit=8`).then(r => r.json());
+      const suggestions = r.suggestions || [];
+      if (!suggestions.length) { drop.classList.remove('open'); return; }
+      drop.innerHTML = suggestions.map(s =>
+        `<div class="ac-item" data-name="${esc(s.name)}">
+          <span>${esc(s.name)}</span>
+          ${s.source === 'library' ? '<span class="ac-badge">★ Library</span>' : ''}
+          ${s.contact ? `<span class="ac-badge" style="margin-left:auto;max-width:100px;overflow:hidden;text-overflow:ellipsis">${esc(s.contact)}</span>` : ''}
+        </div>`).join('');
+      drop.classList.add('open');
+    } catch { drop.classList.remove('open'); }
+  }, 250);
+});
+
+// AC item click
+document.addEventListener('click', e => {
+  const item = e.target.closest('.ac-item');
+  if (!item) {
+    // Close all dropdowns
+    document.querySelectorAll('.ac-drop.open').forEach(d => d.classList.remove('open'));
+    return;
+  }
+  const name  = item.dataset.name;
+  const drop  = item.closest('.ac-drop');
+  const input = drop?.previousElementSibling;
+  if (input && input.tagName === 'INPUT') input.value = name;
+  drop?.classList.remove('open');
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
