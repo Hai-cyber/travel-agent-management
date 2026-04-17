@@ -75,10 +75,16 @@ export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
     && hasCustomDomain
     && customDomainVerified
     && electronicGatewayConfigured;
-  const publicBookingEnabled = commercialActivationEnabled && hostType === 'custom_domain';
+  // Promo-activated tenants bypass all domain/gateway requirements so they can
+  // test the full booking flow on the platform subdomain without a live domain or
+  // payment gateway. This is intentionally a testing-only escape hatch.
+  const promoActivated = tenant.promo_activated === 1 || tenant.promo_activated === true;
+  const publicBookingEnabled = promoActivated || (commercialActivationEnabled && hostType === 'custom_domain');
 
   let message = 'This tenant is not ready for public publishing yet.';
-  if (publicBookingEnabled) {
+  if (promoActivated && publicBookingEnabled) {
+    message = 'Promo-activated account: full booking capability enabled on platform subdomain (testing mode).';
+  } else if (publicBookingEnabled) {
     message = 'Commercial publishing is active on this verified custom domain.';
   } else if (showcasePublishEnabled && (hostType === 'platform_subdomain' || hostType === 'platform_path' || hostType === 'admin_preview' || hostType === 'unknown')) {
     message = 'Platform-owned surfaces are showcase-only. Connect a verified custom domain and enable payment methods to accept bookings.';
@@ -97,6 +103,7 @@ export function buildTenantCommercialPolicy(tenant = {}, options = {}) {
     showcase_publish_enabled: showcasePublishEnabled,
     commercial_activation_enabled: commercialActivationEnabled,
     public_booking_enabled: publicBookingEnabled,
+    promo_activated: promoActivated,
     showcase_only: showcasePublishEnabled && !publicBookingEnabled,
     terms_accepted: termsAccepted,
     has_subdomain: hasSubdomain,

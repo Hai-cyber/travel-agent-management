@@ -267,7 +267,7 @@ bookings.post('/order', async (c) => {
 
   // [LEGAL FIREWALL] Only live (ACTIVE) tenants may accept bookings.
   const tenantRow = await c.env.DB
-    .prepare('SELECT subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
+    .prepare('SELECT subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain, promo_activated FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenantRow) return c.json({ error: 'Tenant not found.' }, 404);
@@ -306,9 +306,10 @@ bookings.post('/order', async (c) => {
   // Bookings are blocked unless the tenant has at least one electronic gateway
   // (Stripe/PayPal/MoMo/ZaloPay/VNPay/GrabPay) enabled in their payment_methods.
   // Mirrors the site-rendering kill switch in index.js.
+  // Exception: promo-activated tenants bypass this gate for testing purposes.
   let tenantPaymentMethods = [];
   try { if (tenantRow.payment_methods) tenantPaymentMethods = JSON.parse(tenantRow.payment_methods); } catch {}
-  if (!checkTenantCompliance(tenantPaymentMethods)) {
+  if (!tenantPolicy.promo_activated && !checkTenantCompliance(tenantPaymentMethods)) {
     return c.json({
       error: 'This tour operator has not activated any electronic payment gateway. Online bookings are currently unavailable.',
       code:  'TENANT_NON_COMPLIANT',
@@ -339,7 +340,7 @@ bookings.post('/order', async (c) => {
   }
 
   // Validate method is enabled for this tenant (if tenant has configured their channels)
-  if (tenantRow.payment_methods) {
+  if (tenantRow.payment_methods && !tenantPolicy.promo_activated) {
     try {
       const methods = JSON.parse(tenantRow.payment_methods);
       const enabledMethod = methods.find(m => m.id === rawMethod && m.enabled);

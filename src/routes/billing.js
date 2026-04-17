@@ -608,7 +608,7 @@ billing.post('/redeem-promo', async (c) => {
   const oldStatus    = tenant.subscription_status;
 
   await c.env.DB.batch([
-    c.env.DB.prepare('UPDATE tenants SET subscription_status = ? WHERE id = ?')
+    c.env.DB.prepare('UPDATE tenants SET subscription_status = ?, promo_activated = 1 WHERE id = ?')
       .bind('ACTIVE', tenantId),
     c.env.DB.prepare('INSERT INTO promo_code_redemptions (id, code_id, tenant_id, redeemed_at) VALUES (?, ?, ?, ?)')
       .bind(redemptionId, promo.id, tenantId, now),
