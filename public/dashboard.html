@@ -153,8 +153,8 @@
     .stop-todos-list > .svc-todo { border:none; border-radius:0; border-bottom:1px solid #f1f5f9; }
     .stop-todos-list > .svc-todo:last-child { border-bottom:none; }
     /* Service todo card */
-    .svc-todo { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:hidden; background:#fff; }
-    .svc-todo-head { display:flex; align-items:center; gap:10px; padding:12px 14px; }
+    .svc-todo { position:relative; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:visible; background:#fff; }
+    .svc-todo-head { display:flex; align-items:center; gap:10px; padding:12px 38px 12px 14px; }
     .svc-todo-icon { font-size:18px; flex-shrink:0; }
     .svc-todo-name { font-size:14px; font-weight:600; color:#1e293b; flex:1; min-width:0; overflow:hidden; }
     .svc-todo-name small { display:block; font-size:11px; font-weight:400; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -175,7 +175,7 @@
     .svc-contact-btn.note      { border-color:#e9d5ff; color:#7c3aed; background:#faf5ff; }
     .svc-thread-btn { margin-left:auto; }
     .svc-thread-badge { background:#1d4ed8; color:#fff; font-size:10px; padding:1px 6px; border-radius:10px; margin-left:3px; }
-    .btn-del-todo { flex-shrink:0; background:none; border:none; cursor:pointer; color:#cbd5e1; padding:2px 4px; border-radius:6px; line-height:1; font-size:16px; transition:color .15s; }
+    .btn-del-todo { position:absolute; top:8px; right:8px; z-index:2; background:none; border:none; cursor:pointer; color:#cbd5e1; padding:3px 5px; border-radius:6px; line-height:1; font-size:15px; transition:color .15s,background .15s; }
     .btn-del-todo:hover { color:#ef4444; background:#fee2e2; }
     .svc-meta { padding:8px 14px 12px; border-top:1px solid #f1f5f9; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px 14px; }
     .svc-meta-field { font-size:12px; }
@@ -3597,6 +3597,7 @@ window.addEventListener('dashboard:langchange', () => {
         ? `In charge: ${todo.person_in_charge}`
         : (todo.service_type ? todo.service_type.replace(/_/g,' ') : '');
       return `<li class="svc-todo" data-todo-id="${escapeHtml(tid)}" data-status="${escapeHtml(status)}">
+        <button class="btn-del-todo" data-todo-id="${escapeHtml(tid)}" title="Delete this task">✕</button>
         <div class="svc-todo-head">
           <span class="svc-todo-icon">${icon}</span>
           <span class="svc-todo-name">${escapeHtml(todo.title)}${subTxt ? `<small>${escapeHtml(subTxt)}</small>` : ''}</span>
@@ -3606,7 +3607,6 @@ window.addEventListener('dashboard:langchange', () => {
             ).join('')}
           </select>
           <span class="svc-status-chip ${sm.cls}">${sm.label}</span>
-          <button class="btn-del-todo" data-todo-id="${escapeHtml(tid)}" title="Delete this task">✕</button>
         </div>
         <div class="svc-contact-btns">${buildContactBtns(todo, tid)}</div>
         ${buildMetaHtml(todo)}
