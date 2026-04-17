@@ -17,7 +17,7 @@ import {
 import registerTaskRoutes from "./routes/tasks.js";
 import registerTenantRoutes from './routes/tenants.js';
 import registerBookingRoutes, { purgeExpiredOrders } from './routes/bookings.js';
-import { runTodoReminders } from './lib/bookingOps.js';
+import { runTodoReminders, runOpsDailyDigest } from './lib/bookingOps.js';
 import registerTourRoutes from './routes/tours.js';
 import registerCategoryRoutes from './routes/categories.js';
 import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.js';
@@ -652,9 +652,14 @@ export default {
 
   // Scheduled purge — cron "*/15 * * * *" (configured in wrangler.jsonc triggers.crons)
   // Expires AWAITING_PROOF orders past payment_deadline; NULLs guest identity (data minimisation).
+  // Daily digest — cron "0 8 * * *" — morning email per tenant with pending ops todos.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(purgeExpiredOrders(env));
     ctx.waitUntil(runTrialMaintenance(env));
     ctx.waitUntil(runTodoReminders(env));
+    // Only run daily digest on the 8am cron, not the 15-min tick
+    if (event.cron === '0 8 * * *') {
+      ctx.waitUntil(runOpsDailyDigest(env));
+    }
   },
 };

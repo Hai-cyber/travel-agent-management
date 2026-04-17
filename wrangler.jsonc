@@ -71,7 +71,8 @@
 	],
 	"triggers": {
 		"crons": [
-			"*/15 * * * *"
+			"*/15 * * * *",
+			"0 8 * * *"
 		]
 	},
 	// Stripe billing vars — override with real values in .dev.vars (local) or

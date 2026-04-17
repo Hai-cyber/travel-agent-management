@@ -723,3 +723,83 @@ export async function dispatchAdminAlertEmail(env, { subject, bodyText, bodyHtml
     platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
   });
 }
+
+// ── Daily ops digest email ─────────────────────────────────────────────────────
+// Sent each morning per tenant listing pending + contacted todos for the next 7 days.
+// Called from the scheduled cron "0 8 * * *".
+export async function dispatchOpsDailyDigestEmail(env, {
+  tenantId, tenantName, tenantEmail,
+  todayStr,      // "2026-04-17"
+  todoGroups,    // [{ orderLabel, travelDate, orderId, todos: [{title,status,dueLabel}] }]
+  opsUrl,        // https://…/ops.html
+}) {
+  if (!tenantEmail) return { ok: false, reason: 'no_recipient' };
+  if (!todoGroups?.length) return { ok: false, reason: 'no_todos' };
+
+  const totalCount = todoGroups.reduce((n, g) => n + g.todos.length, 0);
+  const subject    = `📋 Ops digest — ${totalCount} pending task${totalCount !== 1 ? 's' : ''} · ${todayStr}`;
+
+  // ── Plain text ──────────────────────────────────────────────────────────
+  const lines = [`Ops Daily Digest — ${todayStr}`, `${tenantName || tenantId}`, ''];
+  for (const g of todoGroups) {
+    lines.push(`▸ ${g.orderLabel} (travel: ${g.travelDate})`);
+    for (const t of g.todos) lines.push(`  • [${t.status}] ${t.title}${t.dueLabel ? '  (' + t.dueLabel + ')' : ''}`);
+    lines.push('');
+  }
+  lines.push(`Open ops board: ${opsUrl}`);
+  const text = lines.join('\n');
+
+  // ── HTML ────────────────────────────────────────────────────────────────
+  const STATUS_BADGE = {
+    pending:   { bg:'#fef3c7', color:'#92400e', label:'pending' },
+    contacted: { bg:'#dbeafe', color:'#1e40af', label:'contacted' },
+  };
+  const badge = s => {
+    const b = STATUS_BADGE[s] || { bg:'#f1f5f9', color:'#475569', label: s };
+    return `<span style="background:${b.bg};color:${b.color};border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">${esc(b.label)}</span>`;
+  };
+  const groupHtml = todoGroups.map(g => `
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
+        ${esc(g.orderLabel)} <span style="color:#64748b;font-weight:400;font-size:12px">travel: ${esc(g.travelDate)}</span>
+      </div>
+      ${g.todos.map(t => `
+        <div style="padding:5px 0;display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#334155">
+          ${badge(t.status)}
+          <span>${esc(t.title)}${t.dueLabel ? `<span style="color:#94a3b8;font-size:11px;margin-left:6px">${esc(t.dueLabel)}</span>` : ''}</span>
+        </div>`).join('')}
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif">
+  <div style="max-width:560px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,.08)">
+    <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:20px 24px">
+      <div style="color:#fff;font-size:18px;font-weight:700">📋 Ops Daily Digest</div>
+      <div style="color:rgba(255,255,255,.7);font-size:13px;margin-top:2px">${esc(todayStr)} · ${esc(tenantName || tenantId)}</div>
+    </div>
+    <div style="padding:20px 24px">
+      <p style="margin:0 0 16px;font-size:13px;color:#475569">
+        You have <strong style="color:#1e293b">${totalCount} pending task${totalCount !== 1 ? 's' : ''}</strong> in the next 7 days that still need attention:
+      </p>
+      ${groupHtml}
+      <div style="margin-top:20px;text-align:center">
+        <a href="${esc(opsUrl)}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;display:inline-block">
+          Open Ops Board →
+        </a>
+      </div>
+    </div>
+    <div style="padding:12px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">
+      You receive this because your account has pending booking tasks. · <a href="${esc(opsUrl)}" style="color:#94a3b8">Ops board</a>
+    </div>
+  </div>
+</body></html>`;
+
+  return dispatchWebhook(env, {
+    event: 'ops.daily_digest',
+    tenantId,
+    recipientEmail: tenantEmail,
+    emailContent: { subject, text, html },
+    bookingData: { tenant_name: tenantName },
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}
+

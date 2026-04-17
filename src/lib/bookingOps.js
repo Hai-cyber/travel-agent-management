@@ -3,6 +3,7 @@
 // and instant-payment webhook (payments.js) paths.
 import { nanoid } from 'nanoid';
 import { notifyAgent } from './notifications.js';
+import { dispatchOpsDailyDigestEmail } from './bookingEmails.js';
 
 // ── Service-type metadata ─────────────────────────────────────────────────
 const SERVICE_QUERIES = {
@@ -308,5 +309,102 @@ export async function runTodoReminders(env) {
     }
   } catch (err) {
     console.warn('[TODO_REMINDERS_ERROR]', err.message);
+  }
+}
+
+// ── Daily ops digest ──────────────────────────────────────────────────────────
+// Called once a day from the "0 8 * * *" cron trigger.
+// For every tenant that has pending/contacted todos in the next 7 days,
+// sends one summary email so the team doesn't miss anything.
+// [UX] Groups todos by order, shows service icon + title + status.
+// [SEC] Only queries active confirmed/pending-arrival orders; excludes cancelled todos.
+export async function runOpsDailyDigest(env) {
+  const now      = Math.floor(Date.now() / 1000);
+  const todayStr = new Date(now * 1000).toISOString().slice(0, 10);
+  const window7d = now + 7 * 86400;
+  const baseUrl  = (env.PLATFORM_BASE_URL || 'https://tours-market.com').replace(/\/$/, '');
+
+  try {
+    // Load all tenants that have an email address
+    const { results: tenants } = await env.DB
+      .prepare("SELECT id, name, email FROM tenants WHERE email IS NOT NULL AND email != ''")
+      .all();
+
+    let totalSent = 0;
+
+    for (const tenant of tenants) {
+      try {
+        // Find orders with pending todos in the next 7 days
+        // A todo is "due soon" if its service_meta_json has any datetime unix field in [now, +7d]
+        // or if the order travel_date is within [today, +7d]
+        const { results: todos } = await env.DB
+          .prepare(`
+            SELECT bot.id, bot.title, bot.status, bot.service_type, bot.service_meta_json,
+                   bo.id AS order_id, bo.travel_date,
+                   bo.price_snapshot_json
+            FROM booking_order_todos bot
+            JOIN booking_orders bo ON bo.id = bot.order_id
+            WHERE bot.tenant_id = ?
+              AND bot.status IN ('pending', 'contacted')
+              AND bo.status NOT IN ('CANCELLED', 'EXPIRED')
+              AND bo.travel_date IS NOT NULL
+              AND bo.travel_date >= ?
+              AND bo.travel_date <= ?
+            ORDER BY bo.travel_date, bot.sort_order
+          `)
+          .bind(tenant.id, todayStr, new Date(window7d * 1000).toISOString().slice(0, 10))
+          .all();
+
+        if (!todos.length) continue;
+
+        // Group by order
+        const orderMap = new Map();
+        for (const t of todos) {
+          if (!orderMap.has(t.order_id)) {
+            // Extract tour name from price snapshot
+            let tourName = t.order_id;
+            try { const snap = JSON.parse(t.price_snapshot_json); tourName = snap.tour_name || snap.tour_title || tourName; } catch {}
+            orderMap.set(t.order_id, {
+              orderId:    t.order_id,
+              orderLabel: tourName,
+              travelDate: t.travel_date,
+              todos:      [],
+            });
+          }
+          // Build a human-readable due label from service_meta_json
+          let dueLabel = '';
+          try {
+            const meta = JSON.parse(t.service_meta_json || '{}');
+            const unix = meta.check_in || meta.meal_datetime || meta.time_from || meta.pickup_time || meta.depart_time;
+            if (unix) {
+              const d = new Date(unix * 1000);
+              dueLabel = d.toISOString().slice(0, 10);
+            }
+          } catch {}
+          orderMap.get(t.order_id).todos.push({ title: t.title, status: t.status, dueLabel });
+        }
+
+        const todoGroups = Array.from(orderMap.values());
+        const opsUrl     = `${baseUrl}/ops.html`;
+
+        await dispatchOpsDailyDigestEmail(env, {
+          tenantId:   tenant.id,
+          tenantName: tenant.name,
+          tenantEmail: tenant.email,
+          todayStr,
+          todoGroups,
+          opsUrl,
+        });
+
+        totalSent++;
+        console.info(`[OPS_DIGEST] tenant=${tenant.id} groups=${todoGroups.length} total_todos=${todos.length}`);
+      } catch (tenantErr) {
+        console.warn(`[OPS_DIGEST_TENANT_ERR] tenant=${tenant.id}`, tenantErr.message);
+      }
+    }
+
+    console.info(`[OPS_DIGEST_SUMMARY] date=${todayStr} tenants_emailed=${totalSent}`);
+  } catch (err) {
+    console.warn('[OPS_DIGEST_ERROR]', err.message);
   }
 }

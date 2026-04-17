@@ -92,6 +92,69 @@
       transition:all .15s;
     }
     .cal-rotate-btn:hover { border-color:rgba(255,100,100,.6); color:rgba(255,120,120,.9) }
+    .cal-help-btn {
+      background:none; border:1px solid rgba(255,255,255,.25); color:rgba(255,255,255,.6);
+      border-radius:50%; width:22px; height:22px; font-size:.75rem; font-weight:700;
+      cursor:pointer; line-height:20px; text-align:center; padding:0; flex-shrink:0;
+      transition:all .15s; margin-left:4px;
+    }
+    .cal-help-btn:hover { background:rgba(255,255,255,.15); color:#fff }
+
+    /* ── How-to modal ────────────────────────────────────────────────── */
+    #cal-help-modal {
+      display:none; position:fixed; inset:0; z-index:2000;
+      background:rgba(0,0,0,.55); backdrop-filter:blur(2px);
+      align-items:center; justify-content:center; padding:16px;
+    }
+    #cal-help-modal.open { display:flex }
+    .cal-help-dialog {
+      background:#1e293b; border-radius:14px; max-width:500px; width:100%;
+      max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.5);
+      border:1px solid rgba(255,255,255,.1);
+    }
+    .cal-help-header {
+      padding:18px 20px 14px; border-bottom:1px solid rgba(255,255,255,.1);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .cal-help-header h3 { color:#e2e8f0; font-size:1rem; font-weight:700; margin:0 }
+    .cal-help-close {
+      background:none; border:none; color:rgba(255,255,255,.5);
+      font-size:1.3rem; cursor:pointer; padding:0 4px; line-height:1;
+      transition:color .15s;
+    }
+    .cal-help-close:hover { color:#fff }
+    .cal-help-body { padding:18px 20px }
+    .cal-app-section { margin-bottom:22px }
+    .cal-app-section:last-child { margin-bottom:0 }
+    .cal-app-title {
+      font-size:.9rem; font-weight:700; color:#e2e8f0; margin:0 0 10px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .cal-app-title span {
+      background:rgba(255,255,255,.08); border-radius:6px; padding:2px 8px; font-size:.8rem;
+    }
+    .cal-steps { list-style:none; padding:0; margin:0; counter-reset:step }
+    .cal-steps li {
+      counter-increment:step; padding:6px 0 6px 28px; position:relative;
+      font-size:.82rem; color:#94a3b8; line-height:1.5; border-bottom:1px solid rgba(255,255,255,.05);
+    }
+    .cal-steps li:last-child { border-bottom:none }
+    .cal-steps li::before {
+      content:counter(step); position:absolute; left:0; top:6px;
+      background:rgba(29,78,216,.5); color:#93c5fd; border-radius:50%;
+      width:18px; height:18px; font-size:.7rem; font-weight:700;
+      display:flex; align-items:center; justify-content:center; line-height:18px; text-align:center;
+    }
+    .cal-steps li strong { color:#e2e8f0 }
+    .cal-steps li code {
+      background:rgba(255,255,255,.08); border-radius:3px;
+      padding:0 5px; font-family:monospace; font-size:.79rem; color:#93c5fd;
+    }
+    .cal-tip {
+      background:rgba(29,78,216,.15); border:1px solid rgba(29,78,216,.3);
+      border-radius:8px; padding:10px 12px; font-size:.8rem; color:#93c5fd;
+      margin-top:14px; line-height:1.5;
+    }
 
     /* ── Progress bar ───────────────────────────── */
     .order-meta {
@@ -359,7 +422,7 @@
     </div>
     <!-- Calendar Sync slide-down panel -->
     <div id="cal-sync-panel">
-      <div class="cal-panel-title">📅 Calendar Sync</div>
+      <div class="cal-panel-title">📅 Calendar Sync <button class="cal-help-btn" id="cal-help-open" title="How to subscribe">?</button></div>
       <div class="cal-url-row">
         <input id="cal-url-input" type="text" readonly placeholder="Generating your calendar URL…" />
         <button class="copy-btn" id="cal-copy-btn">Copy</button>
@@ -384,6 +447,67 @@
       <span class="progress-label" id="progress-label">0 / 0</span>
     </div>
     <div id="stops-container"></div>
+  </div>
+</div>
+
+<!-- ── Calendar Sync — How-to modal ──────────────────────────────────────── -->
+<div id="cal-help-modal" role="dialog" aria-modal="true" aria-label="How to subscribe to your Ops Calendar">
+  <div class="cal-help-dialog">
+    <div class="cal-help-header">
+      <h3>📅 How to subscribe to your Ops Calendar</h3>
+      <button class="cal-help-close" id="cal-help-close" aria-label="Close">✕</button>
+    </div>
+    <div class="cal-help-body">
+
+      <!-- ── Apple Calendar (iPhone / Mac) ──────────────── -->
+      <div class="cal-app-section">
+        <div class="cal-app-title">🍎 Apple Calendar <span>iPhone &amp; Mac</span></div>
+        <ul class="cal-steps">
+          <li>Tap <strong>📅 Sync</strong> in the ops board top bar to open the panel.</li>
+          <li>Tap <strong>🍎 Apple Calendar</strong> — your iPhone/Mac will show a dialog: <em>"Subscribe to Calendar?"</em></li>
+          <li>Tap <strong>Subscribe</strong>. Done — the calendar appears in your app within seconds.</li>
+          <li><em>Or manually:</em> copy the URL, open <strong>Calendar app → File → New Calendar Subscription</strong>, paste URL → Subscribe.</li>
+          <li>On iPhone: <strong>Settings → Calendar → Accounts → Subscribed Calendars</strong> to manage it later.</li>
+        </ul>
+      </div>
+
+      <!-- ── Google Calendar ─────────────────────────────── -->
+      <div class="cal-app-section">
+        <div class="cal-app-title">🗓 Google Calendar <span>Web &amp; Android</span></div>
+        <ul class="cal-steps">
+          <li>Tap <strong>📅 Sync</strong> → tap <strong>Google Calendar</strong> button. A Google page opens.</li>
+          <li>The URL is already pre-filled. Click <strong>"Add calendar"</strong>.</li>
+          <li><em>Or manually:</em> copy the URL, open Google Calendar → click <strong>+</strong> next to <em>"Other calendars"</em> → <strong>From URL</strong> → paste → <strong>Add calendar</strong>.</li>
+          <li>On Android: the subscribed calendar syncs to the Google Calendar app automatically within a few minutes.</li>
+          <li>Google refreshes every <strong>12–24 hours</strong> (this is a Google-side limit, not ours).</li>
+        </ul>
+      </div>
+
+      <!-- ── Outlook ─────────────────────────────────────── -->
+      <div class="cal-app-section">
+        <div class="cal-app-title">📧 Outlook <span>Web &amp; Desktop</span></div>
+        <ul class="cal-steps">
+          <li>Tap <strong>📅 Sync</strong> → tap <strong>Outlook</strong> button. Outlook.com opens with the URL pre-filled.</li>
+          <li>Click <strong>"Import"</strong> or <strong>"Subscribe"</strong> on the Outlook page.</li>
+          <li><em>Outlook Desktop (Windows):</em> copy the URL → open Outlook → <strong>File → Account Settings → Internet Calendars → New</strong> → paste URL → <strong>Add</strong>.</li>
+          <li><em>Outlook Desktop (Mac):</em> <strong>File → New → Internet Calendar Subscription</strong> → paste URL → Subscribe.</li>
+        </ul>
+      </div>
+
+      <!-- ── Other apps ──────────────────────────────────── -->
+      <div class="cal-app-section">
+        <div class="cal-app-title">📱 Other apps <span>Fantastical · Proton · Notion · Any iCal app</span></div>
+        <ul class="cal-steps">
+          <li>Copy the <code>webcal://</code> URL from the panel.</li>
+          <li>In your calendar app, look for <strong>"Add calendar"</strong> → <strong>"Subscribe from URL"</strong> (the exact wording varies by app).</li>
+          <li>Paste the URL and confirm. The calendar will refresh automatically per the app's schedule.</li>
+        </ul>
+      </div>
+
+      <div class="cal-tip">
+        💡 <strong>Subscribe once, updates forever.</strong> Reminders (1–2 days before + a few hours before each service) are already embedded — no extra setup needed. Share the same URL with your whole team. To revoke access, tap <em>"Regenerate link"</em> in the panel.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1539,6 +1663,17 @@ $('cal-rotate-btn')?.addEventListener('click', async () => {
   const btn = $('cal-rotate-btn');
   btn.textContent = '✅ New link generated';
   setTimeout(() => { btn.textContent = '🔄 Regenerate link (invalidates existing subscriptions)'; }, 3000);
+});
+
+// ── How-to modal ──────────────────────────────────────────────────────────────
+$('cal-help-open')?.addEventListener('click', () => {
+  $('cal-help-modal').classList.add('open');
+});
+$('cal-help-close')?.addEventListener('click', () => {
+  $('cal-help-modal').classList.remove('open');
+});
+$('cal-help-modal')?.addEventListener('click', e => {
+  if (e.target === $('cal-help-modal')) $('cal-help-modal').classList.remove('open');
 });
 
 init();
