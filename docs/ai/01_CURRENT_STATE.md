@@ -178,7 +178,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)
-- `public/tour-config.html` — agent admin UI (CHK-R25/R26)
+- `public/tour-config.html` — agent admin UI (CHK-R25/R26/R80/R81)
 - `public/product-modules.html` — dedicated destination / hotel / gallery module manager distinct from quick skin editing
 - `public/saas-admin.html` — protected editor for public pricing/marketing copy
 - `public/inject.js` — Site Studio client injection layer (CHK-R22)
@@ -273,7 +273,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `scripts/seed-site-templates.mjs` — uploads template files to SITE_TEMPLATES R2
 - `scripts/seed-snippets-from-templates.mjs` — legacy extractor (superseded by syncAllSnippets.mjs)
 
-### tour-config.html detail (CHK-R25/R26/R43)
+### tour-config.html detail (CHK-R25/R26/R43/R80/R81)
+  - **Inline help system (CHK-R80)**: each tab has contextual `(?)` help popover buttons; clicking opens a `.help-popover` tooltip with guidance text; amber `.help-popover--warn` variant for caution notes; `tour_config.help.*` i18n block (25 keys) across all 9 locales
+  - **Itinerary day inline edit (CHK-R81)**: each day row in the Content tab has a `.btn-icon-edit` pencil button; clicking pre-fills the Add Day form in edit mode; save button relabels to "Save Changes"; cancel resets to add mode; `_itinEditIndex` state tracks active edit
   - **Stops tab**: per-stop inline service toggles (Hotel, B/L/D meals, Guide, Local Transport, Intercity Transport), description textarea
   - **Content tab**: richer draft payload editing for `hero_desc`, `tour_desc`, `destination_*`, `accommodation_*`, hero image, and gallery images
   - **Unit-level taxonomy editing**: the Content tab now lets operators assign canonical interests, sub-interests, and a primary interest directly on the selected tour via `GET|PUT /api/universal/taxonomy/tours/:tourId`
