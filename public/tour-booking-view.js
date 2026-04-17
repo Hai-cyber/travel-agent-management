@@ -71,7 +71,7 @@
       payment_method_desc_manual: 'Creates the real booking order and returns the manual payment / proof-upload next step.',
       payment_method_desc_demo: 'Demo payment experience only. No real gateway is active for this tenant yet.',
       payment_hook_cta: 'Continue to payment',
-      payment_hook_note: 'Payment hook reserved for the future checkout flow.',
+      payment_hook_note: 'You\'ll select your payment method in the next step.',
       method_bank_transfer: 'Bank transfer',
       method_cash_at_office: 'Pay at office',
       method_pay_on_arrival: 'Pay on arrival',

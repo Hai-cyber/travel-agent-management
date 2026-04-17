@@ -1130,7 +1130,7 @@ publicConfig.get('/config', async (c) => {
     const adminId = c.req.header('X-Tenant-ID')?.trim();
     if (adminId) {
       tenant = await c.env.DB
-        .prepare('SELECT id, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, terms_accepted, trust_status, custom_domain_verified_at, subdomain, custom_domain FROM tenants WHERE id = ?')
+        .prepare('SELECT id, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, terms_accepted, trust_status, custom_domain_verified_at, subdomain, custom_domain, promo_activated FROM tenants WHERE id = ?')
         .bind(adminId)
         .first();
     } else {
