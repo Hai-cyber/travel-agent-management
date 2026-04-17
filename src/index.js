@@ -29,6 +29,7 @@ import registerDomainRoutes from './routes/domains.js';
 import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
 import registerReportsRoutes from './routes/reports.js';
+import registerCalendarRoutes from './routes/calendar.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -277,6 +278,7 @@ registerDomainRoutes && registerDomainRoutes(app);
 registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 registerReportsRoutes && registerReportsRoutes(app);
+registerCalendarRoutes && registerCalendarRoutes(app);
 
 // ── Platform contact form ─────────────────────────────────────────────────────
 app.post('/api/contact', async (c) => {

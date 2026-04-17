@@ -45,6 +45,53 @@
     }
     .top-bar .back-btn:hover { background:rgba(255,255,255,.25) }
     .top-bar .tenant-name { color:rgba(255,255,255,.7); font-size:.8rem; white-space:nowrap }
+    .top-bar .cal-sync-btn {
+      background:rgba(255,255,255,.15); color:#fff; border:none; border-radius:8px;
+      padding:6px 10px; cursor:pointer; font-size:.85rem; font-weight:600;
+      transition:background .15s; white-space:nowrap; flex-shrink:0;
+    }
+    .top-bar .cal-sync-btn:hover { background:rgba(255,255,255,.28) }
+
+    /* ── Calendar Sync panel ────────────────────── */
+    #cal-sync-panel {
+      background:#1a2a4a; border-bottom:1px solid rgba(255,255,255,.12);
+      padding:0 16px; max-height:0; overflow:hidden;
+      transition:max-height .3s ease, padding .3s ease;
+    }
+    #cal-sync-panel.open { max-height:340px; padding:16px 16px; }
+    .cal-panel-title { color:#e2e8f0; font-weight:700; font-size:.95rem; margin-bottom:10px }
+    .cal-url-row {
+      display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;
+    }
+    .cal-url-row input {
+      flex:1; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.15);
+      color:#e2e8f0; border-radius:8px; padding:7px 10px; font-size:.82rem;
+      min-width:0; font-family:monospace;
+    }
+    .cal-url-row .copy-btn {
+      background:rgba(255,255,255,.15); color:#fff; border:none; border-radius:8px;
+      padding:7px 14px; cursor:pointer; font-size:.82rem; font-weight:600;
+      transition:background .15s; flex-shrink:0;
+    }
+    .cal-url-row .copy-btn:hover { background:rgba(255,255,255,.28) }
+    .cal-add-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px }
+    .cal-add-btn {
+      display:flex; align-items:center; gap:6px; padding:7px 14px;
+      border:none; border-radius:8px; cursor:pointer; font-size:.82rem; font-weight:600;
+      transition:opacity .15s;
+    }
+    .cal-add-btn:hover { opacity:.85 }
+    .cal-add-btn.apple    { background:#e5e7eb; color:#1a1a2e }
+    .cal-add-btn.google   { background:#4285F4; color:#fff }
+    .cal-add-btn.outlook  { background:#0072C6; color:#fff }
+    .cal-note { color:rgba(255,255,255,.5); font-size:.78rem; line-height:1.5 }
+    .cal-rotate-row { margin-top:10px }
+    .cal-rotate-btn {
+      background:none; border:1px solid rgba(255,255,255,.2); color:rgba(255,255,255,.5);
+      border-radius:6px; padding:4px 10px; font-size:.75rem; cursor:pointer;
+      transition:all .15s;
+    }
+    .cal-rotate-btn:hover { border-color:rgba(255,100,100,.6); color:rgba(255,120,120,.9) }
 
     /* ── Progress bar ───────────────────────────── */
     .order-meta {
@@ -308,6 +355,28 @@
       <button class="back-btn" id="back-btn">← Back</button>
       <h1 id="board-title">Operations</h1>
       <span class="tenant-name" id="board-tenant"></span>
+      <button class="cal-sync-btn" id="cal-sync-toggle" title="Calendar Sync">📅 Sync</button>
+    </div>
+    <!-- Calendar Sync slide-down panel -->
+    <div id="cal-sync-panel">
+      <div class="cal-panel-title">📅 Calendar Sync</div>
+      <div class="cal-url-row">
+        <input id="cal-url-input" type="text" readonly placeholder="Generating your calendar URL…" />
+        <button class="copy-btn" id="cal-copy-btn">Copy</button>
+      </div>
+      <div class="cal-add-row">
+        <button class="cal-add-btn apple"   id="cal-add-apple">🍎 Apple Calendar</button>
+        <button class="cal-add-btn google"  id="cal-add-google">Google Calendar</button>
+        <button class="cal-add-btn outlook" id="cal-add-outlook">Outlook</button>
+      </div>
+      <div class="cal-note">
+        Subscribe once — your calendar app refreshes automatically every 30 min.<br>
+        Reminders are embedded (1–2 days before + hours before each service).<br>
+        Works with Apple, Google, Outlook, Fantastical, and any iCal-compatible app.
+      </div>
+      <div class="cal-rotate-row">
+        <button class="cal-rotate-btn" id="cal-rotate-btn">🔄 Regenerate link (invalidates existing subscriptions)</button>
+      </div>
     </div>
     <div class="order-meta" id="order-meta-bar"></div>
     <div class="progress-strip">
@@ -1405,6 +1474,73 @@ document.addEventListener('click', e => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+// ── Calendar Sync ─────────────────────────────────────────────────────────────
+let _calSecret = null;
+
+async function initCalSync() {
+  // Fetch or generate the calendar secret for this tenant
+  const res  = await api('/api/tenants/calendar-secret', { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) return;
+  _calSecret = data.secret;
+  updateCalUrl(_calSecret);
+}
+
+function updateCalUrl(secret) {
+  const base   = location.origin;
+  const path   = `/api/calendar/${secret}.ics`;
+  const https  = base.replace(/^http:/, 'https:');
+  const webcal = `${https}${path}`.replace(/^https:/, 'webcal:');
+  const url    = `${https}${path}`;
+  $('cal-url-input').value = webcal;
+
+  // Apple Calendar: webcal:// opens system dialog
+  $('cal-add-apple').onclick = () => { window.location.href = webcal; };
+
+  // Google Calendar: Settings → "From URL" deep link
+  $('cal-add-google').onclick = () => {
+    window.open(`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`, '_blank');
+  };
+
+  // Outlook.com: add subscription URL
+  $('cal-add-outlook').onclick = () => {
+    window.open(`https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent('Ops')}`, '_blank');
+  };
+}
+
+$('cal-sync-toggle')?.addEventListener('click', async () => {
+  const panel = $('cal-sync-panel');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    return;
+  }
+  panel.classList.add('open');
+  if (!_calSecret) await initCalSync();
+});
+
+$('cal-copy-btn')?.addEventListener('click', () => {
+  const val = $('cal-url-input').value;
+  if (!val) return;
+  navigator.clipboard?.writeText(val).then(() => {
+    const btn = $('cal-copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  });
+});
+
+$('cal-rotate-btn')?.addEventListener('click', async () => {
+  if (!confirm('Rotating the link will immediately break all existing calendar subscriptions. Your team will need to re-add the new URL. Continue?')) return;
+  const res  = await api('/api/tenants/calendar-secret?rotate=1', { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed to rotate link.'); return; }
+  _calSecret = data.secret;
+  updateCalUrl(data.secret);
+  const btn = $('cal-rotate-btn');
+  btn.textContent = '✅ New link generated';
+  setTimeout(() => { btn.textContent = '🔄 Regenerate link (invalidates existing subscriptions)'; }, 3000);
+});
+
 init();
 </script>
 </body>

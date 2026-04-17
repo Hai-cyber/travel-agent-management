@@ -3331,6 +3331,36 @@ tenants.post('/custom-domain-verify', async (c) => {
   });
 });
 
+// ── POST /api/tenants/calendar-secret ─────────────────────────────────────
+// Generate (or return existing) iCal subscription secret for the tenant.
+// POST with ?rotate=1 to invalidate existing subscriptions and issue a new secret.
+// [SEC] Requires authenticated session; secret is tenant-scoped.
+tenants.post('/calendar-secret', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const rotate = c.req.query('rotate') === '1';
+  const tenant = await c.env.DB
+    .prepare('SELECT id, calendar_secret FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found' }, 404);
+
+  // Return existing secret unless caller is rotating
+  if (tenant.calendar_secret && !rotate) {
+    return c.json({ ok: true, secret: tenant.calendar_secret, rotated: false });
+  }
+
+  // Generate a new secret (UUID v4 without hyphens for clean URLs)
+  const secret = crypto.randomUUID().replace(/-/g, '');
+  await c.env.DB
+    .prepare('UPDATE tenants SET calendar_secret = ? WHERE id = ?')
+    .bind(secret, tenantId)
+    .run();
+
+  return c.json({ ok: true, secret, rotated: rotate });
+});
+
 export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
   // Public config endpoint — registered separately to keep URL path clean.
