@@ -3627,7 +3627,9 @@ function renderStopRows() {
       if (!stop) return;
       stop.nights = Number(e.target.value);
       renderItinPreview();
-      patchStop(stop.id, { nights: stop.nights });
+      // Recompute day_from/day_to for ALL stops (nights change shifts every subsequent stop)
+      const calc = calcDays(S.stops);
+      calc.forEach(s => patchStop(s.id, { nights: s.nights, day_from: s._dayFrom, day_to: s._dayTo }));
     });
   });
 
@@ -3733,8 +3735,9 @@ async function moveStop(stopId, dir) {
   S.stops.forEach((s, i) => { s.sort_order = i; });
   renderStopRows();
   renderItinPreview();
-  // Persist full order for all stops so DB sort_order matches the UI array index
-  await Promise.all(S.stops.map((s, i) => patchStop(s.id, { sort_order: i })));
+  // Persist sort_order AND day_from/day_to for all stops (order change shifts day numbers)
+  const calc = calcDays(S.stops);
+  await Promise.all(calc.map((s, i) => patchStop(s.id, { sort_order: i, day_from: s._dayFrom, day_to: s._dayTo })));
 }
 
 async function loadStops() {

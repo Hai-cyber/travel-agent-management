@@ -1,9 +1,20 @@
 // src/lib/bookingOps.js
 // Shared post-confirmation operations called from both bank-transfer (bookings.js)
 // and instant-payment webhook (payments.js) paths.
-import { nanoid } from 'nanoid';
 import { notifyAgent } from './notifications.js';
 import { dispatchOpsDailyDigestEmail } from './bookingEmails.js';
+
+// Build a deterministic, collision-resistant todo ID from its natural key so that
+// INSERT OR IGNORE is genuinely idempotent even when seedOrderTodos races with itself.
+function todoId(orderId, stopId, serviceType, itemSuffix) {
+  // Truncate parts to keep total length bounded (~40 chars) while remaining unique.
+  return [
+    String(orderId).slice(0, 10),
+    String(stopId).slice(0, 10),
+    String(serviceType).slice(0, 14),
+    String(itemSuffix).slice(0, 10),
+  ].join('-');
+}
 
 // ── Service-type metadata ─────────────────────────────────────────────────
 const SERVICE_QUERIES = {
@@ -128,7 +139,7 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
 
         for (const item of items) {
           seeded.add(`${stopId}:${serviceType}`);
-          const id       = nanoid();
+          const id       = todoId(orderId, stopId, serviceType, item.id);
           const itemName = String(item[cfg.titleField] || serviceType).slice(0, 120);
           const title    = `${cfg.icon} ${itemName}${daySuffix}`.slice(0, 200);
           const meta     = buildMeta(cfg, item);
@@ -161,7 +172,7 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
       // Non-meal services — always add a placeholder if not already seeded
       for (const svc of PLACEHOLDER_SERVICES) {
         if (seeded.has(`${stop.id}:${svc.type}`)) continue;
-        const id    = nanoid();
+        const id    = todoId(orderId, stop.id, svc.type, 'placeholder');
         const title = `${svc.icon} ${svc.label}${daySuffix}`.slice(0, 200);
         stmts.push(env.DB.prepare(
           `INSERT OR IGNORE INTO booking_order_todos
@@ -187,7 +198,7 @@ export async function seedOrderTodos(env, tenantId, orderId, tourId) {
           : [{ label: 'Meal', type: null, off: 51 }];
 
         for (const meal of mealItems) {
-          const id   = nanoid();
+          const id   = todoId(orderId, stop.id, 'meal', meal.type || 'generic');
           const title = `🍽️ ${meal.label}${daySuffix}`.slice(0, 200);
           const meta  = meal.type ? JSON.stringify({ meal_type: meal.type }) : null;
           stmts.push(env.DB.prepare(
