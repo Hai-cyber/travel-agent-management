@@ -562,6 +562,73 @@ billing.post('/portal', async (c) => {
   return c.json({ ok: true, portal_url: portalSession.url });
 });
 
+// ── POST /api/billing/redeem-promo ────────────────────────────────────────────
+// Tenant redeems a promo code to activate their subscription without Stripe.
+// Body: { code: string }
+billing.post('/redeem-promo', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); }
+  catch { return c.json({ error: 'Invalid JSON body.' }, 400); }
+
+  const code = String(body?.code || '').toUpperCase().trim().replace(/\s+/g, '');
+  if (!code) return c.json({ error: 'code is required.' }, 400);
+
+  const promo = await c.env.DB
+    .prepare('SELECT * FROM promo_codes WHERE code = ?')
+    .bind(code)
+    .first();
+  if (!promo) return c.json({ error: 'Invalid promo code.' }, 400);
+
+  const now = Math.floor(Date.now() / 1000);
+
+  if (promo.expires_at && promo.expires_at < now) {
+    return c.json({ error: 'This promo code has expired.' }, 400);
+  }
+  if (promo.max_uses !== null && promo.uses_count >= promo.max_uses) {
+    return c.json({ error: 'This promo code has reached its usage limit.' }, 400);
+  }
+
+  // Idempotent: prevent double-redemption per tenant
+  const already = await c.env.DB
+    .prepare('SELECT id FROM promo_code_redemptions WHERE code_id = ? AND tenant_id = ?')
+    .bind(promo.id, tenantId)
+    .first();
+  if (already) return c.json({ error: 'You have already redeemed this promo code.' }, 400);
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, subscription_status FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  const redemptionId = crypto.randomUUID().replace(/-/g, '').slice(0, 21);
+  const oldStatus    = tenant.subscription_status;
+
+  await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE tenants SET subscription_status = ? WHERE id = ?')
+      .bind('ACTIVE', tenantId),
+    c.env.DB.prepare('INSERT INTO promo_code_redemptions (id, code_id, tenant_id, redeemed_at) VALUES (?, ?, ?, ?)')
+      .bind(redemptionId, promo.id, tenantId, now),
+    c.env.DB.prepare('UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?')
+      .bind(promo.id),
+    c.env.DB.prepare(
+      `INSERT INTO tenant_audit_log (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by)
+       VALUES (?, ?, 'subscription_status', ?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), tenantId, oldStatus, 'ACTIVE', now, `promo:${code}`),
+  ]);
+
+  console.info(`[PROMO_REDEEMED] tenant=${tenantId} code=${code} duration_days=${promo.duration_days}`);
+
+  const message = promo.duration_days
+    ? `Promo code accepted! Your account is active for ${promo.duration_days} days.`
+    : 'Promo code accepted! Your account is now active.';
+
+  return c.json({ ok: true, message, duration_days: promo.duration_days ?? null });
+});
+
 export default function registerBillingRoutes(app) {
   app.route('/api/billing', billing);
 }

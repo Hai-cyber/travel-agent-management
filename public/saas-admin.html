@@ -160,6 +160,7 @@
       <button class="tab-btn active" data-tab="marketing">Marketing Editor</button>
       <button class="tab-btn" data-tab="tenants">Tenants</button>
       <button class="tab-btn" data-tab="review">Review Cases</button>
+      <button class="tab-btn" data-tab="promo">🎟️ Promo Codes</button>
     </div>
 
     <div class="tab-pane active" id="tab-marketing">
@@ -290,6 +291,36 @@
         </div>
       </div>
     </div><!-- /tab-review -->
+
+    <div class="tab-pane" id="tab-promo">
+      <div class="tenants-panel">
+        <h2>Promo Codes</h2>
+        <p class="hint">Generate single-use codes to activate tenant accounts without Stripe. Great for friends, staff, and testers.</p>
+
+        <section class="panel" style="max-width:520px;margin-bottom:20px">
+          <h3 style="margin-top:0;margin-bottom:12px;font-size:14px">Generate a new code</h3>
+          <div class="row">
+            <label style="flex:2">Note (optional)<input id="promo-note" type="text" placeholder="e.g. Tester for Berlin launch" maxlength="200" /></label>
+            <label>Max uses<input id="promo-max-uses" type="number" value="1" min="1" style="width:80px" /></label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label>Active for (days, blank = permanent)<input id="promo-duration" type="number" placeholder="e.g. 90" min="1" style="width:120px" /></label>
+            <label>Code expires after (days, blank = never)<input id="promo-expires" type="number" placeholder="e.g. 30" min="1" style="width:120px" /></label>
+          </div>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn" id="btn-generate-promo" type="button">Generate Code</button>
+          </div>
+          <div id="promo-gen-result" style="margin-top:10px;font-weight:600;font-size:15px;letter-spacing:.05em"></div>
+        </section>
+
+        <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center">
+          <button class="btn btn-secondary" id="btn-load-promos" type="button">Load Codes</button>
+        </div>
+        <div id="promo-table-wrap">
+          <p style="color:var(--muted)">Click "Load Codes" to fetch all promo codes.</p>
+        </div>
+      </div>
+    </div><!-- /tab-promo -->
   </main>
 
   <script>
@@ -678,6 +709,123 @@
       const node = document.getElementById('status');
       node.textContent = message;
       node.style.color = isError ? '#8a2c2e' : '#42525d';
+    }
+
+    // ── Promo Codes ───────────────────────────────────────────────────────────
+    document.getElementById('btn-load-promos').addEventListener('click', loadPromoCodes);
+    document.getElementById('btn-generate-promo').addEventListener('click', generatePromoCode);
+
+    async function generatePromoCode() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      const btn = document.getElementById('btn-generate-promo');
+      btn.disabled = true;
+      const result = document.getElementById('promo-gen-result');
+      result.style.color = 'var(--muted)';
+      result.textContent = 'Generating…';
+      try {
+        const note        = document.getElementById('promo-note').value.trim() || null;
+        const maxUses     = parseInt(document.getElementById('promo-max-uses').value, 10) || 1;
+        const durationRaw = document.getElementById('promo-duration').value.trim();
+        const expiresRaw  = document.getElementById('promo-expires').value.trim();
+        const body = { max_uses: maxUses };
+        if (note) body.note = note;
+        if (durationRaw) body.duration_days = parseInt(durationRaw, 10);
+        if (expiresRaw)  body.expires_in_days = parseInt(expiresRaw, 10);
+        const res = await fetch('/api/admin/promo-codes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to generate code.');
+        result.style.color = '#1d4ed8';
+        result.textContent = `✓  ${payload.code}`;
+        setStatus(`Promo code ${payload.code} created.`);
+        loadPromoCodes();
+      } catch (err) {
+        result.style.color = '#8a2c2e';
+        result.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function loadPromoCodes() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+      const wrap = document.getElementById('promo-table-wrap');
+      wrap.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+      try {
+        const res = await fetch('/api/admin/promo-codes', { headers: { 'X-Admin-Secret': secret } });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load promo codes.');
+        renderPromoTable(payload.codes || []);
+        setStatus(`${(payload.codes || []).length} promo code(s) loaded.`);
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:#8a2c2e">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function renderPromoTable(codes) {
+      const wrap = document.getElementById('promo-table-wrap');
+      if (!codes.length) {
+        wrap.innerHTML = '<p style="color:var(--muted)">No promo codes yet. Generate one above.</p>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="tenant-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Note</th>
+              <th>Uses</th>
+              <th>Duration</th>
+              <th>Code expires</th>
+              <th>Redeemed by</th>
+              <th>Created</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${codes.map((c) => `
+              <tr data-promo-id="${escapeHtml(c.id)}">
+                <td><strong style="letter-spacing:.05em;font-family:monospace">${escapeHtml(c.code)}</strong></td>
+                <td><small>${escapeHtml(c.note || '—')}</small></td>
+                <td>${escapeHtml(String(c.uses_count))} / ${c.max_uses !== null ? escapeHtml(String(c.max_uses)) : '∞'}</td>
+                <td>${c.duration_days ? `${c.duration_days}d` : 'Permanent'}</td>
+                <td>${c.expires_at ? new Date(c.expires_at * 1000).toLocaleDateString() : 'Never'}</td>
+                <td><small style="color:var(--muted)">${escapeHtml(c.redeemed_by || '—')}</small></td>
+                <td><small>${c.created_at ? new Date(c.created_at * 1000).toLocaleDateString() : '—'}</small></td>
+                <td><button class="btn-reject" data-promo-id="${escapeHtml(c.id)}" data-code="${escapeHtml(c.code)}">Revoke</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      wrap.querySelectorAll('[data-promo-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const promoId = btn.dataset.promoId;
+          const code    = btn.dataset.code;
+          const secret  = getSecret();
+          if (!secret) return setStatus('Admin secret is required.', true);
+          if (!confirm(`Revoke promo code ${code}? Existing active subscriptions from this code are unaffected.`)) return;
+          btn.disabled = true;
+          try {
+            const res = await fetch(`/api/admin/promo-codes/${encodeURIComponent(promoId)}`, {
+              method: 'DELETE',
+              headers: { 'X-Admin-Secret': secret },
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to revoke.');
+            setStatus(`Promo code ${code} revoked.`);
+            btn.closest('tr')?.remove();
+          } catch (err) {
+            setStatus(err.message || 'Revoke failed.', true);
+            btn.disabled = false;
+          }
+        });
+      });
     }
 
     function escapeHtml(value) {

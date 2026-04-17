@@ -1100,6 +1100,90 @@ admin.post('/tenants/:id/set-subscription', async (c) => {
   return c.json({ ok: true, tenant_id: tenantId, status: newStatus, previous_status: oldStatus, note });
 });
 
+// ── Promo code helpers ────────────────────────────────────────────────────────
+
+function generatePromoCode() {
+  // Format: XXXX-XXXX  (8 uppercase alphanumeric chars, no ambiguous 0/O/I/1)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) code += '-';
+    const idx = Math.floor(Math.random() * chars.length);
+    code += chars[idx];
+  }
+  return code;
+}
+
+// ── POST /api/admin/promo-codes ───────────────────────────────────────────────
+// Generate a new promo code. Admin only.
+admin.post('/promo-codes', async (c) => {
+  let body; try { body = await c.req.json(); } catch { body = {}; }
+
+  const note         = String(body?.note         || '').trim().slice(0, 200) || null;
+  const maxUses      = body?.max_uses != null ? parseInt(body.max_uses, 10) : 1;
+  const durationDays = body?.duration_days != null ? parseInt(body.duration_days, 10) : null;
+  const expiresInDays = body?.expires_in_days != null ? parseInt(body.expires_in_days, 10) : null;
+
+  if (maxUses !== null && (isNaN(maxUses) || maxUses < 1)) {
+    return c.json({ error: 'max_uses must be a positive integer or null' }, 400);
+  }
+
+  const now       = Math.floor(Date.now() / 1000);
+  const expiresAt = expiresInDays ? now + expiresInDays * 86400 : null;
+  const id        = crypto.randomUUID();
+
+  // Retry up to 5 times on the unlikely UNIQUE collision
+  let code, attempts = 0;
+  while (attempts < 5) {
+    code = generatePromoCode();
+    const existing = await c.env.DB
+      .prepare('SELECT id FROM promo_codes WHERE code = ?')
+      .bind(code)
+      .first();
+    if (!existing) break;
+    attempts++;
+  }
+  if (attempts === 5) return c.json({ error: 'Could not generate unique code. Try again.' }, 500);
+
+  await c.env.DB
+    .prepare(`INSERT INTO promo_codes (id, code, note, max_uses, uses_count, duration_days, expires_at, created_by, created_at)
+              VALUES (?, ?, ?, ?, 0, ?, ?, 'platform_admin', ?)`)
+    .bind(id, code, note, maxUses ?? null, durationDays ?? null, expiresAt, now)
+    .run();
+
+  console.info(`[PROMO_CREATED] id=${id} code=${code} max_uses=${maxUses} duration_days=${durationDays}`);
+  return c.json({ ok: true, id, code, note, max_uses: maxUses, duration_days: durationDays, expires_at: expiresAt });
+});
+
+// ── GET /api/admin/promo-codes ────────────────────────────────────────────────
+// List all promo codes with redemption counts and redeemers.
+admin.get('/promo-codes', async (c) => {
+  const { results: codes } = await c.env.DB
+    .prepare(`SELECT pc.*,
+                (SELECT GROUP_CONCAT(t.name, ', ')
+                 FROM promo_code_redemptions pcr
+                 JOIN tenants t ON t.id = pcr.tenant_id
+                 WHERE pcr.code_id = pc.id
+                ) AS redeemed_by
+              FROM promo_codes pc
+              ORDER BY pc.created_at DESC`)
+    .all();
+  return c.json({ ok: true, codes: codes || [] });
+});
+
+// ── DELETE /api/admin/promo-codes/:id ─────────────────────────────────────────
+// Revoke (delete) a promo code. Existing redemptions are unaffected.
+admin.delete('/promo-codes/:id', async (c) => {
+  const id = c.req.param('id');
+  const result = await c.env.DB
+    .prepare('DELETE FROM promo_codes WHERE id = ?')
+    .bind(id)
+    .run();
+  if (!result.meta?.changes) return c.json({ error: 'Code not found' }, 404);
+  console.info(`[PROMO_REVOKED] id=${id}`);
+  return c.json({ ok: true, revoked: id });
+});
+
 export default function registerAdminRoutes(app) {
   app.route('/api/admin', admin);
 }

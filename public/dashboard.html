@@ -1128,6 +1128,23 @@
                 <div id="billing-pane-content">
                   <p style="color:#94a3b8;font-size:13px">Loading billing info…</p>
                 </div>
+
+                <!-- Promo Code Redemption -->
+                <div style="margin-top:28px;border-top:1px solid #e2e8f0;padding-top:22px">
+                  <details id="promo-details">
+                    <summary style="cursor:pointer;font-size:13px;color:#64748b;user-select:none">Have a promo code?</summary>
+                    <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;max-width:360px">
+                      <input id="promo-code-input" type="text" placeholder="Enter code e.g. ABCD-EFGH"
+                             style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:monospace;letter-spacing:.08em;text-transform:uppercase;outline:none"
+                             maxlength="20" autocomplete="off" />
+                      <button id="btn-redeem-promo" type="button"
+                              style="align-self:flex-start;padding:9px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+                        Apply code
+                      </button>
+                      <p id="promo-redeem-msg" style="display:none;font-size:13px;margin:0"></p>
+                    </div>
+                  </details>
+                </div>
               </div>
             </div><!-- /pane-billing -->
 
@@ -3130,6 +3147,45 @@ window.addEventListener('dashboard:langchange', () => {
         wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
       }
     });
+  }
+
+  // ── Promo code redemption ─────────────────────────────────────────────────
+  document.getElementById('btn-redeem-promo')?.addEventListener('click', async () => {
+    const input = document.getElementById('promo-code-input');
+    const msg   = document.getElementById('promo-redeem-msg');
+    const btn   = document.getElementById('btn-redeem-promo');
+    const code  = (input?.value || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!code) { showPromoMsg('Please enter a promo code.', true); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Applying…';
+    msg.style.display = 'none';
+    try {
+      const res = await fetch('/api/billing/redeem-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+        body: JSON.stringify({ code }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to redeem code.');
+      showPromoMsg(payload.message || 'Code accepted! Your account is now active.', false);
+      input.value = '';
+      // Refresh billing status so the ACTIVE badge appears
+      setTimeout(() => loadBillingStatus?.(), 1200);
+    } catch (err) {
+      showPromoMsg(err.message || 'Failed to redeem code.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Apply code';
+    }
+  });
+
+  function showPromoMsg(text, isError) {
+    const msg = document.getElementById('promo-redeem-msg');
+    if (!msg) return;
+    msg.textContent = text;
+    msg.style.color = isError ? '#dc2626' : '#16a34a';
+    msg.style.display = 'block';
   }
 
   function escHtml(s) {
