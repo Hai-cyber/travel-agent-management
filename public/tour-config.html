@@ -169,6 +169,12 @@
       transition: all 0.2s;
     }
     .btn-icon-copy:hover { color: #6366F1; background: #eef2ff; }
+    .btn-icon-edit {
+      background: none; border: none; cursor: pointer; padding: 4px 5px;
+      border-radius: 5px; color: #94a3b8; display: inline-flex; align-items: center;
+      transition: all 0.2s;
+    }
+    .btn-icon-edit:hover { color: #6366F1; background: #eef2ff; }
 
     /* -- Tour selector list -- */
     .tour-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
@@ -3138,6 +3144,8 @@ function prefillContent(tour) {
   renderContentMediaPreviews();
 }
 
+let _itinEditIndex = null; // null = add mode, number = edit mode
+
 function renderItinerary() {
   const list = document.getElementById('itin-list');
   list.innerHTML = '';
@@ -3150,10 +3158,25 @@ function renderItinerary() {
         <div class="itin-title">${esc(d.title)}</div>
         <div class="itin-desc">${esc(d.description ?? '')}</div>
       </div>
-      <button class="btn-icon-del" data-index="${i}" title="${esc(ti('tour_config.stops.remove'))}">
+      <button class="btn-icon-edit" data-edit-index="${i}" title="Edit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon-del" data-del-index="${i}" title="${esc(ti('tour_config.stops.remove'))}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
       </button>`;
-    li.querySelector('[data-index]').addEventListener('click', () => {
+    li.querySelector('[data-edit-index]').addEventListener('click', () => {
+      _itinEditIndex = i;
+      const entry = S.itinerary[i];
+      const form = document.getElementById('add-day-form');
+      document.getElementById('day-num').value      = entry.day;
+      document.getElementById('day-num-end').value  = entry.day_end ?? '';
+      document.getElementById('day-title').value    = entry.title;
+      document.getElementById('day-desc').value     = entry.description ?? '';
+      document.getElementById('btn-save-day').textContent = ti('tour_config.content.save_day_edit') || 'Save';
+      form.style.display = '';
+      document.getElementById('day-title').focus();
+    });
+    li.querySelector('[data-del-index]').addEventListener('click', () => {
       S.itinerary.splice(i, 1);
       renderItinerary();
     });
@@ -3162,21 +3185,34 @@ function renderItinerary() {
 }
 
 function openAddDayForm() {
+  _resetDayForm();
   const form = document.getElementById('add-day-form');
   form.style.display = '';
-  document.getElementById('day-num').value = (S.itinerary.length + 1).toString();
   document.getElementById('day-title').focus();
 }
 document.getElementById('btn-add-day').addEventListener('click', () => {
   const form = document.getElementById('add-day-form');
-  form.style.display = form.style.display === 'none' ? '' : 'none';
-  if (form.style.display === '') {
-    document.getElementById('day-num').value = (S.itinerary.length + 1).toString();
+  const isOpen = form.style.display !== 'none';
+  if (isOpen && _itinEditIndex === null) {
+    form.style.display = 'none';
+  } else {
+    _resetDayForm();
+    form.style.display = '';
+    document.getElementById('day-title').focus();
   }
 });
 document.getElementById('btn-add-day-bottom').addEventListener('click', openAddDayForm);
+function _resetDayForm() {
+  _itinEditIndex = null;
+  document.getElementById('day-num').value     = (S.itinerary.length + 1).toString();
+  document.getElementById('day-num-end').value = '';
+  document.getElementById('day-title').value   = '';
+  document.getElementById('day-desc').value    = '';
+  document.getElementById('btn-save-day').textContent = ti('tour_config.content.save_day') || '+ Add';
+}
 document.getElementById('btn-cancel-day').addEventListener('click', () => {
   document.getElementById('add-day-form').style.display = 'none';
+  _resetDayForm();
 });
 document.getElementById('btn-save-day').addEventListener('click', () => {
   const num    = Number(document.getElementById('day-num').value);
@@ -3186,15 +3222,17 @@ document.getElementById('btn-save-day').addEventListener('click', () => {
   if (!title) { toast(ti('tour_config.message.day_title_required'), 'err'); return; }
   const entry = { day: num, title, description: desc };
   if (numEnd && numEnd > num) entry.day_end = numEnd;
-  S.itinerary.push(entry);
+  if (_itinEditIndex !== null) {
+    S.itinerary[_itinEditIndex] = entry;
+    toast(ti('tour_config.message.day_updated') || 'Day updated.');
+  } else {
+    S.itinerary.push(entry);
+    toast(ti('tour_config.message.day_added'));
+  }
   S.itinerary.sort((a, b) => a.day - b.day);
   renderItinerary();
   document.getElementById('add-day-form').style.display = 'none';
-  document.getElementById('day-num').value = ((numEnd || num) + 1).toString();
-  document.getElementById('day-num-end').value = '';
-  document.getElementById('day-title').value = '';
-  document.getElementById('day-desc').value  = '';
-  toast(ti('tour_config.message.day_added'));
+  _resetDayForm();
 });
 
 // ---- Catalog link managers ----
