@@ -2701,7 +2701,7 @@ async function requireTenant(c) {
   }
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
+    .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain, promo_activated FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
@@ -4732,7 +4732,7 @@ export default function registerUniversalSiteRoutes(app) {
     }
 
     const tenant = await c.env.DB
-      .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain FROM tenants WHERE id = ?')
+      .prepare('SELECT id, name, template_id, site_config, default_locale, booking_currency, market_skin_key, primary_market, subscription_status, payment_methods, terms_accepted, trust_status, custom_domain, custom_domain_verified_at, subdomain, promo_activated FROM tenants WHERE id = ?')
       .bind(tenantId)
       .first();
     if (!tenant) {
