@@ -308,6 +308,15 @@
           <button class="btn" id="submit-btn" type="submit">Create account</button>
           <div class="signup-proof" id="signup-offer">Free for 6 months. No card required. Your selected plan starts after the trial.</div>
 
+          <div style="margin:16px 0 0">
+            <label class="field-label" for="f-promo" style="font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#64748b">
+              Promo code <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>
+            </label>
+            <input id="f-promo" type="text" placeholder="e.g. ABCD-EFGH" maxlength="20" autocomplete="off"
+                   style="text-transform:uppercase;letter-spacing:.08em;font-family:monospace" />
+            <div class="field-hint">Have a promo code? Enter it here — your account will be activated automatically after signup.</div>
+          </div>
+
           <div class="divider"><span id="divider-or">or</span></div>
           <div class="google-slot" id="google-slot"></div>
           <button class="btn btn-secondary" id="google-fallback-btn" type="button" style="display:none">Continue with Google</button>
@@ -534,6 +543,16 @@
 
       localStorage.setItem('tam_tenant_id', data.tenant_id);
       okEl.style.display = 'block';
+      const _promoCode = document.getElementById('f-promo')?.value.trim().toUpperCase().replace(/\s+/g, '');
+      if (_promoCode) {
+        try {
+          await fetch('/api/billing/redeem-promo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': data.tenant_id },
+            body: JSON.stringify({ code: _promoCode }),
+          });
+        } catch (_) {}
+      }
       setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 800);
     } catch (_) {
       showError(shared('network_error', 'Connection error. Please try again.'));
@@ -619,6 +638,16 @@
           }
           localStorage.setItem('tam_tenant_id', data.tenant_id);
           okEl.style.display = 'block';
+          const _promoCode = document.getElementById('f-promo')?.value.trim().toUpperCase().replace(/\s+/g, '');
+          if (_promoCode) {
+            try {
+              await fetch('/api/billing/redeem-promo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': data.tenant_id },
+                body: JSON.stringify({ code: _promoCode }),
+              });
+            } catch (_) {}
+          }
           setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 500);
         } catch (_) {
           showError(shared('network_error', 'Connection error. Please try again.'));

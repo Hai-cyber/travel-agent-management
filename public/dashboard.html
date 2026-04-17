@@ -846,6 +846,7 @@
               <span style="font-size:18px">⏳</span>
               <span id="trial-banner-text">Trial mode</span>
               <a href="#" id="btn-upgrade" style="margin-left:auto;font-size:12px;font-weight:700;color:#7c3aed;text-decoration:none;">Upgrade →</a>
+              <a href="#" id="btn-promo-banner" style="font-size:12px;font-weight:600;color:#0369a1;text-decoration:none;">Use promo code</a>
             </div>
 
             <!-- Compliance Banner -->
@@ -1131,19 +1132,17 @@
 
                 <!-- Promo Code Redemption -->
                 <div style="margin-top:28px;border-top:1px solid #e2e8f0;padding-top:22px">
-                  <details id="promo-details">
-                    <summary style="cursor:pointer;font-size:13px;color:#64748b;user-select:none">Have a promo code?</summary>
-                    <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;max-width:360px">
-                      <input id="promo-code-input" type="text" placeholder="Enter code e.g. ABCD-EFGH"
-                             style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:monospace;letter-spacing:.08em;text-transform:uppercase;outline:none"
-                             maxlength="20" autocomplete="off" />
-                      <button id="btn-redeem-promo" type="button"
-                              style="align-self:flex-start;padding:9px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
-                        Apply code
-                      </button>
-                      <p id="promo-redeem-msg" style="display:none;font-size:13px;margin:0"></p>
-                    </div>
-                  </details>
+                  <p style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 12px">🎟️ Have a promo code?</p>
+                  <div style="display:flex;flex-direction:column;gap:10px;max-width:360px">
+                    <input id="promo-code-input" type="text" placeholder="Enter code e.g. ABCD-EFGH"
+                           style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:monospace;letter-spacing:.08em;text-transform:uppercase;outline:none"
+                           maxlength="20" autocomplete="off" />
+                    <button id="btn-redeem-promo" type="button"
+                            style="align-self:flex-start;padding:9px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+                      Apply code
+                    </button>
+                    <p id="promo-redeem-msg" style="display:none;font-size:13px;margin:0"></p>
+                  </div>
                 </div>
               </div>
             </div><!-- /pane-billing -->
@@ -2651,6 +2650,12 @@ window.addEventListener('dashboard:langchange', () => {
 
         renderTrialBanner();
         window.addEventListener('dashboard:langchange', renderTrialBanner);
+
+        document.getElementById('btn-promo-banner')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          showPane('billing');
+          setTimeout(() => document.getElementById('promo-code-input')?.focus(), 200);
+        });
 
         const btnUpgrade = document.getElementById('btn-upgrade');
         if (btnUpgrade) {
