@@ -2690,6 +2690,14 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   </script>
   ${bookingViewMarkup}
   ${adminPreviewScript}
+  <!-- Powered by Tours Market -->
+  <div style="position:fixed;bottom:12px;right:14px;z-index:9999;pointer-events:auto">
+    <a href="https://tours-market.com" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:5px;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);color:#e2e8f0;font-family:system-ui,sans-serif;font-size:11px;font-weight:600;letter-spacing:.02em;padding:5px 10px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,.12);box-shadow:0 2px 8px rgba(0,0,0,.25);transition:opacity .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Powered by Tours Market
+    </a>
+  </div>
 </body>
 </html>`;
 }

@@ -504,6 +504,7 @@ export function buildMinimalFooterHtml({
   <div class="site-chrome-inner site-chrome-footer-inner">
     <div class="site-chrome-footer-copy">${logoImg}<span class="site-chrome-brand-text">${escAttr(brandName || 'Brand')} · ${year}</span></div>
     ${menuHtml}
+    <a href="https://tours-market.com" target="_blank" rel="noopener" class="site-chrome-powered" style="font-size:10px;opacity:.55;text-decoration:none;margin-left:auto;white-space:nowrap">Powered by Tours Market</a>
   </div>
 </footer>`;
 }
