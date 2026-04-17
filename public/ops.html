@@ -643,12 +643,16 @@ function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
   } else if (todo.service_type === 'guide') {
     const tf = meta.time_from ? unixToTimeStr(meta.time_from) : '';
     const tt = meta.time_to   ? unixToTimeStr(meta.time_to)   : '';
-    sub1 = [tf && tt ? tf+'–'+tt : (tf||tt), meta.languages].filter(Boolean).join(' · ');
+    const gd = meta.time_from ? unixToDateStr(meta.time_from) : (stopDateFrom ? fmtDate(stopDateFrom) : '');
+    sub1 = [gd, tf && tt ? tf+'–'+tt : (tf||tt), meta.languages].filter(Boolean).join(' · ');
   } else if (todo.service_type === 'local_transport') {
-    sub1 = [meta.mode, meta.pickup_place, meta.dropoff_place].filter(Boolean).join(' → ');
+    const pt = meta.pickup_time ? unixToTimeStr(meta.pickup_time) : '';
+    const pd = meta.pickup_time ? unixToDateStr(meta.pickup_time) : (stopDateFrom ? fmtDate(stopDateFrom) : '');
+    sub1 = [pd && pt ? pd + ' ' + pt : (pd||pt), meta.mode, meta.pickup_place, meta.dropoff_place].filter(Boolean).join(' · ');
   } else if (todo.service_type === 'intercity_leg') {
-    const dt = meta.depart_time ? unixToDateStr(meta.depart_time) : '';
-    sub1 = [meta.mode, meta.depart_point && meta.arrive_point ? meta.depart_point+'→'+meta.arrive_point : (meta.depart_point||meta.arrive_point), dt].filter(Boolean).join(' · ');
+    const dt = meta.depart_time ? unixToDateStr(meta.depart_time) : (stopDateFrom || '');
+    const tm = meta.depart_time ? unixToTimeStr(meta.depart_time) : '';
+    sub1 = [meta.mode, meta.depart_point && meta.arrive_point ? meta.depart_point+'→'+meta.arrive_point : (meta.depart_point||meta.arrive_point), dt ? fmtDate(dt) + (tm ? ' '+tm : '') : ''].filter(Boolean).join(' · ');
   } else {
     sub1 = todo.title || '';
   }
@@ -744,13 +748,18 @@ function renderCardForm(todo, order, stopDateFrom, stopDateTo) {
       </div>
       <div class="field-group full"><label>Address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>`;
   } else if (svc === 'guide') {
-    const tf = meta.time_from ? unixToTimeStr(meta.time_from) : '08:00';
-    const tt = meta.time_to   ? unixToTimeStr(meta.time_to)   : '18:00';
+    const tf  = meta.time_from ? unixToTimeStr(meta.time_from) : '08:00';
+    const tt  = meta.time_to   ? unixToTimeStr(meta.time_to)   : '18:00';
+    const gd  = meta.time_from ? unixToDateStr(meta.time_from) : stopDateFrom || '';
     specificFields = `
       <div class="field-group full" style="margin-bottom:8px">
         <label>Guide name</label>
         <input type="text" data-key="guide_name" value="${esc(meta.guide_name||'')}" placeholder="e.g. Nguyen Van Tuan" autocomplete="off">
         <div class="ac-drop" id="ac-${esc(id)}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Service date</label><input type="date" data-key="guide_date" value="${esc(gd)}"></div>
+        <div class="field-group"></div>
       </div>
       <div class="field-row">
         <div class="field-group"><label>From</label><input type="time" data-key="time_from_str" value="${esc(tf)}"></div>
@@ -762,6 +771,7 @@ function renderCardForm(todo, order, stopDateFrom, stopDateTo) {
       </div>`;
   } else if (svc === 'local_transport') {
     const pt = meta.pickup_time ? unixToTimeStr(meta.pickup_time) : '08:00';
+    const pd = meta.pickup_time ? unixToDateStr(meta.pickup_time) : stopDateFrom || '';
     specificFields = `
       <div class="field-group full" style="margin-bottom:8px">
         <label>Supplier / company</label>
@@ -773,15 +783,16 @@ function renderCardForm(todo, order, stopDateFrom, stopDateTo) {
         <div class="field-group"><label>Driver name</label><input type="text" data-key="driver_name" value="${esc(meta.driver_name||'')}"></div>
       </div>
       <div class="field-row">
+        <div class="field-group"><label>Pickup date</label><input type="date" data-key="pickup_date" value="${esc(pd)}"></div>
         <div class="field-group"><label>Pickup time</label><input type="time" data-key="pickup_time_str" value="${esc(pt)}"></div>
-        <div class="field-group"><label>Pickup place</label><input type="text" data-key="pickup_place" value="${esc(meta.pickup_place||'')}"></div>
       </div>
       <div class="field-row">
+        <div class="field-group"><label>Pickup place</label><input type="text" data-key="pickup_place" value="${esc(meta.pickup_place||'')}"></div>
         <div class="field-group"><label>Drop-off place</label><input type="text" data-key="dropoff_place" value="${esc(meta.dropoff_place||'')}"></div>
-        <div class="field-group"><label>Office / address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>
-      </div>`;
+      </div>
+      <div class="field-group full"><label>Office / address</label><input type="text" data-key="address" value="${esc(meta.address||'')}"></div>`;
   } else if (svc === 'intercity_leg') {
-    const dtStr = meta.depart_time ? unixToDateTimeLocal(meta.depart_time) : '';
+    const dtStr = meta.depart_time ? unixToDateTimeLocal(meta.depart_time) : (stopDateFrom ? stopDateFrom + 'T08:00' : '');
     specificFields = `
       <div class="field-group full" style="margin-bottom:8px">
         <label>Supplier / carrier</label>
@@ -902,9 +913,10 @@ async function handleSave(form) {
     if (fields.notes)            meta.notes           = fields.notes;
     if (fields.cn)               meta.contact_name    = fields.cn;
   } else if (svc === 'guide') {
-    if (fields.guide_name)   meta.guide_name  = fields.guide_name;
-    if (fields.time_from_str) meta.time_from  = timeStrToUnix(fields.time_from_str, null);
-    if (fields.time_to_str)   meta.time_to    = timeStrToUnix(fields.time_to_str, null);
+    if (fields.guide_name)    meta.guide_name  = fields.guide_name;
+    const guideDate = fields.guide_date || null;
+    if (fields.time_from_str) meta.time_from  = timeStrToUnix(fields.time_from_str, guideDate);
+    if (fields.time_to_str)   meta.time_to    = timeStrToUnix(fields.time_to_str, guideDate);
     if (fields.languages)     meta.languages  = fields.languages;
     if (fields.address)       meta.address    = fields.address;
     if (fields.notes)         meta.notes      = fields.notes;
@@ -913,7 +925,8 @@ async function handleSave(form) {
     if (fields.supplier)      meta.supplier      = fields.supplier;
     if (fields.mode)          meta.mode          = fields.mode;
     if (fields.driver_name)   meta.driver_name   = fields.driver_name;
-    if (fields.pickup_time_str) meta.pickup_time = timeStrToUnix(fields.pickup_time_str, null);
+    const pickupDate = fields.pickup_date || null;
+    if (fields.pickup_time_str) meta.pickup_time = timeStrToUnix(fields.pickup_time_str, pickupDate);
     if (fields.pickup_place)  meta.pickup_place  = fields.pickup_place;
     if (fields.dropoff_place) meta.dropoff_place = fields.dropoff_place;
     if (fields.address)       meta.address       = fields.address;
