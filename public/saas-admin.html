@@ -207,8 +207,15 @@
           <button id="btn-admin-signout" class="btn btn-secondary" type="button" style="padding:8px 14px;font-size:12px">Sign out</button>
         </span>
       </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--muted)">
+          Admin secret
+          <input id="admin-secret" type="password" autocomplete="current-password" placeholder="X-Admin-Secret"
+                 style="width:220px;padding:9px 13px;border-radius:999px;border:1px solid rgba(16,33,45,.15);font-size:13px;background:rgba(255,255,255,.85)" />
+        </label>
+      </div>
     </section>
-    <div class="status" id="status">Enter your admin secret, then load the current marketing config.</div>
+    <div class="status" id="status">Enter your admin secret above, then use any tab.</div>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="marketing">Marketing Editor</button>
@@ -220,12 +227,11 @@
     <div class="tab-pane active" id="tab-marketing">
 
     <section class="panel" style="margin-bottom:18px">
-      <h2>Access</h2>
-      <div class="row">
-        <label>Admin secret<input id="admin-secret" type="password" autocomplete="current-password" placeholder="X-Admin-Secret" /></label>
+      <h2>Marketing Config</h2>
+      <div class="row" style="grid-template-columns:1fr auto;align-items:end">
         <label>Last update<input id="updated-at" type="text" readonly placeholder="Not loaded yet" /></label>
+        <div><button class="btn btn-secondary" id="btn-load" type="button">Load config</button></div>
       </div>
-      <div class="actions"><button class="btn btn-secondary" id="btn-load" type="button">Load config</button></div>
     </section>
 
     <form id="editor-form">
