@@ -167,6 +167,18 @@
     .progress-bar-track { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.1) }
     .progress-bar-fill { height:100%; border-radius:3px; background:var(--pill-confirmed); transition:width .4s }
     .progress-label { color:rgba(255,255,255,.6); font-size:.78rem; white-space:nowrap }
+    .ops-filter-bar {
+      background:var(--bg2); padding:8px 16px 12px; display:flex; gap:8px; flex-wrap:wrap;
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .ops-filter-bar select {
+      background:rgba(255,255,255,.08); color:#e2e8f0; border:1px solid rgba(255,255,255,.12);
+      border-radius:10px; padding:7px 10px; font-size:.82rem; min-width:150px;
+    }
+    .ops-filter-bar select:focus {
+      outline:none; border-color:rgba(59,130,246,.7); box-shadow:0 0 0 3px rgba(59,130,246,.15);
+    }
+    .ops-filter-meta { color:rgba(255,255,255,.58); font-size:.78rem; display:flex; align-items:center; }
 
     /* ── Status filters ─────────────────────────── */
     .filters { display:flex; gap:8px; padding:14px 16px 6px; overflow-x:auto; scrollbar-width:none }
@@ -183,6 +195,7 @@
     .stop-header {
       display:flex; align-items:center; gap:10px; margin-bottom:10px;
       padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.1);
+      flex-wrap:wrap;
     }
     .stop-label { color:#e2e8f0; font-weight:700; font-size:.95rem }
     .stop-days  { color:rgba(255,255,255,.5); font-size:.8rem }
@@ -191,6 +204,22 @@
       border-radius:20px; padding:2px 10px; font-size:.75rem; white-space:nowrap;
     }
     .stop-progress.all-done { background:rgba(16,185,129,.2); color:#6ee7b7 }
+    .stop-overdue-count {
+      background:rgba(239,68,68,.16); color:#fca5a5; border-radius:20px;
+      padding:2px 10px; font-size:.75rem; white-space:nowrap;
+    }
+    .stop-bulk-actions { display:flex; gap:6px; flex-wrap:wrap; width:100%; margin-top:2px }
+    .stop-bulk-btn {
+      background:rgba(255,255,255,.08); color:#e2e8f0; border:1px solid rgba(255,255,255,.14);
+      border-radius:999px; padding:5px 10px; font-size:.74rem; font-weight:700; cursor:pointer;
+    }
+    .stop-bulk-btn:hover { background:rgba(255,255,255,.14) }
+    .stop-bulk-btn:disabled { opacity:.55; cursor:not-allowed }
+    .stop-assign-input {
+      background:rgba(255,255,255,.08); color:#e2e8f0; border:1px solid rgba(255,255,255,.14);
+      border-radius:999px; padding:5px 10px; font-size:.74rem; min-width:170px;
+    }
+    .stop-assign-input::placeholder { color:rgba(255,255,255,.45) }
 
     /* ── Todo card ──────────────────────────────── */
     .todo-card {
@@ -198,6 +227,10 @@
       margin-bottom:10px; overflow:hidden; transition:box-shadow .15s;
     }
     .todo-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.12) }
+    .todo-card.overdue {
+      box-shadow:0 0 0 1px rgba(239,68,68,.28), 0 8px 24px rgba(239,68,68,.12);
+      background:linear-gradient(180deg, #fff7f7 0%, #ffffff 90%);
+    }
 
     .card-header {
       display:flex; align-items:flex-start; gap:12px; padding:13px 14px;
@@ -208,7 +241,20 @@
     .card-title { font-weight:700; font-size:.95rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
     .card-sub1  { font-size:.8rem; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
     .card-sub2  { font-size:.78rem; color:var(--muted); margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+    .card-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px }
+    .card-action-btn {
+      display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:999px;
+      font-size:.74rem; font-weight:600; text-decoration:none; border:1px solid var(--border);
+      background:var(--surface-dim); color:var(--text);
+    }
+    .card-action-btn.phone { background:#f0fdf4; border-color:#bbf7d0; color:#166534 }
+    .card-action-btn.email { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8 }
+    .card-action-btn.map { background:#fff7ed; border-color:#fed7aa; color:#c2410c }
     .card-sub2 .ch-icon { cursor:pointer; font-size:.95rem }
+    .due-pill {
+      display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px;
+      font-size:.7rem; font-weight:700; background:#fee2e2; color:#991b1b;
+    }
     .thread-count { font-size:.72rem; background:var(--surface-dim); color:var(--muted); border-radius:10px; padding:1px 7px }
 
     .card-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0 }
@@ -446,6 +492,29 @@
       <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
       <span class="progress-label" id="progress-label">0 / 0</span>
     </div>
+    <div class="ops-filter-bar">
+      <select id="ops-status-filter">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="contacted">Contacted</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="rebooked">Rebooked</option>
+      </select>
+      <select id="ops-service-filter">
+        <option value="">All services</option>
+        <option value="accommodation">Accommodation</option>
+        <option value="meal">Meal</option>
+        <option value="guide">Guide</option>
+        <option value="local_transport">Local transport</option>
+        <option value="intercity_leg">Intercity leg</option>
+      </select>
+      <select id="ops-due-filter">
+        <option value="">All timing</option>
+        <option value="overdue">Overdue only</option>
+      </select>
+      <span class="ops-filter-meta" id="ops-filter-meta">Showing all tasks</span>
+    </div>
     <div id="stops-container"></div>
   </div>
 </div>
@@ -605,6 +674,54 @@ function getStatusLabel(s) {
   return { pending:'Pending', contacted:'Contacted', confirmed:'Confirmed', cancelled:'Cancelled', rebooked:'Rebooked' }[s] || s;
 }
 
+function getTodoDueUnix(todo) {
+  const meta = readMeta(todo.service_meta_json);
+  switch (todo.service_type) {
+    case 'accommodation': return meta.check_in || null;
+    case 'meal': return meta.meal_datetime || null;
+    case 'guide': return meta.time_from || null;
+    case 'local_transport': return meta.pickup_time || null;
+    case 'intercity_leg': return meta.depart_time || null;
+    default: return null;
+  }
+}
+
+function isTodoOverdue(todo) {
+  if (todo.status === 'confirmed' || todo.status === 'cancelled') return false;
+  const dueUnix = getTodoDueUnix(todo);
+  return Number.isFinite(dueUnix) && dueUnix > 0 && dueUnix < Math.floor(Date.now() / 1000);
+}
+
+function buildOpsQuickActions(todo) {
+  const buttons = [];
+  const meta = readMeta(todo.service_meta_json);
+  const address = String(meta.address || meta.pickup_place || meta.depart_point || '').trim();
+  if (todo.contact_phone) {
+    const digits = String(todo.contact_phone).replace(/\D/g, '');
+    buttons.push(`<a class="card-action-btn phone" href="tel:${esc(todo.contact_phone)}">📞 Call</a>`);
+    if (digits) buttons.push(`<a class="card-action-btn phone" href="https://wa.me/${encodeURIComponent(digits)}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>`);
+  }
+  if (todo.contact_email) {
+    buttons.push(`<a class="card-action-btn email" href="mailto:${esc(todo.contact_email)}">✉️ Email</a>`);
+  }
+  if (address) {
+    buttons.push(`<a class="card-action-btn map" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" rel="noopener noreferrer">📍 Map</a>`);
+  }
+  return buttons.length ? `<div class="card-actions">${buttons.join('')}</div>` : '';
+}
+
+function renderStopBulkActions(stopKey, orderId, items = []) {
+  const suggestions = [...new Set(items.map(t => String(t.person_in_charge || '').trim()).filter(Boolean))];
+  const listId = `assign-list-${String(stopKey).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+  return `<div class="stop-bulk-actions">
+    <button class="stop-bulk-btn" data-bulk-action="contacted" data-stop-key="${esc(stopKey)}" data-order="${esc(orderId)}">Mark visible as contacted</button>
+    <button class="stop-bulk-btn" data-bulk-action="confirmed" data-stop-key="${esc(stopKey)}" data-order="${esc(orderId)}">Mark visible as confirmed</button>
+    <input class="stop-assign-input" data-stop-assign="${esc(stopKey)}" list="${esc(listId)}" placeholder="Owner for visible tasks" />
+    <datalist id="${esc(listId)}">${suggestions.map(name => `<option value="${esc(name)}"></option>`).join('')}</datalist>
+    <button class="stop-bulk-btn" data-bulk-action="assign" data-stop-key="${esc(stopKey)}" data-order="${esc(orderId)}">Apply owner</button>
+  </div>`;
+}
+
 // ── API calls ─────────────────────────────────────────────────────────────────
 function api(path, opts = {}) {
   const headers = { 'X-Tenant-ID': TENANT_ID, ...(opts.headers || {}) };
@@ -651,6 +768,7 @@ function showError(msg) {
 
 // ── ORDER LIST ────────────────────────────────────────────────────────────────
 let allOrders = [];
+const boardFilters = { status: '', serviceType: '', dueMode: '' };
 async function loadOrderList(statusFilter = '') {
   const view = $('order-list-view');
   view.classList.remove('hidden');
@@ -728,10 +846,22 @@ document.addEventListener('DOMContentLoaded', () => {
     $('order-list-view').classList.remove('hidden');
     loadOrderList();
   });
+  $('ops-status-filter')?.addEventListener('change', (e) => {
+    boardFilters.status = e.target.value || '';
+    applyBoardFilters();
+  });
+  $('ops-service-filter')?.addEventListener('change', (e) => {
+    boardFilters.serviceType = e.target.value || '';
+    applyBoardFilters();
+  });
+  $('ops-due-filter')?.addEventListener('change', (e) => {
+    boardFilters.dueMode = e.target.value || '';
+    applyBoardFilters();
+  });
 });
 
 // ── OPS BOARD ─────────────────────────────────────────────────────────────────
-async function loadBoard(orderId) {
+async function loadBoard(orderId, options = {}) {
   const view = $('ops-board-view');
   view.classList.remove('hidden');
 
@@ -753,6 +883,14 @@ async function loadBoard(orderId) {
 
   $('board-title').textContent = tourName;
   $('ops-board-view').dataset.travelDate = order.travel_date || '';
+  if (!options.preserveFilters) {
+    boardFilters.status = '';
+    boardFilters.serviceType = '';
+    boardFilters.dueMode = '';
+    if ($('ops-status-filter')) $('ops-status-filter').value = '';
+    if ($('ops-service-filter')) $('ops-service-filter').value = '';
+    if ($('ops-due-filter')) $('ops-due-filter').value = '';
+  }
   $('order-meta-bar').innerHTML = `
     <span><strong>${esc(tourName)}</strong></span>
     <span>📅 ${esc(fmtDate(order.travel_date))}</span>
@@ -771,6 +909,21 @@ async function loadBoard(orderId) {
 
   // Group todos by stop
   renderStops(todos, order);
+  applyBoardFilters();
+
+  if (options.openTodoId) {
+    const card = document.querySelector(`.todo-card[data-id="${CSS.escape(options.openTodoId)}"]`);
+    const body = card?.querySelector('.card-body');
+    if (card && body && !card.hidden) {
+      body.classList.add('open');
+      card.querySelector('.expand-icon').textContent = '▲';
+      if (!body.dataset.loaded) {
+        loadThreadInto(body, options.openTodoId, orderId);
+        body.dataset.loaded = '1';
+      }
+      card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
 }
 
 function renderStops(todos, order) {
@@ -796,6 +949,7 @@ function renderStops(todos, order) {
       ? `Day ${meta.day_from}${meta.day_to !== meta.day_from ? '–' + meta.day_to : ''}`
       : '';
     const doneCount = items.filter(t => t.status === 'confirmed' || t.status === 'cancelled').length;
+    const overdueCount = items.filter(t => isTodoOverdue(t)).length;
     const allDone   = doneCount === items.length;
 
     const stopDateFrom = meta.day_from != null && order.travel_date ? addDays(order.travel_date, meta.day_from - 1) : null;
@@ -806,6 +960,8 @@ function renderStops(todos, order) {
         <span class="stop-label">📍 ${esc(meta.label)}</span>
         ${dayText ? `<span class="stop-days">${esc(dayText)}${stopDateFrom ? ' · ' + fmtDate(stopDateFrom) : ''}</span>` : ''}
         <span class="stop-progress${allDone ? ' all-done' : ''}">${doneCount}/${items.length}</span>
+        ${overdueCount ? `<span class="stop-overdue-count">⚠ ${overdueCount} overdue</span>` : ''}
+        ${renderStopBulkActions(key, order.id, items)}
       </div>
       <div class="stop-cards" id="stop-${CSS.escape(key)}">
         ${items.map(t => renderCardCollapsed(t, order, stopDateFrom, stopDateTo)).join('')}
@@ -885,10 +1041,12 @@ function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
   // Sub-line 2: channels + person
   const picPhone = todo.contact_phone || '';
   const pic      = todo.person_in_charge || '';
+  const overdue  = isTodoOverdue(todo);
+  const quickActions = buildOpsQuickActions(todo);
 
   const formHtml = renderCardForm(todo, order, stopDateFrom, stopDateTo);
 
-  return `<div class="todo-card" data-id="${esc(todo.id)}" data-order="${esc(order.id)}">
+  return `<div class="todo-card${overdue ? ' overdue' : ''}" data-id="${esc(todo.id)}" data-order="${esc(order.id)}" data-status="${esc(todo.status || 'pending')}" data-service="${esc(todo.service_type || 'custom')}" data-overdue="${overdue ? '1' : '0'}">
     <div class="card-header">
       <span class="card-icon">${icon}</span>
       <div class="card-main">
@@ -897,7 +1055,9 @@ function renderCardCollapsed(todo, order, stopDateFrom, stopDateTo) {
         <div class="card-sub2">
           ${picPhone ? `<span title="Phone">📞 ${esc(picPhone)}</span>` : ''}
           ${pic ? `<span title="In charge">👤 ${esc(pic)}</span>` : ''}
+          ${overdue ? `<span class="due-pill">⚠ Overdue</span>` : ''}
         </div>
+        ${quickActions}
       </div>
       <div class="card-right">
         <span class="status-pill ${sc}">${sl}</span>
@@ -1104,6 +1264,61 @@ function v(k, val) { return val || ''; }
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 document.addEventListener('click', async e => {
+  const bulkBtn = e.target.closest('.stop-bulk-btn');
+  if (bulkBtn && !bulkBtn.disabled) {
+    const orderId = bulkBtn.dataset.order;
+    const stopKey = bulkBtn.dataset.stopKey;
+    const targetStatus = bulkBtn.dataset.bulkAction;
+    const stopCardsEl = document.getElementById(`stop-${CSS.escape(stopKey)}`);
+    if (!orderId || !stopCardsEl || !targetStatus) return;
+
+    const visibleCards = [...stopCardsEl.querySelectorAll('.todo-card')].filter(card => !card.hidden);
+    const targetCards = visibleCards.filter(card => {
+      const status = card.dataset.status || 'pending';
+      if (targetStatus === 'contacted') return status === 'pending';
+      if (targetStatus === 'confirmed') return status !== 'confirmed' && status !== 'cancelled';
+      if (targetStatus === 'assign') return true;
+      return false;
+    });
+    if (!targetCards.length) return;
+
+    let assignmentValue = null;
+    let label = targetStatus === 'contacted' ? 'mark visible tasks as contacted' : 'mark visible tasks as confirmed';
+    if (targetStatus === 'assign') {
+      const assignInput = document.querySelector(`[data-stop-assign="${CSS.escape(stopKey)}"]`);
+      assignmentValue = assignInput?.value?.trim() || '';
+      label = assignmentValue ? `assign "${assignmentValue}" to visible tasks` : 'clear person in charge on visible tasks';
+    }
+    if (!confirm(`Apply bulk action to ${targetCards.length} task(s) in this stop: ${label}?`)) return;
+
+    bulkBtn.disabled = true;
+    const originalText = bulkBtn.textContent;
+    bulkBtn.textContent = 'Applying…';
+    try {
+      await Promise.all(targetCards.map(async (card) => {
+        const body = targetStatus === 'assign'
+          ? { person_in_charge: assignmentValue || null }
+          : { status: targetStatus };
+        const res = await api(`/api/bookings/order/${orderId}/todos/${card.dataset.id}`, { method: 'PATCH', body });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          throw new Error(payload?.error || `HTTP ${res.status}`);
+        }
+      }));
+      await loadBoard(orderId, { preserveFilters: true });
+      if (targetStatus === 'assign') {
+        const assignInput = document.querySelector(`[data-stop-assign="${CSS.escape(stopKey)}"]`);
+        if (assignInput) assignInput.value = assignmentValue || '';
+      }
+    } catch (err) {
+      alert('Bulk update failed: ' + err.message);
+    } finally {
+      bulkBtn.disabled = false;
+      bulkBtn.textContent = originalText;
+    }
+    return;
+  }
+
   // ── Delete todo ─────────────────────────────────────────────────────────
   const delBtn = e.target.closest('.btn-delete');
   if (delBtn) {
@@ -1119,7 +1334,7 @@ document.addEventListener('click', async e => {
       if (!res.ok) { const e2 = await res.json().catch(() => ({})); alert('Delete failed: ' + (e2.error || res.status)); delBtn.disabled = false; delBtn.textContent = '🗑'; return; }
       const card = document.querySelector(`.todo-card[data-id="${CSS.escape(todoId)}"]`);
       card?.remove();
-      updateProgress();
+      applyBoardFilters();
     } catch(err) { alert('Error: ' + err.message); delBtn.disabled = false; delBtn.textContent = '🗑'; }
     return;
   }
@@ -1279,29 +1494,7 @@ async function handleSave(form) {
       alert('Save failed: ' + (err.error || res.status));
       return;
     }
-    // Update pill on card header
-    if (card) {
-      const pill = card.querySelector('.card-right .status-pill');
-      if (pill) { pill.className = 'status-pill ' + getStatusClass(status); pill.textContent = getStatusLabel(status); }
-    }
-    // Update title if name changed
-    if (nameField && meta[nameField] && card) {
-      const titleEl = card.querySelector('.card-title');
-      if (titleEl) titleEl.textContent = meta[nameField];
-    }
-    // Save contact_phone on card sub2
-    if (fields.cp && card) {
-      const sub2 = card.querySelector('.card-sub2');
-      if (sub2) {
-        let phoneSpan = sub2.querySelector('[title="Phone"]');
-        if (!phoneSpan) { phoneSpan = document.createElement('span'); phoneSpan.title = 'Phone'; sub2.prepend(phoneSpan); }
-        phoneSpan.textContent = '📞 ' + fields.cp;
-      }
-    }
-    fb.style.display = 'inline';
-    setTimeout(() => { fb.style.display = 'none'; }, 2000);
-    // Update the progress bar
-    updateProgress();
+    await loadBoard(orderId, { preserveFilters: true, openTodoId: todoId });
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save';
@@ -1406,7 +1599,7 @@ async function handleAddTask(submitBtn) {
     form.classList.remove('open');
     const addBtn = document.querySelector(`.add-task-btn[data-stop-key="${CSS.escape(stopKey)}"]`);
     if (addBtn) addBtn.style.display = '';
-    updateProgress();
+    applyBoardFilters();
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Add task';
@@ -1414,7 +1607,7 @@ async function handleAddTask(submitBtn) {
 }
 
 function updateProgress() {
-  const cards = document.querySelectorAll('.todo-card');
+  const cards = [...document.querySelectorAll('.todo-card')].filter(c => !c.hidden);
   let total = cards.length, confirmed = 0;
   cards.forEach(c => {
     const pill = c.querySelector('.card-right .status-pill');
@@ -1425,7 +1618,7 @@ function updateProgress() {
   $('progress-label').textContent = `${confirmed} / ${total} done`;
   // Update stop badges
   document.querySelectorAll('.stop-section').forEach(section => {
-    const sCards = section.querySelectorAll('.todo-card');
+    const sCards = [...section.querySelectorAll('.todo-card')].filter(c => !c.hidden);
     const sDone  = [...sCards].filter(c => {
       const pill = c.querySelector('.card-right .status-pill');
       return pill && (pill.textContent === 'Confirmed' || pill.textContent === 'Cancelled');
@@ -1436,6 +1629,41 @@ function updateProgress() {
       badge.classList.toggle('all-done', sDone === sCards.length);
     }
   });
+}
+
+function applyBoardFilters() {
+  const statusFilter = boardFilters.status || '';
+  const serviceFilter = boardFilters.serviceType || '';
+  const dueMode = boardFilters.dueMode || '';
+  const cards = document.querySelectorAll('.todo-card');
+  let visible = 0;
+
+  cards.forEach((card) => {
+    const matchesStatus = !statusFilter || card.dataset.status === statusFilter;
+    const matchesService = !serviceFilter || card.dataset.service === serviceFilter;
+    const matchesDue = !dueMode || (dueMode === 'overdue' && card.dataset.overdue === '1');
+    const show = matchesStatus && matchesService && matchesDue;
+    card.hidden = !show;
+    if (show) visible++;
+  });
+
+  document.querySelectorAll('.stop-section').forEach((section) => {
+    const visibleCards = [...section.querySelectorAll('.todo-card')].filter(c => !c.hidden).length;
+    section.hidden = visibleCards === 0;
+  });
+
+  const meta = $('ops-filter-meta');
+  if (meta) {
+    const labels = [];
+    if (statusFilter) labels.push(`status: ${getStatusLabel(statusFilter).toLowerCase()}`);
+    if (serviceFilter) labels.push(`service: ${serviceFilter.replace(/_/g, ' ')}`);
+    if (dueMode === 'overdue') labels.push('queue: overdue');
+    meta.textContent = labels.length
+      ? `Showing ${visible} task${visible === 1 ? '' : 's'} for ${labels.join(' · ')}`
+      : `Showing all ${visible} task${visible === 1 ? '' : 's'}`;
+  }
+
+  updateProgress();
 }
 
 // ── THREAD ────────────────────────────────────────────────────────────────────

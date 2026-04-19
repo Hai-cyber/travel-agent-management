@@ -275,15 +275,26 @@ export async function runTodoReminders(env) {
       const reminderKey = _reminderDayCheck(order, todayStr);
       if (!reminderKey) continue;
 
-      // Find todos still actionable and not recently reminded (23h de-dupe window)
+      // Find todos still actionable and not recently reminded (23h de-dupe window).
+      // Also suppress reminders when there was a recent real outbound contact
+      // (phone/WhatsApp/Zalo/email) inside the same window.
       const staleThreshold = now - 23 * 3600;
       const { results: todos } = await env.DB
         .prepare(`SELECT id, title, status, service_type, contact_name, contact_phone
                   FROM booking_order_todos
                   WHERE order_id = ? AND tenant_id = ?
                     AND status NOT IN ('confirmed', 'cancelled')
-                    AND (last_reminded_at IS NULL OR last_reminded_at < ?)`)
-        .bind(order.id, order.tenant_id, staleThreshold)
+                    AND (last_reminded_at IS NULL OR last_reminded_at < ?)
+                    AND NOT EXISTS (
+                      SELECT 1
+                      FROM booking_todo_threads btt
+                      WHERE btt.todo_id = booking_order_todos.id
+                        AND btt.tenant_id = booking_order_todos.tenant_id
+                        AND btt.direction = 'out'
+                        AND btt.channel IN ('phone', 'whatsapp', 'zalo', 'email')
+                        AND btt.created_at >= ?
+                    )`)
+        .bind(order.id, order.tenant_id, staleThreshold, staleThreshold)
         .all();
 
       if (!todos.length) continue;

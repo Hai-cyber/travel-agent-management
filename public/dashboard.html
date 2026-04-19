@@ -154,11 +154,13 @@
     .stop-todos-list > .svc-todo:last-child { border-bottom:none; }
     /* Service todo card */
     .svc-todo { position:relative; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:visible; background:#fff; }
+    .svc-todo.overdue { border-color:#fecaca; box-shadow:0 0 0 1px rgba(239,68,68,.14); background:linear-gradient(180deg,#fff7f7 0%,#ffffff 92%); }
     .svc-todo-head { display:flex; align-items:center; gap:10px; padding:12px 38px 12px 14px; }
     .svc-todo-icon { font-size:18px; flex-shrink:0; }
     .svc-todo-name { font-size:14px; font-weight:600; color:#1e293b; flex:1; min-width:0; overflow:hidden; }
     .svc-todo-name small { display:block; font-size:11px; font-weight:400; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .svc-status-chip { font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+    .svc-overdue-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; background:#fee2e2; color:#991b1b; white-space:nowrap; flex-shrink:0; }
     .status-pending   { background:#fef3c7; color:#92400e; }
     .status-contacted { background:#dbeafe; color:#1e40af; }
     .status-confirmed { background:#dcfce7; color:#166534; }
@@ -3560,6 +3562,24 @@ window.addEventListener('dashboard:langchange', () => {
     };
     const TS_FIELDS = new Set(['check_in','check_out','meal_datetime','depart_time','time_from','time_to','pickup_time']);
 
+    function getTodoDueUnix(todo) {
+      let meta; try { meta = JSON.parse(todo.service_meta_json || 'null') || {}; } catch { meta = {}; }
+      switch (todo.service_type) {
+        case 'accommodation': return meta.check_in || null;
+        case 'meal': return meta.meal_datetime || null;
+        case 'guide': return meta.time_from || null;
+        case 'local_transport': return meta.pickup_time || null;
+        case 'intercity_leg': return meta.depart_time || null;
+        default: return null;
+      }
+    }
+
+    function isTodoOverdue(todo) {
+      if (todo.status === 'confirmed' || todo.status === 'cancelled') return false;
+      const dueUnix = getTodoDueUnix(todo);
+      return Number.isFinite(dueUnix) && dueUnix > 0 && dueUnix < Math.floor(Date.now() / 1000);
+    }
+
     function buildMetaHtml(todo) {
       if (!todo.service_meta_json) return '';
       let meta; try { meta = JSON.parse(todo.service_meta_json); } catch { return ''; }
@@ -3574,6 +3594,8 @@ window.addEventListener('dashboard:langchange', () => {
 
     function buildContactBtns(todo, tid) {
       const btns = [];
+      let meta; try { meta = JSON.parse(todo.service_meta_json || 'null') || {}; } catch { meta = {}; }
+      const address = String(meta.address || meta.pickup_place || meta.depart_point || '').trim();
       if (todo.contact_phone) {
         const p = todo.contact_phone.replace(/\D/g,'');
         btns.push(`<a class="svc-contact-btn phone" href="tel:${escapeHtml(todo.contact_phone)}" title="${escapeHtml(todo.contact_phone)}">📞 <span>Call</span></a>`);
@@ -3582,6 +3604,9 @@ window.addEventListener('dashboard:langchange', () => {
       }
       if (todo.contact_email) {
         btns.push(`<a class="svc-contact-btn email" href="mailto:${escapeHtml(todo.contact_email)}" title="${escapeHtml(todo.contact_email)}">✉️ <span>Email</span></a>`);
+      }
+      if (address) {
+        btns.push(`<a class="svc-contact-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" rel="noopener noreferrer">📍 <span>Map</span></a>`);
       }
       btns.push(`<button class="svc-contact-btn note btn-add-note" data-todo-id="${escapeHtml(tid)}">📝 <span>Note</span></button>`);
       btns.push(`<button class="svc-contact-btn svc-thread-btn btn-show-thread" data-todo-id="${escapeHtml(tid)}">💬 Thread <span class="svc-thread-badge" id="thread-count-${escapeHtml(tid)}">…</span></button>`);
@@ -3593,10 +3618,11 @@ window.addEventListener('dashboard:langchange', () => {
       const status = todo.status || 'pending';
       const sm     = STATUS_META[status] || STATUS_META.pending;
       const icon   = SVC_ICONS[todo.service_type] || SVC_ICONS.custom;
+      const overdue = isTodoOverdue(todo);
       const subTxt = todo.person_in_charge
         ? `In charge: ${todo.person_in_charge}`
         : (todo.service_type ? todo.service_type.replace(/_/g,' ') : '');
-      return `<li class="svc-todo" data-todo-id="${escapeHtml(tid)}" data-status="${escapeHtml(status)}">
+      return `<li class="svc-todo${overdue ? ' overdue' : ''}" data-todo-id="${escapeHtml(tid)}" data-status="${escapeHtml(status)}">
         <button class="btn-del-todo" data-todo-id="${escapeHtml(tid)}" title="Delete this task">✕</button>
         <div class="svc-todo-head">
           <span class="svc-todo-icon">${icon}</span>
@@ -3606,6 +3632,7 @@ window.addEventListener('dashboard:langchange', () => {
               `<option value="${s}"${s===status?' selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
             ).join('')}
           </select>
+          ${overdue ? `<span class="svc-overdue-badge">Overdue</span>` : ''}
           <span class="svc-status-chip ${sm.cls}">${sm.label}</span>
         </div>
         <div class="svc-contact-btns">${buildContactBtns(todo, tid)}</div>
