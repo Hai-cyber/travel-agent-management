@@ -1341,9 +1341,18 @@ bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
 
   const orderId = c.req.param('orderId');
   const todoId  = c.req.param('todoId');
+  const changedBy = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? null;
 
   let body;
   try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+
+  const currentTodo = await c.env.DB
+    .prepare(`SELECT id, status, done, done_at, person_in_charge, contact_name, contact_phone, contact_email, service_meta_json
+              FROM booking_order_todos
+              WHERE id = ? AND order_id = ? AND tenant_id = ?`)
+    .bind(todoId, orderId, tenantId)
+    .first();
+  if (!currentTodo) return c.json({ error: 'Todo not found' }, 404);
 
   const VALID_STATUSES = new Set(['pending', 'contacted', 'confirmed', 'cancelled', 'rebooked']);
   const now    = Math.floor(Date.now() / 1000);
@@ -1389,6 +1398,38 @@ bookings.patch('/order/:orderId/todos/:todoId', async (c) => {
     .run();
 
   if (!result.meta?.changes) return c.json({ error: 'Todo not found' }, 404);
+
+  const changePairs = [
+    ['booking_order_todo.status', currentTodo.status ?? null, status],
+    ['booking_order_todo.person_in_charge', currentTodo.person_in_charge ?? null, personCharge !== undefined ? personCharge : currentTodo.person_in_charge ?? null],
+    ['booking_order_todo.contact_name', currentTodo.contact_name ?? null, contactName !== undefined ? contactName : currentTodo.contact_name ?? null],
+    ['booking_order_todo.contact_phone', currentTodo.contact_phone ?? null, contactPhone !== undefined ? contactPhone : currentTodo.contact_phone ?? null],
+    ['booking_order_todo.contact_email', currentTodo.contact_email ?? null, contactEmail !== undefined ? contactEmail : currentTodo.contact_email ?? null],
+    ['booking_order_todo.service_meta_json', currentTodo.service_meta_json ?? null, metaJson !== undefined ? metaJson : currentTodo.service_meta_json ?? null],
+  ].filter(([, oldValue, newValue]) => (oldValue ?? null) !== (newValue ?? null));
+
+  if (changePairs.length) {
+    const auditStmts = changePairs.map(([fieldName, oldValue, newValue]) =>
+      c.env.DB.prepare(`INSERT INTO tenant_audit_log
+        (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by, actor, action, entity_type, entity_id, meta_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'BOOKING_TODO_UPDATE', 'booking_order_todo', ?, ?, ?)`)
+        .bind(
+          nanoid(),
+          tenantId,
+          fieldName,
+          oldValue,
+          newValue,
+          now,
+          changedBy,
+          `agent:${changedBy ?? 'unknown'}`,
+          todoId,
+          JSON.stringify({ order_id: orderId }),
+          now,
+        )
+    );
+    await c.env.DB.batch(auditStmts);
+  }
+
   return c.json({ ok: true, id: todoId, done, done_at: done ? now : null, status });
 });
 

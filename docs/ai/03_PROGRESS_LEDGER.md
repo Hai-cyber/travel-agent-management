@@ -91,7 +91,7 @@ The structured service todo card rendering, status selector, contact buttons, th
 2. **Phase 2 — operator acceleration**
   service-type quick actions, bulk actions per stop, better overdue highlighting, and reminder suppression when recent outbound contact already exists. Partial runtime progress now exists: quick actions + overdue highlighting landed on ops/detail surfaces, `public/ops.html` now has stop-level bulk status actions plus inline bulk `person_in_charge` assignment for currently visible cards, a dedicated overdue-only queue/filter, per-stop overdue counts, and `runTodoReminders(env)` now suppresses reminders when a recent real outbound supplier contact already exists.
 3. **Phase 3 — audit / integrity**
-  field-change audit trail, stricter typed expectations for `service_meta_json`, and stronger alignment between `tour-config` stop semantics and the ops board's seeded/rendered todo model.
+  field-change audit trail, stricter typed expectations for `service_meta_json`, and stronger alignment between `tour-config` stop semantics and the ops board's seeded/rendered todo model. Partial runtime progress now exists: `PATCH /api/bookings/order/:orderId/todos/:todoId` records changed `status`, contact fields, `person_in_charge`, and `service_meta_json` into `tenant_audit_log` with `BOOKING_TODO_UPDATE` action rows.
 
 ### tour-config.html — remaining gaps
 
