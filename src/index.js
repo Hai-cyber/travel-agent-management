@@ -56,6 +56,7 @@ import {
   handleCreatePropertyAvailabilityHold,
   handleReleasePropertyAvailabilityHold,
   handleCreatePropertyReservation,
+  handleListPropertyReservations,
   handleGetPropertyReservation,
   handleCancelPropertyReservation,
   handleRebookPropertyReservation,
@@ -560,6 +561,11 @@ const patterns = [
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations' }),
     handler: (req, env, match) => handleCreatePropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations' }),
+    handler: (req, env, match) => handleListPropertyReservations(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
     method: 'GET',

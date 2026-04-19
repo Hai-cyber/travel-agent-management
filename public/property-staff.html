@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Property Staff Workspace</title>
+  <style>
+    :root {
+      --bg: #f1efe7;
+      --paper: rgba(255, 253, 249, 0.94);
+      --panel: #fffefa;
+      --ink: #14213d;
+      --muted: #6b7280;
+      --line: rgba(120, 113, 108, 0.18);
+      --accent: #0f766e;
+      --accent-2: #9a3412;
+      --danger: #b91c1c;
+      --warn: #b45309;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 26%),
+        radial-gradient(circle at top right, rgba(154, 52, 18, 0.14), transparent 24%),
+        linear-gradient(180deg, #f8f5ef 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+      gap: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-copy {
+      padding: 30px 32px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.9), rgba(240,253,250,0.55)),
+        radial-gradient(circle at top left, rgba(15,118,110,0.1), transparent 36%);
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,249,245,0.94));
+      border-left: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.12);
+      color: var(--accent);
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 16px 0 10px;
+      font-size: clamp(34px, 5vw, 52px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 68ch;
+      color: #475569;
+    }
+
+    .tip-grid,
+    .grid,
+    .tab-panels,
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .tip {
+      border: 1px solid rgba(15,118,110,0.16);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(240,253,250,0.78);
+      color: #0f766e;
+      font-size: 14px;
+    }
+
+    .side-card,
+    .panel,
+    .section,
+    .list-card,
+    .response,
+    .empty {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 22px;
+    }
+
+    .side-card,
+    .panel,
+    .section,
+    .list-card,
+    .response {
+      box-shadow: var(--shadow);
+    }
+
+    .side-card,
+    .section-body,
+    .panel-body,
+    .response,
+    .empty {
+      padding: 18px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .sidebar-head,
+    .panel-head,
+    .section-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-actions,
+    .property-list {
+      padding: 18px;
+    }
+
+    .property-list {
+      display: grid;
+      gap: 10px;
+      max-height: calc(100vh - 320px);
+      overflow: auto;
+    }
+
+    .property-item,
+    .button,
+    .tab-button,
+    .tag {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .property-item {
+      width: 100%;
+      padding: 14px;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+    }
+
+    .property-item.active {
+      background: rgba(240,253,250,0.92);
+      border-color: rgba(15,118,110,0.35);
+    }
+
+    .button,
+    .tab-button,
+    .tag {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .button.primary,
+    .tab-button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .button.secondary {
+      background: #fff7ed;
+      border-color: rgba(154,52,18,0.18);
+      color: var(--accent-2);
+    }
+
+    .button.small,
+    .tag {
+      min-height: 32px;
+      padding: 0 11px;
+      font-size: 12px;
+    }
+
+    .tag.ok { color: var(--accent); background: #ecfdf5; }
+    .tag.warn { color: var(--warn); background: #fff7ed; }
+    .tag.danger { color: var(--danger); background: #fef2f2; }
+
+    .pill-row,
+    .action-row,
+    .tab-strip,
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .toolbar { justify-content: space-between; }
+
+    .tab-panels [data-staff-panel][hidden] { display: none !important; }
+
+    .stats {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.88);
+      padding: 14px;
+    }
+
+    .stat .value {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+      color: var(--accent-2);
+    }
+
+    .stat .label {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .section-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid rgba(120,113,108,0.22);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .list-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .list-card strong { font-size: 15px; }
+
+    .muted,
+    .empty {
+      color: var(--muted);
+    }
+
+    .reservation-list,
+    .room-list,
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .reservation-item {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: #fff;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+    }
+
+    .reservation-item.active {
+      border-color: rgba(15,118,110,0.35);
+      background: rgba(240,253,250,0.88);
+    }
+
+    .timeline-item {
+      border-left: 3px solid rgba(15,118,110,0.24);
+      padding-left: 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .response {
+      white-space: pre-wrap;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #334155;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .flash {
+      display: none;
+      border-radius: 18px;
+      padding: 14px 16px;
+      font-weight: 700;
+    }
+
+    .flash.show { display: block; }
+    .flash.ok { background: #ecfdf5; color: #166534; border: 1px solid rgba(15,118,110,0.18); }
+    .flash.err { background: #fef2f2; color: #991b1b; border: 1px solid rgba(185,28,28,0.16); }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .layout,
+      .section-grid,
+      .field-grid,
+      .field-grid.three,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+      .hero-side { border-left: 0; border-top: 1px solid var(--line); }
+      .property-list { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Staff Operations</div>
+        <h1>Front Desk And Operational Workflows Need Their Own Surface.</h1>
+        <p class="lead">This workspace is for staff-facing operations, not tenant configuration. Front desk, room status handling, guest support, and future housekeeping or folio flows belong here, separate from the tenant-side property builder.</p>
+        <div class="tip-grid">
+          <div class="tip">Tenant config stays in <strong>properties-engine</strong>: property setup, inventory structure, pricing policy, seasons, and commercial configuration.</div>
+          <div class="tip">Staff operations live here: reservation desk, room-status response, guest support, and operational lanes that should not be mixed into config forms.</div>
+        </div>
+      </div>
+      <aside class="hero-side">
+        <div class="side-card stack">
+          <div>
+            <h2>Tenant Context</h2>
+            <p class="muted">This page also requires a signed-in actor for the tenant in the current session.</p>
+          </div>
+          <form id="tenant-form" class="stack">
+            <label>Tenant ID
+              <input id="tenant-id" name="tenant_id" placeholder="tenant_from_current_session" />
+            </label>
+            <div class="action-row">
+              <button class="button primary" type="submit">Load Tenant</button>
+              <a class="button" href="/dashboard.html">Dashboard</a>
+              <a id="btn-open-config" class="button secondary" href="/properties-engine.html">Tenant Config</a>
+            </div>
+          </form>
+        </div>
+        <div class="side-card stack">
+          <h2>Operational Lanes</h2>
+          <div class="pill-row">
+            <span class="tag ok">Front Desk</span>
+            <span class="tag ok">Housekeeping</span>
+            <span class="tag warn">Maintenance</span>
+            <span class="tag ok">Guest Support</span>
+            <span class="tag warn">POS / Folio</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <div id="flash" class="flash"></div>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="sidebar-head">
+          <h2>Properties</h2>
+          <p class="muted">Choose the operating property for this shift.</p>
+        </div>
+        <div class="sidebar-actions">
+          <button id="btn-refresh-properties" class="button secondary">Refresh List</button>
+        </div>
+        <div id="property-list" class="property-list">
+          <div class="empty">Load a tenant to see property workspaces.</div>
+        </div>
+      </aside>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="panel-head toolbar">
+            <div>
+              <h2 id="selected-property-title">No property selected</h2>
+              <p id="selected-property-subtitle" class="muted">Choose a property to open the staff workspace.</p>
+            </div>
+            <div class="pill-row">
+              <span id="selected-property-status" class="tag">No Property</span>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="stats">
+              <div class="stat"><div id="metric-arrivals" class="value">0</div><div class="label">Arrivals</div></div>
+              <div class="stat"><div id="metric-departures" class="value">0</div><div class="label">Departures</div></div>
+              <div class="stat"><div id="metric-stayovers" class="value">0</div><div class="label">Stayovers</div></div>
+              <div class="stat"><div id="metric-maintenance" class="value">0</div><div class="label">Maintenance</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head toolbar">
+            <div>
+              <h2>Staff Workspace</h2>
+              <p class="muted">Operate the property without crossing into tenant configuration.</p>
+            </div>
+            <div class="tab-strip" id="staff-tab-strip">
+              <button class="tab-button active" type="button" data-staff-tab="frontdesk">Front Desk</button>
+              <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
+              <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
+              <button class="tab-button" type="button" data-staff-tab="support">Guest Support</button>
+              <button class="tab-button" type="button" data-staff-tab="folio">POS / Folio</button>
+            </div>
+          </div>
+          <div class="panel-body tab-panels">
+            <section data-staff-panel="frontdesk">
+              <div class="section-grid">
+                <div class="section">
+                  <div class="section-head toolbar">
+                    <div>
+                      <h2>Reservation Board</h2>
+                      <p class="muted">Arrivals, departures, and stayovers for the selected board date.</p>
+                    </div>
+                    <button id="btn-refresh-board" class="button secondary">Refresh Board</button>
+                  </div>
+                  <div class="section-body stack">
+                    <div class="field-grid three">
+                      <label>Board Date
+                        <input id="board-date" type="date" />
+                      </label>
+                      <label>Status
+                        <select id="board-status">
+                          <option value="all">all</option>
+                          <option value="confirmed">confirmed</option>
+                          <option value="checked_in">checked_in</option>
+                          <option value="checked_out">checked_out</option>
+                          <option value="no_show">no_show</option>
+                          <option value="cancelled">cancelled</option>
+                        </select>
+                      </label>
+                      <label>Reservation Lookup
+                        <input id="reservation-lookup-id" placeholder="reservation_id" />
+                      </label>
+                    </div>
+                    <div class="action-row">
+                      <button id="btn-load-reservation" class="button primary" type="button">Load Reservation</button>
+                    </div>
+                    <div id="reservation-list" class="reservation-list">
+                      <div class="empty">No board data yet.</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-head">
+                    <h2>Front Desk Detail</h2>
+                    <p class="muted">Open one reservation to operate status changes and review the current stay.</p>
+                  </div>
+                  <div class="section-body stack">
+                    <div id="frontdesk-detail" class="empty">Select a reservation from the board or load one by id.</div>
+                    <div class="action-row" id="reservation-action-row">
+                      <button class="button small primary" type="button" data-reservation-action="check-in">Check In</button>
+                      <button class="button small primary" type="button" data-reservation-action="check-out">Check Out</button>
+                      <button class="button small secondary" type="button" data-reservation-action="early-check-out">Early Check-out</button>
+                      <button class="button small" type="button" data-reservation-action="no-show">No Show</button>
+                      <button class="button small secondary" type="button" data-reservation-action="undo-status">Undo</button>
+                    </div>
+                    <label>Effective Check-out
+                      <input id="effective-checkout-date" type="date" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section data-staff-panel="housekeeping" hidden>
+              <div class="section-grid">
+                <div class="section">
+                  <div class="section-head">
+                    <h2>Housekeeping Baseline</h2>
+                    <p class="muted">This lane is separated from front desk, but cleaning state persistence is not implemented yet.</p>
+                  </div>
+                  <div class="section-body stack">
+                    <div class="list-card">
+                      <strong>Current honest boundary</strong>
+                      <div class="muted">Room cleaning tasks, inspector sign-off, linen turns, and room-ready timestamps still need dedicated backend tables. This page keeps the housekeeping lane visible without pretending that workflow already exists.</div>
+                    </div>
+                    <div id="housekeeping-room-list" class="room-list">
+                      <div class="empty">Load a property to inspect room readiness.</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-head">
+                    <h2>Turnover Notes</h2>
+                    <p class="muted">Use departures and room status together until a true housekeeping task engine lands.</p>
+                  </div>
+                  <div class="section-body">
+                    <div id="housekeeping-turnover" class="response">Departure-linked turnover notes will render here.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section data-staff-panel="maintenance" hidden>
+              <div class="section">
+                <div class="section-head toolbar">
+                  <div>
+                    <h2>Maintenance Desk</h2>
+                    <p class="muted">Operate room units already flagged for maintenance or out-of-order status.</p>
+                  </div>
+                  <button id="btn-refresh-room-units" class="button secondary">Refresh Rooms</button>
+                </div>
+                <div class="section-body">
+                  <div id="maintenance-room-list" class="room-list">
+                    <div class="empty">Load a property to see maintenance lanes.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section data-staff-panel="support" hidden>
+              <div class="section-grid">
+                <div class="section">
+                  <div class="section-head">
+                    <h2>Guest Support</h2>
+                    <p class="muted">Hold release and reservation event history stay here, not in tenant setup.</p>
+                  </div>
+                  <div class="section-body stack">
+                    <label>Hold ID
+                      <input id="hold-release-id" placeholder="hold_id" />
+                    </label>
+                    <div class="action-row">
+                      <button id="btn-release-hold" class="button secondary" type="button">Release Hold</button>
+                    </div>
+                    <div id="support-response" class="response">Support actions will render here.</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-head">
+                    <h2>Reservation Timeline</h2>
+                    <p class="muted">Event trail for the currently loaded reservation.</p>
+                  </div>
+                  <div class="section-body">
+                    <div id="reservation-timeline" class="timeline">
+                      <div class="empty">Load a reservation to inspect its lifecycle timeline.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section data-staff-panel="folio" hidden>
+              <div class="section">
+                <div class="section-head">
+                  <h2>POS / Folio Boundary</h2>
+                  <p class="muted">This is a separate operational lane and should not be merged into tenant config pages.</p>
+                </div>
+                <div class="section-body stack">
+                  <div class="list-card">
+                    <strong>Not live yet</strong>
+                    <div class="muted">Folio headers, folio lines, POS tickets, payment capture, service-posting, and shift-close workflows still need dedicated runtime on top of the planned property folio schema. This tab exists now so the operational separation is explicit.</div>
+                  </div>
+                  <div class="response">Planned here: room charges, minibar, ancillary services, transfers, manual adjustments, settlement, and cashier shift summaries.</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const state = {
+        tenantId: '',
+        properties: [],
+        selectedPropertyId: '',
+        selectedProperty: null,
+        boardDate: new Date().toISOString().slice(0, 10),
+        boardStatus: 'all',
+        reservations: [],
+        selectedReservationId: '',
+        currentReservation: null,
+        roomUnits: [],
+        activeTab: 'frontdesk',
+      };
+
+      const els = {
+        flash: document.getElementById('flash'),
+        tenantForm: document.getElementById('tenant-form'),
+        tenantId: document.getElementById('tenant-id'),
+        btnOpenConfig: document.getElementById('btn-open-config'),
+        propertyList: document.getElementById('property-list'),
+        btnRefreshProperties: document.getElementById('btn-refresh-properties'),
+        selectedPropertyTitle: document.getElementById('selected-property-title'),
+        selectedPropertySubtitle: document.getElementById('selected-property-subtitle'),
+        selectedPropertyStatus: document.getElementById('selected-property-status'),
+        metricArrivals: document.getElementById('metric-arrivals'),
+        metricDepartures: document.getElementById('metric-departures'),
+        metricStayovers: document.getElementById('metric-stayovers'),
+        metricMaintenance: document.getElementById('metric-maintenance'),
+        staffTabStrip: document.getElementById('staff-tab-strip'),
+        boardDate: document.getElementById('board-date'),
+        boardStatus: document.getElementById('board-status'),
+        btnRefreshBoard: document.getElementById('btn-refresh-board'),
+        reservationLookupId: document.getElementById('reservation-lookup-id'),
+        btnLoadReservation: document.getElementById('btn-load-reservation'),
+        reservationList: document.getElementById('reservation-list'),
+        frontdeskDetail: document.getElementById('frontdesk-detail'),
+        reservationActionRow: document.getElementById('reservation-action-row'),
+        effectiveCheckoutDate: document.getElementById('effective-checkout-date'),
+        housekeepingRoomList: document.getElementById('housekeeping-room-list'),
+        housekeepingTurnover: document.getElementById('housekeeping-turnover'),
+        maintenanceRoomList: document.getElementById('maintenance-room-list'),
+        btnRefreshRoomUnits: document.getElementById('btn-refresh-room-units'),
+        holdReleaseId: document.getElementById('hold-release-id'),
+        btnReleaseHold: document.getElementById('btn-release-hold'),
+        supportResponse: document.getElementById('support-response'),
+        reservationTimeline: document.getElementById('reservation-timeline'),
+      };
+
+      function storageKey() {
+        return 'property_staff_tenant_id';
+      }
+
+      function setFlash(message, kind = 'ok') {
+        els.flash.textContent = message;
+        els.flash.className = `flash show ${kind === 'err' ? 'err' : 'ok'}`;
+        window.clearTimeout(setFlash._timer);
+        setFlash._timer = window.setTimeout(() => {
+          els.flash.className = 'flash';
+          els.flash.textContent = '';
+        }, 3600);
+      }
+
+      function explainApiError(message) {
+        if (message === 'Forbidden for this tenant.') {
+          return 'Forbidden for this tenant. Sign in with an account that belongs to this tenant, or load a tenant ID owned by the current session.';
+        }
+        return message;
+      }
+
+      async function api(path, options = {}) {
+        if (!state.tenantId) throw new Error('Tenant ID is required.');
+        const headers = new Headers(options.headers || {});
+        headers.set('X-Tenant-ID', state.tenantId);
+        if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+        const response = await fetch(path, { ...options, headers, credentials: 'include' });
+        const text = await response.text();
+        let payload = null;
+        try { payload = text ? JSON.parse(text) : null; } catch { payload = { raw: text }; }
+        if (!response.ok) throw new Error(explainApiError(payload?.error || response.statusText || 'Request failed.'));
+        return payload;
+      }
+
+      function selectedProperty() {
+        return state.properties.find((property) => property.id === state.selectedPropertyId) || null;
+      }
+
+      function renderPropertyList() {
+        if (!state.properties.length) {
+          els.propertyList.innerHTML = '<div class="empty">Load a tenant to see property workspaces.</div>';
+          return;
+        }
+        els.propertyList.innerHTML = state.properties.map((property) => `
+          <button class="property-item ${property.id === state.selectedPropertyId ? 'active' : ''}" data-property-id="${property.id}">
+            <strong>${escapeHtml(property.name)}</strong>
+            <div class="muted">${escapeHtml(property.slug)} · ${escapeHtml(property.currency)} · ${escapeHtml(property.timezone)}</div>
+            <div class="pill-row">
+              <span class="tag ${property.status === 'active' ? 'ok' : 'warn'}">${escapeHtml(property.status)}</span>
+              <span class="tag">${property.room_type_count || 0} room types</span>
+              <span class="tag">${property.room_unit_count || 0} units</span>
+            </div>
+          </button>
+        `).join('');
+      }
+
+      function renderSelectedPropertySummary() {
+        const property = selectedProperty();
+        if (!property) {
+          els.selectedPropertyTitle.textContent = 'No property selected';
+          els.selectedPropertySubtitle.textContent = 'Choose a property to open the staff workspace.';
+          els.selectedPropertyStatus.textContent = 'No Property';
+          els.selectedPropertyStatus.className = 'tag';
+          els.btnOpenConfig.href = '/properties-engine.html';
+          return;
+        }
+        els.selectedPropertyTitle.textContent = `${property.name} Staff Desk`;
+        els.selectedPropertySubtitle.textContent = `${property.slug} · ${property.currency} · check-in ${property.default_check_in_time} / check-out ${property.default_check_out_time}`;
+        els.selectedPropertyStatus.textContent = property.status;
+        els.selectedPropertyStatus.className = `tag ${property.status === 'active' ? 'ok' : 'warn'}`;
+        els.btnOpenConfig.href = `/properties-engine.html?tid=${encodeURIComponent(state.tenantId)}`;
+      }
+
+      function renderMetrics() {
+        const arrivals = state.reservations.filter((item) => item.arrival_today).length;
+        const departures = state.reservations.filter((item) => item.departure_today).length;
+        const stayovers = state.reservations.filter((item) => item.stayover).length;
+        const maintenance = state.roomUnits.filter((unit) => ['maintenance', 'out_of_order'].includes(unit.operational_status)).length;
+        els.metricArrivals.textContent = String(arrivals);
+        els.metricDepartures.textContent = String(departures);
+        els.metricStayovers.textContent = String(stayovers);
+        els.metricMaintenance.textContent = String(maintenance);
+      }
+
+      function renderReservations() {
+        if (!state.reservations.length) {
+          els.reservationList.innerHTML = '<div class="empty">No reservations match this board date and status.</div>';
+          return;
+        }
+        els.reservationList.innerHTML = state.reservations.map((reservation) => {
+          const lane = reservation.arrival_today ? 'arrival' : (reservation.departure_today ? 'departure' : 'stayover');
+          return `
+            <button class="reservation-item ${reservation.id === state.selectedReservationId ? 'active' : ''}" data-reservation-id="${reservation.id}">
+              <div class="list-card-head">
+                <div>
+                  <strong>${escapeHtml(reservation.guest_name || 'Unknown Guest')}</strong>
+                  <div class="muted">${escapeHtml(reservation.room_type_code || reservation.room_type_id || 'room')} · ${escapeHtml(reservation.check_in)} -> ${escapeHtml(reservation.check_out)}</div>
+                </div>
+                <span class="tag ${reservation.status === 'checked_in' ? 'ok' : reservation.status === 'cancelled' || reservation.status === 'no_show' ? 'danger' : 'warn'}">${escapeHtml(reservation.status)}</span>
+              </div>
+              <div class="pill-row">
+                <span class="tag">${escapeHtml(lane)}</span>
+                <span class="tag">${Number(reservation.adults || 0)}A/${Number(reservation.children || 0)}C</span>
+                <span class="tag">${Number(reservation.rooms_requested || 0)} room(s)</span>
+              </div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function renderReservationDetail() {
+        const record = state.currentReservation;
+        const reservation = record?.reservation || null;
+        if (!reservation) {
+          els.frontdeskDetail.innerHTML = 'Select a reservation from the board or load one by id.';
+          els.reservationTimeline.innerHTML = '<div class="empty">Load a reservation to inspect its lifecycle timeline.</div>';
+          els.supportResponse.textContent = 'Support actions will render here.';
+          return;
+        }
+        els.frontdeskDetail.innerHTML = `
+          <div class="list-card-head">
+            <div>
+              <strong>${escapeHtml(reservation.guest_name || 'Unknown Guest')}</strong>
+              <div class="muted">${escapeHtml(reservation.guest_email || 'no-email')} · ${escapeHtml(reservation.guest_phone || 'no-phone')}</div>
+            </div>
+            <span class="tag ${reservation.status === 'checked_in' ? 'ok' : reservation.status === 'cancelled' || reservation.status === 'no_show' ? 'danger' : 'warn'}">${escapeHtml(reservation.status)}</span>
+          </div>
+          <div class="stack">
+            <div>${escapeHtml(reservation.check_in)} -> ${escapeHtml(reservation.check_out)}</div>
+            <div>${escapeHtml(reservation.room_type_id)} · ${Number(reservation.rooms_requested || 0)} room(s)</div>
+            <div>${Number(reservation.adults || 0)} adult(s) / ${Number(reservation.children || 0)} child(ren)</div>
+            <div>Pricing snapshot: ${escapeHtml(JSON.stringify(reservation.pricing_snapshot || {}))}</div>
+          </div>
+        `;
+        els.effectiveCheckoutDate.value = reservation.check_out || '';
+        renderTimeline(record.events || []);
+        els.supportResponse.textContent = JSON.stringify(record, null, 2);
+      }
+
+      function renderTimeline(events) {
+        if (!events.length) {
+          els.reservationTimeline.innerHTML = '<div class="empty">No lifecycle events yet.</div>';
+          return;
+        }
+        els.reservationTimeline.innerHTML = events.map((event) => `
+          <article class="timeline-item">
+            <strong>${escapeHtml(event.action)}</strong>
+            <div class="muted">${escapeHtml(event.from_status || 'null')} -> ${escapeHtml(event.to_status || 'null')}</div>
+            <div class="muted">${new Date(Number(event.created_at || 0)).toLocaleString()}</div>
+            <div class="muted">${escapeHtml(JSON.stringify(event.payload || {}))}</div>
+          </article>
+        `).join('');
+      }
+
+      function renderHousekeeping() {
+        if (!state.roomUnits.length) {
+          els.housekeepingRoomList.innerHTML = '<div class="empty">Load a property to inspect room readiness.</div>';
+          els.housekeepingTurnover.textContent = 'Departure-linked turnover notes will render here.';
+          return;
+        }
+        els.housekeepingRoomList.innerHTML = state.roomUnits.map((room) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(room.room_number)}</strong>
+                <div class="muted">${escapeHtml(room.room_type_id)}${room.floor_label ? ` · floor ${escapeHtml(room.floor_label)}` : ''}</div>
+              </div>
+              <span class="tag ${room.operational_status === 'ready' ? 'ok' : room.operational_status === 'maintenance' ? 'warn' : 'danger'}">${escapeHtml(room.operational_status)}</span>
+            </div>
+            <div class="muted">Cleaning workflow still needs dedicated status persistence. Use this baseline with front desk departures until housekeeping tasks land.</div>
+          </article>
+        `).join('');
+        const departures = state.reservations.filter((item) => item.departure_today).map((item) => `${item.guest_name || item.id} -> ${item.check_out}`).join('\n');
+        els.housekeepingTurnover.textContent = departures || 'No departures on this board date.';
+      }
+
+      function renderMaintenance() {
+        const flagged = state.roomUnits.filter((room) => ['maintenance', 'out_of_order'].includes(room.operational_status));
+        if (!flagged.length) {
+          els.maintenanceRoomList.innerHTML = '<div class="empty">No maintenance or out-of-order rooms right now.</div>';
+          return;
+        }
+        els.maintenanceRoomList.innerHTML = flagged.map((room) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(room.room_number)}</strong>
+                <div class="muted">${escapeHtml(room.room_type_id)}${room.floor_label ? ` · floor ${escapeHtml(room.floor_label)}` : ''}</div>
+              </div>
+              <span class="tag ${room.operational_status === 'maintenance' ? 'warn' : 'danger'}">${escapeHtml(room.operational_status)}</span>
+            </div>
+            <div class="action-row">
+              <button class="button small primary" type="button" data-room-unit-id="${room.id}" data-room-status="ready">Mark Ready</button>
+              <button class="button small secondary" type="button" data-room-unit-id="${room.id}" data-room-status="maintenance">Maintenance</button>
+              <button class="button small" type="button" data-room-unit-id="${room.id}" data-room-status="out_of_order">Out Of Order</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function applyActiveTab() {
+        document.querySelectorAll('[data-staff-panel]').forEach((panel) => {
+          panel.hidden = panel.getAttribute('data-staff-panel') !== state.activeTab;
+        });
+        document.querySelectorAll('[data-staff-tab]').forEach((button) => {
+          button.classList.toggle('active', button.getAttribute('data-staff-tab') === state.activeTab);
+        });
+      }
+
+      async function loadProperties() {
+        const payload = await api('/api/properties');
+        state.properties = payload.properties || [];
+        if (!state.selectedPropertyId && state.properties.length) state.selectedPropertyId = state.properties[0].id;
+        if (state.selectedPropertyId && !state.properties.some((item) => item.id === state.selectedPropertyId)) {
+          state.selectedPropertyId = state.properties[0]?.id || '';
+        }
+        renderPropertyList();
+        await loadWorkspace();
+      }
+
+      async function loadWorkspace() {
+        state.selectedProperty = selectedProperty();
+        renderSelectedPropertySummary();
+        if (!state.selectedPropertyId) {
+          state.reservations = [];
+          state.roomUnits = [];
+          state.currentReservation = null;
+          renderMetrics();
+          renderReservations();
+          renderReservationDetail();
+          renderHousekeeping();
+          renderMaintenance();
+          return;
+        }
+        const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
+        const [reservationPayload, roomUnitsPayload] = await Promise.all([
+          api(`/api/properties/${state.selectedPropertyId}/reservations?${boardQuery}`),
+          api(`/api/properties/${state.selectedPropertyId}/room-units`),
+        ]);
+        state.reservations = reservationPayload.reservations || [];
+        state.roomUnits = roomUnitsPayload.room_units || [];
+        if (state.selectedReservationId) {
+          try {
+            const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}`);
+            state.currentReservation = detail;
+          } catch {
+            state.currentReservation = null;
+            state.selectedReservationId = '';
+          }
+        }
+        renderSelectedPropertySummary();
+        renderMetrics();
+        renderReservations();
+        renderReservationDetail();
+        renderHousekeeping();
+        renderMaintenance();
+      }
+
+      async function loadReservation(reservationId) {
+        if (!state.selectedPropertyId || !reservationId) return;
+        const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}`);
+        state.selectedReservationId = reservationId;
+        state.currentReservation = payload;
+        renderReservations();
+        renderReservationDetail();
+      }
+
+      async function bootTenant(tenantId) {
+        state.tenantId = tenantId;
+        localStorage.setItem(storageKey(), tenantId);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tid', tenantId);
+        history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        els.btnOpenConfig.href = `/properties-engine.html?tid=${encodeURIComponent(tenantId)}`;
+        await loadProperties();
+        setFlash(`Loaded tenant ${tenantId}.`);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      els.tenantForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const tenantId = String(els.tenantId.value || '').trim();
+        if (!tenantId) return setFlash('Tenant ID is required.', 'err');
+        try {
+          await bootTenant(tenantId);
+        } catch (error) {
+          setFlash(error.message || 'Failed to load tenant.', 'err');
+        }
+      });
+
+      els.btnRefreshProperties.addEventListener('click', async () => {
+        if (!state.tenantId) return setFlash('Load a tenant first.', 'err');
+        try {
+          await loadProperties();
+          setFlash('Property list refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.propertyList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-property-id]');
+        if (!button) return;
+        state.selectedPropertyId = button.getAttribute('data-property-id');
+        renderPropertyList();
+        try {
+          await loadWorkspace();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.staffTabStrip.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-staff-tab]');
+        if (!button) return;
+        state.activeTab = button.getAttribute('data-staff-tab');
+        applyActiveTab();
+      });
+
+      els.boardDate.value = state.boardDate;
+      els.boardDate.addEventListener('change', async () => {
+        state.boardDate = els.boardDate.value || state.boardDate;
+        try {
+          await loadWorkspace();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.boardStatus.addEventListener('change', async () => {
+        state.boardStatus = els.boardStatus.value || 'all';
+        try {
+          await loadWorkspace();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnRefreshBoard.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await loadWorkspace();
+          setFlash('Board refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnLoadReservation.addEventListener('click', async () => {
+        const reservationId = String(els.reservationLookupId.value || '').trim();
+        if (!reservationId) return setFlash('Reservation ID is required.', 'err');
+        try {
+          await loadReservation(reservationId);
+          setFlash('Reservation loaded.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.reservationList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-reservation-id]');
+        if (!button) return;
+        try {
+          await loadReservation(button.getAttribute('data-reservation-id'));
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.reservationActionRow.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-reservation-action]');
+        if (!button || !state.selectedPropertyId || !state.selectedReservationId) return;
+        const action = button.getAttribute('data-reservation-action');
+        try {
+          let payload;
+          if (action === 'early-check-out') {
+            payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}/early-check-out`, {
+              method: 'POST',
+              body: JSON.stringify({ effective_check_out: els.effectiveCheckoutDate.value }),
+            });
+          } else {
+            payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}/${action}`, { method: 'POST' });
+          }
+          state.currentReservation = payload;
+          renderReservationDetail();
+          await loadWorkspace();
+          setFlash(`Reservation ${action} completed.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnRefreshRoomUnits.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await loadWorkspace();
+          setFlash('Room units refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.maintenanceRoomList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-room-unit-id]');
+        if (!button || !state.selectedPropertyId) return;
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-units/${button.getAttribute('data-room-unit-id')}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ operational_status: button.getAttribute('data-room-status') }),
+          });
+          await loadWorkspace();
+          setFlash('Room unit status updated.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnReleaseHold.addEventListener('click', async () => {
+        const holdId = String(els.holdReleaseId.value || '').trim();
+        if (!holdId || !state.selectedPropertyId) return setFlash('Select a property and enter hold ID first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/availability/hold/${holdId}/release`, { method: 'POST' });
+          els.supportResponse.textContent = JSON.stringify(payload, null, 2);
+          setFlash('Hold released.');
+        } catch (error) {
+          els.supportResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
+      function restoreTenant() {
+        const urlTenant = new URLSearchParams(window.location.search).get('tid');
+        const storedTenant = localStorage.getItem(storageKey());
+        const tenantId = String(urlTenant || storedTenant || '').trim();
+        if (!tenantId) return;
+        els.tenantId.value = tenantId;
+        bootTenant(tenantId).catch((error) => setFlash(error.message, 'err'));
+      }
+
+      applyActiveTab();
+      restoreTenant();
+    })();
+  </script>
+</body>
+</html>

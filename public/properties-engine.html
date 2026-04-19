@@ -478,6 +478,7 @@
             <div class="action-row">
               <button class="button primary" type="submit">Load Tenant</button>
               <a class="button" href="/dashboard.html">Dashboard</a>
+              <a id="btn-open-staff-workspace" class="button secondary" href="/property-staff.html">Staff Ops</a>
             </div>
           </form>
         </div>
@@ -1111,6 +1112,7 @@
         flash: document.getElementById('flash'),
         tenantForm: document.getElementById('tenant-form'),
         tenantId: document.getElementById('tenant-id'),
+        btnOpenStaffWorkspace: document.getElementById('btn-open-staff-workspace'),
         propertyList: document.getElementById('property-list'),
         propertyForm: document.getElementById('property-form'),
         propertyPatchBtn: document.getElementById('btn-patch-property'),
@@ -1525,6 +1527,7 @@
         const url = new URL(window.location.href);
         url.searchParams.set('tid', tenantId);
         history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        els.btnOpenStaffWorkspace.href = `/property-staff.html?tid=${encodeURIComponent(tenantId)}`;
         await loadProperties();
         setFlash(`Loaded tenant ${tenantId}.`);
       }

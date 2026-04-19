@@ -2583,6 +2583,40 @@ function buildReservationPayload(record) {
   };
 }
 
+function buildReservationBoardSummary(row, boardDate) {
+  const pricingSnapshot = row.pricing_snapshot ? parseJsonSafe(row.pricing_snapshot) : null;
+  const arrivalToday = boardDate ? String(row.check_in) === String(boardDate) : false;
+  const departureToday = boardDate ? String(row.check_out) === String(boardDate) : false;
+  const stayover = boardDate ? String(row.check_in) < String(boardDate) && String(row.check_out) > String(boardDate) : false;
+
+  return {
+    id: row.id,
+    property_id: row.property_id,
+    status: row.status,
+    source: row.source,
+    guest_name: row.guest_name,
+    guest_email: row.guest_email,
+    guest_phone: row.guest_phone,
+    check_in: row.check_in,
+    check_out: row.check_out,
+    room_type_id: row.room_type_id,
+    room_type_code: row.room_type_code,
+    room_type_name: row.room_type_name,
+    rooms_requested: row.rooms_requested,
+    adults: row.adults,
+    children: row.children,
+    pricing_snapshot: pricingSnapshot,
+    confirmed_at: row.confirmed_at,
+    cancelled_at: row.cancelled_at,
+    cancel_reason: row.cancel_reason,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    arrival_today: arrivalToday,
+    departure_today: departureToday,
+    stayover,
+  };
+}
+
 export async function handleCheckPropertyAvailability(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) {
@@ -2829,6 +2863,77 @@ export async function handleCreatePropertyReservation(request, env, params) {
     }, 201);
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyReservations(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const boardDate = String(url.searchParams.get('board_date') || formatDateUtc(new Date())).trim();
+  const status = String(url.searchParams.get('status') || 'all').trim();
+  const limit = Number(url.searchParams.get('limit') || 80);
+
+  if (!isIsoDate(boardDate)) return jsonResponse({ error: 'board_date must use YYYY-MM-DD format.' }, 400);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    return jsonResponse({ error: 'limit must be an integer between 1 and 200.' }, 400);
+  }
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const clauses = [
+      'pr.tenant_id = ?',
+      'pr.property_id = ?',
+      'pr.check_in <= ?',
+      'pr.check_out >= ?',
+    ];
+    const values = [tenantId, propertyId, boardDate, boardDate];
+    if (status && status !== 'all') {
+      clauses.push('pr.status = ?');
+      values.push(status);
+    }
+
+    const sql = `SELECT pr.id, pr.property_id, pr.source, pr.status,
+                        pr.guest_name, pr.guest_email, pr.guest_phone,
+                        pr.check_in, pr.check_out, pr.room_type_id, pr.rooms_requested,
+                        pr.adults, pr.children, pr.pricing_snapshot,
+                        pr.confirmed_at, pr.cancelled_at, pr.cancel_reason,
+                        pr.created_at, pr.updated_at,
+                        rt.code AS room_type_code,
+                        rt.name AS room_type_name
+                   FROM property_reservations pr
+                   LEFT JOIN room_types rt
+                     ON rt.id = pr.room_type_id
+                    AND rt.tenant_id = pr.tenant_id
+                    AND rt.property_id = pr.property_id
+                  WHERE ${clauses.join(' AND ')}
+                  ORDER BY CASE
+                             WHEN pr.check_in = ? THEN 0
+                             WHEN pr.check_out = ? THEN 1
+                             ELSE 2
+                           END,
+                           pr.check_in ASC,
+                           pr.check_out ASC,
+                           pr.created_at DESC
+                  LIMIT ?`;
+
+    const result = await env.DB.prepare(sql).bind(...values, boardDate, boardDate, limit).all();
+    return jsonResponse({
+      ok: true,
+      property_id: propertyId,
+      board_date: boardDate,
+      reservations: (result.results || []).map((row) => buildReservationBoardSummary(row, boardDate)),
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_LIST]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
