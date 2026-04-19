@@ -6,8 +6,9 @@ Read order for AI assistants:
 1. `00_AI_INDEX.md` (this file)
 2. `01_CURRENT_STATE.md`
 3. `02_WORKING_AGREEMENT.md`
-4. `03_PROGRESS_LEDGER.md`
-5. `04_SESSION_HANDOFF.md` (latest section only)
+4. `03_PROGRESS_LEDGER.md` (split router / combined history)
+5. `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` or `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` depending on task domain
+6. `04_SESSION_HANDOFF.md` (latest section only)
 6. linked source-of-truth docs in `/docs`
 
 ## Project identity
@@ -55,6 +56,10 @@ AI behavior / guardrails:
 - Implemented rescue checkpoints now extend through CHK-R82, with CHK-R79 still marked in progress in the ledger
 - Next backend/domain follow-up: finish CHK-R79 inline editing and service-assignment gaps rather than inventing a parallel ops model
 - Next UI evolution: keep binding the existing dashboard, ops board, billing pane, and tour-config surfaces to the already-shipped backend slices
+- Progress ledger is now split for readability:
+	- `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` = tour engine + shared platform/runtime
+	- `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` = hotel/property engine
+	- `03_PROGRESS_LEDGER.md` remains the compatibility entry point and frozen combined history
 
 ## AI module map
 - `21_GROWTH_SEO_MODULE.md` -> Distribution & Growth layer scope
@@ -72,6 +77,8 @@ AI behavior / guardrails:
 - `40_SHARED_KERNEL_SCHEMA_DRAFT.md` -> First schema draft for the shared kernel between tour and property
 - `41_ENGINE_PHASE1_EXECUTION_CHECKLISTS.md` -> Phase-1 build checklists for property availability core and tour stabilization
 - `42_DB_MIGRATION_PROPOSAL_SHARED_TOUR_PROPERTY.md` -> Migration-safe DB proposal for shared kernel, tour stabilization, and property phase-1 tables
+- `43_PROPERTY_PHASE1_SCHEMA_DRAFT.md` -> Concrete phase-1 property schema for availability, reservations, stay plans, allocations, and holds
+- `44_FIRST_ACTUAL_MIGRATION_SET_PROPOSAL.md` -> Concrete first migration batch proposal with names from 0057 to 0065
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary

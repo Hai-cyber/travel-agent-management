@@ -1,10 +1,31 @@
 # Progress Ledger
 
+> SPLIT NOTE:
+> This combined ledger is now a compatibility entry point plus frozen combined history.
+> New checkpoint updates should go into one of these files instead:
+> - `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` for tour engine + shared platform/runtime work
+> - `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` for hotel/property engine work
+>
+> Keep this file only as:
+> - the read-order anchor referenced by `00_AI_INDEX.md`
+> - a simple router to the split ledgers
+> - preserved combined history so older notes are not lost during the split
+
 Purpose: track **actual rescue-rebuild progress** only.
 
 Do not mark work as done because it existed in the old system.
 Do not mark work as done because it is documented.
 Only mark work as done when it is rebuilt and verified in the current repo.
+
+## Split router
+
+Use:
+- `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` for tour, booking, ops board, publishing, billing, auth, SaaS/admin, and other shared platform/runtime checkpoints
+- `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` for property availability, holds, reservations, room ops, folio, and later hotel/property engine checkpoints
+
+Working rule:
+- if the task primarily touches `tours`, `booking_orders`, `tour-config`, `dashboard`, `universal site`, `billing`, or shared platform surfaces, update `03A`
+- if the task primarily touches `properties`, `room_types`, `room_units`, `property_reservations`, `inventory_holds`, `reservation_allocations`, or other hotel/property surfaces, update `03B`
 
 ## Status legend
 - `not_started`
