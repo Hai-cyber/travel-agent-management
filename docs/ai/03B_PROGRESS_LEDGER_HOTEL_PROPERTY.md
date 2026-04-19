@@ -25,6 +25,7 @@ Status legend:
 | CHK-R85 | Property reservation read + cancel baseline | done | Added `GET /api/properties/:propertyId/reservations/:reservationId` and `POST /api/properties/:propertyId/reservations/:reservationId/cancel`. The read route returns canonical reservation truth plus selected stay plan and allocation rows. The cancel route marks the reservation `cancelled`, writes `cancelled_at/cancel_reason`, clears selected stay-plan state by moving it to `discarded`, releases `locked`/`soft_allocated` room-night allocations, and thereby restores availability for the cancelled stay. | 2026-04-19 | Verified locally with live Worker requests on port 8791 against `db/seed_property_availability_smoke.sql`: `availability -> hold -> reservations -> get -> cancel -> availability` returned released allocations and reopened standard-room availability from `1/0` back to `2/1` for `2026-05-01 -> 2026-05-03`. |
 | CHK-R86 | Property builder inventory backbone | done | Added tenant-scoped builder endpoints for `properties`, `room_types`, and `room_units`, including `POST /api/properties`, `PATCH /api/properties/:propertyId`, room-type create/list/update, room-unit create/list/update, and `POST /api/properties/:propertyId/room-units/bulk-create` as the quantity-style helper. This completes the missing bridge between schema-only inventory tables and the live availability engine: tenants can now configure property identity and physical sellable inventory through runtime APIs instead of SQL fixtures. | 2026-04-19 | Verified locally with live Worker requests on port 8791: created a fresh property, added one room type, bulk-created 3 units, then confirmed `POST /availability` returned `3/3` remaining nights. After patching one unit to `operational_status = 'maintenance'`, availability immediately dropped to `2/2`, proving builder-configured inventory now drives availability truth directly. |
 | CHK-R87 | Property builder UI + minimal room-rate layer | done | Added migration `0071_property_room_rates.sql` plus tenant-scoped `GET/POST/PATCH /api/properties/:propertyId/room-rates` for one active base nightly rate anchor per room type. Replaced the old placeholder `public/properties-engine.html` with a real builder/admin page that uses `tid` + session cookie auth to manage properties, room types, single/bulk room units, base rates, and inline availability tests from one surface. Builder/rate/reservation-read/cancel endpoints now require an authenticated tenant actor, while public availability/hold/create-reservation paths remain open for direct-booking flow. | 2026-04-19 | Verified locally with live Worker requests on port 8791 using a real signed-up tenant session cookie: signup → create property → create room type → bulk-create 3 units → create room rate → availability returns `3/3` → patch one unit to `maintenance` → availability drops to `2/2`. `GET /properties-engine?tid=<tenantId>` returned `200 OK`. |
+| CHK-R88 | Property pricing v2 — seasons, seasonal room prices, and stay quote | done | Added migration `0072_property_rate_seasons.sql` plus pricing v2 APIs: `GET/POST/PATCH /api/properties/:propertyId/rate-seasons`, `GET/POST/PATCH /api/properties/:propertyId/season-room-rates`, and `POST /api/properties/:propertyId/rates/quote`. Pricing resolution is now commercial-layer only: the quote endpoint resolves each stay night by active season first (ordered by `sort_order`), then falls back to the active base room rate if no season applies. `public/properties-engine.html` now exposes season builder, seasonal room-price builder, and quote output on the same admin surface. | 2026-04-19 | Verified locally with authenticated tenant session cookie on port 8792. In-season quote (`2026-12-24 -> 2026-12-27`) returned 3 nights at the seasonal price `180 USD` each, total `540 USD`. Outside the season (`2026-12-27 -> 2026-12-29`), quote fell back to base rate `120 USD` per night, total `240 USD`. Builder page `GET /properties-engine?tid=<tenantId>` returned `200 OK`. |
 
 ## Property runtime that now exists
 
@@ -61,6 +62,13 @@ Status legend:
   - `GET /api/properties/:propertyId/room-rates`
   - `POST /api/properties/:propertyId/room-rates`
   - `PATCH /api/properties/:propertyId/room-rates/:roomRateId`
+  - `GET /api/properties/:propertyId/rate-seasons`
+  - `POST /api/properties/:propertyId/rate-seasons`
+  - `PATCH /api/properties/:propertyId/rate-seasons/:seasonId`
+  - `GET /api/properties/:propertyId/season-room-rates`
+  - `POST /api/properties/:propertyId/season-room-rates`
+  - `PATCH /api/properties/:propertyId/season-room-rates/:seasonRoomRateId`
+  - `POST /api/properties/:propertyId/rates/quote`
   - `POST /api/properties/:propertyId/availability`
   - `POST /api/properties/:propertyId/availability/hold`
   - `POST /api/properties/:propertyId/reservations`
@@ -69,7 +77,7 @@ Status legend:
 
 ## Current limits of the verified property baseline
 
-- only a minimal one-rate-per-room-type base nightly rate layer exists; there is still no seasonal pricing, rate-plan matrix, package pricing, or per-date override engine
+- seasonal pricing v2 now exists, but there is still no multi-plan rate catalog, occupancy-based price matrix, package pricing, CTA/public quote flow, or per-date manual override UI beyond season windows
 - direct-commit path only
 - no separate admin/manual confirm route yet
 - no guest/public hotel booking UI yet
@@ -88,6 +96,6 @@ Status legend:
 - add reservation read + cancel baseline so the property reservation lifecycle stops at a clean minimum complete surface
 - add hold release / expiry management endpoint for operational correction paths
 - extend reservation commit beyond `rooms_requested = 1`
-- expand the room-rate layer from single base nightly rates into real rate plans / seasonal overrides only after the inventory backbone remains stable
+- expand pricing v2 from seasons + room-type overrides into richer rate plans, occupancy-aware pricing, and package/rule layers only after the current season model stays stable
 - add room-state and housekeeping operational routes on top of migrations `0066`–`0068`
 - connect folio header/line runtime on top of migrations `0069`–`0070`

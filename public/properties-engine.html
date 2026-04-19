@@ -440,6 +440,8 @@
             <span class="tag ok">Room Types</span>
             <span class="tag ok">Room Units</span>
             <span class="tag ok">Base Rate</span>
+            <span class="tag ok">Seasons</span>
+            <span class="tag ok">Seasonal Rates</span>
             <span class="tag warn">Availability Test</span>
           </div>
         </div>
@@ -739,6 +741,112 @@
               </div>
             </div>
           </section>
+
+          <section class="section full">
+            <div class="section-head toolbar">
+              <div>
+                <h2>Pricing V2</h2>
+                <p class="hint">Define seasons, assign seasonal nightly prices per room type, and quote a stay without touching availability math.</p>
+              </div>
+            </div>
+            <div class="section-body grid">
+              <div class="main-grid">
+                <section class="section">
+                  <div class="section-head toolbar">
+                    <div>
+                      <h2>Rate Seasons</h2>
+                      <p class="hint">Date windows ranked by <code>sort_order</code>.</p>
+                    </div>
+                    <button id="btn-refresh-rate-seasons" class="button small">Refresh Seasons</button>
+                  </div>
+                  <div class="section-body grid">
+                    <form id="rate-season-form">
+                      <div class="field-grid four">
+                        <label>Name
+                          <input name="name" required placeholder="High Season" />
+                        </label>
+                        <label>Start Date
+                          <input name="start_date" type="date" value="2026-12-20" />
+                        </label>
+                        <label>End Date
+                          <input name="end_date" type="date" value="2027-01-05" />
+                        </label>
+                        <label>Sort Order
+                          <input name="sort_order" type="number" value="10" />
+                        </label>
+                      </div>
+                      <div class="action-row">
+                        <button class="button primary" type="submit">Add Season</button>
+                      </div>
+                    </form>
+                    <div id="rate-season-list" class="grid">
+                      <div class="empty">No rate seasons yet.</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <div class="section-head toolbar">
+                    <div>
+                      <h2>Seasonal Room Prices</h2>
+                      <p class="hint">Override the base rate for a room type inside one season.</p>
+                    </div>
+                    <button id="btn-refresh-season-room-rates" class="button small">Refresh Seasonal Rates</button>
+                  </div>
+                  <div class="section-body grid">
+                    <form id="season-room-rate-form">
+                      <div class="field-grid four">
+                        <label>Season
+                          <select id="season-room-rate-season" name="season_id"></select>
+                        </label>
+                        <label>Room Type
+                          <select id="season-room-rate-room-type" name="room_type_id"></select>
+                        </label>
+                        <label>Currency
+                          <input name="currency" value="VND" />
+                        </label>
+                        <label>Nightly Amount
+                          <input name="nightly_amount" type="number" min="0" step="0.01" value="1500000" />
+                        </label>
+                      </div>
+                      <div class="action-row">
+                        <button class="button primary" type="submit">Save Seasonal Rate</button>
+                      </div>
+                    </form>
+                    <div id="season-room-rate-list" class="grid">
+                      <div class="empty">No seasonal room prices yet.</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section class="section full">
+                <div class="section-head">
+                  <h2>Stay Rate Quote</h2>
+                  <p class="hint">Quote nightly pricing for a stay. Seasonal prices win by sort order; base rate is the fallback.</p>
+                </div>
+                <div class="section-body grid">
+                  <form id="rate-quote-form">
+                    <div class="field-grid four">
+                      <label>Room Type
+                        <select id="rate-quote-room-type" name="room_type_id"></select>
+                      </label>
+                      <label>Check-in
+                        <input name="check_in" type="date" value="2026-12-24" />
+                      </label>
+                      <label>Check-out
+                        <input name="check_out" type="date" value="2026-12-27" />
+                      </label>
+                      <label>&nbsp;
+                        <button class="button teal" type="submit">Quote Stay</button>
+                      </label>
+                    </div>
+                  </form>
+                  <div id="rate-quote-response" class="response">Rate quote output will render here.</div>
+                </div>
+              </section>
+            </div>
+          </section>
         </div>
       </section>
     </section>
@@ -753,6 +861,8 @@
         roomTypes: [],
         roomUnits: [],
         roomRates: [],
+        rateSeasons: [],
+        seasonRoomRates: [],
       };
 
       const els = {
@@ -775,6 +885,15 @@
         roomUnitList: document.getElementById('room-unit-list'),
         roomRateForm: document.getElementById('room-rate-form'),
         roomRateList: document.getElementById('room-rate-list'),
+        rateSeasonForm: document.getElementById('rate-season-form'),
+        rateSeasonList: document.getElementById('rate-season-list'),
+        seasonRoomRateForm: document.getElementById('season-room-rate-form'),
+        seasonRoomRateList: document.getElementById('season-room-rate-list'),
+        seasonRoomRateSeason: document.getElementById('season-room-rate-season'),
+        seasonRoomRateRoomType: document.getElementById('season-room-rate-room-type'),
+        rateQuoteForm: document.getElementById('rate-quote-form'),
+        rateQuoteRoomType: document.getElementById('rate-quote-room-type'),
+        rateQuoteResponse: document.getElementById('rate-quote-response'),
         availabilityForm: document.getElementById('availability-form'),
         availabilityResponse: document.getElementById('availability-response'),
         availabilityRoomType: document.getElementById('availability-room-type'),
@@ -785,6 +904,8 @@
         btnRefreshRoomTypes: document.getElementById('btn-refresh-room-types'),
         btnRefreshRoomUnits: document.getElementById('btn-refresh-room-units'),
         btnRefreshRoomRates: document.getElementById('btn-refresh-room-rates'),
+        btnRefreshRateSeasons: document.getElementById('btn-refresh-rate-seasons'),
+        btnRefreshSeasonRoomRates: document.getElementById('btn-refresh-season-room-rates'),
       };
 
       function storageKey() {
@@ -856,14 +977,21 @@
         els.selectedStatus.className = `tag ${property.status === 'active' ? 'ok' : 'warn'}`;
         els.metricRoomTypes.textContent = String(state.roomTypes.length);
         els.metricRoomUnits.textContent = String(state.roomUnits.length);
-        els.metricActiveRates.textContent = String(state.roomRates.filter((rate) => rate.active).length);
+        els.metricActiveRates.textContent = String(
+          state.roomRates.filter((rate) => rate.active).length + state.seasonRoomRates.filter((rate) => rate.active).length
+        );
       }
 
       function renderRoomTypeOptions() {
         const options = state.roomTypes.map((roomType) => `<option value="${roomType.id}">${escapeHtml(roomType.code)} · ${escapeHtml(roomType.name)}</option>`).join('');
-        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType]) {
+        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType]) {
           select.innerHTML = options || '<option value="">No room types yet</option>';
         }
+      }
+
+      function renderRateSeasonOptions() {
+        const options = state.rateSeasons.map((season) => `<option value="${season.id}">${escapeHtml(season.name)} · ${escapeHtml(season.start_date)} → ${escapeHtml(season.end_date)}</option>`).join('');
+        els.seasonRoomRateSeason.innerHTML = options || '<option value="">No seasons yet</option>';
       }
 
       function renderRoomTypes() {
@@ -931,6 +1059,47 @@
         `).join('');
       }
 
+      function renderRateSeasons() {
+        if (!state.rateSeasons.length) {
+          els.rateSeasonList.innerHTML = '<div class="empty">No rate seasons yet.</div>';
+          renderRateSeasonOptions();
+          return;
+        }
+        els.rateSeasonList.innerHTML = state.rateSeasons.map((season) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(season.name)}</strong>
+                <div class="muted">${escapeHtml(season.start_date)} → ${escapeHtml(season.end_date)}</div>
+              </div>
+              <span class="tag ${season.active ? 'ok' : 'warn'}">${season.active ? 'active' : 'inactive'}</span>
+            </div>
+            <div class="pill-row">
+              <span class="tag">sort ${season.sort_order}</span>
+            </div>
+          </article>
+        `).join('');
+        renderRateSeasonOptions();
+      }
+
+      function renderSeasonRoomRates() {
+        if (!state.seasonRoomRates.length) {
+          els.seasonRoomRateList.innerHTML = '<div class="empty">No seasonal room prices yet.</div>';
+          return;
+        }
+        els.seasonRoomRateList.innerHTML = state.seasonRoomRates.map((rate) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(rate.season_name || rate.season_id)}</strong>
+                <div class="muted">${escapeHtml(rate.room_type_code || rate.room_type_id)} · ${escapeHtml(rate.currency)} ${Number(rate.nightly_amount).toLocaleString()}</div>
+              </div>
+              <span class="tag ${rate.active ? 'ok' : 'warn'}">${rate.active ? 'active' : 'inactive'}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
       function escapeHtml(value) {
         return String(value ?? '')
           .replace(/&/g, '&amp;')
@@ -964,24 +1133,34 @@
           state.roomTypes = [];
           state.roomUnits = [];
           state.roomRates = [];
+          state.rateSeasons = [];
+          state.seasonRoomRates = [];
           renderSelectedProperty();
           renderRoomTypes();
           renderRoomUnits();
           renderRoomRates();
+          renderRateSeasons();
+          renderSeasonRoomRates();
           return;
         }
-        const [roomTypesPayload, roomUnitsPayload, roomRatesPayload] = await Promise.all([
+        const [roomTypesPayload, roomUnitsPayload, roomRatesPayload, rateSeasonsPayload, seasonRoomRatesPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/room-types`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
           api(`/api/properties/${state.selectedPropertyId}/room-rates`),
+          api(`/api/properties/${state.selectedPropertyId}/rate-seasons`),
+          api(`/api/properties/${state.selectedPropertyId}/season-room-rates`),
         ]);
         state.roomTypes = roomTypesPayload.room_types || [];
         state.roomUnits = roomUnitsPayload.room_units || [];
         state.roomRates = roomRatesPayload.room_rates || [];
+        state.rateSeasons = rateSeasonsPayload.rate_seasons || [];
+        state.seasonRoomRates = seasonRoomRatesPayload.season_room_rates || [];
         renderSelectedProperty();
         renderRoomTypes();
         renderRoomUnits();
         renderRoomRates();
+        renderRateSeasons();
+        renderSeasonRoomRates();
       }
 
       async function bootTenant(tenantId) {
@@ -1091,6 +1270,52 @@
         }
       });
 
+      els.rateSeasonForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/rate-seasons`, { method: 'POST', body: JSON.stringify(formJson(els.rateSeasonForm)) });
+          els.rateSeasonForm.reset();
+          els.rateSeasonForm.querySelector('[name="sort_order"]').value = '10';
+          await loadPropertyDetails();
+          setFlash('Rate season created.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.seasonRoomRateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const data = formJson(els.seasonRoomRateForm);
+          const existing = state.seasonRoomRates.find((rate) => rate.season_id === data.season_id && rate.room_type_id === data.room_type_id && rate.active);
+          if (existing) {
+            await api(`/api/properties/${state.selectedPropertyId}/season-room-rates/${existing.id}`, { method: 'PATCH', body: JSON.stringify(data) });
+            setFlash('Seasonal room price updated.');
+          } else {
+            await api(`/api/properties/${state.selectedPropertyId}/season-room-rates`, { method: 'POST', body: JSON.stringify(data) });
+            setFlash('Seasonal room price created.');
+          }
+          await loadPropertyDetails();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.rateQuoteForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/rates/quote`, { method: 'POST', body: JSON.stringify(formJson(els.rateQuoteForm)) });
+          els.rateQuoteResponse.textContent = JSON.stringify(payload, null, 2);
+          setFlash('Stay rate quoted.');
+        } catch (error) {
+          els.rateQuoteResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
       els.availabilityForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
@@ -1127,7 +1352,7 @@
         }
       });
 
-      for (const button of [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits, els.btnRefreshRoomRates]) {
+      for (const button of [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits, els.btnRefreshRoomRates, els.btnRefreshRateSeasons, els.btnRefreshSeasonRoomRates]) {
         button.addEventListener('click', async () => {
           if (!state.tenantId) return setFlash('Load a tenant first.', 'err');
           try {

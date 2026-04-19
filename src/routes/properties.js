@@ -347,6 +347,20 @@ function mapRoomRateRow(row) {
   };
 }
 
+function mapRateSeasonRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+  };
+}
+
+function mapSeasonRateRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+  };
+}
+
 function validatePropertyCreateRequest(body) {
   const name = String(body?.name || '').trim();
   const slug = String(body?.slug || slugify(name)).trim();
@@ -628,6 +642,115 @@ function validateRoomRatePatchRequest(body) {
   return { updates };
 }
 
+function validateRateSeasonCreateRequest(body) {
+  const name = String(body?.name || '').trim();
+  const startDate = String(body?.start_date || '').trim();
+  const endDate = String(body?.end_date || '').trim();
+  const sortOrder = normalizeInteger(body?.sort_order, 0);
+
+  if (!name) return { error: 'name is required.' };
+  if (!isIsoDate(startDate) || !isIsoDate(endDate)) return { error: 'start_date and end_date must use YYYY-MM-DD format.' };
+  if (parseDateUtc(startDate) > parseDateUtc(endDate)) return { error: 'start_date must be on or before end_date.' };
+  if (!Number.isInteger(sortOrder)) return { error: 'sort_order must be an integer.' };
+
+  return {
+    name,
+    startDate,
+    endDate,
+    sortOrder,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validateRateSeasonPatchRequest(body) {
+  const allowed = new Set(['name', 'start_date', 'end_date', 'sort_order', 'active']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('start_date' in body) {
+    const value = String(body.start_date || '').trim();
+    if (!isIsoDate(value)) return { error: 'start_date must use YYYY-MM-DD format.' };
+    updates.start_date = value;
+  }
+  if ('end_date' in body) {
+    const value = String(body.end_date || '').trim();
+    if (!isIsoDate(value)) return { error: 'end_date must use YYYY-MM-DD format.' };
+    updates.end_date = value;
+  }
+  if (updates.start_date && updates.end_date && parseDateUtc(updates.start_date) > parseDateUtc(updates.end_date)) {
+    return { error: 'start_date must be on or before end_date.' };
+  }
+  if ('sort_order' in body) {
+    const value = Number(body.sort_order);
+    if (!Number.isInteger(value)) return { error: 'sort_order must be an integer.' };
+    updates.sort_order = value;
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
+}
+
+function validateSeasonRoomRateCreateRequest(body) {
+  const seasonId = String(body?.season_id || '').trim();
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const currency = String(body?.currency || 'VND').trim().toUpperCase();
+  const nightlyAmount = Number(body?.nightly_amount);
+
+  if (!seasonId || !roomTypeId) return { error: 'season_id and room_type_id are required.' };
+  if (!Number.isFinite(nightlyAmount) || nightlyAmount < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+
+  return {
+    seasonId,
+    roomTypeId,
+    currency,
+    nightlyAmount,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validateSeasonRoomRatePatchRequest(body) {
+  const allowed = new Set(['currency', 'nightly_amount', 'active']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('currency' in body) {
+    const value = String(body.currency || '').trim().toUpperCase();
+    if (!value) return { error: 'currency cannot be empty.' };
+    updates.currency = value;
+  }
+  if ('nightly_amount' in body) {
+    const value = Number(body.nightly_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+    updates.nightly_amount = value;
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
+}
+
+function validateRateQuoteRequest(body, propertyId) {
+  const property = String(propertyId || '').trim();
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const checkIn = String(body?.check_in || '').trim();
+  const checkOut = String(body?.check_out || '').trim();
+
+  if (!property) return { error: 'propertyId is required.' };
+  if (!roomTypeId) return { error: 'room_type_id is required.' };
+  if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return { error: 'check_in and check_out must use YYYY-MM-DD format.' };
+  if (parseDateUtc(checkIn) >= parseDateUtc(checkOut)) return { error: 'check_out must be after check_in.' };
+
+  return { propertyId: property, roomTypeId, checkIn, checkOut };
+}
+
 function validateAvailabilityRequest(body, propertyId) {
   const checkIn = String(body?.check_in || '').trim();
   const checkOut = String(body?.check_out || '').trim();
@@ -734,6 +857,56 @@ async function loadRoomRateById(env, tenantId, propertyId, roomRateId) {
     .bind(roomRateId, tenantId, propertyId)
     .first();
   return row ? mapRoomRateRow(row) : null;
+}
+
+async function loadRateSeasonById(env, tenantId, propertyId, seasonId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
+         FROM property_rate_seasons
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(seasonId, tenantId, propertyId)
+    .first();
+  return row ? mapRateSeasonRow(row) : null;
+}
+
+async function loadSeasonRoomRateById(env, tenantId, propertyId, seasonRoomRateId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at
+         FROM property_room_rate_season_prices
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(seasonRoomRateId, tenantId, propertyId)
+    .first();
+  return row ? mapSeasonRateRow(row) : null;
+}
+
+function resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate) {
+  const matchingSeason = activeSeasons.find((season) => stayDate >= season.start_date && stayDate <= season.end_date);
+  if (matchingSeason) {
+    const seasonRate = seasonRatesByKey.get(`${matchingSeason.id}`);
+    if (seasonRate?.active) {
+      return {
+        source: 'season_rate',
+        season_id: matchingSeason.id,
+        season_name: matchingSeason.name,
+        currency: seasonRate.currency,
+        nightly_amount: Number(seasonRate.nightly_amount),
+      };
+    }
+  }
+  if (baseRate?.active) {
+    return {
+      source: 'base_rate',
+      season_id: null,
+      season_name: null,
+      currency: baseRate.currency,
+      nightly_amount: Number(baseRate.nightly_amount),
+    };
+  }
+  return null;
 }
 
 function buildDynamicUpdateSql(tableName, updates) {
@@ -1203,6 +1376,276 @@ export async function handleUpdateRoomRate(request, env, params) {
     const mapped = mapBuilderSqlError(error);
     if (mapped) return jsonResponse(mapped.payload, mapped.status);
     console.error('[ROOM_RATE_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListRateSeasons(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const result = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
+           FROM property_rate_seasons
+          WHERE tenant_id = ? AND property_id = ?
+          ORDER BY sort_order ASC, start_date ASC, created_at ASC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+    return jsonResponse({ ok: true, rate_seasons: (result.results || []).map(mapRateSeasonRow) });
+  } catch (error) {
+    console.error('[RATE_SEASON_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateRateSeason(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRateSeasonCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_rate_seasons
+          (id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, tenantId, propertyId, parsed.name, parsed.startDate, parsed.endDate, parsed.sortOrder, parsed.active, now, now)
+      .run();
+    return jsonResponse({ ok: true, rate_season: await loadRateSeasonById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[RATE_SEASON_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateRateSeason(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const seasonId = String(params?.seasonId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRateSeasonPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadRateSeasonById(env, tenantId, propertyId, seasonId);
+    if (!existing) return jsonResponse({ error: 'Rate season not found.' }, 404);
+    const nextStart = parsed.updates.start_date || existing.start_date;
+    const nextEnd = parsed.updates.end_date || existing.end_date;
+    if (parseDateUtc(nextStart) > parseDateUtc(nextEnd)) return jsonResponse({ error: 'start_date must be on or before end_date.' }, 400);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_rate_seasons', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, seasonId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, rate_season: await loadRateSeasonById(env, tenantId, propertyId, seasonId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[RATE_SEASON_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListSeasonRoomRates(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const result = await env.DB
+      .prepare(
+        `SELECT sr.id, sr.tenant_id, sr.property_id, sr.season_id, sr.room_type_id, sr.currency, sr.nightly_amount, sr.active, sr.created_at, sr.updated_at,
+                prs.name AS season_name, rt.name AS room_type_name, rt.code AS room_type_code
+           FROM property_room_rate_season_prices sr
+           LEFT JOIN property_rate_seasons prs ON prs.id = sr.season_id AND prs.tenant_id = sr.tenant_id AND prs.property_id = sr.property_id
+           LEFT JOIN room_types rt ON rt.id = sr.room_type_id AND rt.tenant_id = sr.tenant_id AND rt.property_id = sr.property_id
+          WHERE sr.tenant_id = ? AND sr.property_id = ?
+          ORDER BY prs.sort_order ASC, prs.start_date ASC, rt.sort_order ASC, sr.created_at ASC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+    return jsonResponse({ ok: true, season_room_rates: (result.results || []).map(mapSeasonRateRow) });
+  } catch (error) {
+    console.error('[SEASON_ROOM_RATE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateSeasonRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateSeasonRoomRateCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const season = await loadRateSeasonById(env, tenantId, propertyId, parsed.seasonId);
+    if (!season) return jsonResponse({ error: 'Rate season not found.' }, 404);
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_room_rate_season_prices
+          (id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, tenantId, propertyId, parsed.seasonId, parsed.roomTypeId, parsed.currency, parsed.nightlyAmount, parsed.active, now, now)
+      .run();
+    return jsonResponse({ ok: true, season_room_rate: await loadSeasonRoomRateById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[SEASON_ROOM_RATE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateSeasonRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const seasonRoomRateId = String(params?.seasonRoomRateId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateSeasonRoomRatePatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadSeasonRoomRateById(env, tenantId, propertyId, seasonRoomRateId);
+    if (!existing) return jsonResponse({ error: 'Season room rate not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_room_rate_season_prices', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, seasonRoomRateId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, season_room_rate: await loadSeasonRoomRateById(env, tenantId, propertyId, seasonRoomRateId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[SEASON_ROOM_RATE_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleQuotePropertyRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRateQuoteRequest(body, propertyId);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+
+    const [baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
+      env.DB.prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at
+           FROM property_room_rates
+          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
+          ORDER BY updated_at DESC, created_at DESC
+          LIMIT 1`
+      ).bind(tenantId, propertyId, parsed.roomTypeId).first(),
+      env.DB.prepare(
+        `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
+           FROM property_rate_seasons
+          WHERE tenant_id = ? AND property_id = ? AND active = 1
+          ORDER BY sort_order ASC, start_date ASC, created_at ASC`
+      ).bind(tenantId, propertyId).all(),
+      env.DB.prepare(
+        `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at
+           FROM property_room_rate_season_prices
+          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
+      ).bind(tenantId, propertyId, parsed.roomTypeId).all(),
+    ]);
+
+    const stayDates = enumerateStayDates(parsed.checkIn, parsed.checkOut);
+    const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
+    const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
+    const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
+
+    const nightlyBreakdown = stayDates.map((stayDate) => {
+      const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
+      return {
+        stay_date: stayDate,
+        source: resolved?.source || 'missing_rate',
+        season_id: resolved?.season_id || null,
+        season_name: resolved?.season_name || null,
+        currency: resolved?.currency || baseRate?.currency || property.currency,
+        nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
+      };
+    });
+
+    const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
+    const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_amount) || 0), 0);
+    const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
+
+    return jsonResponse({
+      ok: true,
+      property_id: propertyId,
+      room_type_id: parsed.roomTypeId,
+      request: {
+        check_in: parsed.checkIn,
+        check_out: parsed.checkOut,
+      },
+      pricing: {
+        currency,
+        nightly_breakdown: nightlyBreakdown,
+        missing_rate_dates: missingDates,
+        total_amount: totalAmount,
+        source_summary: {
+          has_base_rate: Boolean(baseRate),
+          active_seasons: activeSeasons.length,
+          active_season_rates: seasonRatesByKey.size,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RATE_QUOTE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }

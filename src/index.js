@@ -45,6 +45,13 @@ import {
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
+  handleListRateSeasons,
+  handleCreateRateSeason,
+  handleUpdateRateSeason,
+  handleListSeasonRoomRates,
+  handleCreateSeasonRoomRate,
+  handleUpdateSeasonRoomRate,
+  handleQuotePropertyRoomRate,
   handleCheckPropertyAvailability,
   handleCreatePropertyAvailabilityHold,
   handleCreatePropertyReservation,
@@ -491,6 +498,41 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates/:roomRateId' }),
     handler: (req, env, match) => handleUpdateRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, roomRateId: match.pathname.groups.roomRateId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rate-seasons' }),
+    handler: (req, env, match) => handleListRateSeasons(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rate-seasons' }),
+    handler: (req, env, match) => handleCreateRateSeason(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rate-seasons/:seasonId' }),
+    handler: (req, env, match) => handleUpdateRateSeason(req, env, { propertyId: match.pathname.groups.propertyId, seasonId: match.pathname.groups.seasonId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates' }),
+    handler: (req, env, match) => handleListSeasonRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates' }),
+    handler: (req, env, match) => handleCreateSeasonRoomRate(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates/:seasonRoomRateId' }),
+    handler: (req, env, match) => handleUpdateSeasonRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, seasonRoomRateId: match.pathname.groups.seasonRoomRateId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rates/quote' }),
+    handler: (req, env, match) => handleQuotePropertyRoomRate(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
     method: 'POST',

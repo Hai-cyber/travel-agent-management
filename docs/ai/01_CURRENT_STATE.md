@@ -203,6 +203,13 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/properties/:propertyId/room-rates` — lists the minimal commercial rate layer for a property's room types
 - `POST /api/properties/:propertyId/room-rates` — creates one base nightly rate anchor for a room type
 - `PATCH /api/properties/:propertyId/room-rates/:roomRateId` — updates the base nightly rate layer (`rate_name`, `currency`, `nightly_amount`, `active`) without changing availability math
+- `GET /api/properties/:propertyId/rate-seasons` — lists date-window pricing seasons ranked by `sort_order`
+- `POST /api/properties/:propertyId/rate-seasons` — creates a pricing season for one property
+- `PATCH /api/properties/:propertyId/rate-seasons/:seasonId` — updates season name/date window/sort order/active flag
+- `GET /api/properties/:propertyId/season-room-rates` — lists seasonal nightly prices per `(season, room_type)` pair
+- `POST /api/properties/:propertyId/season-room-rates` — creates a seasonal nightly price override for one room type inside one season
+- `PATCH /api/properties/:propertyId/season-room-rates/:seasonRoomRateId` — updates seasonal nightly price overrides
+- `POST /api/properties/:propertyId/rates/quote` — admin pricing quote endpoint; resolves stay-night pricing by season first, then falls back to the active base rate when no season applies
 - `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
 - `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
 - `POST /api/properties/:propertyId/reservations` — direct-commit property reservation baseline; reruns availability with optional `hold_id` exclusion, selects the best concrete stay plan, creates a `confirmed` `property_reservations` row plus linked `reservation_stay_plans`, `reservation_stay_plan_segments`, and `reservation_allocations`, and consumes the referenced hold when provided. Current verified baseline supports `rooms_requested = 1` only.
@@ -211,7 +218,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 Property builder scope note:
 - This builder layer is intentionally inventory-first: property identity, room types, and room-unit quantity/configuration are now part of the availability backbone.
-- A minimal base nightly room-rate layer now exists for builder/admin use, but it remains separate from availability truth and is not yet a full seasonal/rate-plan engine.
+- Property pricing v2 now exists as a separate commercial layer on top of that backbone: base nightly rate + date-window seasons + seasonal room-type overrides + quote resolution. Availability still does not depend on price data.
 
 **Promotions / Testing Bypass Controls**
 - `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows
@@ -238,7 +245,7 @@ Property builder scope note:
 - `public/dashboard.html` — tenant admin dashboard; **sidebar-as-pane-controller** pattern: 3 `[data-pane]` content divs (`start-here` default, `orders`, `order-detail`); clicking sidebar order filters calls `showPane('orders')` and loads orders; `📋` detail button on every order row opens `order-detail` pane; order detail shows guest/tour/payment header + per-order service checklist (`booking_order_todos`) seeded from `tour_stops`; todos checkable via PATCH API; custom tasks addable inline; back button returns to orders list; stat cards show real counts; confirm-receipt flow unlocks guest identity in-page; proof image viewer uses blob() URL.
 - `public/dashboard.html` now also contains a billing pane, review-case tooling, launch-guide refactor, and partial ops shortcuts; it is no longer just a thin tenant shell
 - `public/ops.html` — richer operations board for grouped service todos, contact actions, status lifecycle, re-seed support, and operational cleanup fixes landed through CHK-R82
-- `public/properties-engine.html` — real property builder/admin surface (no longer a placeholder): tenant-scoped property creation, room-type builder, single/bulk room-unit creation, minimal base-rate editor, and inline availability test panel bound to the new property APIs
+- `public/properties-engine.html` — property builder/admin surface now also includes pricing v2 controls for rate seasons, seasonal room prices, and a stay-rate quote panel on top of the earlier property/room/unit/base-rate builder
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)
