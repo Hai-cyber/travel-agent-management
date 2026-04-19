@@ -34,7 +34,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0056 present in repo; later migrations add domain purchase, richer booking todo fields/threads, promo codes, and tenant calendar secrets)
+### D1 Tables (repo migrations 0001–0070 present in repo; later migrations now add shared-kernel/property foundation, property availability core, room operations, and folio core in addition to domain purchase, richer booking todo fields/threads, promo codes, and tenant calendar secrets)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -44,7 +44,11 @@ If old documentation says a feature exists but the current rescue repo does not 
 `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
 `tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`,
 `tenant_review_cases`, `tenant_risk_events`, `tenant_asset_inventory`, `tenant_asset_scan_results`,
-`tenant_domain_purchases`, `booking_todo_threads`, `promo_codes`
+`tenant_domain_purchases`, `booking_todo_threads`, `promo_codes`, `tenant_settings`,
+`staff_assignments`, `inbound_records`, `draft_records`, `properties`, `room_types`,
+`room_units`, `property_reservations`, `inventory_holds`, `reservation_stay_plans`,
+`reservation_stay_plan_segments`, `reservation_allocations`, `room_state_events`,
+`housekeeping_tasks`, `maintenance_issues`, `folios`, `folio_lines`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency` (secondary display currency storage),
@@ -177,6 +181,11 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/domains/purchase` — creates a Stripe one-time Checkout Session for a domain purchase with platform markup enforced server-side
 - `GET /api/domains/purchases` — lists a tenant's domain purchase attempts/history
 - `POST /api/domains/stripe-webhook` — Stripe webhook for paid domain purchases; on success it continues into Cloudflare Registrar provisioning and D1 purchase-state updates
+
+**Property Availability Baseline (CHK-R83)**
+- `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
+- `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
+- `POST /api/properties/:propertyId/reservations` — direct-commit property reservation baseline; reruns availability with optional `hold_id` exclusion, selects the best concrete stay plan, creates a `confirmed` `property_reservations` row plus linked `reservation_stay_plans`, `reservation_stay_plan_segments`, and `reservation_allocations`, and consumes the referenced hold when provided. Current verified baseline supports `rooms_requested = 1` only.
 
 **Promotions / Testing Bypass Controls**
 - `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows

@@ -31,6 +31,7 @@ import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './
 import registerReportsRoutes from './routes/reports.js';
 import registerCalendarRoutes from './routes/calendar.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
+import { handleCheckPropertyAvailability, handleCreatePropertyAvailabilityHold, handleCreatePropertyReservation } from './routes/properties.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -406,6 +407,22 @@ const patterns = [
     pattern: new URLPattern({ pathname: `/api/pricing/${group}/:itemId` }),
     handler: (req, env, match, ctx) => handleDeletePricing(req, env, { group, itemId: match.pathname.groups.itemId }, ctx)
   })),
+
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability' }),
+    handler: (req, env, match) => handleCheckPropertyAvailability(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability/hold' }),
+    handler: (req, env, match) => handleCreatePropertyAvailabilityHold(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations' }),
+    handler: (req, env, match) => handleCreatePropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
 ];
 
 // ── Trial maintenance — runs on every cron tick (*/15 * * * *) ────────────────
