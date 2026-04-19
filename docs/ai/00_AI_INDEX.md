@@ -67,6 +67,8 @@ AI behavior / guardrails:
 - `35_PROPERTY_DISTRIBUTION_HELPER.md` -> Listing helper, draft-ingestion boundary, and future channel-sync scope
 - `36_PROPERTY_ENGINE_IMPLEMENTATION_ROADMAP.md` -> Execution order and checkpoints for building the property engine
 - `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md` -> Tour-side distribution helper and booking email-ingest boundary
+- `38_PLATFORM_PACKAGING_AND_TIERS.md` -> Commercial packaging direction, including Tier 4 as the combined tour + hotel suite
+- `39_SHARED_KERNEL_BETWEEN_TOUR_AND_PROPERTY.md` -> Shared platform kernel direction between the tour engine and property engine
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary

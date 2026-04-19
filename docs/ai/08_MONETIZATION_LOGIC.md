@@ -53,3 +53,28 @@ Task:
 - Define billing provider
 - Define commission calculation job
 - Define invoice generation
+
+## Commercial packaging direction
+
+The platform should support modular packaging rather than one oversized enterprise bundle.
+
+Suggested direction:
+
+- Tour Suite
+- Hotel Suite
+- Tour + Hotel Suite
+
+### Tier 4
+
+Tier 4 should be the combined `tour + hotel suite` tier.
+
+This tier is for tenants who operate both:
+
+- tours / experiences
+- lodging / hotel / villa / stay operations
+
+It should be treated as a combined suite under one product umbrella, not as two unrelated subscriptions glued together.
+
+### Important rule
+
+Even in Tier 4, the platform should still be sold as a lightweight SME operating system, not as a full ERP promise.

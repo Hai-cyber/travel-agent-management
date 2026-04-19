@@ -10,10 +10,24 @@ Multi-tenant SaaS platform for travel agents (Vietnam-first).
 ## Positioning
 - NOT a marketplace
 - NOT an OTA
+- NOT an ERP
 - Platform provides:
   - Tour creation tools
   - Booking & operations management
   - Publishing infrastructure
+  - optional property/stay operations under the same product umbrella
+
+## Commercial packaging direction
+
+The platform should remain one product with modular commercial packaging.
+
+This means it can support:
+
+- tour-focused tenants
+- stay/property-focused tenants
+- mixed tenants that operate both tours and lodging
+
+The combined `tour + hotel suite` direction is commercially valid, but should still be understood as one lightweight platform rather than an enterprise all-in-one ERP.
 
 ## Core Layers
 
