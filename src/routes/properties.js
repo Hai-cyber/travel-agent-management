@@ -820,9 +820,23 @@ function validateRateQuoteRequest(body, propertyId) {
   if (parseDateUtc(checkIn) >= parseDateUtc(checkOut)) return { error: 'check_out must be after check_in.' };
   if (!Number.isInteger(adults) || adults < 1) return { error: 'adults must be an integer greater than or equal to 1.' };
   if (!Number.isInteger(children) || children < 0) return { error: 'children must be an integer greater than or equal to 0.' };
-  if (!Number.isInteger(roomsRequested) || roomsRequested !== 1) return { error: 'Rate quote baseline currently supports rooms_requested = 1 only.' };
+  if (!Number.isInteger(roomsRequested) || roomsRequested < 1 || roomsRequested > 20) {
+    return { error: 'rooms_requested must be an integer between 1 and 20.' };
+  }
 
   return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested };
+}
+
+function validateEarlyCheckoutRequest(body, reservation) {
+  const effectiveCheckOut = String(body?.effective_check_out || '').trim();
+  if (!isIsoDate(effectiveCheckOut)) return { error: 'effective_check_out must use YYYY-MM-DD format.' };
+  if (parseDateUtc(effectiveCheckOut) <= parseDateUtc(reservation.check_in)) {
+    return { error: 'effective_check_out must be after the reservation check_in date.' };
+  }
+  if (parseDateUtc(effectiveCheckOut) > parseDateUtc(reservation.check_out)) {
+    return { error: 'effective_check_out cannot be later than the current reservation check_out.' };
+  }
+  return { effectiveCheckOut };
 }
 
 function validateAvailabilityRequest(body, propertyId) {
@@ -995,9 +1009,11 @@ function resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, ba
   return null;
 }
 
-function calculateOccupancyAdjustment(resolvedRate, adults, children) {
+function calculateOccupancyAdjustment(resolvedRate, adults, children, roomsRequested = 1) {
   if (!resolvedRate) {
     return {
+      included_adults_total: 0,
+      included_children_total: 0,
       extra_adults: 0,
       extra_children: 0,
       extra_adult_amount: 0,
@@ -1006,13 +1022,17 @@ function calculateOccupancyAdjustment(resolvedRate, adults, children) {
     };
   }
 
-  const extraAdults = Math.max(0, Number(adults || 0) - Number(resolvedRate.included_adults || 0));
-  const extraChildren = Math.max(0, Number(children || 0) - Number(resolvedRate.included_children || 0));
+  const includedAdultsTotal = Number(resolvedRate.included_adults || 0) * Number(roomsRequested || 1);
+  const includedChildrenTotal = Number(resolvedRate.included_children || 0) * Number(roomsRequested || 1);
+  const extraAdults = Math.max(0, Number(adults || 0) - includedAdultsTotal);
+  const extraChildren = Math.max(0, Number(children || 0) - includedChildrenTotal);
   const extraAdultAmount = Number(resolvedRate.extra_adult_amount || 0);
   const extraChildAmount = Number(resolvedRate.extra_child_amount || 0);
   const adjustmentAmount = extraAdults * extraAdultAmount + extraChildren * extraChildAmount;
 
   return {
+    included_adults_total: includedAdultsTotal,
+    included_children_total: includedChildrenTotal,
     extra_adults: extraAdults,
     extra_children: extraChildren,
     extra_adult_amount: extraAdultAmount,
@@ -1731,6 +1751,11 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
     if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
     const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
     if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const totalGuests = parsed.adults + parsed.children;
+    const maxGuests = Number(roomType.max_occupancy || 0) * parsed.roomsRequested;
+    if (maxGuests > 0 && totalGuests > maxGuests) {
+      return jsonResponse({ error: `Guest mix exceeds the configured max occupancy for ${parsed.roomsRequested} room(s).` }, 409);
+    }
 
     const [baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
       env.DB.prepare(
@@ -1764,7 +1789,8 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 
     const nightlyBreakdown = stayDates.map((stayDate) => {
       const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
-      const occupancyAdjustment = calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children);
+      const occupancyAdjustment = calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children, parsed.roomsRequested);
+      const nightlyBaseTotal = resolved ? Number(resolved.nightly_amount) * parsed.roomsRequested : null;
       return {
         stay_date: stayDate,
         source: resolved?.source || 'missing_rate',
@@ -1772,15 +1798,17 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
         season_name: resolved?.season_name || null,
         currency: resolved?.currency || baseRate?.currency || property.currency,
         nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
+        rooms_requested: parsed.roomsRequested,
+        nightly_base_total: nightlyBaseTotal,
         included_adults: resolved ? Number(resolved.included_adults) : null,
         included_children: resolved ? Number(resolved.included_children) : null,
         occupancy_adjustment: resolved ? occupancyAdjustment : null,
-        nightly_total: resolved ? Number(resolved.nightly_amount) + Number(occupancyAdjustment.adjustment_amount || 0) : null,
+        nightly_total: resolved ? nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0) : null,
       };
     });
 
     const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
-    const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_amount) || 0), 0);
+    const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
     const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
     const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
     const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
@@ -3006,6 +3034,177 @@ export async function handleCheckOutPropertyReservation(request, env, params) {
     return jsonResponse(buildReservationPayload(updatedRecord));
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_CHECK_OUT]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleEarlyCheckOutPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const statusError = validateReservationStatusTransition(record, ['checked_in'], 'Early check-out');
+    if (statusError) return jsonResponse({ error: statusError.error }, 409);
+
+    const parsed = validateEarlyCheckoutRequest(body, record.reservation);
+    if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+    const now = currentUnixSeconds();
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE property_reservations
+            SET status = 'checked_out',
+                check_out = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      ).bind(parsed.effectiveCheckOut, now, reservationId, tenantId, propertyId),
+      env.DB.prepare(
+        `UPDATE reservation_allocations
+            SET allocation_status = 'released',
+                updated_at = ?
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND reservation_id = ?
+            AND allocation_status IN ('soft_allocated', 'locked')
+            AND stay_date >= ?`
+      ).bind(now, tenantId, propertyId, reservationId, parsed.effectiveCheckOut),
+      env.DB.prepare(
+        `UPDATE reservation_stay_plan_segments
+            SET check_out = ?
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND reservation_id = ?
+            AND check_in < ?
+            AND check_out > ?`
+      ).bind(parsed.effectiveCheckOut, tenantId, propertyId, reservationId, parsed.effectiveCheckOut, parsed.effectiveCheckOut),
+      env.DB.prepare(
+        `DELETE FROM reservation_stay_plan_segments
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND reservation_id = ?
+            AND check_in >= ?`
+      ).bind(tenantId, propertyId, reservationId, parsed.effectiveCheckOut),
+    ]);
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse({
+      ...buildReservationPayload(updatedRecord),
+      early_checked_out: true,
+      effective_check_out: parsed.effectiveCheckOut,
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_EARLY_CHECK_OUT]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleNoShowPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const statusError = validateReservationStatusTransition(record, ['confirmed'], 'No-show');
+    if (statusError) return jsonResponse({ error: statusError.error }, 409);
+
+    await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
+    await env.DB
+      .prepare(`UPDATE property_reservations SET status = 'no_show', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+      .run();
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse({
+      ...buildReservationPayload(updatedRecord),
+      no_show: true,
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_NO_SHOW]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUndoPropertyReservationStatus(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+
+    if (record.reservation.status === 'checked_in') {
+      await env.DB
+        .prepare(`UPDATE property_reservations SET status = 'confirmed', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+        .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+        .run();
+      const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+      return jsonResponse({
+        ...buildReservationPayload(updatedRecord),
+        undone_from: 'checked_in',
+      });
+    }
+
+    if (record.reservation.status === 'no_show') {
+      const availability = await calculateAvailability(
+        env,
+        tenantId,
+        propertyId,
+        record.reservation.room_type_id,
+        record.reservation.check_in,
+        record.reservation.check_out,
+        record.reservation.rooms_requested,
+        { excludeReservationId: reservationId }
+      );
+      if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
+      if (availability.shortageDates.length) {
+        return jsonResponse({
+          error: 'Inventory is no longer available to undo the no-show status.',
+          availability: buildAvailabilityPayload(availability).availability,
+        }, 409);
+      }
+
+      const selectedPlan = selectBestPlan(availability);
+      if (!selectedPlan || !selectedPlan.segments?.length || selectedPlan.segments.some((segment) => !segment.room_unit_id)) {
+        return jsonResponse({ error: 'No concrete allocation plan is available to restore this reservation.' }, 409);
+      }
+
+      await attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan);
+      await env.DB
+        .prepare(`UPDATE property_reservations SET status = 'confirmed', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+        .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+        .run();
+
+      const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+      return jsonResponse({
+        ...buildReservationPayload(updatedRecord),
+        undone_from: 'no_show',
+      });
+    }
+
+    return jsonResponse({ error: 'Undo is only supported for checked_in and no_show reservations in this baseline.' }, 409);
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_UNDO_STATUS]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }

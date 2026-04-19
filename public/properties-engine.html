@@ -886,6 +886,114 @@
               </section>
             </div>
           </section>
+
+          <section class="section full">
+            <div class="section-head">
+              <h2>Reservation Ops</h2>
+              <p class="hint">Authenticated admin controls for hold release, reservation lookup, rebook, no-show, undo, and early check-out.</p>
+            </div>
+            <div class="section-body grid">
+              <div class="main-grid">
+                <section class="section">
+                  <div class="section-head">
+                    <h2>Load And Release</h2>
+                    <p class="hint">Load one reservation by id or release a hold manually.</p>
+                  </div>
+                  <div class="section-body grid">
+                    <form id="reservation-lookup-form">
+                      <div class="field-grid">
+                        <label>Reservation ID
+                          <input id="reservation-lookup-id" name="reservation_id" placeholder="reservation_xxx" />
+                        </label>
+                        <label>&nbsp;
+                          <button class="button teal" type="submit">Load Reservation</button>
+                        </label>
+                      </div>
+                    </form>
+
+                    <form id="hold-release-form">
+                      <div class="field-grid">
+                        <label>Hold ID
+                          <input id="hold-release-id" name="hold_id" placeholder="hold_xxx" />
+                        </label>
+                        <label>&nbsp;
+                          <button class="button secondary" type="submit">Release Hold</button>
+                        </label>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <div class="section-head">
+                    <h2>Rebook And Exit</h2>
+                    <p class="hint">Change dates on a confirmed reservation or perform an early check-out from a checked-in stay.</p>
+                  </div>
+                  <div class="section-body grid">
+                    <form id="reservation-rebook-form">
+                      <input id="reservation-rebook-id" name="reservation_id" type="hidden" />
+                      <div class="field-grid four">
+                        <label>Room Type
+                          <select id="reservation-rebook-room-type" name="room_type_id"></select>
+                        </label>
+                        <label>Check-in
+                          <input name="check_in" type="date" value="2026-11-20" />
+                        </label>
+                        <label>Check-out
+                          <input name="check_out" type="date" value="2026-11-22" />
+                        </label>
+                        <label>Adults
+                          <input name="adults" type="number" min="1" value="2" />
+                        </label>
+                      </div>
+                      <div class="field-grid four">
+                        <label>Children
+                          <input name="children" type="number" min="0" value="0" />
+                        </label>
+                        <label>Pricing Currency
+                          <input name="pricing_currency" value="USD" />
+                        </label>
+                        <label>Pricing Total
+                          <input name="pricing_total" type="number" min="0" step="0.01" value="0" />
+                        </label>
+                        <label>&nbsp;
+                          <button class="button primary" type="submit">Rebook Reservation</button>
+                        </label>
+                      </div>
+                    </form>
+
+                    <form id="early-checkout-form">
+                      <input id="early-checkout-reservation-id" name="reservation_id" type="hidden" />
+                      <div class="field-grid">
+                        <label>Effective Check-out
+                          <input name="effective_check_out" type="date" value="2026-11-22" />
+                        </label>
+                        <label>&nbsp;
+                          <button class="button secondary" type="submit">Early Check-out</button>
+                        </label>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+              </div>
+
+              <section class="section full">
+                <div class="section-head">
+                  <h2>Status Actions</h2>
+                  <p class="hint">These actions apply to the currently loaded reservation.</p>
+                </div>
+                <div class="section-body grid">
+                  <div class="action-row" id="reservation-action-row">
+                    <button class="button small teal" type="button" data-reservation-action="check-in">Check In</button>
+                    <button class="button small teal" type="button" data-reservation-action="check-out">Check Out</button>
+                    <button class="button small" type="button" data-reservation-action="no-show">No Show</button>
+                    <button class="button small secondary" type="button" data-reservation-action="undo-status">Undo Status</button>
+                  </div>
+                  <div id="reservation-ops-response" class="response">Reservation lifecycle output will render here.</div>
+                </div>
+              </section>
+            </div>
+          </section>
         </div>
       </section>
     </section>
@@ -902,6 +1010,7 @@
         roomRates: [],
         rateSeasons: [],
         seasonRoomRates: [],
+        currentReservation: null,
       };
 
       const els = {
@@ -933,6 +1042,17 @@
         rateQuoteForm: document.getElementById('rate-quote-form'),
         rateQuoteRoomType: document.getElementById('rate-quote-room-type'),
         rateQuoteResponse: document.getElementById('rate-quote-response'),
+        reservationLookupForm: document.getElementById('reservation-lookup-form'),
+        reservationLookupId: document.getElementById('reservation-lookup-id'),
+        holdReleaseForm: document.getElementById('hold-release-form'),
+        holdReleaseId: document.getElementById('hold-release-id'),
+        reservationRebookForm: document.getElementById('reservation-rebook-form'),
+        reservationRebookId: document.getElementById('reservation-rebook-id'),
+        reservationRebookRoomType: document.getElementById('reservation-rebook-room-type'),
+        earlyCheckoutForm: document.getElementById('early-checkout-form'),
+        earlyCheckoutReservationId: document.getElementById('early-checkout-reservation-id'),
+        reservationActionRow: document.getElementById('reservation-action-row'),
+        reservationOpsResponse: document.getElementById('reservation-ops-response'),
         availabilityForm: document.getElementById('availability-form'),
         availabilityResponse: document.getElementById('availability-response'),
         availabilityRoomType: document.getElementById('availability-room-type'),
@@ -1023,9 +1143,31 @@
 
       function renderRoomTypeOptions() {
         const options = state.roomTypes.map((roomType) => `<option value="${roomType.id}">${escapeHtml(roomType.code)} · ${escapeHtml(roomType.name)}</option>`).join('');
-        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType]) {
+        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.reservationRebookRoomType]) {
           select.innerHTML = options || '<option value="">No room types yet</option>';
         }
+      }
+
+      function syncReservationForms(record) {
+        state.currentReservation = record || null;
+        const reservation = record?.reservation || null;
+        const reservationId = reservation?.id || '';
+        els.reservationLookupId.value = reservationId;
+        els.reservationRebookId.value = reservationId;
+        els.earlyCheckoutReservationId.value = reservationId;
+        if (!reservation) {
+          els.reservationOpsResponse.textContent = 'Reservation lifecycle output will render here.';
+          return;
+        }
+        if (reservation.room_type_id) els.reservationRebookRoomType.value = reservation.room_type_id;
+        els.reservationRebookForm.querySelector('[name="check_in"]').value = reservation.check_in || '';
+        els.reservationRebookForm.querySelector('[name="check_out"]').value = reservation.check_out || '';
+        els.reservationRebookForm.querySelector('[name="adults"]').value = reservation.adults || 1;
+        els.reservationRebookForm.querySelector('[name="children"]').value = reservation.children || 0;
+        els.reservationRebookForm.querySelector('[name="pricing_currency"]').value = reservation.pricing_snapshot?.currency || selectedProperty()?.currency || 'VND';
+        els.reservationRebookForm.querySelector('[name="pricing_total"]').value = reservation.pricing_snapshot?.total || 0;
+        els.earlyCheckoutForm.querySelector('[name="effective_check_out"]').value = reservation.check_out || '';
+        els.reservationOpsResponse.textContent = JSON.stringify(record, null, 2);
       }
 
       function renderRateSeasonOptions() {
@@ -1202,6 +1344,7 @@
         renderRoomRates();
         renderRateSeasons();
         renderSeasonRoomRates();
+        syncReservationForms(state.currentReservation);
       }
 
       async function bootTenant(tenantId) {
@@ -1357,6 +1500,86 @@
         }
       });
 
+      els.reservationLookupForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        const reservationId = String(els.reservationLookupId.value || '').trim();
+        if (!reservationId) return setFlash('Reservation ID is required.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}`);
+          syncReservationForms(payload);
+          setFlash('Reservation loaded.');
+        } catch (error) {
+          els.reservationOpsResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.holdReleaseForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        const holdId = String(els.holdReleaseId.value || '').trim();
+        if (!holdId) return setFlash('Hold ID is required.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/availability/hold/${holdId}/release`, { method: 'POST' });
+          els.reservationOpsResponse.textContent = JSON.stringify(payload, null, 2);
+          await loadPropertyDetails();
+          setFlash('Hold released.');
+        } catch (error) {
+          els.reservationOpsResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.reservationRebookForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        const reservationId = String(els.reservationRebookId.value || '').trim();
+        if (!reservationId) return setFlash('Load a reservation first.', 'err');
+        try {
+          const data = formJson(els.reservationRebookForm);
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}/rebook`, {
+            method: 'POST',
+            body: JSON.stringify({
+              room_type_id: data.room_type_id,
+              check_in: data.check_in,
+              check_out: data.check_out,
+              adults: Number(data.adults || 1),
+              children: Number(data.children || 0),
+              pricing_snapshot: {
+                currency: data.pricing_currency || selectedProperty()?.currency || 'VND',
+                total: Number(data.pricing_total || 0),
+              },
+            }),
+          });
+          syncReservationForms(payload);
+          await loadPropertyDetails();
+          setFlash('Reservation rebooked.');
+        } catch (error) {
+          els.reservationOpsResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.earlyCheckoutForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        const reservationId = String(els.earlyCheckoutReservationId.value || '').trim();
+        if (!reservationId) return setFlash('Load a reservation first.', 'err');
+        try {
+          const data = formJson(els.earlyCheckoutForm);
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}/early-check-out`, {
+            method: 'POST',
+            body: JSON.stringify({ effective_check_out: data.effective_check_out }),
+          });
+          syncReservationForms(payload);
+          setFlash('Early check-out completed.');
+        } catch (error) {
+          els.reservationOpsResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
       els.availabilityForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
@@ -1389,6 +1612,22 @@
           await loadPropertyDetails();
           setFlash('Room unit status updated.');
         } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.reservationActionRow.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-reservation-action]');
+        if (!button || !state.selectedPropertyId) return;
+        const reservationId = String(state.currentReservation?.reservation?.id || '').trim();
+        if (!reservationId) return setFlash('Load a reservation first.', 'err');
+        const action = button.getAttribute('data-reservation-action');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}/${action}`, { method: 'POST' });
+          syncReservationForms(payload);
+          setFlash(`Reservation ${action} completed.`);
+        } catch (error) {
+          els.reservationOpsResponse.textContent = error.message;
           setFlash(error.message, 'err');
         }
       });

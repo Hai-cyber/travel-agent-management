@@ -209,7 +209,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/properties/:propertyId/season-room-rates` — lists seasonal nightly prices per `(season, room_type)` pair
 - `POST /api/properties/:propertyId/season-room-rates` — creates a seasonal nightly price override for one room type inside one season
 - `PATCH /api/properties/:propertyId/season-room-rates/:seasonRoomRateId` — updates seasonal nightly price overrides
-- `POST /api/properties/:propertyId/rates/quote` — admin pricing quote endpoint; resolves stay-night pricing by season first, then falls back to the active base rate when no season applies. Base and seasonal rates can now also define included adults/children plus extra-adult/extra-child surcharges for occupancy-aware quote totals.
+- `POST /api/properties/:propertyId/rates/quote` — admin pricing quote endpoint; resolves stay-night pricing by season first, then falls back to the active base rate when no season applies. Base and seasonal rates can now also define included adults/children plus extra-adult/extra-child surcharges, and the quote path now supports multi-room aggregate occupancy math through `rooms_requested`.
 - `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
 - `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
 - `POST /api/properties/:propertyId/availability/hold/:holdId/release` — authenticated admin release path for active holds; marks the hold `released` without touching availability math or reservation truth
@@ -219,10 +219,13 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/properties/:propertyId/reservations/:reservationId/rebook` — authenticated admin rebook path for `confirmed` reservations; recalculates availability while excluding the current reservation's allocations, discards the old selected plan, then writes a new locked stay plan/allocation set on the same reservation
 - `POST /api/properties/:propertyId/reservations/:reservationId/check-in` — authenticated admin status transition from `confirmed` to `checked_in`
 - `POST /api/properties/:propertyId/reservations/:reservationId/check-out` — authenticated admin status transition from `checked_in` to `checked_out`
+- `POST /api/properties/:propertyId/reservations/:reservationId/early-check-out` — authenticated admin exit path from `checked_in`; shortens `check_out`, releases future room-night allocations, and trims future stay-plan segments
+- `POST /api/properties/:propertyId/reservations/:reservationId/no-show` — authenticated admin status transition from `confirmed` to `no_show`; discards the selected stay plan and releases active allocations
+- `POST /api/properties/:propertyId/reservations/:reservationId/undo-status` — authenticated admin undo baseline for `checked_in -> confirmed` and `no_show -> confirmed`; the no-show restore path rechecks availability and relocks a new concrete stay plan when inventory is still available
 
 Property builder scope note:
 - This builder layer is intentionally inventory-first: property identity, room types, and room-unit quantity/configuration are now part of the availability backbone.
-- Property pricing v2 now exists as a separate commercial layer on top of that backbone: base nightly rate + date-window seasons + seasonal room-type overrides + occupancy-aware quote resolution. Availability still does not depend on price data.
+- Property pricing v2 now exists as a separate commercial layer on top of that backbone: base nightly rate + date-window seasons + seasonal room-type overrides + occupancy-aware quote resolution, including a multi-room aggregate quote baseline. Availability still does not depend on price data.
 
 **Promotions / Testing Bypass Controls**
 - `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows
@@ -249,7 +252,7 @@ Property builder scope note:
 - `public/dashboard.html` — tenant admin dashboard; **sidebar-as-pane-controller** pattern: 3 `[data-pane]` content divs (`start-here` default, `orders`, `order-detail`); clicking sidebar order filters calls `showPane('orders')` and loads orders; `📋` detail button on every order row opens `order-detail` pane; order detail shows guest/tour/payment header + per-order service checklist (`booking_order_todos`) seeded from `tour_stops`; todos checkable via PATCH API; custom tasks addable inline; back button returns to orders list; stat cards show real counts; confirm-receipt flow unlocks guest identity in-page; proof image viewer uses blob() URL.
 - `public/dashboard.html` now also contains a billing pane, review-case tooling, launch-guide refactor, and partial ops shortcuts; it is no longer just a thin tenant shell
 - `public/ops.html` — richer operations board for grouped service todos, contact actions, status lifecycle, re-seed support, and operational cleanup fixes landed through CHK-R82
-- `public/properties-engine.html` — property builder/admin surface now also includes pricing v2 controls for rate seasons, seasonal room prices, and a stay-rate quote panel on top of the earlier property/room/unit/base-rate builder
+- `public/properties-engine.html` — property builder/admin surface now also includes pricing v2 controls for rate seasons, seasonal room prices, multi-room occupancy-aware quote output, and authenticated reservation lifecycle controls for hold release, reservation lookup, rebook, no-show, undo-status, check-in/out, and early check-out
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)

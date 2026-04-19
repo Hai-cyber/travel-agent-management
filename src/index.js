@@ -61,6 +61,9 @@ import {
   handleRebookPropertyReservation,
   handleCheckInPropertyReservation,
   handleCheckOutPropertyReservation,
+  handleEarlyCheckOutPropertyReservation,
+  handleNoShowPropertyReservation,
+  handleUndoPropertyReservationStatus,
 } from './routes/properties.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -582,6 +585,21 @@ const patterns = [
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/check-out' }),
     handler: (req, env, match) => handleCheckOutPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/early-check-out' }),
+    handler: (req, env, match) => handleEarlyCheckOutPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/no-show' }),
+    handler: (req, env, match) => handleNoShowPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/undo-status' }),
+    handler: (req, env, match) => handleUndoPropertyReservationStatus(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
   },
 ];
 
