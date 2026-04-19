@@ -190,9 +190,28 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 **Property Availability Baseline (CHK-R83)**
 - These routes belong to the standalone property engine and are intentionally separate from universal hotel/catalog/storefront surfaces such as `tenant_universal_hotels` or `public/product-modules.html`.
+- `GET /api/properties` — lists tenant-scoped property builder records with room-type and room-unit counts
+- `POST /api/properties` — creates a property builder record with availability policy defaults and tenant-scoped property identity (`name`, `slug`, timezone/currency, check-in/out defaults, split/upgrade policy flags)
+- `PATCH /api/properties/:propertyId` — updates property builder fields and availability policy settings through dynamic SQL
+- `GET /api/properties/:propertyId/room-types` — lists room types for a property with per-type unit counts
+- `POST /api/properties/:propertyId/room-types` — creates a room type for inventory/availability modeling
+- `PATCH /api/properties/:propertyId/room-types/:roomTypeId` — updates room type builder fields (`code`, `name`, occupancy, sort order, active`)
+- `GET /api/properties/:propertyId/room-units` — lists physical room units for a property
+- `POST /api/properties/:propertyId/room-units` — creates a single physical room unit
+- `POST /api/properties/:propertyId/room-units/bulk-create` — quantity-style builder helper; creates many room units in one call from `count/start_number/prefix`
+- `PATCH /api/properties/:propertyId/room-units/:roomUnitId` — updates room-unit builder fields such as room number, floor, active flag, and `operational_status`; inventory truth changes here feed directly into availability
+- `GET /api/properties/:propertyId/room-rates` — lists the minimal commercial rate layer for a property's room types
+- `POST /api/properties/:propertyId/room-rates` — creates one base nightly rate anchor for a room type
+- `PATCH /api/properties/:propertyId/room-rates/:roomRateId` — updates the base nightly rate layer (`rate_name`, `currency`, `nightly_amount`, `active`) without changing availability math
 - `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
 - `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
 - `POST /api/properties/:propertyId/reservations` — direct-commit property reservation baseline; reruns availability with optional `hold_id` exclusion, selects the best concrete stay plan, creates a `confirmed` `property_reservations` row plus linked `reservation_stay_plans`, `reservation_stay_plan_segments`, and `reservation_allocations`, and consumes the referenced hold when provided. Current verified baseline supports `rooms_requested = 1` only.
+- `GET /api/properties/:propertyId/reservations/:reservationId` — returns canonical property reservation truth plus selected stay plan and all reservation allocations for tenant-scoped operational reads
+- `POST /api/properties/:propertyId/reservations/:reservationId/cancel` — minimal cancellation baseline; marks the reservation `cancelled`, stamps `cancelled_at/cancel_reason`, discards selected stay-plan state, releases active allocations, and reopens availability for the cancelled stay
+
+Property builder scope note:
+- This builder layer is intentionally inventory-first: property identity, room types, and room-unit quantity/configuration are now part of the availability backbone.
+- A minimal base nightly room-rate layer now exists for builder/admin use, but it remains separate from availability truth and is not yet a full seasonal/rate-plan engine.
 
 **Promotions / Testing Bypass Controls**
 - `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows
@@ -219,6 +238,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `public/dashboard.html` — tenant admin dashboard; **sidebar-as-pane-controller** pattern: 3 `[data-pane]` content divs (`start-here` default, `orders`, `order-detail`); clicking sidebar order filters calls `showPane('orders')` and loads orders; `📋` detail button on every order row opens `order-detail` pane; order detail shows guest/tour/payment header + per-order service checklist (`booking_order_todos`) seeded from `tour_stops`; todos checkable via PATCH API; custom tasks addable inline; back button returns to orders list; stat cards show real counts; confirm-receipt flow unlocks guest identity in-page; proof image viewer uses blob() URL.
 - `public/dashboard.html` now also contains a billing pane, review-case tooling, launch-guide refactor, and partial ops shortcuts; it is no longer just a thin tenant shell
 - `public/ops.html` — richer operations board for grouped service todos, contact actions, status lifecycle, re-seed support, and operational cleanup fixes landed through CHK-R82
+- `public/properties-engine.html` — real property builder/admin surface (no longer a placeholder): tenant-scoped property creation, room-type builder, single/bulk room-unit creation, minimal base-rate editor, and inline availability test panel bound to the new property APIs
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)

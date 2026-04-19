@@ -31,7 +31,26 @@ import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './
 import registerReportsRoutes from './routes/reports.js';
 import registerCalendarRoutes from './routes/calendar.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
-import { handleCheckPropertyAvailability, handleCreatePropertyAvailabilityHold, handleCreatePropertyReservation } from './routes/properties.js';
+import {
+  handleListProperties,
+  handleCreateProperty,
+  handleUpdateProperty,
+  handleListRoomTypes,
+  handleCreateRoomType,
+  handleUpdateRoomType,
+  handleListRoomUnits,
+  handleCreateRoomUnit,
+  handleBulkCreateRoomUnits,
+  handleUpdateRoomUnit,
+  handleListRoomRates,
+  handleCreateRoomRate,
+  handleUpdateRoomRate,
+  handleCheckPropertyAvailability,
+  handleCreatePropertyAvailabilityHold,
+  handleCreatePropertyReservation,
+  handleGetPropertyReservation,
+  handleCancelPropertyReservation,
+} from './routes/properties.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
   handleGetPricing,
@@ -409,6 +428,71 @@ const patterns = [
   })),
 
   {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties' }),
+    handler: (req, env) => handleListProperties(req, env)
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties' }),
+    handler: (req, env) => handleCreateProperty(req, env)
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId' }),
+    handler: (req, env, match) => handleUpdateProperty(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types' }),
+    handler: (req, env, match) => handleListRoomTypes(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types' }),
+    handler: (req, env, match) => handleCreateRoomType(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types/:roomTypeId' }),
+    handler: (req, env, match) => handleUpdateRoomType(req, env, { propertyId: match.pathname.groups.propertyId, roomTypeId: match.pathname.groups.roomTypeId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units' }),
+    handler: (req, env, match) => handleListRoomUnits(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units' }),
+    handler: (req, env, match) => handleCreateRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/bulk-create' }),
+    handler: (req, env, match) => handleBulkCreateRoomUnits(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId' }),
+    handler: (req, env, match) => handleUpdateRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
+    handler: (req, env, match) => handleListRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
+    handler: (req, env, match) => handleCreateRoomRate(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates/:roomRateId' }),
+    handler: (req, env, match) => handleUpdateRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, roomRateId: match.pathname.groups.roomRateId })
+  },
+  {
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability' }),
     handler: (req, env, match) => handleCheckPropertyAvailability(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -422,6 +506,16 @@ const patterns = [
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations' }),
     handler: (req, env, match) => handleCreatePropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId' }),
+    handler: (req, env, match) => handleGetPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/cancel' }),
+    handler: (req, env, match) => handleCancelPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
   },
 ];
 

@@ -3,178 +3,1153 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Properties Engine</title>
+  <title>Property Builder</title>
   <style>
     :root {
-      color-scheme: light;
-      --bg-deep: #0f172a;
-      --bg-blue: #1d4ed8;
-      --surface: rgba(255, 255, 255, 0.94);
-      --ink: #0f172a;
-      --muted: #64748b;
-      --line: rgba(148, 163, 184, 0.24);
-      --accent: #2563eb;
-      --accent-soft: rgba(37, 99, 235, 0.12);
-      --shadow: 0 28px 72px rgba(15, 23, 42, 0.24);
-      --radius: 28px;
+      --bg: #f3f1ea;
+      --paper: rgba(255, 252, 246, 0.92);
+      --panel: #fffdf9;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: rgba(120, 113, 108, 0.2);
+      --accent: #9a3412;
+      --accent-2: #0f766e;
+      --accent-soft: rgba(154, 52, 18, 0.1);
+      --ok-soft: rgba(15, 118, 110, 0.12);
+      --danger: #b91c1c;
+      --shadow: 0 26px 80px rgba(28, 25, 23, 0.12);
+      --radius: 24px;
     }
 
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      min-height: 100vh;
-      font: 16px/1.55 "Segoe UI", system-ui, sans-serif;
+      font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(255,255,255,0.14), transparent 24%),
-        linear-gradient(145deg, var(--bg-deep) 0%, var(--bg-blue) 100%);
-      padding: 32px 18px;
+        radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 24%),
+        radial-gradient(circle at top right, rgba(20, 184, 166, 0.12), transparent 24%),
+        linear-gradient(180deg, #f7f4ee 0%, var(--bg) 100%);
+      min-height: 100vh;
     }
 
     .shell {
-      max-width: 980px;
+      max-width: 1480px;
       margin: 0 auto;
-      background: var(--surface);
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+      gap: 18px;
+      background: var(--paper);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: 32px;
       box-shadow: var(--shadow);
       overflow: hidden;
     }
 
-    .hero {
-      padding: 34px 34px 22px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0));
+    .hero-copy {
+      padding: 30px 32px 28px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.84), rgba(255,248,240,0.75)),
+        radial-gradient(circle at top left, rgba(154, 52, 18, 0.09), transparent 34%);
     }
 
     .eyebrow {
       display: inline-flex;
-      align-items: center;
       gap: 8px;
-      padding: 8px 12px;
+      align-items: center;
+      padding: 7px 12px;
       border-radius: 999px;
       background: var(--accent-soft);
       color: var(--accent);
       font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
+      font-weight: 800;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
 
     h1 {
-      margin: 18px 0 10px;
-      font-size: clamp(32px, 5vw, 48px);
-      line-height: 1.08;
+      margin: 16px 0 10px;
+      font-size: clamp(34px, 5vw, 54px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
     }
 
     .lead {
       margin: 0;
-      max-width: 65ch;
-      color: var(--muted);
-      font-size: 17px;
+      color: #57534e;
+      max-width: 70ch;
+      font-size: 16px;
     }
 
-    .body {
-      padding: 0 34px 34px;
+    .hero-note {
+      margin-top: 18px;
       display: grid;
-      gap: 18px;
+      gap: 12px;
     }
 
-    .card {
+    .hero-note .tip {
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(240, 253, 250, 0.75);
+      color: #115e59;
+      font-size: 14px;
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,250,245,0.95));
+      border-left: 1px solid var(--line);
+    }
+
+    .side-card {
       border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: 22px;
       background: #fff;
+      padding: 18px;
+    }
+
+    .side-card h2,
+    .panel h2,
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .side-card p,
+    .hint,
+    .muted,
+    .empty {
+      color: var(--muted);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .sidebar-head,
+    .main-head,
+    .section-head {
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-actions,
+    .section-body,
+    .main-body {
       padding: 20px 22px;
     }
 
-    .card h2 {
-      margin: 0 0 10px;
-      font-size: 20px;
+    .property-list {
+      display: grid;
+      gap: 10px;
+      max-height: calc(100vh - 300px);
+      overflow: auto;
+      padding: 0 12px 18px;
     }
 
-    .card p,
-    .card li {
-      color: #334155;
+    .property-item {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.9);
+      border-radius: 18px;
+      padding: 14px;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
     }
 
-    ul {
-      margin: 0;
-      padding-left: 20px;
+    .property-item.active {
+      border-color: rgba(154, 52, 18, 0.42);
+      background: rgba(255, 247, 237, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(154, 52, 18, 0.08);
     }
 
-    .actions {
+    .property-item strong {
+      font-size: 15px;
+    }
+
+    .pill-row,
+    .action-row,
+    .grid-actions {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
-      margin-top: 8px;
     }
 
-    .button {
+    .pill,
+    .button,
+    .tag {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 44px;
-      padding: 0 18px;
+      min-height: 40px;
+      padding: 0 14px;
       border-radius: 999px;
       border: 1px solid var(--line);
-      text-decoration: none;
-      color: var(--ink);
       background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      font: inherit;
       font-weight: 700;
+      cursor: pointer;
     }
 
-    .button.primary {
+    .button.primary,
+    .pill.active {
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
     }
 
-    .meta {
+    .button.secondary {
+      background: #fff7ed;
+      border-color: rgba(154, 52, 18, 0.18);
+      color: var(--accent);
+    }
+
+    .button.teal {
+      background: #f0fdfa;
+      border-color: rgba(15, 118, 110, 0.18);
+      color: var(--accent-2);
+    }
+
+    .button.small {
+      min-height: 34px;
+      padding: 0 12px;
       font-size: 13px;
+    }
+
+    .tag {
+      min-height: 28px;
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: #fafaf9;
+    }
+
+    .tag.ok { color: var(--accent-2); background: #ecfdf5; border-color: rgba(15, 118, 110, 0.14); }
+    .tag.warn { color: #a16207; background: #fefce8; border-color: rgba(202, 138, 4, 0.18); }
+    .tag.danger { color: var(--danger); background: #fef2f2; border-color: rgba(185, 28, 28, 0.16); }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .main-grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.88);
+      overflow: hidden;
+    }
+
+    .full { grid-column: 1 / -1; }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .field-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #44403c;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(120, 113, 108, 0.24);
+      border-radius: 14px;
+      min-height: 42px;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+
+    .list-card {
+      border: 1px solid rgba(120, 113, 108, 0.18);
+      border-radius: 18px;
+      padding: 14px;
+      background: #fff;
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .list-card-head strong {
+      font-size: 15px;
+    }
+
+    .metric-strip {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.88);
+      padding: 14px;
+    }
+
+    .metric .value {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+    }
+
+    .metric .label {
+      margin-top: 6px;
+      font-size: 12px;
       color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+
+    .response {
+      white-space: pre-wrap;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #334155;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .flash {
+      display: none;
+      border-radius: 18px;
+      padding: 14px 16px;
+      font-weight: 700;
+    }
+
+    .flash.show { display: block; }
+    .flash.ok { background: #ecfdf5; color: #166534; border: 1px solid rgba(15,118,110,0.18); }
+    .flash.err { background: #fef2f2; color: #991b1b; border: 1px solid rgba(185,28,28,0.16); }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .layout,
+      .main-grid,
+      .field-grid,
+      .field-grid.three,
+      .field-grid.four,
+      .metric-strip {
+        grid-template-columns: 1fr;
+      }
+      .hero-side { border-left: 0; border-top: 1px solid var(--line); }
+      .property-list { max-height: none; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="eyebrow">Hotel Operator Pro</div>
-      <h1>Properties Engine Reserved For The Hotel And Venue Track</h1>
-      <p class="lead">This dashboard entry is intentionally separate from tour-side accommodations. Hotel and venue properties will live here later as their own engine, without overwriting tour storytelling.</p>
-    </section>
-    <section class="body">
-      <article class="card">
-        <h2>Current Direction</h2>
-        <ul>
-          <li>Accommodations in the tenant dashboard now point to the current hotel module flow.</li>
-          <li>Properties are reserved for the future dedicated engine for hotels and other venues.</li>
-          <li>This future engine is aligned with the Hotel Operator Pro tier and later bundle expansion.</li>
-        </ul>
-      </article>
-      <article class="card">
-        <h2>Use Today</h2>
-        <p>If you need to manage hotel-side presentation modules now, continue in the current hotel module editor. That keeps today’s operations moving while leaving room for the real properties engine later.</p>
-        <div class="actions">
-          <a id="btn-hotel-modules" class="button primary" href="/product-modules.html?mode=hotels#hotel">Open Hotel Modules</a>
-          <a id="btn-dashboard" class="button" href="/dashboard.html">Back To Dashboard</a>
+      <div class="hero-copy">
+        <div class="eyebrow">Property Builder</div>
+        <h1>Inventory First. Rates Second. Availability Always Tells The Truth.</h1>
+        <p class="lead">This page is the first real admin surface for the standalone property engine. Configure the property, define room types, generate physical room units by quantity, assign a base nightly rate, and test availability without touching SQL fixtures.</p>
+        <div class="hero-note">
+          <div class="tip">Inventory backbone: property, room type, and room unit quantity feed directly into availability.</div>
+          <div class="tip">Commercial layer: base nightly rate is kept separate from availability truth so pricing can evolve later without weakening inventory logic.</div>
         </div>
-      </article>
-      <div class="meta">This page is a roadmap placeholder, not the final hotel/property runtime.</div>
+      </div>
+      <aside class="hero-side">
+        <div class="side-card">
+          <h2>Tenant Context</h2>
+          <p class="hint">Pass <strong>?tid=&lt;tenantId&gt;</strong> once. The page remembers it locally for the next visit.</p>
+          <form id="tenant-form">
+            <label>Tenant ID
+              <input id="tenant-id" name="tenant_id" placeholder="ten-demo-001" />
+            </label>
+            <div class="action-row">
+              <button class="button primary" type="submit">Load Tenant</button>
+              <a class="button" href="/dashboard.html">Dashboard</a>
+            </div>
+          </form>
+        </div>
+        <div class="side-card">
+          <h2>What This Covers</h2>
+          <div class="pill-row">
+            <span class="tag ok">Property</span>
+            <span class="tag ok">Room Types</span>
+            <span class="tag ok">Room Units</span>
+            <span class="tag ok">Base Rate</span>
+            <span class="tag warn">Availability Test</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <div id="flash" class="flash"></div>
+
+    <section class="layout">
+      <aside class="panel sidebar">
+        <div class="sidebar-head">
+          <h2>Properties</h2>
+          <p class="hint">Choose a property to manage inventory, rates, and availability.</p>
+        </div>
+        <div class="sidebar-actions">
+          <button id="btn-refresh-properties" class="button secondary">Refresh List</button>
+        </div>
+        <div id="property-list" class="property-list">
+          <div class="empty">Load a tenant to see property builder records.</div>
+        </div>
+      </aside>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="main-head toolbar">
+            <div>
+              <h2 id="selected-property-title">No property selected</h2>
+              <p id="selected-property-subtitle" class="hint">Create a property, then start adding room types and units.</p>
+            </div>
+            <div class="pill-row">
+              <span id="selected-property-status" class="tag">No Property</span>
+            </div>
+          </div>
+          <div class="main-body">
+            <div class="metric-strip">
+              <div class="metric">
+                <div id="metric-room-types" class="value">0</div>
+                <div class="label">Room Types</div>
+              </div>
+              <div class="metric">
+                <div id="metric-room-units" class="value">0</div>
+                <div class="label">Room Units</div>
+              </div>
+              <div class="metric">
+                <div id="metric-active-rates" class="value">0</div>
+                <div class="label">Active Rates</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-grid">
+          <section class="section">
+            <div class="section-head">
+              <h2>Create Property</h2>
+              <p class="hint">This is the availability policy anchor for one property.</p>
+            </div>
+            <div class="section-body">
+              <form id="property-form">
+                <div class="field-grid">
+                  <label>Name
+                    <input name="name" required placeholder="Riverfront Suites" />
+                  </label>
+                  <label>Slug
+                    <input name="slug" placeholder="riverfront-suites" />
+                  </label>
+                </div>
+                <div class="field-grid four">
+                  <label>Status
+                    <select name="status">
+                      <option value="active">active</option>
+                      <option value="draft">draft</option>
+                      <option value="inactive">inactive</option>
+                    </select>
+                  </label>
+                  <label>Timezone
+                    <input name="timezone" value="Asia/Ho_Chi_Minh" />
+                  </label>
+                  <label>Currency
+                    <input name="currency" value="VND" />
+                  </label>
+                  <label>Upgrade Mode
+                    <select name="upgrade_mode">
+                      <option value="suggest_only">suggest_only</option>
+                      <option value="off">off</option>
+                      <option value="auto_if_penalty_better">auto_if_penalty_better</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="field-grid four">
+                  <label>Check-in Time
+                    <input name="default_check_in_time" value="14:00" />
+                  </label>
+                  <label>Check-out Time
+                    <input name="default_check_out_time" value="11:00" />
+                  </label>
+                  <label>Max Room Moves
+                    <input name="max_room_moves_per_reservation" type="number" value="1" />
+                  </label>
+                  <label>Max Upgrade Jump
+                    <input name="max_upgrade_level_jump" type="number" value="1" />
+                  </label>
+                </div>
+                <div class="field-grid four">
+                  <label><span>Split Stay Enabled</span><select name="split_stay_enabled"><option value="1">Yes</option><option value="0">No</option></select></label>
+                  <label><span>Public Split Visible</span><select name="split_stay_public_visible"><option value="0">No</option><option value="1">Yes</option></select></label>
+                  <label><span>Allow Upgrade Preserve</span><select name="allow_upgrade_to_preserve_stay"><option value="1">Yes</option><option value="0">No</option></select></label>
+                  <label><span>Same-Day Turnover Sellable</span><select name="same_day_turnover_sellable"><option value="0">No</option><option value="1">Yes</option></select></label>
+                </div>
+                <div class="action-row">
+                  <button class="button primary" type="submit">Create Property</button>
+                  <button class="button" type="button" id="btn-patch-property">Patch Selected Property</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-head">
+              <h2>Availability Test</h2>
+              <p class="hint">Check whether the configured inventory is sellable for a stay.</p>
+            </div>
+            <div class="section-body">
+              <form id="availability-form">
+                <div class="field-grid">
+                  <label>Room Type
+                    <select id="availability-room-type" name="room_type_id"></select>
+                  </label>
+                  <label>Rooms Requested
+                    <input name="rooms_requested" type="number" min="1" value="1" />
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label>Check-in
+                    <input name="check_in" type="date" value="2026-06-01" />
+                  </label>
+                  <label>Check-out
+                    <input name="check_out" type="date" value="2026-06-03" />
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="button teal" type="submit">Run Availability</button>
+                </div>
+              </form>
+              <div id="availability-response" class="response">Availability output will render here.</div>
+            </div>
+          </section>
+
+          <section class="section full">
+            <div class="section-head toolbar">
+              <div>
+                <h2>Room Types</h2>
+                <p class="hint">Commercial categories sold to guests.</p>
+              </div>
+              <button id="btn-refresh-room-types" class="button small">Refresh Room Types</button>
+            </div>
+            <div class="section-body grid">
+              <form id="room-type-form">
+                <div class="field-grid four">
+                  <label>Code
+                    <input name="code" required placeholder="DLX" />
+                  </label>
+                  <label>Name
+                    <input name="name" required placeholder="Deluxe" />
+                  </label>
+                  <label>Base Capacity
+                    <input name="base_capacity" type="number" min="1" value="2" />
+                  </label>
+                  <label>Max Occupancy
+                    <input name="max_occupancy" type="number" min="1" value="2" />
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label>Description
+                    <input name="description" placeholder="Balcony, city view, twin or king." />
+                  </label>
+                  <label>Sort Order
+                    <input name="sort_order" type="number" value="0" />
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="button primary" type="submit">Add Room Type</button>
+                </div>
+              </form>
+              <div id="room-type-list" class="grid">
+                <div class="empty">No room types yet.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-head toolbar">
+              <div>
+                <h2>Room Units</h2>
+                <p class="hint">One real physical room per unit.</p>
+              </div>
+              <button id="btn-refresh-room-units" class="button small">Refresh Room Units</button>
+            </div>
+            <div class="section-body grid">
+              <form id="room-unit-form">
+                <div class="field-grid three">
+                  <label>Room Type
+                    <select id="room-unit-room-type" name="room_type_id"></select>
+                  </label>
+                  <label>Room Number
+                    <input name="room_number" placeholder="DLX-401" />
+                  </label>
+                  <label>Floor
+                    <input name="floor_label" placeholder="4" />
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>Sort Order
+                    <input name="sort_order" type="number" value="0" />
+                  </label>
+                  <label>Active
+                    <select name="active"><option value="1">Yes</option><option value="0">No</option></select>
+                  </label>
+                  <label>Operational Status
+                    <select name="operational_status"><option value="ready">ready</option><option value="maintenance">maintenance</option><option value="out_of_order">out_of_order</option></select>
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="button primary" type="submit">Add Room Unit</button>
+                </div>
+              </form>
+
+              <form id="room-unit-bulk-form">
+                <div class="field-grid four">
+                  <label>Room Type
+                    <select id="bulk-room-type" name="room_type_id"></select>
+                  </label>
+                  <label>Count
+                    <input name="count" type="number" min="1" value="5" />
+                  </label>
+                  <label>Start Number
+                    <input name="start_number" type="number" min="1" value="101" />
+                  </label>
+                  <label>Prefix
+                    <input name="prefix" value="STD-" />
+                  </label>
+                </div>
+                <div class="field-grid four">
+                  <label>Floor
+                    <input name="floor_label" placeholder="1" />
+                  </label>
+                  <label>Sort Order Start
+                    <input name="sort_order_start" type="number" value="0" />
+                  </label>
+                  <label>Active
+                    <select name="active"><option value="1">Yes</option><option value="0">No</option></select>
+                  </label>
+                  <label>Operational Status
+                    <select name="operational_status"><option value="ready">ready</option><option value="maintenance">maintenance</option><option value="out_of_order">out_of_order</option></select>
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="button secondary" type="submit">Bulk Create Units</button>
+                </div>
+              </form>
+              <div id="room-unit-list" class="grid">
+                <div class="empty">No room units yet.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-head toolbar">
+              <div>
+                <h2>Base Nightly Rates</h2>
+                <p class="hint">Commercial anchor only. This does not change availability math.</p>
+              </div>
+              <button id="btn-refresh-room-rates" class="button small">Refresh Rates</button>
+            </div>
+            <div class="section-body grid">
+              <form id="room-rate-form">
+                <div class="field-grid four">
+                  <label>Room Type
+                    <select id="room-rate-room-type" name="room_type_id"></select>
+                  </label>
+                  <label>Rate Name
+                    <input name="rate_name" value="Standard Rate" />
+                  </label>
+                  <label>Currency
+                    <input name="currency" value="VND" />
+                  </label>
+                  <label>Nightly Amount
+                    <input name="nightly_amount" type="number" min="0" step="0.01" value="1200000" />
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="button primary" type="submit">Save Base Rate</button>
+                </div>
+              </form>
+              <div id="room-rate-list" class="grid">
+                <div class="empty">No room rates yet.</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
     </section>
   </main>
+
   <script>
     (() => {
-      const params = new URLSearchParams(window.location.search);
-      const tenantId = String(params.get('tid') || '').trim();
-      const withTenant = (path) => {
-        const url = new URL(path, window.location.origin);
-        if (tenantId) url.searchParams.set('tid', tenantId);
-        return `${url.pathname}${url.search}${url.hash}`;
+      const state = {
+        tenantId: '',
+        properties: [],
+        selectedPropertyId: '',
+        roomTypes: [],
+        roomUnits: [],
+        roomRates: [],
       };
 
-      const hotelModules = document.getElementById('btn-hotel-modules');
-      const dashboard = document.getElementById('btn-dashboard');
-      if (hotelModules) hotelModules.href = withTenant('/product-modules.html?mode=hotels#hotel');
-      if (dashboard) dashboard.href = withTenant('/dashboard.html');
+      const els = {
+        flash: document.getElementById('flash'),
+        tenantForm: document.getElementById('tenant-form'),
+        tenantId: document.getElementById('tenant-id'),
+        propertyList: document.getElementById('property-list'),
+        propertyForm: document.getElementById('property-form'),
+        propertyPatchBtn: document.getElementById('btn-patch-property'),
+        selectedTitle: document.getElementById('selected-property-title'),
+        selectedSubtitle: document.getElementById('selected-property-subtitle'),
+        selectedStatus: document.getElementById('selected-property-status'),
+        metricRoomTypes: document.getElementById('metric-room-types'),
+        metricRoomUnits: document.getElementById('metric-room-units'),
+        metricActiveRates: document.getElementById('metric-active-rates'),
+        roomTypeForm: document.getElementById('room-type-form'),
+        roomTypeList: document.getElementById('room-type-list'),
+        roomUnitForm: document.getElementById('room-unit-form'),
+        roomUnitBulkForm: document.getElementById('room-unit-bulk-form'),
+        roomUnitList: document.getElementById('room-unit-list'),
+        roomRateForm: document.getElementById('room-rate-form'),
+        roomRateList: document.getElementById('room-rate-list'),
+        availabilityForm: document.getElementById('availability-form'),
+        availabilityResponse: document.getElementById('availability-response'),
+        availabilityRoomType: document.getElementById('availability-room-type'),
+        roomUnitRoomType: document.getElementById('room-unit-room-type'),
+        bulkRoomType: document.getElementById('bulk-room-type'),
+        roomRateRoomType: document.getElementById('room-rate-room-type'),
+        btnRefreshProperties: document.getElementById('btn-refresh-properties'),
+        btnRefreshRoomTypes: document.getElementById('btn-refresh-room-types'),
+        btnRefreshRoomUnits: document.getElementById('btn-refresh-room-units'),
+        btnRefreshRoomRates: document.getElementById('btn-refresh-room-rates'),
+      };
+
+      function storageKey() {
+        return 'property_builder_tenant_id';
+      }
+
+      function setFlash(message, kind = 'ok') {
+        els.flash.textContent = message;
+        els.flash.className = `flash show ${kind === 'err' ? 'err' : 'ok'}`;
+        window.clearTimeout(setFlash._timer);
+        setFlash._timer = window.setTimeout(() => {
+          els.flash.className = 'flash';
+          els.flash.textContent = '';
+        }, 3600);
+      }
+
+      async function api(path, options = {}) {
+        if (!state.tenantId) throw new Error('Tenant ID is required.');
+        const headers = new Headers(options.headers || {});
+        headers.set('X-Tenant-ID', state.tenantId);
+        if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+        const response = await fetch(path, { ...options, headers, credentials: 'include' });
+        const text = await response.text();
+        let payload = null;
+        try { payload = text ? JSON.parse(text) : null; } catch { payload = { raw: text }; }
+        if (!response.ok) {
+          const msg = payload?.error || response.statusText || 'Request failed.';
+          throw new Error(msg);
+        }
+        return payload;
+      }
+
+      function selectedProperty() {
+        return state.properties.find((item) => item.id === state.selectedPropertyId) || null;
+      }
+
+      function renderPropertyList() {
+        if (!state.properties.length) {
+          els.propertyList.innerHTML = '<div class="empty">No properties yet. Create the first one from the form.</div>';
+          return;
+        }
+        els.propertyList.innerHTML = state.properties.map((property) => `
+          <button class="property-item ${property.id === state.selectedPropertyId ? 'active' : ''}" data-property-id="${property.id}">
+            <strong>${escapeHtml(property.name)}</strong>
+            <div class="muted">${escapeHtml(property.slug)} · ${escapeHtml(property.currency)} · ${escapeHtml(property.timezone)}</div>
+            <div class="pill-row">
+              <span class="tag ${property.status === 'active' ? 'ok' : 'warn'}">${escapeHtml(property.status)}</span>
+              <span class="tag">${property.room_type_count || 0} room types</span>
+              <span class="tag">${property.room_unit_count || 0} units</span>
+            </div>
+          </button>
+        `).join('');
+      }
+
+      function renderSelectedProperty() {
+        const property = selectedProperty();
+        if (!property) {
+          els.selectedTitle.textContent = 'No property selected';
+          els.selectedSubtitle.textContent = 'Create or select a property to manage inventory, rates, and availability.';
+          els.selectedStatus.textContent = 'No Property';
+          els.metricRoomTypes.textContent = '0';
+          els.metricRoomUnits.textContent = '0';
+          els.metricActiveRates.textContent = '0';
+          return;
+        }
+        els.selectedTitle.textContent = property.name;
+        els.selectedSubtitle.textContent = `${property.slug} · ${property.currency} · check-in ${property.default_check_in_time} / check-out ${property.default_check_out_time}`;
+        els.selectedStatus.textContent = property.status;
+        els.selectedStatus.className = `tag ${property.status === 'active' ? 'ok' : 'warn'}`;
+        els.metricRoomTypes.textContent = String(state.roomTypes.length);
+        els.metricRoomUnits.textContent = String(state.roomUnits.length);
+        els.metricActiveRates.textContent = String(state.roomRates.filter((rate) => rate.active).length);
+      }
+
+      function renderRoomTypeOptions() {
+        const options = state.roomTypes.map((roomType) => `<option value="${roomType.id}">${escapeHtml(roomType.code)} · ${escapeHtml(roomType.name)}</option>`).join('');
+        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType]) {
+          select.innerHTML = options || '<option value="">No room types yet</option>';
+        }
+      }
+
+      function renderRoomTypes() {
+        if (!state.roomTypes.length) {
+          els.roomTypeList.innerHTML = '<div class="empty">No room types yet.</div>';
+          renderRoomTypeOptions();
+          return;
+        }
+        els.roomTypeList.innerHTML = state.roomTypes.map((roomType) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(roomType.name)}</strong>
+                <div class="muted">${escapeHtml(roomType.code)} · capacity ${roomType.base_capacity}/${roomType.max_occupancy}</div>
+              </div>
+              <span class="tag ${roomType.active ? 'ok' : 'warn'}">${roomType.active ? 'active' : 'inactive'}</span>
+            </div>
+            <div class="pill-row">
+              <span class="tag">sort ${roomType.sort_order}</span>
+              <span class="tag">units ${roomType.room_unit_count || 0}</span>
+            </div>
+          </article>
+        `).join('');
+        renderRoomTypeOptions();
+      }
+
+      function renderRoomUnits() {
+        if (!state.roomUnits.length) {
+          els.roomUnitList.innerHTML = '<div class="empty">No room units yet.</div>';
+          return;
+        }
+        els.roomUnitList.innerHTML = state.roomUnits.map((roomUnit) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(roomUnit.room_number)}</strong>
+                <div class="muted">room type ${escapeHtml(roomUnit.room_type_id)}${roomUnit.floor_label ? ` · floor ${escapeHtml(roomUnit.floor_label)}` : ''}</div>
+              </div>
+              <span class="tag ${roomUnit.operational_status === 'ready' ? 'ok' : roomUnit.operational_status === 'maintenance' ? 'warn' : 'danger'}">${escapeHtml(roomUnit.operational_status)}</span>
+            </div>
+            <div class="action-row">
+              <button class="button small secondary" data-room-unit-id="${roomUnit.id}" data-room-status="ready">Mark Ready</button>
+              <button class="button small" data-room-unit-id="${roomUnit.id}" data-room-status="maintenance">Maintenance</button>
+              <button class="button small" data-room-unit-id="${roomUnit.id}" data-room-status="out_of_order">Out Of Order</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderRoomRates() {
+        if (!state.roomRates.length) {
+          els.roomRateList.innerHTML = '<div class="empty">No room rates yet.</div>';
+          return;
+        }
+        els.roomRateList.innerHTML = state.roomRates.map((rate) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(rate.rate_name)}</strong>
+                <div class="muted">${escapeHtml(rate.currency)} ${Number(rate.nightly_amount).toLocaleString()} · room type ${escapeHtml(rate.room_type_name || rate.room_type_id)}</div>
+              </div>
+              <span class="tag ${rate.active ? 'ok' : 'warn'}">${rate.active ? 'active' : 'inactive'}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formJson(form) {
+        const data = Object.fromEntries(new FormData(form).entries());
+        for (const [key, value] of Object.entries(data)) {
+          if (value === '') delete data[key];
+        }
+        return data;
+      }
+
+      async function loadProperties() {
+        const payload = await api('/api/properties');
+        state.properties = payload.properties || [];
+        if (!state.selectedPropertyId && state.properties.length) state.selectedPropertyId = state.properties[0].id;
+        if (state.selectedPropertyId && !state.properties.some((item) => item.id === state.selectedPropertyId)) {
+          state.selectedPropertyId = state.properties[0]?.id || '';
+        }
+        renderPropertyList();
+        await loadPropertyDetails();
+      }
+
+      async function loadPropertyDetails() {
+        if (!state.selectedPropertyId) {
+          state.roomTypes = [];
+          state.roomUnits = [];
+          state.roomRates = [];
+          renderSelectedProperty();
+          renderRoomTypes();
+          renderRoomUnits();
+          renderRoomRates();
+          return;
+        }
+        const [roomTypesPayload, roomUnitsPayload, roomRatesPayload] = await Promise.all([
+          api(`/api/properties/${state.selectedPropertyId}/room-types`),
+          api(`/api/properties/${state.selectedPropertyId}/room-units`),
+          api(`/api/properties/${state.selectedPropertyId}/room-rates`),
+        ]);
+        state.roomTypes = roomTypesPayload.room_types || [];
+        state.roomUnits = roomUnitsPayload.room_units || [];
+        state.roomRates = roomRatesPayload.room_rates || [];
+        renderSelectedProperty();
+        renderRoomTypes();
+        renderRoomUnits();
+        renderRoomRates();
+      }
+
+      async function bootTenant(tenantId) {
+        state.tenantId = tenantId;
+        localStorage.setItem(storageKey(), tenantId);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tid', tenantId);
+        history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        await loadProperties();
+        setFlash(`Loaded tenant ${tenantId}.`);
+      }
+
+      els.tenantForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const tenantId = String(els.tenantId.value || '').trim();
+        if (!tenantId) return setFlash('Tenant ID is required.', 'err');
+        try {
+          await bootTenant(tenantId);
+        } catch (error) {
+          setFlash(error.message || 'Failed to load tenant.', 'err');
+        }
+      });
+
+      els.propertyForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          const payload = await api('/api/properties', { method: 'POST', body: JSON.stringify(formJson(els.propertyForm)) });
+          state.selectedPropertyId = payload.property.id;
+          els.propertyForm.reset();
+          els.propertyForm.querySelector('[name="timezone"]').value = 'Asia/Ho_Chi_Minh';
+          els.propertyForm.querySelector('[name="currency"]').value = 'VND';
+          els.propertyForm.querySelector('[name="default_check_in_time"]').value = '14:00';
+          els.propertyForm.querySelector('[name="default_check_out_time"]').value = '11:00';
+          await loadProperties();
+          setFlash(`Created property ${payload.property.name}.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.propertyPatchBtn.addEventListener('click', async () => {
+        const property = selectedProperty();
+        if (!property) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${property.id}`, { method: 'PATCH', body: JSON.stringify({ status: property.status === 'active' ? 'draft' : 'active' }) });
+          await loadProperties();
+          setFlash(`Patched property ${property.name}.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.roomTypeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-types`, { method: 'POST', body: JSON.stringify(formJson(els.roomTypeForm)) });
+          els.roomTypeForm.reset();
+          await loadProperties();
+          setFlash('Room type created.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.roomUnitForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-units`, { method: 'POST', body: JSON.stringify(formJson(els.roomUnitForm)) });
+          els.roomUnitForm.reset();
+          await loadPropertyDetails();
+          setFlash('Room unit created.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.roomUnitBulkForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/room-units/bulk-create`, { method: 'POST', body: JSON.stringify(formJson(els.roomUnitBulkForm)) });
+          await loadProperties();
+          setFlash(`Created ${payload.room_units.length} room units.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.roomRateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const data = formJson(els.roomRateForm);
+          const existing = state.roomRates.find((rate) => rate.room_type_id === data.room_type_id && rate.active);
+          if (existing) {
+            await api(`/api/properties/${state.selectedPropertyId}/room-rates/${existing.id}`, { method: 'PATCH', body: JSON.stringify(data) });
+            setFlash('Base rate updated.');
+          } else {
+            await api(`/api/properties/${state.selectedPropertyId}/room-rates`, { method: 'POST', body: JSON.stringify(data) });
+            setFlash('Base rate created.');
+          }
+          await loadPropertyDetails();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.availabilityForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/availability`, { method: 'POST', body: JSON.stringify(formJson(els.availabilityForm)) });
+          els.availabilityResponse.textContent = JSON.stringify(payload, null, 2);
+          setFlash('Availability checked.');
+        } catch (error) {
+          els.availabilityResponse.textContent = error.message;
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.propertyList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-property-id]');
+        if (!button) return;
+        state.selectedPropertyId = button.getAttribute('data-property-id');
+        renderPropertyList();
+        await loadPropertyDetails();
+      });
+
+      els.roomUnitList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-room-unit-id]');
+        if (!button || !state.selectedPropertyId) return;
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-units/${button.getAttribute('data-room-unit-id')}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ operational_status: button.getAttribute('data-room-status') }),
+          });
+          await loadPropertyDetails();
+          setFlash('Room unit status updated.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      for (const button of [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits, els.btnRefreshRoomRates]) {
+        button.addEventListener('click', async () => {
+          if (!state.tenantId) return setFlash('Load a tenant first.', 'err');
+          try {
+            if (button === els.btnRefreshProperties) await loadProperties();
+            else await loadPropertyDetails();
+            setFlash('Refreshed.');
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+        });
+      }
+
+      function restoreTenant() {
+        const urlTenant = new URLSearchParams(window.location.search).get('tid');
+        const storedTenant = localStorage.getItem(storageKey());
+        const tenantId = String(urlTenant || storedTenant || '').trim();
+        if (!tenantId) return;
+        els.tenantId.value = tenantId;
+        bootTenant(tenantId).catch((error) => setFlash(error.message, 'err'));
+      }
+
+      restoreTenant();
     })();
   </script>
 </body>

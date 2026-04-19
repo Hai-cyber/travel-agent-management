@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { SESSION_COOKIE_NAME, getAuthSession } from '../lib/auth.js';
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -14,6 +15,34 @@ function resolveTenantId(request) {
 
 function parseJsonBody(request) {
   return request.json();
+}
+
+function readAuthTokenFromRequest(request) {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieMatch = cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]+)`));
+  if (cookieMatch?.[1]) return decodeURIComponent(cookieMatch[1]);
+
+  const authHeader = request.headers.get('Authorization') || request.headers.get('authorization') || '';
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  return bearerMatch ? bearerMatch[1].trim() : '';
+}
+
+async function requireTenantActor(request, env, tenantId) {
+  const token = readAuthTokenFromRequest(request);
+  if (!token) {
+    return { error: jsonResponse({ error: 'Authentication required.' }, 401) };
+  }
+
+  const session = await getAuthSession(env.DB, token);
+  if (!session) {
+    return { error: jsonResponse({ error: 'Session expired. Please log in again.' }, 401) };
+  }
+
+  if (tenantId && session.tenant_id !== tenantId) {
+    return { error: jsonResponse({ error: 'Forbidden for this tenant.' }, 403) };
+  }
+
+  return { session };
 }
 
 function currentUnixSeconds() {
@@ -245,6 +274,360 @@ const PROPERTY_RESERVATION_SOURCES = new Set([
   'manual_message',
 ]);
 
+const PROPERTY_STATUSES = new Set(['draft', 'active', 'inactive']);
+const PROPERTY_UPGRADE_MODES = new Set(['off', 'suggest_only', 'auto_if_penalty_better']);
+const ROOM_UNIT_OPERATIONAL_STATUSES = new Set(['ready', 'maintenance', 'out_of_order']);
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function isTimeString(value) {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+}
+
+function normalizeBooleanInteger(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (value === 1 || value === '1') return 1;
+  if (value === 0 || value === '0') return 0;
+  return Number(value) ? 1 : 0;
+}
+
+function normalizeInteger(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  return Number(value);
+}
+
+function parseJsonSafe(value) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function roomNumberFromSequence(prefix, number) {
+  return `${prefix || ''}${String(number)}`;
+}
+
+function mapPropertyRow(row) {
+  return {
+    ...row,
+    split_stay_enabled: Boolean(row.split_stay_enabled),
+    split_stay_public_visible: Boolean(row.split_stay_public_visible),
+    allow_upgrade_to_preserve_stay: Boolean(row.allow_upgrade_to_preserve_stay),
+    same_day_turnover_sellable: Boolean(row.same_day_turnover_sellable),
+  };
+}
+
+function mapRoomTypeRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+  };
+}
+
+function mapRoomUnitRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+  };
+}
+
+function mapRoomRateRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+  };
+}
+
+function validatePropertyCreateRequest(body) {
+  const name = String(body?.name || '').trim();
+  const slug = String(body?.slug || slugify(name)).trim();
+  const status = String(body?.status || 'active').trim();
+  const timezone = String(body?.timezone || 'Asia/Ho_Chi_Minh').trim();
+  const currency = String(body?.currency || 'VND').trim();
+  const defaultCheckInTime = String(body?.default_check_in_time || '14:00').trim();
+  const defaultCheckOutTime = String(body?.default_check_out_time || '11:00').trim();
+  const upgradeMode = String(body?.upgrade_mode || 'suggest_only').trim();
+  const maxRoomMovesPerReservation = normalizeInteger(body?.max_room_moves_per_reservation, 1);
+  const maxUpgradeSegmentsPerStay = normalizeInteger(body?.max_upgrade_segments_per_stay, 1);
+  const maxUpgradeLevelJump = normalizeInteger(body?.max_upgrade_level_jump, 1);
+
+  if (!name) return { error: 'name is required.' };
+  if (!slug) return { error: 'slug is required.' };
+  if (!PROPERTY_STATUSES.has(status)) return { error: 'status is invalid.' };
+  if (!isTimeString(defaultCheckInTime) || !isTimeString(defaultCheckOutTime)) {
+    return { error: 'default_check_in_time and default_check_out_time must use HH:MM format.' };
+  }
+  if (!PROPERTY_UPGRADE_MODES.has(upgradeMode)) return { error: 'upgrade_mode is invalid.' };
+  if (![maxRoomMovesPerReservation, maxUpgradeSegmentsPerStay, maxUpgradeLevelJump].every(Number.isInteger)) {
+    return { error: 'max_room_moves_per_reservation, max_upgrade_segments_per_stay, and max_upgrade_level_jump must be integers.' };
+  }
+
+  return {
+    name,
+    slug,
+    status,
+    timezone,
+    currency,
+    defaultCheckInTime,
+    defaultCheckOutTime,
+    splitStayEnabled: normalizeBooleanInteger(body?.split_stay_enabled, 1),
+    splitStayPublicVisible: normalizeBooleanInteger(body?.split_stay_public_visible, 0),
+    allowUpgradeToPreserveStay: normalizeBooleanInteger(body?.allow_upgrade_to_preserve_stay, 1),
+    upgradeMode,
+    maxRoomMovesPerReservation,
+    maxUpgradeSegmentsPerStay,
+    maxUpgradeLevelJump,
+    sameDayTurnoverSellable: normalizeBooleanInteger(body?.same_day_turnover_sellable, 0),
+  };
+}
+
+function validatePropertyPatchRequest(body) {
+  const allowed = new Set([
+    'name', 'slug', 'status', 'timezone', 'currency', 'default_check_in_time', 'default_check_out_time',
+    'split_stay_enabled', 'split_stay_public_visible', 'allow_upgrade_to_preserve_stay', 'upgrade_mode',
+    'max_room_moves_per_reservation', 'max_upgrade_segments_per_stay', 'max_upgrade_level_jump', 'same_day_turnover_sellable',
+  ]);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('slug' in body) {
+    const value = String(body.slug || '').trim();
+    if (!value) return { error: 'slug cannot be empty.' };
+    updates.slug = value;
+  }
+  if ('status' in body) {
+    const value = String(body.status || '').trim();
+    if (!PROPERTY_STATUSES.has(value)) return { error: 'status is invalid.' };
+    updates.status = value;
+  }
+  if ('timezone' in body) updates.timezone = String(body.timezone || '').trim();
+  if ('currency' in body) updates.currency = String(body.currency || '').trim();
+  if ('default_check_in_time' in body) {
+    const value = String(body.default_check_in_time || '').trim();
+    if (!isTimeString(value)) return { error: 'default_check_in_time must use HH:MM format.' };
+    updates.default_check_in_time = value;
+  }
+  if ('default_check_out_time' in body) {
+    const value = String(body.default_check_out_time || '').trim();
+    if (!isTimeString(value)) return { error: 'default_check_out_time must use HH:MM format.' };
+    updates.default_check_out_time = value;
+  }
+  if ('split_stay_enabled' in body) updates.split_stay_enabled = normalizeBooleanInteger(body.split_stay_enabled);
+  if ('split_stay_public_visible' in body) updates.split_stay_public_visible = normalizeBooleanInteger(body.split_stay_public_visible);
+  if ('allow_upgrade_to_preserve_stay' in body) updates.allow_upgrade_to_preserve_stay = normalizeBooleanInteger(body.allow_upgrade_to_preserve_stay);
+  if ('upgrade_mode' in body) {
+    const value = String(body.upgrade_mode || '').trim();
+    if (!PROPERTY_UPGRADE_MODES.has(value)) return { error: 'upgrade_mode is invalid.' };
+    updates.upgrade_mode = value;
+  }
+  for (const key of ['max_room_moves_per_reservation', 'max_upgrade_segments_per_stay', 'max_upgrade_level_jump']) {
+    if (key in body) {
+      const value = Number(body[key]);
+      if (!Number.isInteger(value)) return { error: `${key} must be an integer.` };
+      updates[key] = value;
+    }
+  }
+  if ('same_day_turnover_sellable' in body) updates.same_day_turnover_sellable = normalizeBooleanInteger(body.same_day_turnover_sellable);
+
+  return { updates };
+}
+
+function validateRoomTypeCreateRequest(body) {
+  const code = String(body?.code || '').trim();
+  const name = String(body?.name || '').trim();
+  const description = body?.description ? String(body.description).trim() : null;
+  const baseCapacity = normalizeInteger(body?.base_capacity, 1);
+  const maxOccupancy = normalizeInteger(body?.max_occupancy, 1);
+  const sortOrder = normalizeInteger(body?.sort_order, 0);
+
+  if (!code || !name) return { error: 'code and name are required.' };
+  if (![baseCapacity, maxOccupancy, sortOrder].every(Number.isInteger)) {
+    return { error: 'base_capacity, max_occupancy, and sort_order must be integers.' };
+  }
+
+  return {
+    code,
+    name,
+    description,
+    baseCapacity,
+    maxOccupancy,
+    sortOrder,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validateRoomTypePatchRequest(body) {
+  const allowed = new Set(['code', 'name', 'description', 'base_capacity', 'max_occupancy', 'sort_order', 'active']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('code' in body) {
+    const value = String(body.code || '').trim();
+    if (!value) return { error: 'code cannot be empty.' };
+    updates.code = value;
+  }
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('description' in body) updates.description = body.description ? String(body.description).trim() : null;
+  for (const key of ['base_capacity', 'max_occupancy', 'sort_order']) {
+    if (key in body) {
+      const value = Number(body[key]);
+      if (!Number.isInteger(value)) return { error: `${key} must be an integer.` };
+      updates[key] = value;
+    }
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
+}
+
+function validateRoomUnitCreateRequest(body) {
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const roomNumber = String(body?.room_number || '').trim();
+  const floorLabel = body?.floor_label ? String(body.floor_label).trim() : null;
+  const sortOrder = normalizeInteger(body?.sort_order, 0);
+  const operationalStatus = String(body?.operational_status || 'ready').trim();
+
+  if (!roomTypeId || !roomNumber) return { error: 'room_type_id and room_number are required.' };
+  if (!Number.isInteger(sortOrder)) return { error: 'sort_order must be an integer.' };
+  if (!ROOM_UNIT_OPERATIONAL_STATUSES.has(operationalStatus)) return { error: 'operational_status is invalid.' };
+
+  return {
+    roomTypeId,
+    roomNumber,
+    floorLabel,
+    sortOrder,
+    active: normalizeBooleanInteger(body?.active, 1),
+    operationalStatus,
+  };
+}
+
+function validateRoomUnitPatchRequest(body) {
+  const allowed = new Set(['room_type_id', 'room_number', 'floor_label', 'sort_order', 'active', 'operational_status']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('room_type_id' in body) {
+    const value = String(body.room_type_id || '').trim();
+    if (!value) return { error: 'room_type_id cannot be empty.' };
+    updates.room_type_id = value;
+  }
+  if ('room_number' in body) {
+    const value = String(body.room_number || '').trim();
+    if (!value) return { error: 'room_number cannot be empty.' };
+    updates.room_number = value;
+  }
+  if ('floor_label' in body) updates.floor_label = body.floor_label ? String(body.floor_label).trim() : null;
+  if ('sort_order' in body) {
+    const value = Number(body.sort_order);
+    if (!Number.isInteger(value)) return { error: 'sort_order must be an integer.' };
+    updates.sort_order = value;
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  if ('operational_status' in body) {
+    const value = String(body.operational_status || '').trim();
+    if (!ROOM_UNIT_OPERATIONAL_STATUSES.has(value)) return { error: 'operational_status is invalid.' };
+    updates.operational_status = value;
+  }
+  return { updates };
+}
+
+function validateRoomUnitBulkCreateRequest(body) {
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const count = Number(body?.count || 0);
+  const startNumber = Number(body?.start_number || 1);
+  const prefix = body?.prefix !== undefined ? String(body.prefix) : '';
+  const floorLabel = body?.floor_label ? String(body.floor_label).trim() : null;
+  const sortOrderStart = Number(body?.sort_order_start || 0);
+
+  if (!roomTypeId) return { error: 'room_type_id is required.' };
+  if (!Number.isInteger(count) || count < 1 || count > 500) return { error: 'count must be an integer between 1 and 500.' };
+  if (!Number.isInteger(startNumber) || startNumber < 0) return { error: 'start_number must be an integer greater than or equal to 0.' };
+  if (!Number.isInteger(sortOrderStart)) return { error: 'sort_order_start must be an integer.' };
+
+  return {
+    roomTypeId,
+    count,
+    startNumber,
+    prefix,
+    floorLabel,
+    sortOrderStart,
+    active: normalizeBooleanInteger(body?.active, 1),
+    operationalStatus: String(body?.operational_status || 'ready').trim(),
+  };
+}
+
+function validateRoomRateCreateRequest(body) {
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const rateName = String(body?.rate_name || 'Standard Rate').trim();
+  const currency = String(body?.currency || 'VND').trim().toUpperCase();
+  const nightlyAmount = Number(body?.nightly_amount);
+
+  if (!roomTypeId) return { error: 'room_type_id is required.' };
+  if (!rateName) return { error: 'rate_name is required.' };
+  if (!Number.isFinite(nightlyAmount) || nightlyAmount < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+
+  return {
+    roomTypeId,
+    rateName,
+    currency,
+    nightlyAmount,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validateRoomRatePatchRequest(body) {
+  const allowed = new Set(['rate_name', 'currency', 'nightly_amount', 'active']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('rate_name' in body) {
+    const value = String(body.rate_name || '').trim();
+    if (!value) return { error: 'rate_name cannot be empty.' };
+    updates.rate_name = value;
+  }
+  if ('currency' in body) {
+    const value = String(body.currency || '').trim().toUpperCase();
+    if (!value) return { error: 'currency cannot be empty.' };
+    updates.currency = value;
+  }
+  if ('nightly_amount' in body) {
+    const value = Number(body.nightly_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+    updates.nightly_amount = value;
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
+}
+
 function validateAvailabilityRequest(body, propertyId) {
   const checkIn = String(body?.check_in || '').trim();
   const checkOut = String(body?.check_out || '').trim();
@@ -298,6 +681,530 @@ async function loadPropertyContext(env, tenantId, propertyId, roomTypeId) {
   const roomTypes = roomTypesResult.results || [];
   const requestedRoomType = roomTypes.find((roomType) => String(roomType.id) === String(roomTypeId)) || null;
   return { property, roomTypes, requestedRoomType };
+}
+
+async function loadPropertyById(env, tenantId, propertyId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, name, slug, status, timezone, currency,
+              default_check_in_time, default_check_out_time,
+              split_stay_enabled, split_stay_public_visible,
+              allow_upgrade_to_preserve_stay, upgrade_mode,
+              max_room_moves_per_reservation, max_upgrade_segments_per_stay, max_upgrade_level_jump,
+              same_day_turnover_sellable, created_at, updated_at
+         FROM properties
+        WHERE id = ? AND tenant_id = ?`
+    )
+    .bind(propertyId, tenantId)
+    .first();
+  return row ? mapPropertyRow(row) : null;
+}
+
+async function loadRoomTypeById(env, tenantId, propertyId, roomTypeId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, code, name, description, base_capacity, max_occupancy, sort_order, active, created_at, updated_at
+         FROM room_types
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(roomTypeId, tenantId, propertyId)
+    .first();
+  return row ? mapRoomTypeRow(row) : null;
+}
+
+async function loadRoomUnitById(env, tenantId, propertyId, roomUnitId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at
+         FROM room_units
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(roomUnitId, tenantId, propertyId)
+    .first();
+  return row ? mapRoomUnitRow(row) : null;
+}
+
+async function loadRoomRateById(env, tenantId, propertyId, roomRateId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at
+         FROM property_room_rates
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(roomRateId, tenantId, propertyId)
+    .first();
+  return row ? mapRoomRateRow(row) : null;
+}
+
+function buildDynamicUpdateSql(tableName, updates) {
+  const columns = Object.keys(updates);
+  const assignments = columns.map((column) => `${column} = ?`);
+  return {
+    sql: `UPDATE ${tableName} SET ${assignments.join(', ')}, updated_at = ?`,
+    values: columns.map((column) => updates[column]),
+  };
+}
+
+function mapBuilderSqlError(error) {
+  const message = String(error?.message || '');
+  if (message.includes('UNIQUE constraint failed')) {
+    return { status: 409, payload: { error: 'A record with the same unique key already exists.' } };
+  }
+  if (message.includes('FOREIGN KEY constraint failed')) {
+    return { status: 409, payload: { error: 'Referenced property or room type was not found.' } };
+  }
+  return null;
+}
+
+export async function handleListProperties(request, env) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const result = await env.DB
+      .prepare(
+        `SELECT p.id, p.tenant_id, p.name, p.slug, p.status, p.timezone, p.currency,
+                p.default_check_in_time, p.default_check_out_time,
+                p.split_stay_enabled, p.split_stay_public_visible,
+                p.allow_upgrade_to_preserve_stay, p.upgrade_mode,
+                p.max_room_moves_per_reservation, p.max_upgrade_segments_per_stay, p.max_upgrade_level_jump,
+                p.same_day_turnover_sellable, p.created_at, p.updated_at,
+                (SELECT COUNT(*) FROM room_types rt WHERE rt.tenant_id = p.tenant_id AND rt.property_id = p.id) AS room_type_count,
+                (SELECT COUNT(*) FROM room_units ru WHERE ru.tenant_id = p.tenant_id AND ru.property_id = p.id) AS room_unit_count
+           FROM properties p
+          WHERE p.tenant_id = ?
+          ORDER BY p.created_at DESC, p.name ASC`
+      )
+      .bind(tenantId)
+      .all();
+
+    return jsonResponse({ ok: true, properties: (result.results || []).map(mapPropertyRow) });
+  } catch (error) {
+    console.error('[PROPERTY_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateProperty(request, env) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+
+  const parsed = validatePropertyCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO properties
+          (id, tenant_id, name, slug, status, timezone, currency, default_check_in_time, default_check_out_time,
+           split_stay_enabled, split_stay_public_visible, allow_upgrade_to_preserve_stay, upgrade_mode,
+           max_room_moves_per_reservation, max_upgrade_segments_per_stay, max_upgrade_level_jump, same_day_turnover_sellable,
+           created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id, tenantId, parsed.name, parsed.slug, parsed.status, parsed.timezone, parsed.currency,
+        parsed.defaultCheckInTime, parsed.defaultCheckOutTime,
+        parsed.splitStayEnabled, parsed.splitStayPublicVisible, parsed.allowUpgradeToPreserveStay, parsed.upgradeMode,
+        parsed.maxRoomMovesPerReservation, parsed.maxUpgradeSegmentsPerStay, parsed.maxUpgradeLevelJump, parsed.sameDayTurnoverSellable,
+        now, now
+      )
+      .run();
+
+    return jsonResponse({ ok: true, property: await loadPropertyById(env, tenantId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateProperty(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const propertyId = String(params?.propertyId || '').trim();
+  const parsed = validatePropertyPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyById(env, tenantId, propertyId);
+    if (!existing) return jsonResponse({ error: 'Property not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('properties', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ?`).bind(...values, now, propertyId, tenantId).run();
+    return jsonResponse({ ok: true, property: await loadPropertyById(env, tenantId, propertyId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListRoomTypes(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT rt.id, rt.tenant_id, rt.property_id, rt.code, rt.name, rt.description, rt.base_capacity, rt.max_occupancy, rt.sort_order, rt.active, rt.created_at, rt.updated_at,
+                (SELECT COUNT(*) FROM room_units ru WHERE ru.tenant_id = rt.tenant_id AND ru.property_id = rt.property_id AND ru.room_type_id = rt.id) AS room_unit_count
+           FROM room_types rt
+          WHERE rt.tenant_id = ? AND rt.property_id = ?
+          ORDER BY rt.sort_order ASC, rt.name ASC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, room_types: (result.results || []).map(mapRoomTypeRow) });
+  } catch (error) {
+    console.error('[ROOM_TYPE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateRoomType(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomTypeCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO room_types
+          (id, tenant_id, property_id, code, name, description, base_capacity, max_occupancy, sort_order, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, tenantId, propertyId, parsed.code, parsed.name, parsed.description, parsed.baseCapacity, parsed.maxOccupancy, parsed.sortOrder, parsed.active, now, now)
+      .run();
+
+    return jsonResponse({ ok: true, room_type: await loadRoomTypeById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_TYPE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateRoomType(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomTypeId = String(params?.roomTypeId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomTypePatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadRoomTypeById(env, tenantId, propertyId, roomTypeId);
+    if (!existing) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('room_types', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, roomTypeId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, room_type: await loadRoomTypeById(env, tenantId, propertyId, roomTypeId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_TYPE_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListRoomUnits(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at
+           FROM room_units
+          WHERE tenant_id = ? AND property_id = ?
+          ORDER BY sort_order ASC, room_number ASC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, room_units: (result.results || []).map(mapRoomUnitRow) });
+  } catch (error) {
+    console.error('[ROOM_UNIT_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateRoomUnit(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomUnitCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO room_units
+          (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, tenantId, propertyId, parsed.roomTypeId, parsed.roomNumber, parsed.floorLabel, parsed.sortOrder, parsed.active, parsed.operationalStatus, now, now)
+      .run();
+    return jsonResponse({ ok: true, room_unit: await loadRoomUnitById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_UNIT_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleBulkCreateRoomUnits(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomUnitBulkCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+  if (!ROOM_UNIT_OPERATIONAL_STATUSES.has(parsed.operationalStatus)) {
+    return jsonResponse({ error: 'operational_status is invalid.' }, 400);
+  }
+
+  try {
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const now = currentUnixSeconds();
+    const created = [];
+    for (let index = 0; index < parsed.count; index += 1) {
+      const roomNumber = roomNumberFromSequence(parsed.prefix, parsed.startNumber + index);
+      const roomUnitId = nanoid();
+      await env.DB
+        .prepare(
+          `INSERT INTO room_units
+            (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          roomUnitId,
+          tenantId,
+          propertyId,
+          parsed.roomTypeId,
+          roomNumber,
+          parsed.floorLabel,
+          parsed.sortOrderStart + index,
+          parsed.active,
+          parsed.operationalStatus,
+          now,
+          now
+        )
+        .run();
+      created.push(roomUnitId);
+    }
+
+    const roomUnits = [];
+    for (const roomUnitId of created) {
+      roomUnits.push(await loadRoomUnitById(env, tenantId, propertyId, roomUnitId));
+    }
+    return jsonResponse({ ok: true, room_units: roomUnits }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_UNIT_BULK_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateRoomUnit(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomUnitId = String(params?.roomUnitId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomUnitPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+    if (!existing) return jsonResponse({ error: 'Room unit not found.' }, 404);
+    if (parsed.updates.room_type_id) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.updates.room_type_id);
+      if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    }
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('room_units', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, roomUnitId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, room_unit: await loadRoomUnitById(env, tenantId, propertyId, roomUnitId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_UNIT_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListRoomRates(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT prr.id, prr.tenant_id, prr.property_id, prr.room_type_id, prr.rate_name, prr.currency, prr.nightly_amount, prr.active, prr.created_at, prr.updated_at,
+                rt.code AS room_type_code, rt.name AS room_type_name
+           FROM property_room_rates prr
+           LEFT JOIN room_types rt ON rt.id = prr.room_type_id AND rt.tenant_id = prr.tenant_id AND rt.property_id = prr.property_id
+          WHERE prr.tenant_id = ? AND prr.property_id = ?
+          ORDER BY prr.created_at DESC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, room_rates: (result.results || []).map(mapRoomRateRow) });
+  } catch (error) {
+    console.error('[ROOM_RATE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreateRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomRateCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_room_rates
+          (id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, tenantId, propertyId, parsed.roomTypeId, parsed.rateName, parsed.currency, parsed.nightlyAmount, parsed.active, now, now)
+      .run();
+
+    return jsonResponse({ ok: true, room_rate: await loadRoomRateById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_RATE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomRateId = String(params?.roomRateId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomRatePatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadRoomRateById(env, tenantId, propertyId, roomRateId);
+    if (!existing) return jsonResponse({ error: 'Room rate not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_room_rates', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, roomRateId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, room_rate: await loadRoomRateById(env, tenantId, propertyId, roomRateId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_RATE_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
 }
 
 async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endDate, options = {}) {
@@ -734,6 +1641,112 @@ async function createReservationArtifacts(env, tenantId, reservationId, property
   return { stayPlanId, confirmedAt: now };
 }
 
+async function loadPropertyReservation(env, tenantId, propertyId, reservationId) {
+  const reservation = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, source, source_ref, source_payload, status,
+              guest_name, guest_email, guest_phone,
+              check_in, check_out, room_type_id, rooms_requested, adults, children,
+              pricing_snapshot, special_requests,
+              expected_arrival_time, expected_flight_ref, expected_arrival_channel,
+              airport_transfer_requested, airport_transfer_price_snapshot, cancellation_policy_snapshot,
+              confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason,
+              created_at, updated_at
+         FROM property_reservations
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(reservationId, tenantId, propertyId)
+    .first();
+
+  if (!reservation) return null;
+
+  const stayPlan = await env.DB
+    .prepare(
+      `SELECT id, plan_type, score, move_count, upgrade_segments, public_visible, is_selected, status, meta_json, created_at, updated_at
+         FROM reservation_stay_plans
+        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ? AND is_selected = 1
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, reservationId)
+    .first();
+
+  const segmentsResult = await env.DB
+    .prepare(
+      `SELECT id, stay_plan_id, segment_order, room_type_id, room_unit_id, check_in, check_out, segment_type, upgrade_applied, ops_notes, created_at
+         FROM reservation_stay_plan_segments
+        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ?
+        ORDER BY segment_order ASC`
+    )
+    .bind(tenantId, propertyId, reservationId)
+    .all();
+
+  const allocationsResult = await env.DB
+    .prepare(
+      `SELECT id, stay_plan_id, room_unit_id, stay_date, allocation_status, created_at, updated_at
+         FROM reservation_allocations
+        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ?
+        ORDER BY stay_date ASC, room_unit_id ASC`
+    )
+    .bind(tenantId, propertyId, reservationId)
+    .all();
+
+  return {
+    reservation,
+    stayPlan: stayPlan || null,
+    segments: segmentsResult.results || [],
+    allocations: allocationsResult.results || [],
+  };
+}
+
+function buildReservationPayload(record) {
+  return {
+    ok: true,
+    reservation: {
+      id: record.reservation.id,
+      property_id: record.reservation.property_id,
+      source: record.reservation.source,
+      source_ref: record.reservation.source_ref,
+      status: record.reservation.status,
+      guest_name: record.reservation.guest_name,
+      guest_email: record.reservation.guest_email,
+      guest_phone: record.reservation.guest_phone,
+      check_in: record.reservation.check_in,
+      check_out: record.reservation.check_out,
+      room_type_id: record.reservation.room_type_id,
+      rooms_requested: record.reservation.rooms_requested,
+      adults: record.reservation.adults,
+      children: record.reservation.children,
+      pricing_snapshot: record.reservation.pricing_snapshot ? JSON.parse(record.reservation.pricing_snapshot) : null,
+      special_requests: record.reservation.special_requests,
+      expected_arrival_time: record.reservation.expected_arrival_time,
+      expected_flight_ref: record.reservation.expected_flight_ref,
+      expected_arrival_channel: record.reservation.expected_arrival_channel,
+      airport_transfer_requested: Boolean(record.reservation.airport_transfer_requested),
+      airport_transfer_price_snapshot: record.reservation.airport_transfer_price_snapshot ? JSON.parse(record.reservation.airport_transfer_price_snapshot) : null,
+      cancellation_policy_snapshot: record.reservation.cancellation_policy_snapshot ? JSON.parse(record.reservation.cancellation_policy_snapshot) : null,
+      confirmed_at: record.reservation.confirmed_at,
+      cancelled_at: record.reservation.cancelled_at,
+      cancel_reason: record.reservation.cancel_reason,
+      created_at: record.reservation.created_at,
+      updated_at: record.reservation.updated_at,
+    },
+    stay_plan: record.stayPlan ? {
+      id: record.stayPlan.id,
+      plan_type: record.stayPlan.plan_type,
+      score: record.stayPlan.score,
+      move_count: record.stayPlan.move_count,
+      upgrade_segments: record.stayPlan.upgrade_segments,
+      public_visible: Boolean(record.stayPlan.public_visible),
+      is_selected: Boolean(record.stayPlan.is_selected),
+      status: record.stayPlan.status,
+      meta: record.stayPlan.meta_json ? JSON.parse(record.stayPlan.meta_json) : null,
+      segments: record.segments,
+    } : null,
+    allocations: record.allocations,
+  };
+}
+
 export async function handleCheckPropertyAvailability(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) {
@@ -980,6 +1993,117 @@ export async function handleCreatePropertyReservation(request, env, params) {
     }, 201);
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleGetPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) {
+    return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  }
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  if (!propertyId || !reservationId) {
+    return jsonResponse({ error: 'propertyId and reservationId are required.' }, 400);
+  }
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) {
+      return jsonResponse({ error: 'Reservation not found.' }, 404);
+    }
+
+    return jsonResponse(buildReservationPayload(record));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCancelPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) {
+    return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  }
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  if (!propertyId || !reservationId) {
+    return jsonResponse({ error: 'propertyId and reservationId are required.' }, 400);
+  }
+
+  let body = {};
+  try {
+    if ((request.headers.get('content-type') || '').includes('application/json')) {
+      body = await parseJsonBody(request);
+    }
+  } catch {
+    return jsonResponse({ error: 'Request body is not valid JSON.' }, 400);
+  }
+
+  const cancelReason = body?.cancel_reason ? String(body.cancel_reason).trim() : null;
+  const cancelledBy = request.headers.get('X-User-ID')?.trim() || null;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) {
+      return jsonResponse({ error: 'Reservation not found.' }, 404);
+    }
+    if (record.reservation.status === 'cancelled') {
+      return jsonResponse({ error: 'Reservation is already cancelled.' }, 409);
+    }
+    if (['checked_in', 'checked_out'].includes(String(record.reservation.status))) {
+      return jsonResponse({ error: `Cannot cancel a reservation in status ${record.reservation.status}.` }, 409);
+    }
+
+    const now = currentUnixSeconds();
+
+    await env.DB
+      .prepare(
+        `UPDATE property_reservations
+            SET status = 'cancelled',
+                cancelled_at = ?,
+                cancelled_by = ?,
+                cancel_reason = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(now, cancelledBy, cancelReason, now, reservationId, tenantId, propertyId)
+      .run();
+
+    await env.DB
+      .prepare(
+        `UPDATE reservation_stay_plans
+            SET status = 'discarded',
+                is_selected = 0,
+                updated_at = ?
+          WHERE reservation_id = ? AND tenant_id = ? AND property_id = ? AND status IN ('selected', 'locked', 'candidate')`
+      )
+      .bind(now, reservationId, tenantId, propertyId)
+      .run();
+
+    await env.DB
+      .prepare(
+        `UPDATE reservation_allocations
+            SET allocation_status = 'released',
+                updated_at = ?
+          WHERE reservation_id = ? AND tenant_id = ? AND property_id = ? AND allocation_status IN ('soft_allocated', 'locked')`
+      )
+      .bind(now, reservationId, tenantId, propertyId)
+      .run();
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse(buildReservationPayload(updatedRecord));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_CANCEL]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
