@@ -41,3 +41,11 @@ Do not change the rest of the content.
 
 - Tour = data + logic
 - Site = presentation
+
+## Follow-up docs
+
+Tour-side distribution and booking-ingest direction now also lives in:
+
+- `21_GROWTH_SEO_MODULE.md`
+- `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md`
+- `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md`

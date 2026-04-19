@@ -66,6 +66,7 @@ AI behavior / guardrails:
 - `34_PROPERTY_SIMPLE_FOLIO_AND_POS.md` -> Booking-derived charges, manual postings, payments, and checkout settlement
 - `35_PROPERTY_DISTRIBUTION_HELPER.md` -> Listing helper, draft-ingestion boundary, and future channel-sync scope
 - `36_PROPERTY_ENGINE_IMPLEMENTATION_ROADMAP.md` -> Execution order and checkpoints for building the property engine
+- `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md` -> Tour-side distribution helper and booking email-ingest boundary
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary
