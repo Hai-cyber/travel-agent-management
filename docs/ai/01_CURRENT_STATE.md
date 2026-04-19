@@ -209,16 +209,20 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/properties/:propertyId/season-room-rates` — lists seasonal nightly prices per `(season, room_type)` pair
 - `POST /api/properties/:propertyId/season-room-rates` — creates a seasonal nightly price override for one room type inside one season
 - `PATCH /api/properties/:propertyId/season-room-rates/:seasonRoomRateId` — updates seasonal nightly price overrides
-- `POST /api/properties/:propertyId/rates/quote` — admin pricing quote endpoint; resolves stay-night pricing by season first, then falls back to the active base rate when no season applies
+- `POST /api/properties/:propertyId/rates/quote` — admin pricing quote endpoint; resolves stay-night pricing by season first, then falls back to the active base rate when no season applies. Base and seasonal rates can now also define included adults/children plus extra-adult/extra-child surcharges for occupancy-aware quote totals.
 - `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
 - `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
+- `POST /api/properties/:propertyId/availability/hold/:holdId/release` — authenticated admin release path for active holds; marks the hold `released` without touching availability math or reservation truth
 - `POST /api/properties/:propertyId/reservations` — direct-commit property reservation baseline; reruns availability with optional `hold_id` exclusion, selects the best concrete stay plan, creates a `confirmed` `property_reservations` row plus linked `reservation_stay_plans`, `reservation_stay_plan_segments`, and `reservation_allocations`, and consumes the referenced hold when provided. Current verified baseline supports `rooms_requested = 1` only.
 - `GET /api/properties/:propertyId/reservations/:reservationId` — returns canonical property reservation truth plus selected stay plan and all reservation allocations for tenant-scoped operational reads
 - `POST /api/properties/:propertyId/reservations/:reservationId/cancel` — minimal cancellation baseline; marks the reservation `cancelled`, stamps `cancelled_at/cancel_reason`, discards selected stay-plan state, releases active allocations, and reopens availability for the cancelled stay
+- `POST /api/properties/:propertyId/reservations/:reservationId/rebook` — authenticated admin rebook path for `confirmed` reservations; recalculates availability while excluding the current reservation's allocations, discards the old selected plan, then writes a new locked stay plan/allocation set on the same reservation
+- `POST /api/properties/:propertyId/reservations/:reservationId/check-in` — authenticated admin status transition from `confirmed` to `checked_in`
+- `POST /api/properties/:propertyId/reservations/:reservationId/check-out` — authenticated admin status transition from `checked_in` to `checked_out`
 
 Property builder scope note:
 - This builder layer is intentionally inventory-first: property identity, room types, and room-unit quantity/configuration are now part of the availability backbone.
-- Property pricing v2 now exists as a separate commercial layer on top of that backbone: base nightly rate + date-window seasons + seasonal room-type overrides + quote resolution. Availability still does not depend on price data.
+- Property pricing v2 now exists as a separate commercial layer on top of that backbone: base nightly rate + date-window seasons + seasonal room-type overrides + occupancy-aware quote resolution. Availability still does not depend on price data.
 
 **Promotions / Testing Bypass Controls**
 - `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows

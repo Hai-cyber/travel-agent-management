@@ -54,9 +54,13 @@ import {
   handleQuotePropertyRoomRate,
   handleCheckPropertyAvailability,
   handleCreatePropertyAvailabilityHold,
+  handleReleasePropertyAvailabilityHold,
   handleCreatePropertyReservation,
   handleGetPropertyReservation,
   handleCancelPropertyReservation,
+  handleRebookPropertyReservation,
+  handleCheckInPropertyReservation,
+  handleCheckOutPropertyReservation,
 } from './routes/properties.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -546,6 +550,11 @@ const patterns = [
   },
   {
     method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability/hold/:holdId/release' }),
+    handler: (req, env, match) => handleReleasePropertyAvailabilityHold(req, env, { propertyId: match.pathname.groups.propertyId, holdId: match.pathname.groups.holdId })
+  },
+  {
+    method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations' }),
     handler: (req, env, match) => handleCreatePropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId })
   },
@@ -558,6 +567,21 @@ const patterns = [
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/cancel' }),
     handler: (req, env, match) => handleCancelPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/rebook' }),
+    handler: (req, env, match) => handleRebookPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/check-in' }),
+    handler: (req, env, match) => handleCheckInPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/check-out' }),
+    handler: (req, env, match) => handleCheckOutPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
   },
 ];
 

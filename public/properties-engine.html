@@ -732,6 +732,20 @@
                     <input name="nightly_amount" type="number" min="0" step="0.01" value="1200000" />
                   </label>
                 </div>
+                <div class="field-grid four">
+                  <label>Included Adults
+                    <input name="included_adults" type="number" min="1" value="2" />
+                  </label>
+                  <label>Included Children
+                    <input name="included_children" type="number" min="0" value="0" />
+                  </label>
+                  <label>Extra Adult Amount
+                    <input name="extra_adult_amount" type="number" min="0" step="0.01" value="0" />
+                  </label>
+                  <label>Extra Child Amount
+                    <input name="extra_child_amount" type="number" min="0" step="0.01" value="0" />
+                  </label>
+                </div>
                 <div class="action-row">
                   <button class="button primary" type="submit">Save Base Rate</button>
                 </div>
@@ -809,6 +823,20 @@
                           <input name="nightly_amount" type="number" min="0" step="0.01" value="1500000" />
                         </label>
                       </div>
+                      <div class="field-grid four">
+                        <label>Included Adults
+                          <input name="included_adults" type="number" min="1" value="2" />
+                        </label>
+                        <label>Included Children
+                          <input name="included_children" type="number" min="0" value="0" />
+                        </label>
+                        <label>Extra Adult Amount
+                          <input name="extra_adult_amount" type="number" min="0" step="0.01" value="0" />
+                        </label>
+                        <label>Extra Child Amount
+                          <input name="extra_child_amount" type="number" min="0" step="0.01" value="0" />
+                        </label>
+                      </div>
                       <div class="action-row">
                         <button class="button primary" type="submit">Save Seasonal Rate</button>
                       </div>
@@ -836,6 +864,17 @@
                       </label>
                       <label>Check-out
                         <input name="check_out" type="date" value="2026-12-27" />
+                      </label>
+                      <label>Adults
+                        <input name="adults" type="number" min="1" value="2" />
+                      </label>
+                    </div>
+                    <div class="field-grid four">
+                      <label>Children
+                        <input name="children" type="number" min="0" value="0" />
+                      </label>
+                      <label>Rooms Requested
+                        <input name="rooms_requested" type="number" min="1" value="1" />
                       </label>
                       <label>&nbsp;
                         <button class="button teal" type="submit">Quote Stay</button>
@@ -1052,6 +1091,7 @@
               <div>
                 <strong>${escapeHtml(rate.rate_name)}</strong>
                 <div class="muted">${escapeHtml(rate.currency)} ${Number(rate.nightly_amount).toLocaleString()} · room type ${escapeHtml(rate.room_type_name || rate.room_type_id)}</div>
+                <div class="muted">includes ${Number(rate.included_adults || 0)} adults / ${Number(rate.included_children || 0)} children · extras ${escapeHtml(rate.currency)} ${Number(rate.extra_adult_amount || 0).toLocaleString()} adult / ${Number(rate.extra_child_amount || 0).toLocaleString()} child</div>
               </div>
               <span class="tag ${rate.active ? 'ok' : 'warn'}">${rate.active ? 'active' : 'inactive'}</span>
             </div>
@@ -1093,6 +1133,7 @@
               <div>
                 <strong>${escapeHtml(rate.season_name || rate.season_id)}</strong>
                 <div class="muted">${escapeHtml(rate.room_type_code || rate.room_type_id)} · ${escapeHtml(rate.currency)} ${Number(rate.nightly_amount).toLocaleString()}</div>
+                <div class="muted">includes ${Number(rate.included_adults || 0)} adults / ${Number(rate.included_children || 0)} children · extras ${escapeHtml(rate.currency)} ${Number(rate.extra_adult_amount || 0).toLocaleString()} adult / ${Number(rate.extra_child_amount || 0).toLocaleString()} child</div>
               </div>
               <span class="tag ${rate.active ? 'ok' : 'warn'}">${rate.active ? 'active' : 'inactive'}</span>
             </div>

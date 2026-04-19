@@ -601,22 +601,36 @@ function validateRoomRateCreateRequest(body) {
   const rateName = String(body?.rate_name || 'Standard Rate').trim();
   const currency = String(body?.currency || 'VND').trim().toUpperCase();
   const nightlyAmount = Number(body?.nightly_amount);
+  const includedAdults = normalizeInteger(body?.included_adults, 2);
+  const includedChildren = normalizeInteger(body?.included_children, 0);
+  const extraAdultAmount = Number(body?.extra_adult_amount ?? 0);
+  const extraChildAmount = Number(body?.extra_child_amount ?? 0);
 
   if (!roomTypeId) return { error: 'room_type_id is required.' };
   if (!rateName) return { error: 'rate_name is required.' };
   if (!Number.isFinite(nightlyAmount) || nightlyAmount < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+  if (![includedAdults, includedChildren].every(Number.isInteger) || includedAdults < 1 || includedChildren < 0) {
+    return { error: 'included_adults must be at least 1 and included_children must be 0 or greater.' };
+  }
+  if (![extraAdultAmount, extraChildAmount].every(Number.isFinite) || extraAdultAmount < 0 || extraChildAmount < 0) {
+    return { error: 'extra_adult_amount and extra_child_amount must be numbers greater than or equal to 0.' };
+  }
 
   return {
     roomTypeId,
     rateName,
     currency,
     nightlyAmount,
+    includedAdults,
+    includedChildren,
+    extraAdultAmount,
+    extraChildAmount,
     active: normalizeBooleanInteger(body?.active, 1),
   };
 }
 
 function validateRoomRatePatchRequest(body) {
-  const allowed = new Set(['rate_name', 'currency', 'nightly_amount', 'active']);
+  const allowed = new Set(['rate_name', 'currency', 'nightly_amount', 'included_adults', 'included_children', 'extra_adult_amount', 'extra_child_amount', 'active']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -637,6 +651,26 @@ function validateRoomRatePatchRequest(body) {
     const value = Number(body.nightly_amount);
     if (!Number.isFinite(value) || value < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
     updates.nightly_amount = value;
+  }
+  if ('included_adults' in body) {
+    const value = Number(body.included_adults);
+    if (!Number.isInteger(value) || value < 1) return { error: 'included_adults must be an integer greater than or equal to 1.' };
+    updates.included_adults = value;
+  }
+  if ('included_children' in body) {
+    const value = Number(body.included_children);
+    if (!Number.isInteger(value) || value < 0) return { error: 'included_children must be an integer greater than or equal to 0.' };
+    updates.included_children = value;
+  }
+  if ('extra_adult_amount' in body) {
+    const value = Number(body.extra_adult_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'extra_adult_amount must be a number greater than or equal to 0.' };
+    updates.extra_adult_amount = value;
+  }
+  if ('extra_child_amount' in body) {
+    const value = Number(body.extra_child_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'extra_child_amount must be a number greater than or equal to 0.' };
+    updates.extra_child_amount = value;
   }
   if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
   return { updates };
@@ -702,21 +736,35 @@ function validateSeasonRoomRateCreateRequest(body) {
   const roomTypeId = String(body?.room_type_id || '').trim();
   const currency = String(body?.currency || 'VND').trim().toUpperCase();
   const nightlyAmount = Number(body?.nightly_amount);
+  const includedAdults = normalizeInteger(body?.included_adults, 2);
+  const includedChildren = normalizeInteger(body?.included_children, 0);
+  const extraAdultAmount = Number(body?.extra_adult_amount ?? 0);
+  const extraChildAmount = Number(body?.extra_child_amount ?? 0);
 
   if (!seasonId || !roomTypeId) return { error: 'season_id and room_type_id are required.' };
   if (!Number.isFinite(nightlyAmount) || nightlyAmount < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
+  if (![includedAdults, includedChildren].every(Number.isInteger) || includedAdults < 1 || includedChildren < 0) {
+    return { error: 'included_adults must be at least 1 and included_children must be 0 or greater.' };
+  }
+  if (![extraAdultAmount, extraChildAmount].every(Number.isFinite) || extraAdultAmount < 0 || extraChildAmount < 0) {
+    return { error: 'extra_adult_amount and extra_child_amount must be numbers greater than or equal to 0.' };
+  }
 
   return {
     seasonId,
     roomTypeId,
     currency,
     nightlyAmount,
+    includedAdults,
+    includedChildren,
+    extraAdultAmount,
+    extraChildAmount,
     active: normalizeBooleanInteger(body?.active, 1),
   };
 }
 
 function validateSeasonRoomRatePatchRequest(body) {
-  const allowed = new Set(['currency', 'nightly_amount', 'active']);
+  const allowed = new Set(['currency', 'nightly_amount', 'included_adults', 'included_children', 'extra_adult_amount', 'extra_child_amount', 'active']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -733,6 +781,26 @@ function validateSeasonRoomRatePatchRequest(body) {
     if (!Number.isFinite(value) || value < 0) return { error: 'nightly_amount must be a number greater than or equal to 0.' };
     updates.nightly_amount = value;
   }
+  if ('included_adults' in body) {
+    const value = Number(body.included_adults);
+    if (!Number.isInteger(value) || value < 1) return { error: 'included_adults must be an integer greater than or equal to 1.' };
+    updates.included_adults = value;
+  }
+  if ('included_children' in body) {
+    const value = Number(body.included_children);
+    if (!Number.isInteger(value) || value < 0) return { error: 'included_children must be an integer greater than or equal to 0.' };
+    updates.included_children = value;
+  }
+  if ('extra_adult_amount' in body) {
+    const value = Number(body.extra_adult_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'extra_adult_amount must be a number greater than or equal to 0.' };
+    updates.extra_adult_amount = value;
+  }
+  if ('extra_child_amount' in body) {
+    const value = Number(body.extra_child_amount);
+    if (!Number.isFinite(value) || value < 0) return { error: 'extra_child_amount must be a number greater than or equal to 0.' };
+    updates.extra_child_amount = value;
+  }
   if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
   return { updates };
 }
@@ -742,13 +810,19 @@ function validateRateQuoteRequest(body, propertyId) {
   const roomTypeId = String(body?.room_type_id || '').trim();
   const checkIn = String(body?.check_in || '').trim();
   const checkOut = String(body?.check_out || '').trim();
+  const adults = Number(body?.adults ?? 2);
+  const children = Number(body?.children ?? 0);
+  const roomsRequested = Number(body?.rooms_requested ?? 1);
 
   if (!property) return { error: 'propertyId is required.' };
   if (!roomTypeId) return { error: 'room_type_id is required.' };
   if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return { error: 'check_in and check_out must use YYYY-MM-DD format.' };
   if (parseDateUtc(checkIn) >= parseDateUtc(checkOut)) return { error: 'check_out must be after check_in.' };
+  if (!Number.isInteger(adults) || adults < 1) return { error: 'adults must be an integer greater than or equal to 1.' };
+  if (!Number.isInteger(children) || children < 0) return { error: 'children must be an integer greater than or equal to 0.' };
+  if (!Number.isInteger(roomsRequested) || roomsRequested !== 1) return { error: 'Rate quote baseline currently supports rooms_requested = 1 only.' };
 
-  return { propertyId: property, roomTypeId, checkIn, checkOut };
+  return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested };
 }
 
 function validateAvailabilityRequest(body, propertyId) {
@@ -850,7 +924,9 @@ async function loadRoomUnitById(env, tenantId, propertyId, roomUnitId) {
 async function loadRoomRateById(env, tenantId, propertyId, roomRateId) {
   const row = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at
+      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
          FROM property_room_rates
         WHERE id = ? AND tenant_id = ? AND property_id = ?`
     )
@@ -874,7 +950,9 @@ async function loadRateSeasonById(env, tenantId, propertyId, seasonId) {
 async function loadSeasonRoomRateById(env, tenantId, propertyId, seasonRoomRateId) {
   const row = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at
+      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
          FROM property_room_rate_season_prices
         WHERE id = ? AND tenant_id = ? AND property_id = ?`
     )
@@ -894,6 +972,10 @@ function resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, ba
         season_name: matchingSeason.name,
         currency: seasonRate.currency,
         nightly_amount: Number(seasonRate.nightly_amount),
+        included_adults: Number(seasonRate.included_adults ?? 2),
+        included_children: Number(seasonRate.included_children ?? 0),
+        extra_adult_amount: Number(seasonRate.extra_adult_amount ?? 0),
+        extra_child_amount: Number(seasonRate.extra_child_amount ?? 0),
       };
     }
   }
@@ -904,9 +986,39 @@ function resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, ba
       season_name: null,
       currency: baseRate.currency,
       nightly_amount: Number(baseRate.nightly_amount),
+      included_adults: Number(baseRate.included_adults ?? 2),
+      included_children: Number(baseRate.included_children ?? 0),
+      extra_adult_amount: Number(baseRate.extra_adult_amount ?? 0),
+      extra_child_amount: Number(baseRate.extra_child_amount ?? 0),
     };
   }
   return null;
+}
+
+function calculateOccupancyAdjustment(resolvedRate, adults, children) {
+  if (!resolvedRate) {
+    return {
+      extra_adults: 0,
+      extra_children: 0,
+      extra_adult_amount: 0,
+      extra_child_amount: 0,
+      adjustment_amount: 0,
+    };
+  }
+
+  const extraAdults = Math.max(0, Number(adults || 0) - Number(resolvedRate.included_adults || 0));
+  const extraChildren = Math.max(0, Number(children || 0) - Number(resolvedRate.included_children || 0));
+  const extraAdultAmount = Number(resolvedRate.extra_adult_amount || 0);
+  const extraChildAmount = Number(resolvedRate.extra_child_amount || 0);
+  const adjustmentAmount = extraAdults * extraAdultAmount + extraChildren * extraChildAmount;
+
+  return {
+    extra_adults: extraAdults,
+    extra_children: extraChildren,
+    extra_adult_amount: extraAdultAmount,
+    extra_child_amount: extraChildAmount,
+    adjustment_amount: adjustmentAmount,
+  };
 }
 
 function buildDynamicUpdateSql(tableName, updates) {
@@ -1298,7 +1410,9 @@ export async function handleListRoomRates(request, env, params) {
 
     const result = await env.DB
       .prepare(
-        `SELECT prr.id, prr.tenant_id, prr.property_id, prr.room_type_id, prr.rate_name, prr.currency, prr.nightly_amount, prr.active, prr.created_at, prr.updated_at,
+      `SELECT prr.id, prr.tenant_id, prr.property_id, prr.room_type_id, prr.rate_name, prr.currency, prr.nightly_amount,
+        prr.included_adults, prr.included_children, prr.extra_adult_amount, prr.extra_child_amount,
+        prr.active, prr.created_at, prr.updated_at,
                 rt.code AS room_type_code, rt.name AS room_type_name
            FROM property_room_rates prr
            LEFT JOIN room_types rt ON rt.id = prr.room_type_id AND rt.tenant_id = prr.tenant_id AND rt.property_id = prr.property_id
@@ -1336,10 +1450,27 @@ export async function handleCreateRoomRate(request, env, params) {
     await env.DB
       .prepare(
         `INSERT INTO property_room_rates
-          (id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
+           included_adults, included_children, extra_adult_amount, extra_child_amount,
+           active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(id, tenantId, propertyId, parsed.roomTypeId, parsed.rateName, parsed.currency, parsed.nightlyAmount, parsed.active, now, now)
+      .bind(
+        id,
+        tenantId,
+        propertyId,
+        parsed.roomTypeId,
+        parsed.rateName,
+        parsed.currency,
+        parsed.nightlyAmount,
+        parsed.includedAdults,
+        parsed.includedChildren,
+        parsed.extraAdultAmount,
+        parsed.extraChildAmount,
+        parsed.active,
+        now,
+        now
+      )
       .run();
 
     return jsonResponse({ ok: true, room_rate: await loadRoomRateById(env, tenantId, propertyId, id) }, 201);
@@ -1483,7 +1614,9 @@ export async function handleListSeasonRoomRates(request, env, params) {
     if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
     const result = await env.DB
       .prepare(
-        `SELECT sr.id, sr.tenant_id, sr.property_id, sr.season_id, sr.room_type_id, sr.currency, sr.nightly_amount, sr.active, sr.created_at, sr.updated_at,
+      `SELECT sr.id, sr.tenant_id, sr.property_id, sr.season_id, sr.room_type_id, sr.currency, sr.nightly_amount,
+        sr.included_adults, sr.included_children, sr.extra_adult_amount, sr.extra_child_amount,
+        sr.active, sr.created_at, sr.updated_at,
                 prs.name AS season_name, rt.name AS room_type_name, rt.code AS room_type_code
            FROM property_room_rate_season_prices sr
            LEFT JOIN property_rate_seasons prs ON prs.id = sr.season_id AND prs.tenant_id = sr.tenant_id AND prs.property_id = sr.property_id
@@ -1522,10 +1655,27 @@ export async function handleCreateSeasonRoomRate(request, env, params) {
     await env.DB
       .prepare(
         `INSERT INTO property_room_rate_season_prices
-          (id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
+           included_adults, included_children, extra_adult_amount, extra_child_amount,
+           active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(id, tenantId, propertyId, parsed.seasonId, parsed.roomTypeId, parsed.currency, parsed.nightlyAmount, parsed.active, now, now)
+      .bind(
+        id,
+        tenantId,
+        propertyId,
+        parsed.seasonId,
+        parsed.roomTypeId,
+        parsed.currency,
+        parsed.nightlyAmount,
+        parsed.includedAdults,
+        parsed.includedChildren,
+        parsed.extraAdultAmount,
+        parsed.extraChildAmount,
+        parsed.active,
+        now,
+        now
+      )
       .run();
     return jsonResponse({ ok: true, season_room_rate: await loadSeasonRoomRateById(env, tenantId, propertyId, id) }, 201);
   } catch (error) {
@@ -1584,7 +1734,9 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 
     const [baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
       env.DB.prepare(
-        `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount, active, created_at, updated_at
+        `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
+                included_adults, included_children, extra_adult_amount, extra_child_amount,
+                active, created_at, updated_at
            FROM property_room_rates
           WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
           ORDER BY updated_at DESC, created_at DESC
@@ -1597,7 +1749,9 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
           ORDER BY sort_order ASC, start_date ASC, created_at ASC`
       ).bind(tenantId, propertyId).all(),
       env.DB.prepare(
-        `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount, active, created_at, updated_at
+        `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
+          included_adults, included_children, extra_adult_amount, extra_child_amount,
+          active, created_at, updated_at
            FROM property_room_rate_season_prices
           WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
       ).bind(tenantId, propertyId, parsed.roomTypeId).all(),
@@ -1610,6 +1764,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 
     const nightlyBreakdown = stayDates.map((stayDate) => {
       const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
+      const occupancyAdjustment = calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children);
       return {
         stay_date: stayDate,
         source: resolved?.source || 'missing_rate',
@@ -1617,11 +1772,17 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
         season_name: resolved?.season_name || null,
         currency: resolved?.currency || baseRate?.currency || property.currency,
         nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
+        included_adults: resolved ? Number(resolved.included_adults) : null,
+        included_children: resolved ? Number(resolved.included_children) : null,
+        occupancy_adjustment: resolved ? occupancyAdjustment : null,
+        nightly_total: resolved ? Number(resolved.nightly_amount) + Number(occupancyAdjustment.adjustment_amount || 0) : null,
       };
     });
 
     const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
-    const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_amount) || 0), 0);
+    const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_amount) || 0), 0);
+    const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
+    const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
     const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
 
     return jsonResponse({
@@ -1631,11 +1792,16 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
       request: {
         check_in: parsed.checkIn,
         check_out: parsed.checkOut,
+        adults: parsed.adults,
+        children: parsed.children,
+        rooms_requested: parsed.roomsRequested,
       },
       pricing: {
         currency,
         nightly_breakdown: nightlyBreakdown,
         missing_rate_dates: missingDates,
+        total_base_amount: totalBaseAmount,
+        total_occupancy_adjustment: totalOccupancyAdjustment,
         total_amount: totalAmount,
         source_summary: {
           has_base_rate: Boolean(baseRate),
@@ -1652,6 +1818,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 
 async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endDate, options = {}) {
   const excludeHoldId = options.excludeHoldId ? String(options.excludeHoldId) : null;
+  const excludeReservationId = options.excludeReservationId ? String(options.excludeReservationId) : null;
   const roomUnitsResult = await env.DB
     .prepare(
       `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status
@@ -1696,7 +1863,7 @@ async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endD
   return {
     roomUnits: roomUnitsResult.results || [],
     holds: (holdsResult.results || []).filter((row) => !excludeHoldId || String(row.id) !== excludeHoldId),
-    allocations: allocationsResult.results || [],
+    allocations: (allocationsResult.results || []).filter((row) => !excludeReservationId || String(row.reservation_id) !== excludeReservationId),
   };
 }
 
@@ -1959,53 +2126,80 @@ function selectBestPlan(availability) {
   return Array.isArray(availability?.stayPlans) && availability.stayPlans.length ? availability.stayPlans[0] : null;
 }
 
-async function createReservationArtifacts(env, tenantId, reservationId, propertyId, reservationInput, selectedPlan) {
+function validateReservationRebookRequest(body, propertyId, existingReservation) {
+  const availability = validateAvailabilityRequest({
+    propertyId,
+    room_type_id: body?.room_type_id || existingReservation?.room_type_id,
+    check_in: body?.check_in || existingReservation?.check_in,
+    check_out: body?.check_out || existingReservation?.check_out,
+    rooms_requested: body?.rooms_requested ?? existingReservation?.rooms_requested ?? 1,
+  }, propertyId);
+  if (availability.error) return availability;
+
+  const adults = Number(body?.adults ?? existingReservation?.adults ?? 1);
+  const children = Number(body?.children ?? existingReservation?.children ?? 0);
+  const specialRequests = body?.special_requests !== undefined ? (body.special_requests ? String(body.special_requests).trim() : null) : existingReservation?.special_requests || null;
+  const expectedArrivalTime = body?.expected_arrival_time !== undefined ? (body.expected_arrival_time ? String(body.expected_arrival_time).trim() : null) : existingReservation?.expected_arrival_time || null;
+  const expectedFlightRef = body?.expected_flight_ref !== undefined ? (body.expected_flight_ref ? String(body.expected_flight_ref).trim() : null) : existingReservation?.expected_flight_ref || null;
+  const expectedArrivalChannel = body?.expected_arrival_channel !== undefined ? (body.expected_arrival_channel ? String(body.expected_arrival_channel).trim() : null) : existingReservation?.expected_arrival_channel || null;
+  const pricingSnapshot = body?.pricing_snapshot ? JSON.stringify(body.pricing_snapshot) : (existingReservation?.pricing_snapshot || JSON.stringify({}));
+  const holdId = body?.hold_id ? String(body.hold_id).trim() : null;
+
+  if (!Number.isInteger(adults) || adults < 1) return { error: 'adults must be an integer greater than 0.' };
+  if (!Number.isInteger(children) || children < 0) return { error: 'children must be an integer greater than or equal to 0.' };
+  if (availability.roomsRequested !== 1) return { error: 'Reservation rebook baseline currently supports rooms_requested = 1 only.' };
+
+  return {
+    ...availability,
+    adults,
+    children,
+    specialRequests,
+    expectedArrivalTime,
+    expectedFlightRef,
+    expectedArrivalChannel,
+    pricingSnapshot,
+    holdId,
+  };
+}
+
+function validateReservationStatusTransition(record, fromStatuses, actionLabel) {
+  if (!record?.reservation) return { error: 'Reservation not found.' };
+  if (!fromStatuses.includes(record.reservation.status)) {
+    return { error: `${actionLabel} is only allowed from status: ${fromStatuses.join(', ')}.` };
+  }
+  return null;
+}
+
+async function discardReservationStayPlanState(env, tenantId, propertyId, reservationId) {
+  const now = currentUnixSeconds();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE reservation_stay_plans
+          SET is_selected = 0,
+              status = 'discarded',
+              updated_at = ?
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND reservation_id = ?
+          AND is_selected = 1
+          AND status IN ('selected', 'locked')`
+    ).bind(now, tenantId, propertyId, reservationId),
+    env.DB.prepare(
+      `UPDATE reservation_allocations
+          SET allocation_status = 'released',
+              updated_at = ?
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND reservation_id = ?
+          AND allocation_status IN ('soft_allocated', 'locked')`
+    ).bind(now, tenantId, propertyId, reservationId),
+  ]);
+}
+
+async function attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan) {
   const now = currentUnixSeconds();
   const stayPlanId = nanoid();
   const planSegments = selectedPlan.segments || [];
-
-  await env.DB
-    .prepare(
-      `INSERT INTO property_reservations
-        (id, tenant_id, property_id, source, source_ref, source_payload, status,
-         guest_name, guest_email, guest_phone,
-         check_in, check_out, room_type_id, rooms_requested, adults, children,
-         pricing_snapshot, special_requests,
-         expected_arrival_time, expected_flight_ref, expected_arrival_channel,
-         airport_transfer_requested, airport_transfer_price_snapshot, cancellation_policy_snapshot,
-         confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason,
-         created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`
-    )
-    .bind(
-      reservationId,
-      tenantId,
-      propertyId,
-      reservationInput.source,
-      reservationInput.sourceRef,
-      reservationInput.sourcePayload,
-      reservationInput.guestName,
-      reservationInput.guestEmail,
-      reservationInput.guestPhone,
-      reservationInput.checkIn,
-      reservationInput.checkOut,
-      reservationInput.roomTypeId,
-      reservationInput.roomsRequested,
-      reservationInput.adults,
-      reservationInput.children,
-      reservationInput.pricingSnapshot,
-      reservationInput.specialRequests,
-      reservationInput.expectedArrivalTime,
-      reservationInput.expectedFlightRef,
-      reservationInput.expectedArrivalChannel,
-      reservationInput.airportTransferRequested,
-      reservationInput.airportTransferPriceSnapshot,
-      reservationInput.cancellationPolicySnapshot,
-      now,
-      now,
-      now
-    )
-    .run();
 
   await env.DB
     .prepare(
@@ -2081,7 +2275,57 @@ async function createReservationArtifacts(env, tenantId, reservationId, property
     }
   }
 
-  return { stayPlanId, confirmedAt: now };
+  return { stayPlanId, lockedAt: now };
+}
+
+async function createReservationArtifacts(env, tenantId, reservationId, propertyId, reservationInput, selectedPlan) {
+  const now = currentUnixSeconds();
+
+  await env.DB
+    .prepare(
+      `INSERT INTO property_reservations
+        (id, tenant_id, property_id, source, source_ref, source_payload, status,
+         guest_name, guest_email, guest_phone,
+         check_in, check_out, room_type_id, rooms_requested, adults, children,
+         pricing_snapshot, special_requests,
+         expected_arrival_time, expected_flight_ref, expected_arrival_channel,
+         airport_transfer_requested, airport_transfer_price_snapshot, cancellation_policy_snapshot,
+         confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason,
+         created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`
+    )
+    .bind(
+      reservationId,
+      tenantId,
+      propertyId,
+      reservationInput.source,
+      reservationInput.sourceRef,
+      reservationInput.sourcePayload,
+      reservationInput.guestName,
+      reservationInput.guestEmail,
+      reservationInput.guestPhone,
+      reservationInput.checkIn,
+      reservationInput.checkOut,
+      reservationInput.roomTypeId,
+      reservationInput.roomsRequested,
+      reservationInput.adults,
+      reservationInput.children,
+      reservationInput.pricingSnapshot,
+      reservationInput.specialRequests,
+      reservationInput.expectedArrivalTime,
+      reservationInput.expectedFlightRef,
+      reservationInput.expectedArrivalChannel,
+      reservationInput.airportTransferRequested,
+      reservationInput.airportTransferPriceSnapshot,
+      reservationInput.cancellationPolicySnapshot,
+      now,
+      now,
+      now
+    )
+    .run();
+
+  const planArtifacts = await attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan);
+  return { stayPlanId: planArtifacts.stayPlanId, confirmedAt: now };
 }
 
 async function loadPropertyReservation(env, tenantId, propertyId, reservationId) {
@@ -2137,7 +2381,9 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
   return {
     reservation,
     stayPlan: stayPlan || null,
-    segments: segmentsResult.results || [],
+    segments: stayPlan
+      ? (segmentsResult.results || []).filter((segment) => String(segment.stay_plan_id) === String(stayPlan.id))
+      : [],
     allocations: allocationsResult.results || [],
   };
 }
@@ -2440,6 +2686,47 @@ export async function handleCreatePropertyReservation(request, env, params) {
   }
 }
 
+export async function handleReleasePropertyAvailabilityHold(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const holdId = String(params?.holdId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const hold = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, hold_type, source_type, source_id,
+                check_in, check_out, rooms_requested, status, expires_at, created_at
+           FROM inventory_holds
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(holdId, tenantId, propertyId)
+      .first();
+
+    if (!hold) return jsonResponse({ error: 'Hold not found.' }, 404);
+    if (hold.status !== 'active') return jsonResponse({ error: 'Only active holds can be released.' }, 409);
+
+    await env.DB
+      .prepare(`UPDATE inventory_holds SET status = 'released' WHERE id = ? AND tenant_id = ? AND property_id = ? AND status = 'active'`)
+      .bind(holdId, tenantId, propertyId)
+      .run();
+
+    return jsonResponse({
+      ok: true,
+      hold: {
+        ...hold,
+        status: 'released',
+      },
+    });
+  } catch (error) {
+    console.error('[PROPERTY_HOLD_RELEASE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
 export async function handleGetPropertyReservation(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) {
@@ -2547,6 +2834,178 @@ export async function handleCancelPropertyReservation(request, env, params) {
     return jsonResponse(buildReservationPayload(updatedRecord));
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_CANCEL]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleRebookPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const statusError = validateReservationStatusTransition(record, ['confirmed'], 'Rebook');
+    if (statusError) return jsonResponse({ error: statusError.error }, 409);
+
+    const parsedRequest = validateReservationRebookRequest(body, propertyId, record.reservation);
+    if (parsedRequest.error) return jsonResponse({ error: parsedRequest.error }, 400);
+
+    let activeHold = null;
+    if (parsedRequest.holdId) {
+      activeHold = await loadActiveHold(env, tenantId, propertyId, parsedRequest.holdId);
+      if (!activeHold) return jsonResponse({ error: 'Active hold not found.' }, 404);
+      if (
+        String(activeHold.room_type_id) !== parsedRequest.roomTypeId ||
+        String(activeHold.check_in) !== parsedRequest.checkIn ||
+        String(activeHold.check_out) !== parsedRequest.checkOut ||
+        Number(activeHold.rooms_requested || 0) !== parsedRequest.roomsRequested
+      ) {
+        return jsonResponse({ error: 'hold_id does not match the requested rebook stay.' }, 409);
+      }
+    }
+
+    const availability = await calculateAvailability(
+      env,
+      tenantId,
+      propertyId,
+      parsedRequest.roomTypeId,
+      parsedRequest.checkIn,
+      parsedRequest.checkOut,
+      parsedRequest.roomsRequested,
+      { excludeHoldId: parsedRequest.holdId, excludeReservationId: reservationId }
+    );
+    if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
+    if (availability.shortageDates.length) {
+      return jsonResponse({
+        error: 'Inventory is no longer available for the rebooked stay.',
+        availability: buildAvailabilityPayload(availability).availability,
+      }, 409);
+    }
+
+    const selectedPlan = selectBestPlan(availability);
+    if (!selectedPlan || !selectedPlan.segments?.length || selectedPlan.segments.some((segment) => !segment.room_unit_id)) {
+      return jsonResponse({ error: 'No concrete allocation plan is available for rebooking yet.' }, 409);
+    }
+
+    const now = currentUnixSeconds();
+    await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
+    await env.DB
+      .prepare(
+        `UPDATE property_reservations
+            SET check_in = ?,
+                check_out = ?,
+                room_type_id = ?,
+                rooms_requested = ?,
+                adults = ?,
+                children = ?,
+                pricing_snapshot = ?,
+                special_requests = ?,
+                expected_arrival_time = ?,
+                expected_flight_ref = ?,
+                expected_arrival_channel = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(
+        parsedRequest.checkIn,
+        parsedRequest.checkOut,
+        parsedRequest.roomTypeId,
+        parsedRequest.roomsRequested,
+        parsedRequest.adults,
+        parsedRequest.children,
+        parsedRequest.pricingSnapshot,
+        parsedRequest.specialRequests,
+        parsedRequest.expectedArrivalTime,
+        parsedRequest.expectedFlightRef,
+        parsedRequest.expectedArrivalChannel,
+        now,
+        reservationId,
+        tenantId,
+        propertyId
+      )
+      .run();
+
+    await attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan);
+
+    if (activeHold) {
+      await env.DB
+        .prepare(`UPDATE inventory_holds SET status = 'consumed' WHERE id = ? AND tenant_id = ? AND property_id = ? AND status = 'active'`)
+        .bind(parsedRequest.holdId, tenantId, propertyId)
+        .run();
+    }
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse({
+      ...buildReservationPayload(updatedRecord),
+      rebooked: true,
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_REBOOK]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCheckInPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const statusError = validateReservationStatusTransition(record, ['confirmed'], 'Check-in');
+    if (statusError) return jsonResponse({ error: statusError.error }, 409);
+
+    await env.DB
+      .prepare(`UPDATE property_reservations SET status = 'checked_in', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+      .run();
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse(buildReservationPayload(updatedRecord));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_CHECK_IN]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCheckOutPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const statusError = validateReservationStatusTransition(record, ['checked_in'], 'Check-out');
+    if (statusError) return jsonResponse({ error: statusError.error }, 409);
+
+    await env.DB
+      .prepare(`UPDATE property_reservations SET status = 'checked_out', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+      .run();
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse(buildReservationPayload(updatedRecord));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_CHECK_OUT]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
