@@ -65,6 +65,12 @@ Status legend:
 | CHK-R49 | Hotel sorting + Named Photo Libraries | done | hotel metadata + named media libraries active | 2026-04-10 | product modules uses catalog flows |
 | CHK-R64 | Showcase-only platform subdomains + commercial activation on custom domains | done | showcase vs commerce boundary enforced | 2026-04-15 | tenant subdomains render correctly |
 
+## Boundary notes
+
+- `CHK-R47` stays in this ledger even though the title mentions hotel polish, because that work targeted storefront rendering and universal content surfaces rather than the standalone property engine.
+- `CHK-R49` stays in this ledger intentionally because it is based on the universal catalog model (`tenant_universal_hotels`, media libraries, product modules, tour-content linking), not the property-engine model (`properties`, `room_types`, `room_units`, `property_reservations`).
+- In short: if the word `hotel` means catalog/showcase/storefront content, it belongs here; if it means room inventory, night allocation, reservation lifecycle, or property ops, it belongs in `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md`.
+
 ## Platform / tenant / auth / billing / ops
 
 | Checkpoint | Title | Status | Code reality | Last update | Notes |

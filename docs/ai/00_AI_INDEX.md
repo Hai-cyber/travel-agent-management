@@ -6,10 +6,11 @@ Read order for AI assistants:
 1. `00_AI_INDEX.md` (this file)
 2. `01_CURRENT_STATE.md`
 3. `02_WORKING_AGREEMENT.md`
-4. `03_PROGRESS_LEDGER.md` (split router / combined history)
+4. `03_PROGRESS_LEDGER.md` (split router)
 5. `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` or `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` depending on task domain
-6. `04_SESSION_HANDOFF.md` (latest section only)
-6. linked source-of-truth docs in `/docs`
+6. `03C_PROGRESS_LEDGER_COMBINED_ARCHIVE.md` only when older combined history is actually needed
+7. `04_SESSION_HANDOFF.md` (latest section only)
+8. linked source-of-truth docs in `/docs`
 
 ## Project identity
 - Project: tour booking / tour operations MVP for travel agents
@@ -59,7 +60,8 @@ AI behavior / guardrails:
 - Progress ledger is now split for readability:
 	- `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` = tour engine + shared platform/runtime
 	- `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md` = hotel/property engine
-	- `03_PROGRESS_LEDGER.md` remains the compatibility entry point and frozen combined history
+	- `03_PROGRESS_LEDGER.md` = short router + usage rules
+	- `03C_PROGRESS_LEDGER_COMBINED_ARCHIVE.md` = preserved combined history for old notes only
 
 ## AI module map
 - `21_GROWTH_SEO_MODULE.md` -> Distribution & Growth layer scope

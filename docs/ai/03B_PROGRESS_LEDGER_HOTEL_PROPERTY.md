@@ -58,6 +58,12 @@ Status legend:
 - reservation create baseline verified only for `rooms_requested = 1`
 - no cancel/release lifecycle endpoint yet
 
+## Boundary notes
+
+- This ledger is only for the standalone property engine built on `properties`, `room_types`, `room_units`, `inventory_holds`, `property_reservations`, `reservation_stay_plans`, and `reservation_allocations`.
+- Universal catalog/storefront checkpoints that happen to mention hotels still belong in `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md` when they operate on `tenant_universal_hotels`, product modules, universal pages, or public site rendering.
+- In practice, `CHK-R47` and `CHK-R49` are intentionally **not** repeated here because they are catalog/storefront work, not property-engine runtime work.
+
 ## Recommended next property slices
 
 - add reservation read + cancel baseline so the property reservation lifecycle stops at a clean minimum complete surface
