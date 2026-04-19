@@ -50,6 +50,11 @@ If old documentation says a feature exists but the current rescue repo does not 
 `reservation_stay_plan_segments`, `reservation_allocations`, `room_state_events`,
 `housekeeping_tasks`, `maintenance_issues`, `folios`, `folio_lines`
 
+Hotel/property boundary note:
+- `tenant_universal_hotels` belongs to the universal storefront/catalog layer and remains transitional presentation/runtime support.
+- The standalone property engine starts at `properties`, `room_types`, `room_units`, `property_reservations`, `inventory_holds`, `reservation_stay_plans`, and `reservation_allocations`.
+- Do not treat `tenant_universal_hotels` as the canonical hospitality engine just because the word `hotel` appears in the table name.
+
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency` (secondary display currency storage),
 `booking_currency`, `market_skin_key`, `primary_market`, `notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`,
@@ -117,6 +122,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - Admin ops can manually re-run AI moderation through `POST /api/admin/tenants/:id/moderate-ai`, and flagged moderation events can send Telegram alerts when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are configured
 - `POST /api/admin/tenants/:id/send-review-alert` now re-sends the latest open review case to Telegram, and Telegram moderation messages now include signed `Approve` / `Disapprove` action links handled by `GET /api/tenant/review-action/:action`
 - `GET /api/admin/tenants/:id/broken-assets` scans five D1 JSON surfaces (`tours.content_data`, `tenant_universal_hotels.gallery_json`, `tenant_universal_tour_pages.content_override_json`, `tenant_universal_pages.blocks_json`, `tenants.site_config`) for dead `/api/tenant/assets/...` URLs; classifies each as `deleted`, `blocked`, `not_in_r2`, or `not_in_inventory_or_r2`; add `?check_r2=1` to also HEAD-check assets against TOUR_PAGES R2
+- The `tenant_universal_hotels` surface in this scan is storefront/catalog JSON, not property-engine room inventory or reservation state.
 - Sensitive tenant-editor routes now require a real authenticated tenant session in addition to tenant scoping, including template structure, publish readiness, config save, template switching, snippet loading, preview, soft publish, and publish flows
 - `/api/tenant/pages` routes (pages.js: CRUD for universal site pages) are now in `PROTECTED_API_PREFIXES` — previously they only checked `X-Tenant-ID` with no session auth
 - `POST /api/tenants/request-trust-upgrade` — PROBATION/PREVIEW_ONLY tenants can submit a review-case request for trust promotion; idempotent (7-day dedup); SUSPENDED/QUARANTINED receive 403; TRUSTED receive `already_trusted: true`
@@ -183,6 +189,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/domains/stripe-webhook` — Stripe webhook for paid domain purchases; on success it continues into Cloudflare Registrar provisioning and D1 purchase-state updates
 
 **Property Availability Baseline (CHK-R83)**
+- These routes belong to the standalone property engine and are intentionally separate from universal hotel/catalog/storefront surfaces such as `tenant_universal_hotels` or `public/product-modules.html`.
 - `POST /api/properties/:propertyId/availability` — tenant-scoped property availability read model for phase-1 inventory truth; returns `nightly_remaining`, `shortage_dates`, ranked `stay_plans`, same-type nearby date options, and other-room-type options based on `room_units`, `inventory_holds`, and `reservation_allocations`
 - `POST /api/properties/:propertyId/availability/hold` — direct-booking soft-hold baseline; reruns availability first, creates an `inventory_holds` row only when no shortage remains, then returns refreshed availability after the new hold is applied
 - `POST /api/properties/:propertyId/reservations` — direct-commit property reservation baseline; reruns availability with optional `hold_id` exclusion, selects the best concrete stay plan, creates a `confirmed` `property_reservations` row plus linked `reservation_stay_plans`, `reservation_stay_plan_segments`, and `reservation_allocations`, and consumes the referenced hold when provided. Current verified baseline supports `rooms_requested = 1` only.
@@ -216,7 +223,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)
 - `public/tour-config.html` — agent admin UI (CHK-R25/R26/R80/R81)
-- `public/product-modules.html` — dedicated destination / hotel / gallery module manager distinct from quick skin editing
+- `public/product-modules.html` — dedicated destination / universal-hotel-catalog / gallery module manager distinct from quick skin editing; this is storefront/catalog tooling, not the standalone property-engine reservation/inventory UI
 - `public/saas-admin.html` — protected editor for public pricing/marketing copy
 - `public/billing/success.html` / `public/billing/cancel.html` — post-checkout success/cancel landing pages for SaaS billing
 - `public/pricing.html`, `public/terms.html`, `public/privacy.html`, `public/contact.html` — public SaaS marketing/legal pages are now part of the runtime product surface, not placeholders
@@ -240,6 +247,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - New D1 scaffold tables: `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`, `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`
 - New temporary D1 entity table for decorative accommodation/runtime editing: `tenant_universal_hotels`
 - Current hotel runtime truth is still transitional: `tenant_universal_hotels` is presentation/runtime support and should not be treated as the future canonical hospitality engine
+- Universal hotel/catalog boundary: these surfaces support storytelling, showcase cards, and storefront editing; they do not represent room inventory, night allocations, or property reservation truth.
 - New library: `src/lib/universalSite.js`
   - defines 3 groups: `tour_operator`, `stay_accommodation`, `transport_service`
   - defines 5 stabilized variants: `tour-adventure`, `tour-luxury`, `stay-boutique`, `stay-resort`, `transfer-private`
@@ -335,6 +343,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
   - **Destinations mode**: destination-source editing now includes unit-level taxonomy assignment on the canonical backing tour record, so operators can classify destinations where they actually manage destination copy and imagery
   - Destination modules still remain tour-backed today; true standalone destination entity tagging is available by API, but the main user workflow currently runs through destination modules in `product-modules.html?mode=destinations`
   - **Hotels / Gallery / Destination media UX**: module image fields and gallery rows now use the tenant media picker, support direct remove actions in preview, use optimized preview rendering with local-dev fallback, and keep gallery-row previews intentionally compact so operators can inspect many images at once
+  - Boundary note: the "hotel" side of Product Modules still edits universal catalog/storefront content, not `properties`, `room_types`, `room_units`, or property-engine reservations.
 
 ### Test Scripts
 - `test/test_booking_orders.sh` — 15 assertions across 3 test groups (identity lock, proof unlock, revenue trigger)
@@ -383,7 +392,7 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
 - Full removal of USD-centric compatibility fields: runtime still keeps older fields like `grand_total_usd` and older formatter/enrichment helpers while migration continues
 - Full market-skin storefront wiring: curated market-skin presets exist in runtime/catalogs, but their locale packs and storefront-specific copy/skin behavior are not yet fully applied end to end
 - Multi-skin expansion beyond Six Senses: more storefront skins will be added under `src/lib/themes/`, with each tenant selecting its active skin through tenant site configuration
-- Tenant creation seed packs: tours, hotels, galleries, destinations, and related decorative/runtime content should be normalized so a new tenant can be created with preloaded seed data and a chosen skin in one step
+- Tenant creation seed packs: tours, storefront hotel cards, galleries, destinations, and related decorative/runtime content should be normalized so a new tenant can be created with preloaded seed data and a chosen skin in one step
 - Skin-aware tenant bootstrap/load flow: tenant chooses a skin, then matching seed content is loaded automatically rather than manually assembled after creation
 - Growth/SEO API baseline
 - Mobile ops surface
