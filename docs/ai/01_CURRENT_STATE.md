@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-16 (CHK-R77: billing safety — subscription enforcement middleware, lifecycle emails, trial expiry cron, dashboard SUSPENDED/CANCELLED banners; deployed `47a8f44`)
+Last updated: 2026-04-19 (synced after remote pull through CHK-R82/domain-calendar-promo additions)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -27,14 +27,14 @@ If old documentation says a feature exists but the current rescue repo does not 
 ### Infrastructure
 - Cloudflare Workers runtime, D1 SQLite (binding: `DB`), R2 (bindings: `TOUR_PAGES`, `BOOKING_PROOFS`)
 - KV (binding: `TOUR_PRESETS`)
-- Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)` + `runTrialMaintenance(env)` (trial expiry, reminder emails)
+- Cron trigger: `*/15 * * * *` → `purgeExpiredOrders(env)` + `runTrialMaintenance(env)` + `runTodoReminders(env)` + `runOpsDailyDigest(env)`
 - Local dev: `npx wrangler dev` on `http://127.0.0.1:8787`
 - i18n: Accept-Language → `translate()`, dual-price formatter, `resolveLocaleFromAcceptLanguage()`
 - Currency/runtime note: booking email dispatches (`dispatchBookingCreatedEmail`, `dispatchNewBookingAgentEmail`, `dispatchProofUploadedEmail`, `dispatchBookingConfirmedEmail`) now receive the tenant's `booking_currency` from D1 instead of `null`; `bookingEmails.js` `|| 'USD'` fallback is now only a safety net. Storefront formatter/invoice USD-primary legacy in non-email surfaces is still transitional.
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0050; local runtime verified against current dev DB, and remote production D1 verified through 0050; 0050 = booking_order_todos)
+### D1 Tables (repo migrations 0001–0056 present in repo; later migrations add domain purchase, richer booking todo fields/threads, promo codes, and tenant calendar secrets)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -43,12 +43,13 @@ If old documentation says a feature exists but the current rescue repo does not 
 `tenant_universal_sites`, `tenant_universal_theme_tokens`, `tenant_universal_contacts`,
 `tenant_universal_pages`, `tenant_universal_menu_items`, `tenant_universal_tour_pages`,
 `tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`,
-`tenant_review_cases`, `tenant_risk_events`, `tenant_asset_inventory`, `tenant_asset_scan_results`
+`tenant_review_cases`, `tenant_risk_events`, `tenant_asset_inventory`, `tenant_asset_scan_results`,
+`tenant_domain_purchases`, `booking_todo_threads`, `promo_codes`
 
 Key tenant columns: `subscription_status`, `custom_domain`, `payment_config_json`,
 `total_revenue_tracked`, `commission_threshold`, `exchange_rate`, `target_currency` (secondary display currency storage),
 `booking_currency`, `market_skin_key`, `primary_market`, `notification_config`, `payment_methods`, `subdomain`, `template_id`, `site_config`, `product_tier_key`,
-`trust_status`, `public_indexing_enabled`, `custom_domain_verified_at`
+`trust_status`, `public_indexing_enabled`, `custom_domain_verified_at`, `promo_activated`, `calendar_secret`
 
 ### API Endpoints
 
@@ -69,6 +70,13 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/auth/market-skins` — public curated market-skin catalog used by signup and future onboarding surfaces, now including EUR presets for Germany, France, and Spain
 - `GET /api/marketing-site` — public pricing/marketing content payload sourced from D1 `app_settings`
 - `GET|PUT /api/admin/marketing-site` — protected SaaS marketing page editor API
+
+**Billing / SaaS Subscription Lifecycle**
+- `POST /api/billing/checkout` — creates a Stripe Checkout Session in subscription mode for the tenant
+- `POST /api/billing/portal` — creates a Stripe Customer Portal session for invoice/card/cancel management
+- `POST /api/billing/webhook` — Stripe webhook handler for subscription activation, suspension/cancellation, and payment-success email dispatch
+- `GET /api/billing/status` — returns current subscription + trial status for dashboard/billing UI
+- Subscription enforcement middleware in `src/index.js` now blocks mutating API calls for `SUSPENDED`, `CANCELLED`, and expired-trial tenants, while keeping `/api/billing/*` paths exempt for reactivation
 
 **Service Items (CHK-R09/R10)**
 - `POST/GET/PATCH /api/stops/:stopId/{accommodations|meals|guides|local-transports|intercity-legs}`
@@ -155,6 +163,24 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/bookings/order/:orderId/todos?seed=1` — lists per-order service checklist todos; `?seed=1` auto-seeds one todo per `tour_stop` (formatted as `"Label (Day X–Y)"`) if table is empty for that order; all rows scoped by `tenant_id`
 - `POST /api/bookings/order/:orderId/todos` — add a custom task (stop_id=NULL, sort_order=999) to an order's checklist
 - `PATCH /api/bookings/order/:orderId/todos/:todoId` — toggle `done`/undone; sets `done_at` timestamp on mark-done or null on uncheck
+- Todo seeding is now deterministic and richer: `src/lib/bookingOps.js` builds one structured todo per configured service item, falls back to placeholders for missing services, and avoids race-condition duplicates by deriving todo IDs from the natural key `(order, stop, serviceType, item)`
+- `GET /api/bookings/order/:orderId/todos/:todoId/thread` / `POST /api/bookings/order/:orderId/todos/:todoId/thread` — thread timeline per service todo, with first outbound contact auto-advancing status `pending -> contacted`
+
+**Ops / Calendar / Reminder Layer**
+- `public/ops.html` — dedicated ops board surface for grouped stop/service todos outside the main dashboard
+- `GET /api/calendar/:secret.ics` — tenant-level iCal/webcal feed for upcoming service todos with embedded `VALARM` reminders
+- `GET /api/calendar/:secret/:orderId.ics` — order-scoped iCal feed for a single booking
+- `runTodoReminders(env)` sends reminder nudges on +30d after booking and at D-30 / D-14 / D-7 / D-3 before travel; `runOpsDailyDigest(env)` sends grouped daily digest emails
+
+**Domains / Registrar Flow**
+- `GET /api/domains/search?q=example.com` — RDAP availability check + registrar/base/platform price display
+- `POST /api/domains/purchase` — creates a Stripe one-time Checkout Session for a domain purchase with platform markup enforced server-side
+- `GET /api/domains/purchases` — lists a tenant's domain purchase attempts/history
+- `POST /api/domains/stripe-webhook` — Stripe webhook for paid domain purchases; on success it continues into Cloudflare Registrar provisioning and D1 purchase-state updates
+
+**Promotions / Testing Bypass Controls**
+- `promo_codes` + `promo_activated` runtime support now exists for admin-issued promo codes and tenant-side activation flows
+- Current code includes a promo-activated bypass path intended for controlled testing; this exists in runtime and should be treated as an explicit operational/testing surface, not as the general commercial policy default
 
 **Guest Portal — no auth required (CHK-R19 / CHK-R53)**
 - `GET /bookings/public/:token` — HTTP 302 redirect to `/booking-portal.html?token=TOKEN`
@@ -175,12 +201,16 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `public/reset-password.html` — localized request/reset page for password recovery tokens
 - `public/booking-portal.html` — guest-facing booking status portal (no auth); shows status badge, booking details table, deadline countdown, drag-and-drop proof upload; per-status sections (awaiting/uploaded/confirmed/expired/cancelled); fetches `GET /api/bookings/public/:token`
 - `public/dashboard.html` — tenant admin dashboard; **sidebar-as-pane-controller** pattern: 3 `[data-pane]` content divs (`start-here` default, `orders`, `order-detail`); clicking sidebar order filters calls `showPane('orders')` and loads orders; `📋` detail button on every order row opens `order-detail` pane; order detail shows guest/tour/payment header + per-order service checklist (`booking_order_todos`) seeded from `tour_stops`; todos checkable via PATCH API; custom tasks addable inline; back button returns to orders list; stat cards show real counts; confirm-receipt flow unlocks guest identity in-page; proof image viewer uses blob() URL.
+- `public/dashboard.html` now also contains a billing pane, review-case tooling, launch-guide refactor, and partial ops shortcuts; it is no longer just a thin tenant shell
+- `public/ops.html` — richer operations board for grouped service todos, contact actions, status lifecycle, re-seed support, and operational cleanup fixes landed through CHK-R82
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)
 - `public/tour-config.html` — agent admin UI (CHK-R25/R26/R80/R81)
 - `public/product-modules.html` — dedicated destination / hotel / gallery module manager distinct from quick skin editing
 - `public/saas-admin.html` — protected editor for public pricing/marketing copy
+- `public/billing/success.html` / `public/billing/cancel.html` — post-checkout success/cancel landing pages for SaaS billing
+- `public/pricing.html`, `public/terms.html`, `public/privacy.html`, `public/contact.html` — public SaaS marketing/legal pages are now part of the runtime product surface, not placeholders
 - `public/inject.js` — Site Studio client injection layer (CHK-R22)
 - `public/visual-editor.html` — Visual Editor split-layout shell (CHK-R23/R29-R33)
   - Drag-and-drop snippets from sidebar onto canvas iframe (CHK-R31)
@@ -260,7 +290,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `npm run backfill:tenant-seed` — audits/builds SQL for missing legacy tenant seed gaps
 - `npm run backfill:tenant-seed:apply` — applies the remote SQL backfill for missing stop/price/service minimums
 - `npm run clean:wrangler` / `npm run dev:clean` — clears Wrangler temp cache before local dev when needed
-- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE and booking-compliant with an enabled electronic gateway plus bank transfer, starts a dedicated Wrangler dev instance on `8790`, verifies tenant route boot health, Cloudflare AI fallback behavior, subdomain policy enforcement, asset moderation (safe SVG allow + malicious SVG block), task patch on `stop-001`, seeded pricing calculate for `tour-001` / `segment-standard`, booking proof + confirm + audit row end to end, and forgot-password request + signed webhook delivery + token validation + password reset + sign-in with the new password
+- `npm test` / `npm run test:local` — Windows-runnable smoke flow: reconciles/applies local migrations, refreshes seed pricing data, ensures `ten-demo-001` is ACTIVE and booking-compliant with an enabled electronic gateway plus bank transfer, starts a dedicated Wrangler dev instance on `8790`, verifies tenant route boot health, Cloudflare AI fallback behavior, subdomain policy enforcement, asset moderation (safe SVG allow + malicious SVG block), task patch on `stop-001`, seeded pricing calculate for `tour-001` / `segment-standard`, booking proof + confirm + audit row end to end, forgot-password request + signed webhook delivery + token validation + password reset + sign-in with the new password, and newer billing/domain/ops smoke slices as they are added to the script
 - `docs/PASSWORD_RESET_WEBHOOK.md` — production contract for the reset-email webhook payload, headers, HMAC signature, and current Google Apps Script production receiver setup
 - `docs/GOOGLE_APPS_SCRIPT_PASSWORD_RESET.md` — receiver implementation notes and verified Google Apps Script rollout details
 - `scripts/syncAllSnippets.mjs` — full Cruip extractor (CHK-R32)
@@ -346,20 +376,18 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
 - Multi-skin expansion beyond Six Senses: more storefront skins will be added under `src/lib/themes/`, with each tenant selecting its active skin through tenant site configuration
 - Tenant creation seed packs: tours, hotels, galleries, destinations, and related decorative/runtime content should be normalized so a new tenant can be created with preloaded seed data and a chosen skin in one step
 - Skin-aware tenant bootstrap/load flow: tenant chooses a skin, then matching seed content is loaded automatically rather than manually assembled after creation
-- Calendar endpoints and reminder cadence
-- Domain onboarding flow (automated DNS verification)
-- Publish gate checklist endpoints
-- Billing/invoicing status endpoints
 - Growth/SEO API baseline
 - Mobile ops surface
 - Allotment / seat management (referenced in purge cron TODO)
+- Full CHK-R79 completion: inline editing for supplier/contact/date/person-in-charge on rich service todo cards remains incomplete even though the underlying todo/thread/status infrastructure is now present
 
-## Present in code but not exercised in the 2026-03-30 local pass
+## Present in code but not comprehensively documented/verified in the older local pass sections
 - Site Studio live domain rendering and editor surface
 - Tour publish / switch-template endpoints
 - Public guest proof upload route
 - Category management UI and routes
 - External payment webhooks
+- Domain purchase flow, calendar feeds, richer ops board interactions, and promo-code runtime slices landed after the older verification notes and should be verified against the current smoke/live process rather than treated as absent
 
 
 ### Current rebuilt database reality

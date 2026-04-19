@@ -1,4 +1,52 @@
 ## Latest Handoff
+Date: 2026-04-19
+Checkpoint: Docs sync after remote pull — runtime now materially beyond CHK-R77 snapshot
+
+### What was completed
+
+- **Domain purchase flow** (`src/routes/domains.js`):
+  - `GET /api/domains/search`
+  - `POST /api/domains/purchase`
+  - `GET /api/domains/purchases`
+  - `POST /api/domains/stripe-webhook`
+  - Stripe payment + Cloudflare Registrar provisioning path now exists in code
+
+- **Calendar / iCal feeds** (`src/routes/calendar.js`):
+  - `GET /api/calendar/:secret.ics`
+  - `GET /api/calendar/:secret/:orderId.ics`
+  - Public subscription feeds include `VALARM` reminders for service todos
+
+- **Ops backend shared layer** (`src/lib/bookingOps.js`):
+  - deterministic todo IDs to prevent duplicate seeding races
+  - richer service todo seeding from service-item tables
+  - todo reminder cadence + daily digest hooks wired into scheduled runtime
+
+- **Billing/domain/product shell**:
+  - Billing checkout/portal/webhook/status is now a real runtime slice
+  - Public pricing/legal/contact pages are part of the live SaaS shell
+  - `public/dashboard.html` and `public/ops.html` are now much thicker operational surfaces than the older handoff implies
+
+- **tour-config / ops follow-up work landed after CHK-R77**:
+  - CHK-R80 help popovers
+  - CHK-R81 itinerary inline edit
+  - CHK-R82 ops-board bug fixes for duplicate todos, stop-day syncing, and delete actions
+
+### What is still not done
+
+- `01_CURRENT_STATE.md` was stale before this sync and should now be treated as updated runtime truth, but future changes after CHK-R82 will need another pass
+- CHK-R79 remains the major in-progress module: inline editing for service todo cards, date fields, and person-in-charge assignment is still incomplete
+- Secrets/placeholders still called out in older handoffs remain relevant:
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_PRICE_ID`
+  - `STRIPE_DOMAIN_WEBHOOK_SECRET`
+  - `[COMPANY ADDRESS]` placeholder in public legal/contact pages
+
+### Suggested next prompt
+"Review CHK-R79 against the live code and produce a concrete completion plan for inline service-todo editing, date fields, and person-in-charge assignment without reopening the rest of the ops architecture."
+
+---
+
+## Latest Handoff
 Date: 2026-04-16
 Checkpoint: CHK-R77 — Billing safety: enforcement middleware, lifecycle emails, trial cron, dashboard banners
 

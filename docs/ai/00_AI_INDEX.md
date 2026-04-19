@@ -14,7 +14,7 @@ Read order for AI assistants:
 - Project: tour booking / tour operations MVP for travel agents
 - Runtime: Cloudflare Workers (module)
 - Data: D1 + KV
-- Current code reality: backend MVP slices through CHK-209, CHK-304, and CHK-401 are implemented; UI remains early-stage shell
+- Current code reality: rescue runtime is materially beyond the early MVP baseline. Core tenant/site publishing, booking lifecycle, billing lifecycle, domain purchase flow, calendar feeds, and ops-board slices are implemented; the main notable in-progress area is CHK-R79 rich service todo editing UX.
 
 ## Source of truth
 Business/domain truth stays in:
@@ -52,9 +52,9 @@ AI behavior / guardrails:
 - Growth & distribution layer -> site studio + publishing surface + `[CHK-405]`
 
 ## Checkpoint pointers
-- Implemented backend core: CHK-201 to CHK-209, plus CHK-401 to CHK-405
-- Next backend domain extension: none (backend checkpoint baseline complete)
-- Next UI evolution: bind more shell flows to backend slices as needed
+- Implemented rescue checkpoints now extend through CHK-R82, with CHK-R79 still marked in progress in the ledger
+- Next backend/domain follow-up: finish CHK-R79 inline editing and service-assignment gaps rather than inventing a parallel ops model
+- Next UI evolution: keep binding the existing dashboard, ops board, billing pane, and tour-config surfaces to the already-shipped backend slices
 
 ## AI module map
 - `21_GROWTH_SEO_MODULE.md` -> Distribution & Growth layer scope
