@@ -813,6 +813,7 @@ function validateRateQuoteRequest(body, propertyId) {
   const adults = Number(body?.adults ?? 2);
   const children = Number(body?.children ?? 0);
   const roomsRequested = Number(body?.rooms_requested ?? 1);
+  let roomGuestAssignments = null;
 
   if (!property) return { error: 'propertyId is required.' };
   if (!roomTypeId) return { error: 'room_type_id is required.' };
@@ -824,7 +825,48 @@ function validateRateQuoteRequest(body, propertyId) {
     return { error: 'rooms_requested must be an integer between 1 and 20.' };
   }
 
-  return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested };
+  if (body?.room_guest_assignments !== undefined) {
+    try {
+      roomGuestAssignments = Array.isArray(body.room_guest_assignments)
+        ? body.room_guest_assignments
+        : JSON.parse(String(body.room_guest_assignments || '[]'));
+    } catch {
+      return { error: 'room_guest_assignments must be valid JSON when provided.' };
+    }
+    if (!Array.isArray(roomGuestAssignments) || roomGuestAssignments.length !== roomsRequested) {
+      return { error: 'room_guest_assignments must contain exactly one entry per requested room.' };
+    }
+
+    let assignedAdults = 0;
+    let assignedChildren = 0;
+    roomGuestAssignments = roomGuestAssignments.map((assignment, index) => {
+      const assignedAdultsValue = Number(assignment?.adults ?? 0);
+      const assignedChildrenValue = Number(assignment?.children ?? 0);
+      if (!Number.isInteger(assignedAdultsValue) || assignedAdultsValue < 0) {
+        throw new Error(`room_guest_assignments[${index}].adults must be an integer greater than or equal to 0.`);
+      }
+      if (!Number.isInteger(assignedChildrenValue) || assignedChildrenValue < 0) {
+        throw new Error(`room_guest_assignments[${index}].children must be an integer greater than or equal to 0.`);
+      }
+      if (assignedAdultsValue + assignedChildrenValue < 1) {
+        throw new Error(`room_guest_assignments[${index}] must contain at least one guest.`);
+      }
+      assignedAdults += assignedAdultsValue;
+      assignedChildren += assignedChildrenValue;
+      return {
+        room_index: index + 1,
+        adults: assignedAdultsValue,
+        children: assignedChildrenValue,
+        label: assignment?.label ? String(assignment.label).trim() : `Room ${index + 1}`,
+      };
+    });
+
+    if (assignedAdults !== adults || assignedChildren !== children) {
+      return { error: 'room_guest_assignments totals must match the top-level adults and children counts.' };
+    }
+  }
+
+  return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested, roomGuestAssignments };
 }
 
 function validateEarlyCheckoutRequest(body, reservation) {
@@ -1039,6 +1081,45 @@ function calculateOccupancyAdjustment(resolvedRate, adults, children, roomsReque
     extra_child_amount: extraChildAmount,
     adjustment_amount: adjustmentAmount,
   };
+}
+
+function calculatePerRoomOccupancyAdjustments(resolvedRate, roomGuestAssignments) {
+  if (!resolvedRate || !Array.isArray(roomGuestAssignments) || !roomGuestAssignments.length) return null;
+  return roomGuestAssignments.map((assignment) => {
+    const adjustment = calculateOccupancyAdjustment(resolvedRate, assignment.adults, assignment.children, 1);
+    return {
+      room_index: assignment.room_index,
+      label: assignment.label,
+      adults: assignment.adults,
+      children: assignment.children,
+      nightly_base_total: Number(resolvedRate.nightly_amount),
+      occupancy_adjustment: adjustment,
+      nightly_total: Number(resolvedRate.nightly_amount) + Number(adjustment.adjustment_amount || 0),
+    };
+  });
+}
+
+async function recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
+  const now = Date.now();
+  await env.DB
+    .prepare(
+      `INSERT INTO property_reservation_events
+        (id, tenant_id, property_id, reservation_id, action, from_status, to_status, actor_user_id, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      nanoid(),
+      tenantId,
+      propertyId,
+      reservationId,
+      action,
+      fromStatus,
+      toStatus,
+      actorUserId,
+      payload ? JSON.stringify(payload) : null,
+      now
+    )
+    .run();
 }
 
 function buildDynamicUpdateSql(tableName, updates) {
@@ -1789,8 +1870,21 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 
     const nightlyBreakdown = stayDates.map((stayDate) => {
       const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
-      const occupancyAdjustment = calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children, parsed.roomsRequested);
-      const nightlyBaseTotal = resolved ? Number(resolved.nightly_amount) * parsed.roomsRequested : null;
+      const perRoomAssignments = calculatePerRoomOccupancyAdjustments(resolved, parsed.roomGuestAssignments);
+      const occupancyAdjustment = perRoomAssignments
+        ? {
+            included_adults_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_adults_total || 0), 0),
+            included_children_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_children_total || 0), 0),
+            extra_adults: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_adults || 0), 0),
+            extra_children: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_children || 0), 0),
+            extra_adult_amount: Number(resolved?.extra_adult_amount || 0),
+            extra_child_amount: Number(resolved?.extra_child_amount || 0),
+            adjustment_amount: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.adjustment_amount || 0), 0),
+          }
+        : calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children, parsed.roomsRequested);
+      const nightlyBaseTotal = perRoomAssignments
+        ? perRoomAssignments.reduce((sum, item) => sum + Number(item.nightly_base_total || 0), 0)
+        : (resolved ? Number(resolved.nightly_amount) * parsed.roomsRequested : null);
       return {
         stay_date: stayDate,
         source: resolved?.source || 'missing_rate',
@@ -1802,6 +1896,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
         nightly_base_total: nightlyBaseTotal,
         included_adults: resolved ? Number(resolved.included_adults) : null,
         included_children: resolved ? Number(resolved.included_children) : null,
+        room_guest_assignments: perRoomAssignments,
         occupancy_adjustment: resolved ? occupancyAdjustment : null,
         nightly_total: resolved ? nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0) : null,
       };
@@ -1823,6 +1918,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
         adults: parsed.adults,
         children: parsed.children,
         rooms_requested: parsed.roomsRequested,
+        room_guest_assignments: parsed.roomGuestAssignments,
       },
       pricing: {
         currency,
@@ -2353,6 +2449,14 @@ async function createReservationArtifacts(env, tenantId, reservationId, property
     .run();
 
   const planArtifacts = await attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan);
+  await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'reservation_created', null, 'confirmed', {
+    check_in: reservationInput.checkIn,
+    check_out: reservationInput.checkOut,
+    room_type_id: reservationInput.roomTypeId,
+    rooms_requested: reservationInput.roomsRequested,
+    adults: reservationInput.adults,
+    children: reservationInput.children,
+  });
   return { stayPlanId: planArtifacts.stayPlanId, confirmedAt: now };
 }
 
@@ -2406,6 +2510,16 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
     .bind(tenantId, propertyId, reservationId)
     .all();
 
+  const eventsResult = await env.DB
+    .prepare(
+      `SELECT id, action, from_status, to_status, actor_user_id, payload_json, created_at
+         FROM property_reservation_events
+        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ?
+        ORDER BY created_at DESC`
+    )
+    .bind(tenantId, propertyId, reservationId)
+    .all();
+
   return {
     reservation,
     stayPlan: stayPlan || null,
@@ -2413,6 +2527,10 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
       ? (segmentsResult.results || []).filter((segment) => String(segment.stay_plan_id) === String(stayPlan.id))
       : [],
     allocations: allocationsResult.results || [],
+    events: (eventsResult.results || []).map((event) => ({
+      ...event,
+      payload: event.payload_json ? JSON.parse(event.payload_json) : null,
+    })),
   };
 }
 
@@ -2461,6 +2579,7 @@ function buildReservationPayload(record) {
       segments: record.segments,
     } : null,
     allocations: record.allocations,
+    events: record.events || [],
   };
 }
 
@@ -2858,6 +2977,10 @@ export async function handleCancelPropertyReservation(request, env, params) {
       .bind(now, reservationId, tenantId, propertyId)
       .run();
 
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'cancel', record.reservation.status, 'cancelled', {
+      cancel_reason: cancelReason,
+    }, cancelledBy);
+
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse(buildReservationPayload(updatedRecord));
   } catch (error) {
@@ -2971,6 +3094,15 @@ export async function handleRebookPropertyReservation(request, env, params) {
         .run();
     }
 
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'rebook', record.reservation.status, record.reservation.status, {
+      previous_check_in: record.reservation.check_in,
+      previous_check_out: record.reservation.check_out,
+      next_check_in: parsedRequest.checkIn,
+      next_check_out: parsedRequest.checkOut,
+      previous_room_type_id: record.reservation.room_type_id,
+      next_room_type_id: parsedRequest.roomTypeId,
+    }, request.headers.get('X-User-ID')?.trim() || null);
+
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse({
       ...buildReservationPayload(updatedRecord),
@@ -3002,6 +3134,8 @@ export async function handleCheckInPropertyReservation(request, env, params) {
       .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
       .run();
 
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'check_in', 'confirmed', 'checked_in', null, request.headers.get('X-User-ID')?.trim() || null);
+
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse(buildReservationPayload(updatedRecord));
   } catch (error) {
@@ -3029,6 +3163,10 @@ export async function handleCheckOutPropertyReservation(request, env, params) {
       .prepare(`UPDATE property_reservations SET status = 'checked_out', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
       .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
       .run();
+
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'check_out', 'checked_in', 'checked_out', {
+      effective_check_out: record.reservation.check_out,
+    }, request.headers.get('X-User-ID')?.trim() || null);
 
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse(buildReservationPayload(updatedRecord));
@@ -3096,6 +3234,11 @@ export async function handleEarlyCheckOutPropertyReservation(request, env, param
       ).bind(tenantId, propertyId, reservationId, parsed.effectiveCheckOut),
     ]);
 
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'early_check_out', 'checked_in', 'checked_out', {
+      previous_check_out: record.reservation.check_out,
+      effective_check_out: parsed.effectiveCheckOut,
+    }, request.headers.get('X-User-ID')?.trim() || null);
+
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse({
       ...buildReservationPayload(updatedRecord),
@@ -3129,6 +3272,11 @@ export async function handleNoShowPropertyReservation(request, env, params) {
       .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
       .run();
 
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'no_show', 'confirmed', 'no_show', {
+      check_in: record.reservation.check_in,
+      check_out: record.reservation.check_out,
+    }, request.headers.get('X-User-ID')?.trim() || null);
+
     const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     return jsonResponse({
       ...buildReservationPayload(updatedRecord),
@@ -3158,10 +3306,72 @@ export async function handleUndoPropertyReservationStatus(request, env, params) 
         .prepare(`UPDATE property_reservations SET status = 'confirmed', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
         .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
         .run();
+      await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'undo_status', 'checked_in', 'confirmed', {
+        undone_from: 'checked_in',
+      }, request.headers.get('X-User-ID')?.trim() || null);
       const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
       return jsonResponse({
         ...buildReservationPayload(updatedRecord),
         undone_from: 'checked_in',
+      });
+    }
+
+    if (record.reservation.status === 'checked_out') {
+      const latestEarlyCheckOutEvent = (record.events || []).find((event) => event.action === 'early_check_out' && event.payload?.previous_check_out) || null;
+      if (latestEarlyCheckOutEvent) {
+        const restoredCheckOut = String(latestEarlyCheckOutEvent.payload.previous_check_out);
+        const availability = await calculateAvailability(
+          env,
+          tenantId,
+          propertyId,
+          record.reservation.room_type_id,
+          record.reservation.check_in,
+          restoredCheckOut,
+          record.reservation.rooms_requested,
+          { excludeReservationId: reservationId }
+        );
+        if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
+        if (availability.shortageDates.length) {
+          return jsonResponse({
+            error: 'Inventory is no longer available to undo the early check-out.',
+            availability: buildAvailabilityPayload(availability).availability,
+          }, 409);
+        }
+
+        const selectedPlan = selectBestPlan(availability);
+        if (!selectedPlan || !selectedPlan.segments?.length || selectedPlan.segments.some((segment) => !segment.room_unit_id)) {
+          return jsonResponse({ error: 'No concrete allocation plan is available to restore this checked-out reservation.' }, 409);
+        }
+
+        await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
+        await env.DB
+          .prepare(`UPDATE property_reservations SET status = 'checked_in', check_out = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+          .bind(restoredCheckOut, currentUnixSeconds(), reservationId, tenantId, propertyId)
+          .run();
+        await attachSelectedStayPlanArtifacts(env, tenantId, reservationId, propertyId, selectedPlan);
+        await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'undo_status', 'checked_out', 'checked_in', {
+          undone_from: 'early_check_out',
+          restored_check_out: restoredCheckOut,
+        }, request.headers.get('X-User-ID')?.trim() || null);
+
+        const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+        return jsonResponse({
+          ...buildReservationPayload(updatedRecord),
+          undone_from: 'early_check_out',
+        });
+      }
+
+      await env.DB
+        .prepare(`UPDATE property_reservations SET status = 'checked_in', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+        .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+        .run();
+      await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'undo_status', 'checked_out', 'checked_in', {
+        undone_from: 'checked_out',
+      }, request.headers.get('X-User-ID')?.trim() || null);
+      const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+      return jsonResponse({
+        ...buildReservationPayload(updatedRecord),
+        undone_from: 'checked_out',
       });
     }
 
@@ -3194,6 +3404,9 @@ export async function handleUndoPropertyReservationStatus(request, env, params) 
         .prepare(`UPDATE property_reservations SET status = 'confirmed', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
         .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
         .run();
+      await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'undo_status', 'no_show', 'confirmed', {
+        undone_from: 'no_show',
+      }, request.headers.get('X-User-ID')?.trim() || null);
 
       const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
       return jsonResponse({
@@ -3202,7 +3415,7 @@ export async function handleUndoPropertyReservationStatus(request, env, params) 
       });
     }
 
-    return jsonResponse({ error: 'Undo is only supported for checked_in and no_show reservations in this baseline.' }, 409);
+    return jsonResponse({ error: 'Undo is only supported for checked_in, checked_out, and no_show reservations in this baseline.' }, 409);
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_UNDO_STATUS]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);

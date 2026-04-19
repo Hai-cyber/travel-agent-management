@@ -392,6 +392,53 @@
       align-items: center;
     }
 
+    .tab-strip {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tab-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.9);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab-button.active {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
+    }
+
+    .tab-button.soft-active {
+      background: #fff7ed;
+      border-color: rgba(154, 52, 18, 0.22);
+      color: var(--accent);
+    }
+
+    .tab-panel-hidden {
+      display: none;
+    }
+
+    .context-note {
+      display: grid;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.78);
+      border: 1px dashed rgba(120, 113, 108, 0.24);
+    }
+
     @media (max-width: 1180px) {
       .hero,
       .layout,
@@ -565,6 +612,25 @@
               <p class="hint">Check whether the configured inventory is sellable for a stay.</p>
             </div>
             <div class="section-body">
+              <div class="context-note">
+                <strong>Workspace Tabs</strong>
+                <div class="tab-strip" id="parent-tab-strip">
+                  <button class="tab-button active" type="button" data-parent-tab="availability">Availability</button>
+                  <button class="tab-button" type="button" data-parent-tab="ops">Ops</button>
+                </div>
+                <div id="room-type-tab-strip" class="tab-strip">
+                  <span class="empty">Create a room type to activate per-room workspace tabs.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-parent-panel="availability">
+            <div class="section-head">
+              <h2>Availability Test</h2>
+              <p class="hint">Check whether the configured inventory is sellable for a stay.</p>
+            </div>
+            <div class="section-body">
               <form id="availability-form">
                 <div class="field-grid">
                   <label>Room Type
@@ -632,7 +698,7 @@
             </div>
           </section>
 
-          <section class="section">
+          <section class="section" data-parent-panel="ops">
             <div class="section-head toolbar">
               <div>
                 <h2>Room Units</h2>
@@ -708,7 +774,7 @@
             </div>
           </section>
 
-          <section class="section">
+          <section class="section" data-parent-panel="availability">
             <div class="section-head toolbar">
               <div>
                 <h2>Base Nightly Rates</h2>
@@ -756,7 +822,7 @@
             </div>
           </section>
 
-          <section class="section full">
+          <section class="section full" data-parent-panel="availability">
             <div class="section-head toolbar">
               <div>
                 <h2>Pricing V2</h2>
@@ -876,6 +942,9 @@
                       <label>Rooms Requested
                         <input name="rooms_requested" type="number" min="1" value="1" />
                       </label>
+                      <label>Room Guest Assignments JSON
+                        <textarea name="room_guest_assignments" placeholder='[{"label":"Room 1","adults":2,"children":1},{"label":"Room 2","adults":3,"children":0}]'></textarea>
+                      </label>
                       <label>&nbsp;
                         <button class="button teal" type="submit">Quote Stay</button>
                       </label>
@@ -887,7 +956,7 @@
             </div>
           </section>
 
-          <section class="section full">
+          <section class="section full" data-parent-panel="ops">
             <div class="section-head">
               <h2>Reservation Ops</h2>
               <p class="hint">Authenticated admin controls for hold release, reservation lookup, rebook, no-show, undo, and early check-out.</p>
@@ -1011,6 +1080,8 @@
         rateSeasons: [],
         seasonRoomRates: [],
         currentReservation: null,
+        activeParentTab: 'availability',
+        activeRoomTypeId: '',
       };
 
       const els = {
@@ -1026,6 +1097,8 @@
         metricRoomTypes: document.getElementById('metric-room-types'),
         metricRoomUnits: document.getElementById('metric-room-units'),
         metricActiveRates: document.getElementById('metric-active-rates'),
+        parentTabStrip: document.getElementById('parent-tab-strip'),
+        roomTypeTabStrip: document.getElementById('room-type-tab-strip'),
         roomTypeForm: document.getElementById('room-type-form'),
         roomTypeList: document.getElementById('room-type-list'),
         roomUnitForm: document.getElementById('room-unit-form'),
@@ -1101,6 +1174,51 @@
         return state.properties.find((item) => item.id === state.selectedPropertyId) || null;
       }
 
+      function activeRoomType() {
+        return state.roomTypes.find((item) => item.id === state.activeRoomTypeId) || null;
+      }
+
+      function setActiveRoomType(roomTypeId) {
+        if (roomTypeId && state.roomTypes.some((item) => item.id === roomTypeId)) state.activeRoomTypeId = roomTypeId;
+        else state.activeRoomTypeId = state.roomTypes[0]?.id || '';
+        syncScopedRoomTypeControls();
+        renderRoomTypeTabs();
+        renderRoomUnits();
+        renderRoomRates();
+        renderSeasonRoomRates();
+      }
+
+      function syncScopedRoomTypeControls() {
+        const roomTypeId = state.activeRoomTypeId;
+        if (!roomTypeId) return;
+        for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.reservationRebookRoomType]) {
+          if (select && Array.from(select.options || []).some((option) => option.value === roomTypeId)) {
+            select.value = roomTypeId;
+          }
+        }
+      }
+
+      function applyParentTabVisibility() {
+        document.querySelectorAll('[data-parent-panel]').forEach((panel) => {
+          panel.classList.toggle('tab-panel-hidden', panel.getAttribute('data-parent-panel') !== state.activeParentTab);
+        });
+        document.querySelectorAll('[data-parent-tab]').forEach((button) => {
+          button.classList.toggle('active', button.getAttribute('data-parent-tab') === state.activeParentTab);
+        });
+      }
+
+      function renderRoomTypeTabs() {
+        if (!state.roomTypes.length) {
+          els.roomTypeTabStrip.innerHTML = '<span class="empty">Create a room type to activate per-room workspace tabs.</span>';
+          return;
+        }
+        els.roomTypeTabStrip.innerHTML = state.roomTypes.map((roomType) => `
+          <button class="tab-button ${roomType.id === state.activeRoomTypeId ? 'soft-active' : ''}" type="button" data-room-type-tab="${roomType.id}">
+            ${escapeHtml(roomType.code)} · ${escapeHtml(roomType.name)}
+          </button>
+        `).join('');
+      }
+
       function renderPropertyList() {
         if (!state.properties.length) {
           els.propertyList.innerHTML = '<div class="empty">No properties yet. Create the first one from the form.</div>';
@@ -1146,6 +1264,7 @@
         for (const select of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.reservationRebookRoomType]) {
           select.innerHTML = options || '<option value="">No room types yet</option>';
         }
+        syncScopedRoomTypeControls();
       }
 
       function syncReservationForms(record) {
@@ -1200,11 +1319,14 @@
       }
 
       function renderRoomUnits() {
-        if (!state.roomUnits.length) {
+        const scopedRoomUnits = state.activeRoomTypeId
+          ? state.roomUnits.filter((roomUnit) => roomUnit.room_type_id === state.activeRoomTypeId)
+          : state.roomUnits;
+        if (!scopedRoomUnits.length) {
           els.roomUnitList.innerHTML = '<div class="empty">No room units yet.</div>';
           return;
         }
-        els.roomUnitList.innerHTML = state.roomUnits.map((roomUnit) => `
+        els.roomUnitList.innerHTML = scopedRoomUnits.map((roomUnit) => `
           <article class="list-card">
             <div class="list-card-head">
               <div>
@@ -1223,11 +1345,14 @@
       }
 
       function renderRoomRates() {
-        if (!state.roomRates.length) {
+        const scopedRoomRates = state.activeRoomTypeId
+          ? state.roomRates.filter((rate) => rate.room_type_id === state.activeRoomTypeId)
+          : state.roomRates;
+        if (!scopedRoomRates.length) {
           els.roomRateList.innerHTML = '<div class="empty">No room rates yet.</div>';
           return;
         }
-        els.roomRateList.innerHTML = state.roomRates.map((rate) => `
+        els.roomRateList.innerHTML = scopedRoomRates.map((rate) => `
           <article class="list-card">
             <div class="list-card-head">
               <div>
@@ -1265,11 +1390,14 @@
       }
 
       function renderSeasonRoomRates() {
-        if (!state.seasonRoomRates.length) {
+        const scopedSeasonRoomRates = state.activeRoomTypeId
+          ? state.seasonRoomRates.filter((rate) => rate.room_type_id === state.activeRoomTypeId)
+          : state.seasonRoomRates;
+        if (!scopedSeasonRoomRates.length) {
           els.seasonRoomRateList.innerHTML = '<div class="empty">No seasonal room prices yet.</div>';
           return;
         }
-        els.seasonRoomRateList.innerHTML = state.seasonRoomRates.map((rate) => `
+        els.seasonRoomRateList.innerHTML = scopedSeasonRoomRates.map((rate) => `
           <article class="list-card">
             <div class="list-card-head">
               <div>
@@ -1338,13 +1466,18 @@
         state.roomRates = roomRatesPayload.room_rates || [];
         state.rateSeasons = rateSeasonsPayload.rate_seasons || [];
         state.seasonRoomRates = seasonRoomRatesPayload.season_room_rates || [];
+        if (!state.activeRoomTypeId || !state.roomTypes.some((roomType) => roomType.id === state.activeRoomTypeId)) {
+          state.activeRoomTypeId = state.roomTypes[0]?.id || '';
+        }
         renderSelectedProperty();
         renderRoomTypes();
+        renderRoomTypeTabs();
         renderRoomUnits();
         renderRoomRates();
         renderRateSeasons();
         renderSeasonRoomRates();
         syncReservationForms(state.currentReservation);
+        applyParentTabVisibility();
       }
 
       async function bootTenant(tenantId) {
@@ -1491,7 +1624,14 @@
         event.preventDefault();
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
         try {
-          const payload = await api(`/api/properties/${state.selectedPropertyId}/rates/quote`, { method: 'POST', body: JSON.stringify(formJson(els.rateQuoteForm)) });
+          const data = formJson(els.rateQuoteForm);
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/rates/quote`, {
+            method: 'POST',
+            body: JSON.stringify({
+              ...data,
+              room_guest_assignments: data.room_guest_assignments ? JSON.parse(data.room_guest_assignments) : undefined,
+            }),
+          });
           els.rateQuoteResponse.textContent = JSON.stringify(payload, null, 2);
           setFlash('Stay rate quoted.');
         } catch (error) {
@@ -1601,6 +1741,19 @@
         await loadPropertyDetails();
       });
 
+      els.parentTabStrip.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-parent-tab]');
+        if (!button) return;
+        state.activeParentTab = button.getAttribute('data-parent-tab');
+        applyParentTabVisibility();
+      });
+
+      els.roomTypeTabStrip.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-room-type-tab]');
+        if (!button) return;
+        setActiveRoomType(button.getAttribute('data-room-type-tab'));
+      });
+
       els.roomUnitList.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-room-unit-id]');
         if (!button || !state.selectedPropertyId) return;
@@ -1654,6 +1807,7 @@
         bootTenant(tenantId).catch((error) => setFlash(error.message, 'err'));
       }
 
+      applyParentTabVisibility();
       restoreTenant();
     })();
   </script>
