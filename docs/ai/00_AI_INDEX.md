@@ -69,6 +69,9 @@ AI behavior / guardrails:
 - `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md` -> Tour-side distribution helper and booking email-ingest boundary
 - `38_PLATFORM_PACKAGING_AND_TIERS.md` -> Commercial packaging direction, including Tier 4 as the combined tour + hotel suite
 - `39_SHARED_KERNEL_BETWEEN_TOUR_AND_PROPERTY.md` -> Shared platform kernel direction between the tour engine and property engine
+- `40_SHARED_KERNEL_SCHEMA_DRAFT.md` -> First schema draft for the shared kernel between tour and property
+- `41_ENGINE_PHASE1_EXECUTION_CHECKLISTS.md` -> Phase-1 build checklists for property availability core and tour stabilization
+- `42_DB_MIGRATION_PROPOSAL_SHARED_TOUR_PROPERTY.md` -> Migration-safe DB proposal for shared kernel, tour stabilization, and property phase-1 tables
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary

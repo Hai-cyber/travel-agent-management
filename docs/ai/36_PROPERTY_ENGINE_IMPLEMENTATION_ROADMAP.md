@@ -244,3 +244,4 @@ Before coding begins, the team should explicitly confirm:
 - `33_PROPERTY_OPERATIONS_APP.md`
 - `34_PROPERTY_SIMPLE_FOLIO_AND_POS.md`
 - `35_PROPERTY_DISTRIBUTION_HELPER.md`
+- `41_ENGINE_PHASE1_EXECUTION_CHECKLISTS.md`

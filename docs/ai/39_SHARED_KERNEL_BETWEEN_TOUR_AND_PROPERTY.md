@@ -245,3 +245,4 @@ The right architecture is:
 - `30_PROPERTY_ENGINE_OVERVIEW.md` — property engine scope
 - `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md` — tour engine distribution and booking-ingest direction
 - `26_PROPERTY_ENGINE_AND_STAFF_SEATS.md` — staff-seat and access direction
+- `40_SHARED_KERNEL_SCHEMA_DRAFT.md` — first schema draft for the shared platform kernel
