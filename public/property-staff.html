@@ -620,6 +620,12 @@
                     <strong>Not live yet</strong>
                     <div class="muted">Folio headers, folio lines, POS tickets, payment capture, service-posting, and shift-close workflows still need dedicated runtime on top of the planned property folio schema. This tab exists now so the operational separation is explicit.</div>
                   </div>
+                  <div>
+                    <strong>Configured Addon Presets</strong>
+                    <div id="folio-addon-preset-list" class="room-list" style="margin-top:12px">
+                      <div class="empty">Load a property to see which addon services the tenant has preset for future posting.</div>
+                    </div>
+                  </div>
                   <div class="response">Planned here: room charges, minibar, ancillary services, transfers, manual adjustments, settlement, and cashier shift summaries.</div>
                 </div>
               </div>
@@ -643,6 +649,7 @@
         selectedReservationId: '',
         currentReservation: null,
         roomUnits: [],
+        addonServicePresets: [],
         activeTab: 'frontdesk',
       };
 
@@ -678,6 +685,7 @@
         btnReleaseHold: document.getElementById('btn-release-hold'),
         supportResponse: document.getElementById('support-response'),
         reservationTimeline: document.getElementById('reservation-timeline'),
+        folioAddonPresetList: document.getElementById('folio-addon-preset-list'),
       };
 
       function storageKey() {
@@ -880,6 +888,26 @@
         `).join('');
       }
 
+      function renderFolioAddonPresets() {
+        if (!state.addonServicePresets.length) {
+          els.folioAddonPresetList.innerHTML = '<div class="empty">No addon service presets configured yet.</div>';
+          return;
+        }
+        els.folioAddonPresetList.innerHTML = state.addonServicePresets.map((preset) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(preset.name)}</strong>
+                <div class="muted">${escapeHtml(preset.code)} · ${escapeHtml(preset.service_type)} · ${escapeHtml(preset.pricing_mode)} · ${escapeHtml(preset.scope)}</div>
+                <div class="muted">${escapeHtml(preset.currency)} ${Number(preset.default_unit_price || 0).toLocaleString()}${preset.default_unit_label ? ` per ${escapeHtml(preset.default_unit_label)}` : ''}</div>
+                ${preset.notes ? `<div class="muted">${escapeHtml(preset.notes)}</div>` : ''}
+              </div>
+              <span class="tag ${preset.active ? 'ok' : 'warn'}">${preset.active ? 'active' : 'inactive'}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
       function applyActiveTab() {
         document.querySelectorAll('[data-staff-panel]').forEach((panel) => {
           panel.hidden = panel.getAttribute('data-staff-panel') !== state.activeTab;
@@ -906,21 +934,25 @@
         if (!state.selectedPropertyId) {
           state.reservations = [];
           state.roomUnits = [];
+          state.addonServicePresets = [];
           state.currentReservation = null;
           renderMetrics();
           renderReservations();
           renderReservationDetail();
           renderHousekeeping();
           renderMaintenance();
+          renderFolioAddonPresets();
           return;
         }
         const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
-        const [reservationPayload, roomUnitsPayload] = await Promise.all([
+        const [reservationPayload, roomUnitsPayload, addonPresetsPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/reservations?${boardQuery}`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
+          api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`),
         ]);
         state.reservations = reservationPayload.reservations || [];
         state.roomUnits = roomUnitsPayload.room_units || [];
+        state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
         if (state.selectedReservationId) {
           try {
             const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}`);
@@ -936,6 +968,7 @@
         renderReservationDetail();
         renderHousekeeping();
         renderMaintenance();
+        renderFolioAddonPresets();
       }
 
       async function loadReservation(reservationId) {

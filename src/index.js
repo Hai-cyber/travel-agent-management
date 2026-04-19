@@ -45,6 +45,10 @@ import {
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
+  handleListPropertyAddonServicePresets,
+  handleCreatePropertyAddonServicePreset,
+  handleSeedPropertyAddonServicePresets,
+  handleUpdatePropertyAddonServicePreset,
   handleListRateSeasons,
   handleCreateRateSeason,
   handleUpdateRateSeason,
@@ -506,6 +510,26 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates/:roomRateId' }),
     handler: (req, env, match) => handleUpdateRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, roomRateId: match.pathname.groups.roomRateId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/addon-service-presets' }),
+    handler: (req, env, match) => handleListPropertyAddonServicePresets(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/addon-service-presets' }),
+    handler: (req, env, match) => handleCreatePropertyAddonServicePreset(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/addon-service-presets/seed-defaults' }),
+    handler: (req, env, match) => handleSeedPropertyAddonServicePresets(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/addon-service-presets/:presetId' }),
+    handler: (req, env, match) => handleUpdatePropertyAddonServicePreset(req, env, { propertyId: match.pathname.groups.propertyId, presetId: match.pathname.groups.presetId })
   },
   {
     method: 'GET',

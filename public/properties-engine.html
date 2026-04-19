@@ -977,6 +977,84 @@
                   <div id="rate-quote-response" class="response">Rate quote output will render here.</div>
                 </div>
               </section>
+
+              <section class="section full">
+                <div class="section-head toolbar">
+                  <div>
+                    <h2>Addon Service Presets</h2>
+                    <p class="hint">Let the tenant preset reusable addon services such as transfers, breakfast, laundry, extra bed, and late checkout for future folio or guest-service posting.</p>
+                  </div>
+                  <div class="action-row">
+                    <button id="btn-seed-addon-presets" class="button secondary" type="button">Seed Common Presets</button>
+                    <button id="btn-refresh-addon-presets" class="button small" type="button">Refresh Addons</button>
+                  </div>
+                </div>
+                <div class="section-body grid">
+                  <form id="addon-preset-form">
+                    <div class="field-grid four">
+                      <label>Code
+                        <input name="code" required placeholder="LATE-CHECKOUT" />
+                      </label>
+                      <label>Name
+                        <input name="name" required placeholder="Late Checkout" />
+                      </label>
+                      <label>Service Type
+                        <select name="service_type">
+                          <option value="transfer">transfer</option>
+                          <option value="meal">meal</option>
+                          <option value="wellness">wellness</option>
+                          <option value="housekeeping">housekeeping</option>
+                          <option value="transport">transport</option>
+                          <option value="experience">experience</option>
+                          <option value="fee">fee</option>
+                          <option value="other">other</option>
+                        </select>
+                      </label>
+                      <label>Pricing Mode
+                        <select name="pricing_mode">
+                          <option value="fixed">fixed</option>
+                          <option value="per_unit">per_unit</option>
+                          <option value="per_guest">per_guest</option>
+                          <option value="per_night">per_night</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="field-grid four">
+                      <label>Currency
+                        <input name="currency" value="USD" />
+                      </label>
+                      <label>Default Unit Price
+                        <input name="default_unit_price" type="number" min="0" step="0.01" value="0" />
+                      </label>
+                      <label>Unit Label
+                        <input name="default_unit_label" placeholder="booking / guest / night / bag" />
+                      </label>
+                      <label>Scope
+                        <select name="scope">
+                          <option value="per_stay">per_stay</option>
+                          <option value="per_night">per_night</option>
+                          <option value="per_guest">per_guest</option>
+                          <option value="per_room">per_room</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="field-grid">
+                      <label>Notes
+                        <input name="notes" placeholder="Front-desk upsell, cashier posting, or booking-time addon note." />
+                      </label>
+                      <label>Sort Order
+                        <input name="sort_order" type="number" value="0" />
+                      </label>
+                    </div>
+                    <div class="action-row">
+                      <button class="button primary" type="submit">Save Addon Preset</button>
+                    </div>
+                  </form>
+                  <div id="addon-preset-list" class="grid">
+                    <div class="empty">No addon service presets yet.</div>
+                  </div>
+                </div>
+              </section>
             </div>
           </section>
 
@@ -1103,6 +1181,7 @@
         roomRates: [],
         rateSeasons: [],
         seasonRoomRates: [],
+        addonServicePresets: [],
         currentReservation: null,
         activeParentTab: 'content',
         activeRoomTypeId: '',
@@ -1138,6 +1217,10 @@
         seasonRoomRateList: document.getElementById('season-room-rate-list'),
         seasonRoomRateSeason: document.getElementById('season-room-rate-season'),
         seasonRoomRateRoomType: document.getElementById('season-room-rate-room-type'),
+        addonPresetForm: document.getElementById('addon-preset-form'),
+        addonPresetList: document.getElementById('addon-preset-list'),
+        btnSeedAddonPresets: document.getElementById('btn-seed-addon-presets'),
+        btnRefreshAddonPresets: document.getElementById('btn-refresh-addon-presets'),
         rateQuoteForm: document.getElementById('rate-quote-form'),
         rateQuoteRoomType: document.getElementById('rate-quote-room-type'),
         rateQuoteResponse: document.getElementById('rate-quote-response'),
@@ -1452,6 +1535,26 @@
         `).join('');
       }
 
+      function renderAddonServicePresets() {
+        if (!state.addonServicePresets.length) {
+          els.addonPresetList.innerHTML = '<div class="empty">No addon service presets yet.</div>';
+          return;
+        }
+        els.addonPresetList.innerHTML = state.addonServicePresets.map((preset) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(preset.name)}</strong>
+                <div class="muted">${escapeHtml(preset.code)} · ${escapeHtml(preset.service_type)} · ${escapeHtml(preset.pricing_mode)} · ${escapeHtml(preset.scope)}</div>
+                <div class="muted">${escapeHtml(preset.currency)} ${Number(preset.default_unit_price || 0).toLocaleString()}${preset.default_unit_label ? ` per ${escapeHtml(preset.default_unit_label)}` : ''}</div>
+                ${preset.notes ? `<div class="muted">${escapeHtml(preset.notes)}</div>` : ''}
+              </div>
+              <span class="tag ${preset.active ? 'ok' : 'warn'}">${preset.active ? 'active' : 'inactive'}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
       function escapeHtml(value) {
         return String(value ?? '')
           .replace(/&/g, '&amp;')
@@ -1487,26 +1590,30 @@
           state.roomRates = [];
           state.rateSeasons = [];
           state.seasonRoomRates = [];
+          state.addonServicePresets = [];
           renderSelectedProperty();
           renderRoomTypes();
           renderRoomUnits();
           renderRoomRates();
           renderRateSeasons();
           renderSeasonRoomRates();
+          renderAddonServicePresets();
           return;
         }
-        const [roomTypesPayload, roomUnitsPayload, roomRatesPayload, rateSeasonsPayload, seasonRoomRatesPayload] = await Promise.all([
+        const [roomTypesPayload, roomUnitsPayload, roomRatesPayload, rateSeasonsPayload, seasonRoomRatesPayload, addonPresetsPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/room-types`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
           api(`/api/properties/${state.selectedPropertyId}/room-rates`),
           api(`/api/properties/${state.selectedPropertyId}/rate-seasons`),
           api(`/api/properties/${state.selectedPropertyId}/season-room-rates`),
+          api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`),
         ]);
         state.roomTypes = roomTypesPayload.room_types || [];
         state.roomUnits = roomUnitsPayload.room_units || [];
         state.roomRates = roomRatesPayload.room_rates || [];
         state.rateSeasons = rateSeasonsPayload.rate_seasons || [];
         state.seasonRoomRates = seasonRoomRatesPayload.season_room_rates || [];
+        state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
         if (!state.activeRoomTypeId || !state.roomTypes.some((roomType) => roomType.id === state.activeRoomTypeId)) {
           state.activeRoomTypeId = state.roomTypes[0]?.id || '';
         }
@@ -1517,6 +1624,7 @@
         renderRoomRates();
         renderRateSeasons();
         renderSeasonRoomRates();
+        renderAddonServicePresets();
         syncReservationForms(state.currentReservation);
         applyParentTabVisibility();
       }
@@ -1682,6 +1790,39 @@
         }
       });
 
+      els.addonPresetForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`, {
+            method: 'POST',
+            body: JSON.stringify(formJson(els.addonPresetForm)),
+          });
+          els.addonPresetForm.reset();
+          els.addonPresetForm.querySelector('[name="currency"]').value = 'USD';
+          els.addonPresetForm.querySelector('[name="default_unit_price"]').value = '0';
+          els.addonPresetForm.querySelector('[name="sort_order"]').value = '0';
+          await loadPropertyDetails();
+          setFlash('Addon service preset created.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnSeedAddonPresets.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/addon-service-presets/seed-defaults`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+          });
+          await loadPropertyDetails();
+          setFlash(`Seeded ${payload.created_count} addon presets.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
       els.reservationLookupForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
@@ -1827,7 +1968,7 @@
         }
       });
 
-      for (const button of [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits, els.btnRefreshRoomRates, els.btnRefreshRateSeasons, els.btnRefreshSeasonRoomRates]) {
+      for (const button of [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits, els.btnRefreshRoomRates, els.btnRefreshRateSeasons, els.btnRefreshSeasonRoomRates, els.btnRefreshAddonPresets]) {
         button.addEventListener('click', async () => {
           if (!state.tenantId) return setFlash('Load a tenant first.', 'err');
           try {

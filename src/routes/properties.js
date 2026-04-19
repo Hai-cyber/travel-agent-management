@@ -277,6 +277,78 @@ const PROPERTY_RESERVATION_SOURCES = new Set([
 const PROPERTY_STATUSES = new Set(['draft', 'active', 'inactive']);
 const PROPERTY_UPGRADE_MODES = new Set(['off', 'suggest_only', 'auto_if_penalty_better']);
 const ROOM_UNIT_OPERATIONAL_STATUSES = new Set(['ready', 'maintenance', 'out_of_order']);
+const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
+const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
+const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
+
+const DEFAULT_PROPERTY_ADDON_PRESETS = {
+  airport_transfer_arrival: {
+    code: 'AIRPORT-ARRIVAL',
+    name: 'Airport Transfer Arrival',
+    service_type: 'transfer',
+    pricing_mode: 'fixed',
+    currency: 'USD',
+    default_unit_price: 35,
+    default_unit_label: 'booking',
+    scope: 'per_stay',
+    notes: 'One-way airport arrival transfer for front-desk or booking upsell.',
+  },
+  airport_transfer_roundtrip: {
+    code: 'AIRPORT-ROUNDTRIP',
+    name: 'Airport Transfer Roundtrip',
+    service_type: 'transfer',
+    pricing_mode: 'fixed',
+    currency: 'USD',
+    default_unit_price: 60,
+    default_unit_label: 'booking',
+    scope: 'per_stay',
+    notes: 'Return airport transfer package.',
+  },
+  breakfast_upgrade: {
+    code: 'BREAKFAST-UPGRADE',
+    name: 'Breakfast Upgrade',
+    service_type: 'meal',
+    pricing_mode: 'per_guest',
+    currency: 'USD',
+    default_unit_price: 12,
+    default_unit_label: 'guest',
+    scope: 'per_guest',
+    notes: 'Daily breakfast add-on sold per guest.',
+  },
+  extra_bed: {
+    code: 'EXTRA-BED',
+    name: 'Extra Bed',
+    service_type: 'housekeeping',
+    pricing_mode: 'per_night',
+    currency: 'USD',
+    default_unit_price: 25,
+    default_unit_label: 'night',
+    scope: 'per_night',
+    notes: 'Additional bed posted per occupied night.',
+  },
+  late_checkout: {
+    code: 'LATE-CHECKOUT',
+    name: 'Late Checkout',
+    service_type: 'fee',
+    pricing_mode: 'fixed',
+    currency: 'USD',
+    default_unit_price: 20,
+    default_unit_label: 'booking',
+    scope: 'per_stay',
+    notes: 'Late checkout fee preset for front desk approval.',
+  },
+  laundry_bag: {
+    code: 'LAUNDRY-BAG',
+    name: 'Laundry Bag',
+    service_type: 'other',
+    pricing_mode: 'per_unit',
+    currency: 'USD',
+    default_unit_price: 10,
+    default_unit_label: 'bag',
+    scope: 'per_stay',
+    notes: 'Laundry service posted per returned bag.',
+  },
+};
 
 function slugify(value) {
   return String(value || '')
@@ -358,6 +430,14 @@ function mapSeasonRateRow(row) {
   return {
     ...row,
     active: Boolean(row.active),
+  };
+}
+
+function mapAddonServicePresetRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+    config_json: parseJsonSafe(row.config_json),
   };
 }
 
@@ -627,6 +707,98 @@ function validateRoomRateCreateRequest(body) {
     extraChildAmount,
     active: normalizeBooleanInteger(body?.active, 1),
   };
+}
+
+function validateAddonServicePresetCreateRequest(body) {
+  const code = String(body?.code || '').trim().toUpperCase();
+  const name = String(body?.name || '').trim();
+  const serviceType = String(body?.service_type || 'other').trim();
+  const pricingMode = String(body?.pricing_mode || 'fixed').trim();
+  const currency = String(body?.currency || 'USD').trim().toUpperCase();
+  const defaultUnitPrice = Number(body?.default_unit_price ?? 0);
+  const defaultUnitLabel = body?.default_unit_label ? String(body.default_unit_label).trim() : null;
+  const scope = String(body?.scope || 'per_stay').trim();
+  const sortOrder = normalizeInteger(body?.sort_order, 0);
+  const notes = body?.notes ? String(body.notes).trim() : null;
+  const configJson = body?.config_json !== undefined && body?.config_json !== null && body?.config_json !== ''
+    ? JSON.stringify(typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
+    : null;
+
+  if (!code) return { error: 'code is required.' };
+  if (!name) return { error: 'name is required.' };
+  if (!PROPERTY_ADDON_SERVICE_TYPES.has(serviceType)) return { error: 'service_type is invalid.' };
+  if (!PROPERTY_ADDON_PRICING_MODES.has(pricingMode)) return { error: 'pricing_mode is invalid.' };
+  if (!PROPERTY_ADDON_SCOPES.has(scope)) return { error: 'scope is invalid.' };
+  if (!Number.isFinite(defaultUnitPrice) || defaultUnitPrice < 0) return { error: 'default_unit_price must be a number greater than or equal to 0.' };
+  if (!Number.isInteger(sortOrder)) return { error: 'sort_order must be an integer.' };
+
+  return {
+    code,
+    name,
+    serviceType,
+    pricingMode,
+    currency,
+    defaultUnitPrice,
+    defaultUnitLabel,
+    scope,
+    active: normalizeBooleanInteger(body?.active, 1),
+    sortOrder,
+    notes,
+    configJson,
+  };
+}
+
+function validateAddonServicePresetPatchRequest(body) {
+  const allowed = new Set(['code', 'name', 'service_type', 'pricing_mode', 'currency', 'default_unit_price', 'default_unit_label', 'scope', 'active', 'sort_order', 'notes', 'config_json']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('code' in body) {
+    const value = String(body.code || '').trim().toUpperCase();
+    if (!value) return { error: 'code cannot be empty.' };
+    updates.code = value;
+  }
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('service_type' in body) {
+    const value = String(body.service_type || '').trim();
+    if (!PROPERTY_ADDON_SERVICE_TYPES.has(value)) return { error: 'service_type is invalid.' };
+    updates.service_type = value;
+  }
+  if ('pricing_mode' in body) {
+    const value = String(body.pricing_mode || '').trim();
+    if (!PROPERTY_ADDON_PRICING_MODES.has(value)) return { error: 'pricing_mode is invalid.' };
+    updates.pricing_mode = value;
+  }
+  if ('currency' in body) updates.currency = String(body.currency || '').trim().toUpperCase();
+  if ('default_unit_price' in body) {
+    const value = Number(body.default_unit_price);
+    if (!Number.isFinite(value) || value < 0) return { error: 'default_unit_price must be a number greater than or equal to 0.' };
+    updates.default_unit_price = value;
+  }
+  if ('default_unit_label' in body) updates.default_unit_label = body.default_unit_label ? String(body.default_unit_label).trim() : null;
+  if ('scope' in body) {
+    const value = String(body.scope || '').trim();
+    if (!PROPERTY_ADDON_SCOPES.has(value)) return { error: 'scope is invalid.' };
+    updates.scope = value;
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  if ('sort_order' in body) {
+    const value = Number(body.sort_order);
+    if (!Number.isInteger(value)) return { error: 'sort_order must be an integer.' };
+    updates.sort_order = value;
+  }
+  if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
+  if ('config_json' in body) updates.config_json = body.config_json !== undefined && body.config_json !== null && body.config_json !== ''
+    ? JSON.stringify(typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
+    : null;
+  return { updates };
 }
 
 function validateRoomRatePatchRequest(body) {
@@ -951,6 +1123,20 @@ async function loadPropertyById(env, tenantId, propertyId) {
     .bind(propertyId, tenantId)
     .first();
   return row ? mapPropertyRow(row) : null;
+}
+
+async function loadAddonServicePresetById(env, tenantId, propertyId, presetId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
+              default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+              created_at, updated_at
+         FROM property_addon_service_presets
+        WHERE tenant_id = ? AND property_id = ? AND id = ?`
+    )
+    .bind(tenantId, propertyId, presetId)
+    .first();
+  return row ? mapAddonServicePresetRow(row) : null;
 }
 
 async function loadRoomTypeById(env, tenantId, propertyId, roomTypeId) {
@@ -1526,6 +1712,191 @@ export async function handleListRoomRates(request, env, params) {
     return jsonResponse({ ok: true, room_rates: (result.results || []).map(mapRoomRateRow) });
   } catch (error) {
     console.error('[ROOM_RATE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyAddonServicePresets(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
+                default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+                created_at, updated_at
+           FROM property_addon_service_presets
+          WHERE tenant_id = ? AND property_id = ?
+          ORDER BY sort_order ASC, created_at DESC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, addon_service_presets: (result.results || []).map(mapAddonServicePresetRow) });
+  } catch (error) {
+    console.error('[PROPERTY_ADDON_PRESET_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyAddonServicePreset(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateAddonServicePresetCreateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_addon_service_presets
+          (id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
+           default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+           created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        tenantId,
+        propertyId,
+        parsed.code,
+        parsed.name,
+        parsed.serviceType,
+        parsed.pricingMode,
+        parsed.currency,
+        parsed.defaultUnitPrice,
+        parsed.defaultUnitLabel,
+        parsed.scope,
+        parsed.active,
+        parsed.sortOrder,
+        parsed.notes,
+        parsed.configJson,
+        now,
+        now
+      )
+      .run();
+
+    return jsonResponse({ ok: true, addon_service_preset: await loadAddonServicePresetById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_ADDON_PRESET_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleSeedPropertyAddonServicePresets(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body = {};
+  try { body = await parseJsonBody(request); } catch {}
+  const presetKeys = Array.isArray(body?.preset_keys) && body.preset_keys.length
+    ? body.preset_keys.map((key) => String(key).trim())
+    : Object.keys(DEFAULT_PROPERTY_ADDON_PRESETS);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const now = currentUnixSeconds();
+    const created = [];
+    for (let index = 0; index < presetKeys.length; index += 1) {
+      const preset = DEFAULT_PROPERTY_ADDON_PRESETS[presetKeys[index]];
+      if (!preset) continue;
+
+      const existing = await env.DB
+        .prepare(`SELECT id FROM property_addon_service_presets WHERE tenant_id = ? AND property_id = ? AND code = ?`)
+        .bind(tenantId, propertyId, preset.code)
+        .first();
+      if (existing?.id) continue;
+
+      const presetId = nanoid();
+      await env.DB
+        .prepare(
+          `INSERT INTO property_addon_service_presets
+            (id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
+             default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+             created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          presetId,
+          tenantId,
+          propertyId,
+          preset.code,
+          preset.name,
+          preset.service_type,
+          preset.pricing_mode,
+          preset.currency,
+          preset.default_unit_price,
+          preset.default_unit_label,
+          preset.scope,
+          index * 10,
+          preset.notes || null,
+          null,
+          now,
+          now
+        )
+        .run();
+      created.push(await loadAddonServicePresetById(env, tenantId, propertyId, presetId));
+    }
+
+    return jsonResponse({ ok: true, created_count: created.length, addon_service_presets: created }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_ADDON_PRESET_SEED]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyAddonServicePreset(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const presetId = String(params?.presetId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateAddonServicePresetPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadAddonServicePresetById(env, tenantId, propertyId, presetId);
+    if (!existing) return jsonResponse({ error: 'Addon service preset not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_addon_service_presets', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, presetId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, addon_service_preset: await loadAddonServicePresetById(env, tenantId, propertyId, presetId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_ADDON_PRESET_UPDATE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
