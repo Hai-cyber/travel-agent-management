@@ -59,6 +59,13 @@ AI behavior / guardrails:
 ## AI module map
 - `21_GROWTH_SEO_MODULE.md` -> Distribution & Growth layer scope
 - `26_PROPERTY_ENGINE_AND_STAFF_SEATS.md` -> Standalone property/hotel engine (future, not implemented)
+- `30_PROPERTY_ENGINE_OVERVIEW.md` -> Simplified commercial property engine scope and ship order
+- `31_PROPERTY_AVAILABILITY_AND_ALLOCATION.md` -> Canonical night-based availability, allocation, split-stay, and upgrade-preserve model
+- `32_PROPERTY_RESERVATION_INTAKE_AND_BOOKING_SOURCES.md` -> Direct, imported-draft, and manual reservation intake model
+- `33_PROPERTY_OPERATIONS_APP.md` -> Floor map, room states, housekeeping, maintenance, and room-move operations
+- `34_PROPERTY_SIMPLE_FOLIO_AND_POS.md` -> Booking-derived charges, manual postings, payments, and checkout settlement
+- `35_PROPERTY_DISTRIBUTION_HELPER.md` -> Listing helper, draft-ingestion boundary, and future channel-sync scope
+- `36_PROPERTY_ENGINE_IMPLEMENTATION_ROADMAP.md` -> Execution order and checkpoints for building the property engine
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary

@@ -132,3 +132,12 @@ When implementation starts, prefer this order:
 5. Only then connect `Check availability` for property entities to the new engine
 
 This sequence minimizes regression risk while preserving clean separation.
+
+## Follow-up design docs
+
+The next locked design layer now lives in:
+
+- `30_PROPERTY_ENGINE_OVERVIEW.md`
+- `31_PROPERTY_AVAILABILITY_AND_ALLOCATION.md`
+
+Those documents define the simplified commercial property engine scope and the canonical availability/allocation model, including split stay, stay-plan ranking, upgrade-to-preserve policies, and inventory-affecting modification rules.
