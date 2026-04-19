@@ -33,6 +33,11 @@ CREATE INDEX IF NOT EXISTS idx_stay_plans_reservation_status
 CREATE INDEX IF NOT EXISTS idx_stay_plans_selected
   ON reservation_stay_plans (tenant_id, reservation_id, is_selected);
 
+-- At most one selected/locked stay plan should exist per reservation.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stay_plans_one_selected_per_reservation
+  ON reservation_stay_plans (reservation_id)
+  WHERE is_selected = 1 AND status IN ('selected', 'locked');
+
 CREATE TABLE IF NOT EXISTS reservation_stay_plan_segments (
   id              TEXT PRIMARY KEY,
   tenant_id       TEXT    NOT NULL,

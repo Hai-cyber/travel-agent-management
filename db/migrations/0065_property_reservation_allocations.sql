@@ -32,3 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_reservation_allocations_reservation_date
 
 CREATE INDEX IF NOT EXISTS idx_reservation_allocations_plan_status
   ON reservation_allocations (tenant_id, stay_plan_id, allocation_status);
+
+-- Prevent more than one active allocation on the same room-night.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reservation_allocations_room_night_active
+  ON reservation_allocations (room_unit_id, stay_date)
+  WHERE allocation_status IN ('soft_allocated', 'locked');
