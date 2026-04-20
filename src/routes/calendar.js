@@ -82,15 +82,23 @@ function readMeta(val) {
   return val;
 }
 
+function dateStrToUnix(s) {
+  if (!s) return null;
+  return Math.floor(new Date(s + 'T00:00:00Z').getTime() / 1000);
+}
+
 // ── Extract the primary datetime from a todo (for DTSTART) ───────────────────
-function extractDatetime(serviceType, meta) {
+// fallbackUnix: stop date unix — used when the specific service datetime is not yet set.
+// This ensures all todos appear in calendar even if staff haven't filled in the exact time.
+function extractDatetime(serviceType, meta, fallbackUnix = null) {
+  const fb = fallbackUnix ? { unix: fallbackUnix, dateOnly: true } : null;
   switch (serviceType) {
-    case 'accommodation':   return meta.check_in   ? { unix: meta.check_in,   dateOnly: true  } : null;
-    case 'meal':            return meta.meal_datetime ? { unix: meta.meal_datetime, dateOnly: false } : null;
-    case 'guide':           return meta.time_from   ? { unix: meta.time_from,   dateOnly: false } : null;
-    case 'local_transport': return meta.pickup_time  ? { unix: meta.pickup_time,  dateOnly: false } : null;
-    case 'intercity_leg':   return meta.depart_time  ? { unix: meta.depart_time,  dateOnly: false } : null;
-    default: return null;
+    case 'accommodation':   return meta.check_in      ? { unix: meta.check_in,      dateOnly: true  } : fb;
+    case 'meal':            return meta.meal_datetime  ? { unix: meta.meal_datetime,  dateOnly: false } : fb;
+    case 'guide':           return meta.time_from      ? { unix: meta.time_from,      dateOnly: false } : fb;
+    case 'local_transport': return meta.pickup_time    ? { unix: meta.pickup_time,    dateOnly: false } : fb;
+    case 'intercity_leg':   return meta.depart_time    ? { unix: meta.depart_time,    dateOnly: false } : fb;
+    default: return fb;
   }
 }
 
@@ -117,10 +125,10 @@ function icalStatus(todoStatus) {
 }
 
 // ── Build VEVENT lines for one todo ──────────────────────────────────────────
-function buildVevent(todo, order, baseUrl) {
+function buildVevent(todo, order, baseUrl, fallbackUnix = null) {
   const meta    = readMeta(todo.service_meta_json);
   const svc     = todo.service_type;
-  const dt      = extractDatetime(svc, meta);
+  const dt      = extractDatetime(svc, meta, fallbackUnix);
   if (!dt) return null; // no date → skip (no calendar entry without a time anchor)
 
   const dtEnd    = extractEndDatetime(svc, meta, dt.unix);
@@ -247,13 +255,23 @@ async function generateFeed(c, secret, orderId = null) {
 
   for (const todo of todos) {
     const meta = readMeta(todo.service_meta_json);
-    const dt   = extractDatetime(todo.service_type, meta);
+
+    // Compute stop-date fallback: order travel_date + (stop_day_from - 1) days
+    // This ensures todos without explicit service datetimes still appear in the calendar
+    let fallbackUnix = null;
+    if (todo.order_travel_date) {
+      const travelUnix = dateStrToUnix(todo.order_travel_date);
+      const dayOffset  = Math.max(0, (todo.stop_day_from || 1) - 1);
+      fallbackUnix = travelUnix + dayOffset * 86400;
+    }
+
+    const dt = extractDatetime(todo.service_type, meta, fallbackUnix);
     // Only include todos that have a date in our window
     if (!dt) continue;
     if (dt.unix < past || dt.unix > future) continue;
 
     const order = { id: todo.booking_order_id, travel_date: todo.order_travel_date };
-    const vevent = buildVevent(todo, order, baseUrl);
+    const vevent = buildVevent(todo, order, baseUrl, fallbackUnix);
     if (vevent) eventLines.push(vevent);
   }
 
