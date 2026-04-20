@@ -21,7 +21,10 @@ Status legend:
 | Checkpoint | Title | Status | Code reality | Last update | Notes |
 |---|---|---|---|---|---|
 | CHK-R08 | Canonical docs reset | in_progress | docs are still being normalized from combined historical notes into clearer rescue-runtime truth | 2026-03-24 | Current split keeps `03_PROGRESS_LEDGER.md` as frozen history and routes new updates into `03A/03B` |
-| CHK-R79 | Rich service todos — structured cards, communication threads, 5-state lifecycle, auto-reminders | in_progress | grouped stop rendering, rich cards, thread history, reseed support, and reminder flow already exist; remaining work is filter/edit acceleration and audit/integrity tightening | 2026-04-19 | Main remaining tour/platform runtime gap |
+| CHK-R79 | Rich service todos — structured cards, communication threads, 5-state lifecycle, auto-reminders | done | all edit forms (contact fields, service meta date pickers, person-in-charge) are wired to PATCH; ops board filters (status/service-type/due) work; audit log is written on change | 2026-04-20 | Confirmed complete via code audit — CHK-R82 closed the remaining gaps |
+| CHK-R99 | tour-config — stop label rename inline edit | done | span replaced with inline input + blur/Enter listener calling patchStop(id,{label}) | 2026-04-20 | frontend only |
+| CHK-R100 | tour-config — pricing inline edit (pax band range + tour price values) | done | pax band min/max now editable number inputs; tour price cells converted from fmtMoney() read-only to inline inputs with onblur PATCH | 2026-04-20 | also fixed missing adult_triple_room_price in pricing.js NUMERIC_COLUMNS |
+| CHK-R101 | Supplier library — DB migration + CRUD API + Supplier Management UI | done | migration 0076 adds structured contact columns to suppliers table; src/routes/suppliers.js adds GET/POST/PATCH/DELETE with soft-delete; Suppliers tab added to tour-config.html with full inline edit table + add form | 2026-04-20 | migration applied locally |
 
 ## Foundations and core tour engine
 
@@ -107,5 +110,28 @@ Status legend:
 
 ## Remaining tour / platform work
 
-- Main active gap remains CHK-R79 filter/edit acceleration and integrity tightening.
-- Combined historical notes remain preserved in `03_PROGRESS_LEDGER.md` until the split migration is considered complete.
+- R97–R110: all done as of 2026-04-20 (see active focus + planned tables above).
+- Remaining: R111 (reporting), R112 (Stripe guest payment — deferred).
+
+## Planned checkpoints — tour engine completion roadmap (CHK-R97 onwards)
+
+> Priority order. Stripe-dependent work deferred until Stripe account is available.
+
+| Checkpoint | Title | Status | Priority group | Notes |
+|---|---|---|---|---|
+| CHK-R97 | Ops board todo card inline edit — contact fields + service meta date | done | PATCH for contact_name/phone/email/address + service_meta_json.date on todo cards wired; ops board filters (status/service-type/due) work | 2026-04-20 | confirmed via code audit (CHK-R82 closed remaining gaps) |
+| CHK-R98 | Ops board — person-in-charge editable + stop service-type filter | done | person_in_charge input + filter bar by service type live | 2026-04-20 | confirmed via code audit |
+| CHK-R99 | tour-config — stop label rename inline edit | done | span replaced with inline input + blur/Enter listener calling patchStop(id,{label}) | 2026-04-20 | frontend only |
+| CHK-R100 | tour-config — pricing inline edit (pax band range + tour price values) | done | pax band min/max now editable number inputs; tour price cells converted from fmtMoney() read-only to inline inputs with onblur PATCH | 2026-04-20 | also fixed missing adult_triple_room_price in pricing.js NUMERIC_COLUMNS |
+| CHK-R101 | Supplier library — DB migration + CRUD API + Supplier Management UI | done | migration 0076 adds structured contact columns to suppliers table; src/routes/suppliers.js adds GET/POST/PATCH/DELETE with soft-delete; Suppliers tab added to tour-config.html with full inline edit table + add form; standalone suppliers.html page with full i18n | 2026-04-20 | migration applied remotely |
+| CHK-R102 | Supplier picker in ops board todo cards + service item linking | done | GET /api/bookings/suppliers/suggest queries suppliers table; ac-drop autocomplete on all supplier inputs (local_transport, intercity_leg, hotel, restaurant, guide) in ops.html; name filled on select | 2026-04-20 | supplier_id not stored in service_meta — name-based link is sufficient |
+| CHK-R103 | SEO — per-tour meta/slug edit in tour-config | done | meta_title, meta_description, og_image fields added to publish tab; Save SEO button PATCHes /api/tours/:id; fields pre-filled on tour select; migration 0077 applied | 2026-04-20 | tour-config.html updated |
+| CHK-R104 | Sitemap.xml + robots.txt auto-generated routes | done | GET /robots.txt and GET /sitemap.xml served from src/routes/seo.js; tenant-aware, gates on public_indexing_enabled | 2026-04-20 | confirmed via code audit |
+| CHK-R105 | Structured data per tour public page | done | buildTourJsonLd() in universalSites.js; TouristTrip + OG meta tags injected in tour detail page head | 2026-04-20 | confirmed via code audit |
+| CHK-R106 | Analytics config per tenant (GA ID + Pixel ID) | done | GA4/GTM/FB Pixel IDs stored in site_config.analytics JSON; validated in tenants.js; editable in universal-admin.html Analytics panel | 2026-04-20 | confirmed via code audit |
+| CHK-R107 | Staff invite flow — API (invite + accept + membership) | done | POST /api/staff/invite, GET verify, POST accept, GET list, PATCH role, DELETE member, DELETE /api/staff/invites/:id all in src/routes/staff.js; migration 0078_staff_invites applied; staff-accept.html accept page live | 2026-04-20 | team.html frontend wired |
+| CHK-R108 | Staff management UI in dashboard | done | team.html standalone page with invite form, role selector, pending invites list, revoke; full i18n across 11 locales | 2026-04-20 | deployed |
+| CHK-R109 | Booking email ingest — POST endpoint + draft_records | done | POST /api/email/ingest + GET/PATCH /api/email/drafts in src/routes/emailIngest.js; migration 0079_email_drafts applied; heuristic lead extraction (pax/budget/dates/phone/tour) | 2026-04-20 | EMAIL_INGEST_SECRET env var needed for production |
+| CHK-R110 | Email draft review UI → confirm to booking order | done | inbox.html with split list/detail pane, status filter, internal notes, PATCH draft; full i18n | 2026-04-20 | deployed |
+| CHK-R111 | Reporting dashboard — revenue + bookings + per-tour stats | not_started | P6 — reporting | Revenue summary, booking funnel, top-tour table |
+| CHK-R112 | Stripe per-booking guest payment | not_started | DEFERRED — no Stripe account | Online card payment for guests; skip until Stripe account activated |

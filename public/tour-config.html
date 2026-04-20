@@ -36,23 +36,38 @@
     .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
     .topbar-right a:hover { color: #cdd6f4; }
 
-    /* -- Tabs -- */
-    .tabs {
-      background: #fff; border-bottom: 1px solid #e2e8f0;
-      display: flex; padding: 0 24px; gap: 2px; position: sticky; top: 0; z-index: 10;
-    }
-    .tab-btn {
-      background: none; border: none; cursor: pointer; padding: 13px 20px;
-      font-size: 14px; font-weight: 600; color: #64748b;
-      border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
-    }
-    .tab-btn:hover { color: #6366F1; }
-    .tab-btn.active { color: #6366F1; border-bottom-color: #6366F1; }
-    .tab-btn:disabled { opacity: .4; cursor: not-allowed; }
+    /* -- App layout -- */
+    .app-layout { display: flex; min-height: calc(100vh - 52px); }
 
-    /* -- Layout -- */
-    .page-body { display: flex; gap: 0; min-height: calc(100vh - 92px); }
-    .panel { display: none; flex: 1; padding: 28px 32px; max-width: 1000px; }
+    /* -- Sidebar -- */
+    .sidebar {
+      width: 200px; flex-shrink: 0;
+      background: #fff; border-right: 1px solid #e2e8f0;
+      padding: 12px 0; position: sticky; top: 0;
+      height: calc(100vh - 52px); overflow-y: auto; z-index: 9;
+    }
+    .sidebar-group { margin-bottom: 4px; }
+    .sidebar-group-label {
+      padding: 10px 16px 3px;
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #94a3b8;
+    }
+    .sidebar-item {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; border-left: 3px solid transparent;
+      padding: 8px 16px 8px 19px;
+      font-size: 13px; font-weight: 500; color: #475569;
+      cursor: pointer; text-decoration: none; font-family: inherit;
+      line-height: 1.4; transition: background .1s, color .1s;
+    }
+    .sidebar-item:hover { background: #f1f5f9; color: #1e293b; }
+    .sidebar-item.active { color: #6366F1; border-left-color: #6366F1; background: #eef2ff; font-weight: 600; }
+    .sidebar-item:disabled { opacity: .4; cursor: not-allowed; }
+    .sidebar-divider { border: none; border-top: 1px solid #e2e8f0; margin: 6px 0; }
+
+    /* -- Main content -- */
+    .main-content { flex: 1; overflow-y: auto; min-width: 0; }
+    .panel { display: none; padding: 28px 32px; max-width: 1000px; }
     .panel.active { display: block; }
 
     /* -- Cards -- */
@@ -704,6 +719,14 @@
     .help-popover p:last-child { margin: 0; }
     .help-popover strong { font-weight: 700; }
   </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
 </head>
 <body>
 
@@ -729,16 +752,29 @@
   </div>
 </header>
 
-<!-- -- Tabs -- -->
-<nav class="tabs" id="tab-nav">
-  <button class="tab-btn active" data-tab="tours" data-i18n="tour_config.tabs.tours">Tours</button>
-  <button class="tab-btn"        data-tab="content"  id="tab-content"  disabled data-i18n="tour_config.tabs.content">Content</button>
-  <button class="tab-btn"        data-tab="tagging"  id="tab-tagging"  disabled data-i18n="tour_config.tabs.tagging">Tagging</button>
-  <button class="tab-btn"        data-tab="stops"    id="tab-stops"    disabled data-i18n="tour_config.tabs.stops">Stops</button>
-  <button class="tab-btn"        data-tab="pricing"  id="tab-pricing"  disabled data-i18n="tour_config.tabs.pricing">Price Config</button>
-  <button class="tab-btn"        data-tab="preview"  id="tab-preview"  disabled data-i18n="tour_config.tabs.preview">Preview</button>
-  <button class="tab-btn"        data-tab="publish"  id="tab-publish"  disabled data-i18n="tour_config.tabs.publish">Publish</button>
+<!-- -- App layout -- -->
+<div class="app-layout">
+<nav class="sidebar" id="sidebar-nav">
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Tour Builder</div>
+    <button class="sidebar-item active" data-tab="tours"    data-i18n="tour_config.tabs.tours">Tours</button>
+    <button class="sidebar-item" data-tab="stops"    id="tab-stops"    disabled data-i18n="tour_config.tabs.stops">Stops</button>
+    <button class="sidebar-item" data-tab="pricing"  id="tab-pricing"  disabled data-i18n="tour_config.tabs.pricing">Price Config</button>
+    <button class="sidebar-item" data-tab="tagging"  id="tab-tagging"  disabled data-i18n="tour_config.tabs.tagging">Tagging</button>
+    <button class="sidebar-item" data-tab="content"  id="tab-content"  disabled data-i18n="tour_config.tabs.content">Content</button>
+    <button class="sidebar-item" data-tab="preview"  id="tab-preview"  disabled data-i18n="tour_config.tabs.preview">Preview</button>
+    <button class="sidebar-item" data-tab="publish"  id="tab-publish"  disabled data-i18n="tour_config.tabs.publish">Publish</button>
+  </div>
+  <hr class="sidebar-divider" />
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Business</div>
+    <a class="sidebar-item" href="suppliers.html" data-i18n="tour_config.tabs.suppliers">Suppliers</a>
+    <a class="sidebar-item" href="team.html" data-i18n="tour_config.tabs.team">Team</a>
+  </div>
+  <hr class="sidebar-divider" />
+  <a class="sidebar-item" href="inbox.html" data-i18n="tour_config.tabs.inbox">Inbox</a>
 </nav>
+<div class="main-content">
 
 <!-- --------------------------------  TAB 1: TOUR  --------------------------- -->
 <section class="panel active" id="panel-tours">
@@ -1621,7 +1657,33 @@
       <div class="publish-result" id="publish-result"></div>
     </div>
   </div>
+
+  <!-- CHK-R103: SEO & Social fields -->
+  <div class="card" style="max-width:600px;margin-top:20px">
+    <div class="card-header"><h2>SEO &amp; Social</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <label>Page title <small style="font-weight:400;text-transform:none">(overrides tour title in search results)</small></label>
+        <input type="text" id="pub-meta-title" placeholder="Leave empty to use tour title" style="max-width:100%" />
+      </div>
+      <div class="field">
+        <label>Meta description <small style="font-weight:400;text-transform:none">(~160 chars)</small></label>
+        <textarea id="pub-meta-desc" rows="3" placeholder="A brief summary for search snippets…" style="width:100%;resize:vertical;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit"></textarea>
+      </div>
+      <div class="field">
+        <label>OG / social image URL</label>
+        <input type="url" id="pub-og-image" placeholder="https://…" style="max-width:100%" />
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" id="btn-save-seo" disabled>Save SEO</button>
+      </div>
+      <div id="seo-save-result" style="font-size:12px;color:#16a34a;margin-top:6px;display:none">Saved</div>
+    </div>
+  </div>
 </section>
+
+</div><!-- /.main-content -->
+</div><!-- /.app-layout -->
 
 <div id="media-picker" class="media-picker" aria-hidden="true">
   <div id="media-picker-backdrop" class="media-picker-backdrop"></div>
@@ -2795,12 +2857,13 @@ async function api(path, opts = {}) {
 
 function unlockTabs() {
   ['tab-content','tab-tagging','tab-stops','tab-pricing','tab-preview','tab-publish'].forEach(id => {
-    document.getElementById(id).disabled = !S.tour;
+    const el = document.getElementById(id);
+    if (el) el.disabled = !S.tour;
   });
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.sidebar-item[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.panel')  .forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
   if (window.location.hash.replace(/^#/, '') !== name) {
     history.replaceState({}, '', `${window.location.pathname}${window.location.search}#${name}`);
@@ -2812,7 +2875,7 @@ function switchTab(name) {
 function applyHashTab() {
   const requested = window.location.hash.replace(/^#/, '').trim().toLowerCase();
   if (!requested) return;
-  const tab = document.querySelector(`.tab-btn[data-tab="${requested}"]`);
+  const tab = document.querySelector(`.sidebar-item[data-tab="${requested}"]`);
   if (tab && !tab.disabled) {
     switchTab(requested);
   }
@@ -3003,6 +3066,16 @@ function selectTour(t) {
   document.getElementById('publish-tour-label').textContent = t.title;
   document.getElementById('btn-publish').disabled          = false;
   document.getElementById('btn-switch-template').disabled  = false;
+
+  // Pre-fill SEO fields (CHK-R103)
+  const seoBtnEl = document.getElementById('btn-save-seo');
+  if (seoBtnEl) seoBtnEl.disabled = false;
+  const pubMetaTitle = document.getElementById('pub-meta-title');
+  const pubMetaDesc  = document.getElementById('pub-meta-desc');
+  const pubOgImage   = document.getElementById('pub-og-image');
+  if (pubMetaTitle) pubMetaTitle.value = t.meta_title       || '';
+  if (pubMetaDesc)  pubMetaDesc.value  = t.meta_description || '';
+  if (pubOgImage)   pubOgImage.value   = t.og_image         || '';
 
   // Show/hide room inputs in BV simulator based on tour type
   const roomRow = document.getElementById('bv-room-row');
@@ -4686,9 +4759,37 @@ document.getElementById('btn-switch-template').addEventListener('click', async (
   }
 });
 
+/* CHK-R103: Save SEO fields */
+document.getElementById('btn-save-seo').addEventListener('click', async () => {
+  if (!S.tour) return;
+  const meta_title       = document.getElementById('pub-meta-title').value.trim() || null;
+  const meta_description = document.getElementById('pub-meta-desc').value.trim() || null;
+  const og_image         = document.getElementById('pub-og-image').value.trim() || null;
+  const resultEl = document.getElementById('seo-save-result');
+  try {
+    await api(`/api/tours/${S.tour.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ meta_title, meta_description, og_image }),
+    });
+    S.tour.meta_title       = meta_title;
+    S.tour.meta_description = meta_description;
+    S.tour.og_image         = og_image;
+    resultEl.textContent = '\u2713 Saved';
+    resultEl.style.color = '#16a34a';
+    resultEl.style.display = '';
+    setTimeout(() => { resultEl.style.display = 'none'; }, 3000);
+    toast(ti('common.saved') || 'SEO settings saved');
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+    resultEl.style.color = '#dc2626';
+    resultEl.style.display = '';
+    toast('Error: ' + err.message, 'err');
+  }
+});
+
 /* ----------------------------  TAB NAVIGATION  ---------------------------- */
-document.getElementById('tab-nav').addEventListener('click', e => {
-  const btn = e.target.closest('.tab-btn');
+document.getElementById('sidebar-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.sidebar-item[data-tab]');
   if (!btn || btn.disabled) return;
   const tab = btn.dataset.tab;
   switchTab(tab);
