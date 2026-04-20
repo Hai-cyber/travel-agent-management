@@ -860,7 +860,6 @@
             <div class="quick-actions">
               <a href="#" id="btn-tour-config"     class="button icon solid fa-map" data-i18n="dashboard.action.tour_config">Configure Tours</a>
               <a href="#" id="btn-universal-admin" class="button alt icon solid fa-layer-group">Website Design</a>
-              <a href="#" id="btn-system-settings" class="button alt icon solid fa-sliders-h">System Settings</a>
               <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="dashboard.action.payment_settings">Payment Settings</a>
             </div>
 
@@ -1644,7 +1643,6 @@ window.addEventListener('dashboard:langchange', () => {
 
   document.getElementById('btn-tour-config').href      = withTenant('tour-config.html');
   document.getElementById('btn-universal-admin').href  = withTenant('universal-admin.html');
-  document.getElementById('btn-system-settings').href  = withTenant('universal-admin.html?panel=system&onboarding=system');
   document.getElementById('btn-payment-settings').href = `#payments`;
 
   const sidebarTours   = document.getElementById('sidebar-tours');
