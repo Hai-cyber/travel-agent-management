@@ -758,32 +758,13 @@
   <div id="header-wrapper">
     <header id="header" class="container">
       <div id="logo">
-        <h1><a href="dashboard.html">🧭 TravelAgent</a></h1>
+        <h1><a href="dashboard.html">Tours Market</a></h1>
         <span data-i18n="meta.subtitle">Management Dashboard</span>
       </div>
       <nav id="nav">
         <ul>
           <li class="current"><a href="dashboard.html" data-i18n="nav.dashboard">Dashboard</a></li>
-          <li>
-            <a href="#" data-i18n="nav.bookings">Bookings</a>
-            <ul>
-              <li><a id="nav-all-orders" href="#" data-i18n="nav.all_orders">All Orders</a></li>
-              <li><a id="nav-pending-confirm" href="#" data-i18n="nav.pending_confirm">Pending Confirmation</a></li>
-              <li><a id="nav-pending-payment" href="#" data-i18n="nav.pending_payment">Pending Payment</a></li>
-              <li><a id="nav-pending-proof" href="#" data-i18n="nav.pending_proof">Pending Proof</a></li>
-            </ul>
-          </li>
-          <li><a id="nav-universal-admin" href="universal-admin.html">Website Design</a></li>
-          <li>
-            <a id="nav-settings" href="#" data-i18n="nav.settings">Settings</a>
-            <ul>
-              <li><a id="nav-system-settings" href="#">System Settings</a></li>
-              <li><a id="nav-tours-pricing" href="#" data-i18n="nav.tours_pricing">Tours &amp; Pricing</a></li>
-              <li><a id="nav-payments" href="#" data-i18n="nav.payments">Payments</a></li>
-              <li><a href="#" data-i18n="nav.notifications" id="nav-notifications-link">Notifications</a></li>
-            </ul>
-          </li>
-          <li><a href="#" id="nav-logout">Logout</a></li>
+          <li><a href="#" id="nav-logout" data-i18n="nav.logout">Logout</a></li>
           <li style="display:flex;align-items:center">
             <div class="lang-switcher">
               <span class="lang-label">Lang</span>
@@ -1217,12 +1198,7 @@
     document.documentElement.style.visibility = 'hidden';
   })();
 </script>
-<script src="assets/js/jquery.min.js"></script>
-<script src="assets/js/jquery.dropotron.min.js"></script>
-<script src="assets/js/browser.min.js"></script>
-<script src="assets/js/breakpoints.min.js"></script>
-<script src="assets/js/util.js"></script>
-<script src="assets/js/main.js"></script>
+
 <script>
 /* ════════════════════════════════════════════════════════════════
    i18n — lightweight translation engine
@@ -1679,10 +1655,6 @@ window.addEventListener('dashboard:langchange', () => {
   const sidebarUniversal = document.getElementById('sidebar-universal-admin');
   const sidebarSystemSettings = document.getElementById('sidebar-system-settings');
   const sidebarPayment = document.getElementById('sidebar-payments');
-  const navUniversal   = document.getElementById('nav-universal-admin');
-  const navSettings = document.getElementById('nav-settings');
-  const navSystemSettings = document.getElementById('nav-system-settings');
-  const navPayments = document.getElementById('nav-payments');
   if (sidebarTours) sidebarTours.href = withTenant('tour-config.html');
   if (sidebarDestinations) sidebarDestinations.href = withTenant('product-modules.html?mode=destinations');
   if (sidebarAccommodations) sidebarAccommodations.href = withTenant('product-modules.html?mode=hotels#hotel');
@@ -1693,31 +1665,6 @@ window.addEventListener('dashboard:langchange', () => {
   if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
   if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
   if (sidebarPayment) sidebarPayment.href = `#payments`;
-  if (navUniversal) navUniversal.href = withTenant('universal-admin.html');
-  // Settings dropdown: keep parent as a toggle (href=#), wire sub-items
-  if (navSettings) navSettings.removeAttribute('href');
-  if (navSystemSettings) navSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
-  const navToursPricing = document.getElementById('nav-tours-pricing');
-  if (navToursPricing) navToursPricing.href = withTenant('tour-config.html');
-  if (navPayments) navPayments.onclick = (e) => { e.preventDefault(); showPane('billing'); loadBillingPane(); };
-  const navNotifications = document.getElementById('nav-notifications-link');
-  if (navNotifications) navNotifications.href = withTenant('universal-admin.html?panel=notifications');
-
-  // Bookings dropdown: wire sub-items to filter the orders table
-  function applyOrderFilter(statusVal) {
-    const sel = document.getElementById('orders-status-filter');
-    if (sel) sel.value = statusVal;
-    document.querySelectorAll('.sidebar-order-filter').forEach(l => {
-      l.classList.toggle('active-filter', l.dataset.filter === statusVal);
-      l.classList.toggle('active-filter-last', l.dataset.filter === statusVal);
-    });
-    showPane('orders');
-    loadOrders();
-  }
-  document.getElementById('nav-all-orders')?.addEventListener('click',    (e) => { e.preventDefault(); applyOrderFilter(''); });
-  document.getElementById('nav-pending-confirm')?.addEventListener('click', (e) => { e.preventDefault(); applyOrderFilter('PROOF_UPLOADED'); });
-  document.getElementById('nav-pending-payment')?.addEventListener('click', (e) => { e.preventDefault(); applyOrderFilter('AWAITING_PAYMENT'); });
-  document.getElementById('nav-pending-proof')?.addEventListener('click',   (e) => { e.preventDefault(); applyOrderFilter('AWAITING_PROOF'); });
 
   function getSuggestedSubdomain() {
     const desired = slugifySubdomain(onboardingState.settings?.name || tenantName || 'travel-brand');
