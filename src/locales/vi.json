@@ -124,7 +124,8 @@
       "settings": "Cài đặt",
       "payments": "Thanh toán",
       "tours_pricing": "Tour & Giá",
-      "notifications": "Thông báo"
+      "notifications": "Thông báo",
+      "logout": "Đăng xuất"
     },
     "sidebar": {
       "overview": "Tổng quan",

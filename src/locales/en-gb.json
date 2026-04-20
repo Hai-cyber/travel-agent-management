@@ -32,7 +32,8 @@
       "settings": "Settings",
       "payments": "Payments",
       "tours_pricing": "Tours & Pricing",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "logout": "Logout"
     },
     "sidebar": {
       "overview": "Overview",

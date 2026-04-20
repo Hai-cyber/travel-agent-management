@@ -67,7 +67,8 @@
       "settings": "設定",
       "payments": "支払い",
       "tours_pricing": "ツアーと料金",
-      "notifications": "通知"
+      "notifications": "通知",
+      "logout": "ログアウト"
     },
     "sidebar": {
       "overview": "概要",

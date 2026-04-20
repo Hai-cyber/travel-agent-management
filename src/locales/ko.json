@@ -67,7 +67,8 @@
       "settings": "설정",
       "payments": "결제",
       "tours_pricing": "투어 및 요금",
-      "notifications": "알림"
+      "notifications": "알림",
+      "logout": "로그아웃"
     },
     "sidebar": {
       "overview": "개요",

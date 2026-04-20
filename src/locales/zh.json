@@ -129,7 +129,8 @@
       "settings": "设置",
       "payments": "支付",
       "tours_pricing": "行程与定价",
-      "notifications": "通知"
+      "notifications": "通知",
+      "logout": "退出登录"
     },
     "sidebar": {
       "overview": "概览",

@@ -67,7 +67,8 @@
       "settings": "Einstellungen",
       "payments": "Zahlungen",
       "tours_pricing": "Touren & Preise",
-      "notifications": "Benachrichtigungen"
+      "notifications": "Benachrichtigungen",
+      "logout": "Abmelden"
     },
     "sidebar": {
       "overview": "Überblick",

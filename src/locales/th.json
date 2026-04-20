@@ -137,7 +137,8 @@
       "settings": "ตั้งค่า",
       "payments": "การชำระเงิน",
       "tours_pricing": "ทัวร์และราคา",
-      "notifications": "การแจ้งเตือน"
+      "notifications": "การแจ้งเตือน",
+      "logout": "ออกจากระบบ"
     },
     "sidebar": {
       "overview": "ภาพรวม",

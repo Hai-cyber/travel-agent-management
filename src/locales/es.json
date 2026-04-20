@@ -67,7 +67,8 @@
       "settings": "Configuración",
       "payments": "Pagos",
       "tours_pricing": "Tours y precios",
-      "notifications": "Notificaciones"
+      "notifications": "Notificaciones",
+      "logout": "Cerrar sesión"
     },
     "sidebar": {
       "overview": "Resumen",

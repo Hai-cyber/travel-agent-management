@@ -67,7 +67,8 @@
       "settings": "Paramètres",
       "payments": "Paiements",
       "tours_pricing": "Circuits et tarifs",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "logout": "Déconnexion"
     },
     "sidebar": {
       "overview": "Vue d'ensemble",
