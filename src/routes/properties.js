@@ -280,29 +280,19 @@ const ROOM_UNIT_OPERATIONAL_STATUSES = new Set(['ready', 'maintenance', 'out_of_
 const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
 const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
+const AIRPORT_PICKUP_ADDON_CODES = new Set(['AIRPORT-PICKUP', 'AIRPORT-ARRIVAL']);
 
 const DEFAULT_PROPERTY_ADDON_PRESETS = {
-  airport_transfer_arrival: {
-    code: 'AIRPORT-ARRIVAL',
-    name: 'Airport Transfer Arrival',
+  airport_pickup: {
+    code: 'AIRPORT-PICKUP',
+    name: 'Airport Pickup',
     service_type: 'transfer',
     pricing_mode: 'fixed',
     currency: 'USD',
     default_unit_price: 35,
     default_unit_label: 'booking',
     scope: 'per_stay',
-    notes: 'One-way airport arrival transfer for front-desk or booking upsell.',
-  },
-  airport_transfer_roundtrip: {
-    code: 'AIRPORT-ROUNDTRIP',
-    name: 'Airport Transfer Roundtrip',
-    service_type: 'transfer',
-    pricing_mode: 'fixed',
-    currency: 'USD',
-    default_unit_price: 60,
-    default_unit_label: 'booking',
-    scope: 'per_stay',
-    notes: 'Return airport transfer package.',
+    notes: 'The only pre-arrival addon exception. All other addons stay onsite-only.',
   },
   breakfast_upgrade: {
     code: 'BREAKFAST-UPGRADE',
@@ -313,7 +303,7 @@ const DEFAULT_PROPERTY_ADDON_PRESETS = {
     default_unit_price: 12,
     default_unit_label: 'guest',
     scope: 'per_guest',
-    notes: 'Daily breakfast add-on sold per guest.',
+    notes: 'Onsite-only addon sold after arrival or during stay.',
   },
   extra_bed: {
     code: 'EXTRA-BED',
@@ -324,7 +314,7 @@ const DEFAULT_PROPERTY_ADDON_PRESETS = {
     default_unit_price: 25,
     default_unit_label: 'night',
     scope: 'per_night',
-    notes: 'Additional bed posted per occupied night.',
+    notes: 'Onsite-only addon posted per occupied night.',
   },
   late_checkout: {
     code: 'LATE-CHECKOUT',
@@ -335,7 +325,7 @@ const DEFAULT_PROPERTY_ADDON_PRESETS = {
     default_unit_price: 20,
     default_unit_label: 'booking',
     scope: 'per_stay',
-    notes: 'Late checkout fee preset for front desk approval.',
+    notes: 'Onsite-only fee preset for front desk approval.',
   },
   laundry_bag: {
     code: 'LAUNDRY-BAG',
@@ -346,7 +336,7 @@ const DEFAULT_PROPERTY_ADDON_PRESETS = {
     default_unit_price: 10,
     default_unit_label: 'bag',
     scope: 'per_stay',
-    notes: 'Laundry service posted per returned bag.',
+    notes: 'Onsite-only laundry service posted per returned bag.',
   },
 };
 
@@ -382,6 +372,36 @@ function parseJsonSafe(value) {
   } catch {
     return value;
   }
+}
+
+function isAirportPickupAddonPreset(serviceType, code, name) {
+  if (String(serviceType || '').trim() !== 'transfer') return false;
+  const normalizedCode = String(code || '').trim().toUpperCase();
+  const normalizedName = String(name || '').trim().toLowerCase();
+  return AIRPORT_PICKUP_ADDON_CODES.has(normalizedCode)
+    || normalizedName.includes('airport pickup')
+    || normalizedName.includes('airport arrival');
+}
+
+function buildAddonSalesPolicy(serviceType, code, name) {
+  const prearrivalException = isAirportPickupAddonPreset(serviceType, code, name);
+  return {
+    sales_channel: 'onsite_only',
+    onsite_only: true,
+    prearrival_exception: prearrivalException,
+    exception_reason: prearrivalException ? 'airport_pickup' : null,
+  };
+}
+
+function serializeAddonConfigJson(serviceType, code, name, rawConfig) {
+  const parsed = typeof rawConfig === 'string' ? parseJsonSafe(rawConfig) : rawConfig;
+  const config = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...parsed } : {};
+  delete config.sales_policy;
+  delete config.sales_channel;
+  delete config.onsite_only;
+  delete config.prearrival_exception;
+  config.sales_policy = buildAddonSalesPolicy(serviceType, code, name);
+  return JSON.stringify(config);
 }
 
 function roomNumberFromSequence(prefix, number) {
@@ -434,10 +454,14 @@ function mapSeasonRateRow(row) {
 }
 
 function mapAddonServicePresetRow(row) {
+  const parsedConfig = parseJsonSafe(row.config_json);
   return {
     ...row,
     active: Boolean(row.active),
-    config_json: parseJsonSafe(row.config_json),
+    config_json: parsedConfig,
+    sales_policy: buildAddonSalesPolicy(row.service_type, row.code, row.name),
+    onsite_only: true,
+    prearrival_exception: isAirportPickupAddonPreset(row.service_type, row.code, row.name),
   };
 }
 
@@ -720,8 +744,8 @@ function validateAddonServicePresetCreateRequest(body) {
   const scope = String(body?.scope || 'per_stay').trim();
   const sortOrder = normalizeInteger(body?.sort_order, 0);
   const notes = body?.notes ? String(body.notes).trim() : null;
-  const configJson = body?.config_json !== undefined && body?.config_json !== null && body?.config_json !== ''
-    ? JSON.stringify(typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
+  const rawConfig = body?.config_json !== undefined && body?.config_json !== null && body?.config_json !== ''
+    ? (typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
     : null;
 
   if (!code) return { error: 'code is required.' };
@@ -744,7 +768,7 @@ function validateAddonServicePresetCreateRequest(body) {
     active: normalizeBooleanInteger(body?.active, 1),
     sortOrder,
     notes,
-    configJson,
+    rawConfig,
   };
 }
 
@@ -796,7 +820,7 @@ function validateAddonServicePresetPatchRequest(body) {
   }
   if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
   if ('config_json' in body) updates.config_json = body.config_json !== undefined && body.config_json !== null && body.config_json !== ''
-    ? JSON.stringify(typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
+    ? (typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
     : null;
   return { updates };
 }
@@ -1788,7 +1812,7 @@ export async function handleCreatePropertyAddonServicePreset(request, env, param
         parsed.active,
         parsed.sortOrder,
         parsed.notes,
-        parsed.configJson,
+        serializeAddonConfigJson(parsed.serviceType, parsed.code, parsed.name, parsed.rawConfig),
         now,
         now
       )
@@ -1855,7 +1879,7 @@ export async function handleSeedPropertyAddonServicePresets(request, env, params
           preset.scope,
           index * 10,
           preset.notes || null,
-          null,
+          serializeAddonConfigJson(preset.service_type, preset.code, preset.name, null),
           now,
           now
         )
@@ -1890,6 +1914,11 @@ export async function handleUpdatePropertyAddonServicePreset(request, env, param
     const existing = await loadAddonServicePresetById(env, tenantId, propertyId, presetId);
     if (!existing) return jsonResponse({ error: 'Addon service preset not found.' }, 404);
     const now = currentUnixSeconds();
+    const effectiveCode = parsed.updates.code ?? existing.code;
+    const effectiveName = parsed.updates.name ?? existing.name;
+    const effectiveServiceType = parsed.updates.service_type ?? existing.service_type;
+    const effectiveConfig = 'config_json' in parsed.updates ? parsed.updates.config_json : existing.config_json;
+    parsed.updates.config_json = serializeAddonConfigJson(effectiveServiceType, effectiveCode, effectiveName, effectiveConfig);
     const { sql, values } = buildDynamicUpdateSql('property_addon_service_presets', parsed.updates);
     await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, presetId, tenantId, propertyId).run();
     return jsonResponse({ ok: true, addon_service_preset: await loadAddonServicePresetById(env, tenantId, propertyId, presetId) });

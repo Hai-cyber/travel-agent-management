@@ -982,7 +982,7 @@
                 <div class="section-head toolbar">
                   <div>
                     <h2>Addon Service Presets</h2>
-                    <p class="hint">Let the tenant preset reusable addon services such as transfers, breakfast, laundry, extra bed, and late checkout for future folio or guest-service posting.</p>
+                    <p class="hint">Preset reusable addon services for future folio or guest-service posting. Business rule: addons are onsite-only by default; the only pre-arrival exception is airport pickup.</p>
                   </div>
                   <div class="action-row">
                     <button id="btn-seed-addon-presets" class="button secondary" type="button">Seed Common Presets</button>
@@ -996,7 +996,7 @@
                         <input name="code" required placeholder="LATE-CHECKOUT" />
                       </label>
                       <label>Name
-                        <input name="name" required placeholder="Late Checkout" />
+                        <input name="name" required placeholder="Late Checkout or Airport Pickup" />
                       </label>
                       <label>Service Type
                         <select name="service_type">
@@ -1049,6 +1049,7 @@
                     <div class="action-row">
                       <button class="button primary" type="submit">Save Addon Preset</button>
                     </div>
+                    <div class="hint">No manual toggle exists here for pre-arrival selling. The backend will keep every addon onsite-only except airport pickup.</div>
                   </form>
                   <div id="addon-preset-list" class="grid">
                     <div class="empty">No addon service presets yet.</div>
@@ -1547,6 +1548,7 @@
                 <strong>${escapeHtml(preset.name)}</strong>
                 <div class="muted">${escapeHtml(preset.code)} · ${escapeHtml(preset.service_type)} · ${escapeHtml(preset.pricing_mode)} · ${escapeHtml(preset.scope)}</div>
                 <div class="muted">${escapeHtml(preset.currency)} ${Number(preset.default_unit_price || 0).toLocaleString()}${preset.default_unit_label ? ` per ${escapeHtml(preset.default_unit_label)}` : ''}</div>
+                <div class="muted">Policy: onsite only${preset.prearrival_exception ? ' · pre-arrival exception: airport pickup' : ''}</div>
                 ${preset.notes ? `<div class="muted">${escapeHtml(preset.notes)}</div>` : ''}
               </div>
               <span class="tag ${preset.active ? 'ok' : 'warn'}">${preset.active ? 'active' : 'inactive'}</span>

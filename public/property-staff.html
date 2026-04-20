@@ -613,7 +613,7 @@
               <div class="section">
                 <div class="section-head">
                   <h2>POS / Folio Boundary</h2>
-                  <p class="muted">This is a separate operational lane and should not be merged into tenant config pages.</p>
+                  <p class="muted">This is a separate operational lane and should not be merged into tenant config pages. Addons are onsite-only by policy, except airport pickup.</p>
                 </div>
                 <div class="section-body stack">
                   <div class="list-card">
@@ -900,6 +900,7 @@
                 <strong>${escapeHtml(preset.name)}</strong>
                 <div class="muted">${escapeHtml(preset.code)} · ${escapeHtml(preset.service_type)} · ${escapeHtml(preset.pricing_mode)} · ${escapeHtml(preset.scope)}</div>
                 <div class="muted">${escapeHtml(preset.currency)} ${Number(preset.default_unit_price || 0).toLocaleString()}${preset.default_unit_label ? ` per ${escapeHtml(preset.default_unit_label)}` : ''}</div>
+                <div class="muted">Policy: onsite only${preset.prearrival_exception ? ' · pre-arrival exception: airport pickup' : ''}</div>
                 ${preset.notes ? `<div class="muted">${escapeHtml(preset.notes)}</div>` : ''}
               </div>
               <span class="tag ${preset.active ? 'ok' : 'warn'}">${preset.active ? 'active' : 'inactive'}</span>
