@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "square-wind-2594" generated at 2026-04-20T11:06:49.341Z.

@@ -1,0 +1,474 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Distribution Helper — Travel Agent Management</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    body {
+      background: radial-gradient(circle at top left, rgba(96,165,250,.16), transparent 24%),
+                  linear-gradient(145deg,#0f172a 0%,#1d4ed8 100%) fixed !important;
+      background-color: #0f172a !important;
+    }
+    #page-wrapper { background: transparent; }
+    #header-wrapper { background: transparent; padding-top: 3.5em; }
+    #main-wrapper {
+      background: rgba(255,255,255,.96);
+      border-top-left-radius: 24px; border-top-right-radius: 24px;
+      box-shadow: 0 20px 48px rgba(15,23,42,.18);
+    }
+    #footer-wrapper { background: rgba(248,250,252,.96); }
+    #logo h1 a { font-size:18px; }
+    #logo span  { font-size:12px; color:rgba(226,232,240,.9); }
+    #banner-wrapper,#features-wrapper { display:none; }
+
+    /* ── Tour selector ── */
+    .tour-select-bar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 24px; padding: 16px 20px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+    }
+    .tour-select-bar label { font-size:13px; font-weight:700; color:#374151; white-space:nowrap; }
+    .tour-select-bar select {
+      flex: 1 1 200px; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid #d1d5db; font-size: 13px; background:#fff; color:#111827;
+    }
+    .tour-select-bar button {
+      padding: 8px 18px; background: #1d4ed8; color:#fff;
+      border: none; border-radius: 8px; font-size:13px; font-weight:700;
+      cursor:pointer; white-space:nowrap;
+    }
+    .tour-select-bar button:hover { background: #1e40af; }
+
+    /* ── Error banner ── */
+    .error-banner {
+      display:none; background:#fef2f2; border:1px solid #fca5a5;
+      border-radius:8px; padding:12px 16px; margin-bottom:16px;
+      color:#b91c1c; font-size:13px;
+    }
+
+    /* ── Channel readiness ── */
+    .readiness-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .readiness-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px;
+    }
+    .readiness-card.ready   { border-color: #86efac; }
+    .readiness-card.partial { border-color: #fde68a; }
+    .readiness-card .rc-header {
+      display:flex; align-items:center; gap:8px; margin-bottom:12px;
+    }
+    .readiness-card .rc-icon { font-size:20px; }
+    .readiness-card .rc-label { font-size:14px; font-weight:800; color:#0f172a; }
+    .readiness-card .rc-score {
+      margin-left:auto; font-size:13px; font-weight:800;
+    }
+    .rc-score.green  { color:#16a34a; }
+    .rc-score.amber  { color:#d97706; }
+    .rc-score.red    { color:#dc2626; }
+    .rc-check-list { list-style:none; margin:0; padding:0; }
+    .rc-check-list li {
+      display:flex; align-items:center; gap:6px;
+      font-size:12px; color:#374151; padding: 3px 0;
+    }
+    .rc-check-list li.pass { color:#16a34a; }
+    .rc-check-list li.fail { color:#94a3b8; }
+    .rc-tick { font-size:13px; }
+
+    /* ── Listing formats ── */
+    .format-tabs {
+      display:flex; gap:8px; margin-bottom:0;
+      border-bottom: 2px solid #e2e8f0; padding-bottom:0;
+    }
+    .format-tab {
+      padding: 9px 18px; font-size:13px; font-weight:700; cursor:pointer;
+      border: 1px solid transparent; border-bottom:none;
+      border-radius: 8px 8px 0 0; color:#64748b; background:none;
+      transition: all .12s;
+    }
+    .format-tab:hover { background: #f8fafc; color:#374151; }
+    .format-tab.active { background:#fff; border-color:#e2e8f0; color:#1d4ed8; margin-bottom:-2px; }
+
+    .format-panel { display:none; }
+    .format-panel.active { display:block; }
+
+    .format-box {
+      background:#fff; border:1px solid #e2e8f0; border-top:none;
+      border-radius: 0 0 12px 12px; padding: 20px;
+    }
+    .format-hint {
+      font-size:12px; color:#64748b; margin-bottom:12px;
+      padding: 8px 12px; background:#f8fafc; border-radius:6px;
+    }
+    .format-textarea {
+      width:100%; min-height: 220px; padding: 14px; font-size:13px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height:1.7; border: 1px solid #e2e8f0; border-radius:8px;
+      resize:vertical; color:#111827; background:#fafafa;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .copy-btn {
+      margin-top:12px; padding: 9px 20px;
+      background:#1d4ed8; color:#fff; border:none;
+      border-radius:8px; font-size:13px; font-weight:700;
+      cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    }
+    .copy-btn:hover { background:#1e40af; }
+    .copy-btn.copied { background:#16a34a; }
+
+    /* ── Hero image preview ── */
+    .hero-preview {
+      margin-top:12px; display:flex; align-items:center; gap:12px;
+    }
+    .hero-preview img {
+      width:80px; height:56px; object-fit:cover; border-radius:6px;
+      border:1px solid #e2e8f0;
+    }
+    .hero-preview span { font-size:12px; color:#64748b; }
+
+    /* ── Section box ── */
+    .section-box {
+      background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+      padding:20px; margin-bottom:24px; overflow:hidden;
+    }
+    .section-box h3 { margin:0 0 14px; font-size:15px; font-weight:800; color:#111827; }
+
+    /* ── Skeleton ── */
+    .skeleton { background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation: shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── Sidebar ── */
+    .sidebar-section { margin-bottom:24px; }
+    .sidebar-section h4 { font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:.08em; margin:0 0 8px; }
+    .nav-list { list-style:none; margin:0; padding:0; }
+    .nav-list li a {
+      display:flex; align-items:center; gap:8px; padding:7px 10px;
+      border-radius:7px; font-size:13px; color:#374151; text-decoration:none;
+      transition:background .12s;
+    }
+    .nav-list li a:hover { background:#f1f5f9; }
+    .nav-list li a.active { background:#eff6ff; color:#1d4ed8; font-weight:700; }
+    .icon { font-size:15px; line-height:1; }
+
+    @media screen and (max-width:900px) {
+      .readiness-grid { grid-template-columns:1fr; }
+      .format-tabs { flex-wrap:wrap; }
+    }
+  </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
+</head>
+<body class="is-preload left-sidebar">
+<div id="page-wrapper">
+
+  <div id="header-wrapper">
+    <header id="header" class="container">
+      <div id="logo">
+        <h1><a href="dashboard.html">Tours Market</a></h1>
+        <span>Distribution Helper</span>
+      </div>
+      <nav id="nav">
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li class="current"><a href="distribution.html">Distribution</a></li>
+          <li><a href="#" id="nav-logout">Logout</a></li>
+        </ul>
+      </nav>
+    </header>
+  </div>
+
+  <div id="main-wrapper">
+    <div class="container">
+      <div class="row gtr-200">
+
+        <!-- Sidebar -->
+        <div class="col-3 col-12-medium">
+          <div id="sidebar">
+            <div class="sidebar-section">
+              <h4>Navigation</h4>
+              <ul class="nav-list">
+                <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+                <li><a href="distribution.html" class="active"><span class="icon">📡</span> Distribution</a></li>
+                <li><a href="reports.html"><span class="icon">📈</span> Reports</a></li>
+              </ul>
+            </div>
+            <div class="sidebar-section">
+              <h4>What this does</h4>
+              <ul class="nav-list" style="pointer-events:none">
+                <li style="padding:4px 10px;font-size:12px;color:#374151;display:flex;gap:6px"><span>📋</span> Ready-to-paste OTA listing</li>
+                <li style="padding:4px 10px;font-size:12px;color:#374151;display:flex;gap:6px"><span>📱</span> Social media caption</li>
+                <li style="padding:4px 10px;font-size:12px;color:#374151;display:flex;gap:6px"><span>📄</span> Travel agent brief</li>
+                <li style="padding:4px 10px;font-size:12px;color:#374151;display:flex;gap:6px"><span>✅</span> Channel readiness check</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-9 col-12-medium imp-medium">
+          <div id="content">
+
+            <div class="error-banner" id="error-banner"></div>
+
+            <!-- Tour selector -->
+            <div class="tour-select-bar">
+              <label for="tour-select">Select tour:</label>
+              <select id="tour-select">
+                <option value="">— choose a tour —</option>
+              </select>
+              <button id="btn-load">Load</button>
+            </div>
+
+            <!-- Content area (hidden until tour loaded) -->
+            <div id="dist-content" style="display:none">
+
+              <!-- Channel Readiness -->
+              <div class="section-box">
+                <h3>Channel Readiness</h3>
+                <div class="readiness-grid" id="readiness-grid">
+                  <!-- filled by JS -->
+                </div>
+              </div>
+
+              <!-- Listing Formats -->
+              <div class="section-box">
+                <h3>Listing Formats</h3>
+                <div class="format-tabs" id="format-tabs">
+                  <button class="format-tab active" data-panel="ota">🏪 OTA Card</button>
+                  <button class="format-tab" data-panel="social">📱 Social Caption</button>
+                  <button class="format-tab" data-panel="agent">📄 Agent Brief</button>
+                </div>
+
+                <div class="format-box">
+                  <!-- OTA card -->
+                  <div class="format-panel active" id="panel-ota">
+                    <p class="format-hint" id="hint-ota"></p>
+                    <textarea class="format-textarea" id="text-ota" readonly></textarea>
+                    <button class="copy-btn" data-target="text-ota">📋 Copy OTA Card</button>
+                  </div>
+
+                  <!-- Social snippet -->
+                  <div class="format-panel" id="panel-social">
+                    <p class="format-hint" id="hint-social"></p>
+                    <textarea class="format-textarea" id="text-social" readonly></textarea>
+                    <div class="hero-preview" id="hero-preview" style="display:none">
+                      <img id="hero-img" src="" alt="Hero image" />
+                      <span>Hero image (copy URL below)</span>
+                    </div>
+                    <input type="text" id="text-hero-url" style="margin-top:8px;width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#374151;" readonly placeholder="No hero image set" />
+                    <button class="copy-btn" data-target="text-social">📋 Copy Caption</button>
+                  </div>
+
+                  <!-- Agent brief -->
+                  <div class="format-panel" id="panel-agent">
+                    <p class="format-hint" id="hint-agent"></p>
+                    <textarea class="format-textarea" id="text-agent" readonly style="min-height:320px"></textarea>
+                    <button class="copy-btn" data-target="text-agent">📋 Copy Agent Brief</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Placeholder when no tour selected -->
+            <div id="dist-placeholder" style="text-align:center;padding:48px 24px;color:#94a3b8">
+              <div style="font-size:48px;margin-bottom:12px">📡</div>
+              <p style="font-size:14px">Select a tour above to generate listing content and check channel readiness.</p>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-wrapper">
+    <div class="container">
+      <footer id="footer">
+        <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;padding:12px 0">
+          Travel Agent Management Platform
+        </p>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script>
+(async () => {
+  'use strict';
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  let tenantId = '';
+  try {
+    const sessRes = await fetch('/api/auth/session', { credentials: 'include' });
+    const sess    = await sessRes.json();
+    if (!sess?.authenticated || !sess.session?.tenant_id) {
+      window.location.href = '/login.html';
+      return;
+    }
+    tenantId = sess.session.tenant_id;
+  } catch {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  document.getElementById('nav-logout').addEventListener('click', async e => {
+    e.preventDefault();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    window.location.href = '/login.html';
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function esc(v) {
+    return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-banner');
+    if (msg) { el.textContent = msg; el.style.display = 'block'; }
+    else el.style.display = 'none';
+  }
+
+  const headers = { 'X-Tenant-ID': tenantId };
+
+  // ── Load tour list ────────────────────────────────────────────────────────
+  try {
+    const res  = await fetch('/api/tours', { headers, credentials: 'include' });
+    const data = await res.json();
+    const sel  = document.getElementById('tour-select');
+    for (const t of data.tours ?? []) {
+      const opt = document.createElement('option');
+      opt.value       = t.id;
+      opt.textContent = t.title + (t.status === 'published' ? ' ✅' : ' (draft)');
+      sel.appendChild(opt);
+    }
+  } catch {
+    showError('Failed to load tours list.');
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  document.getElementById('format-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.format-tab');
+    if (!btn) return;
+    document.querySelectorAll('.format-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.format-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`panel-${btn.dataset.panel}`).classList.add('active');
+  });
+
+  // ── Copy buttons ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      navigator.clipboard.writeText(target.value).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {
+        target.select();
+        document.execCommand('copy');
+      });
+    });
+  });
+
+  // ── Load distribution data ────────────────────────────────────────────────
+  document.getElementById('btn-load').addEventListener('click', async () => {
+    const tourId = document.getElementById('tour-select').value;
+    if (!tourId) { showError('Please select a tour.'); return; }
+    showError('');
+
+    document.getElementById('dist-placeholder').style.display = 'none';
+    document.getElementById('dist-content').style.display     = 'none';
+
+    try {
+      const [pkgRes, readyRes] = await Promise.all([
+        fetch(`/api/distribution/tours/${encodeURIComponent(tourId)}/listing-package`,
+              { headers, credentials: 'include' }),
+        fetch(`/api/distribution/tours/${encodeURIComponent(tourId)}/channel-readiness`,
+              { headers, credentials: 'include' }),
+      ]);
+
+      const [pkg, ready] = await Promise.all([pkgRes.json(), readyRes.json()]);
+
+      if (!pkg.ok)   throw new Error(pkg.error   ?? 'Listing package failed');
+      if (!ready.ok) throw new Error(ready.error  ?? 'Readiness check failed');
+
+      // ── Render readiness cards ──────────────────────────────────────────
+      const grid = document.getElementById('readiness-grid');
+      grid.innerHTML = ready.channels.map(ch => {
+        const cls       = ch.ready ? 'ready' : (ch.score_pct >= 50 ? 'partial' : '');
+        const scoreCls  = ch.score_pct === 100 ? 'green' : (ch.score_pct >= 50 ? 'amber' : 'red');
+        const checks    = ch.checks.map(c => `
+          <li class="${c.pass ? 'pass' : 'fail'}">
+            <span class="rc-tick">${c.pass ? '✅' : '○'}</span>
+            ${esc(c.label)}
+          </li>`).join('');
+        return `
+          <div class="readiness-card ${cls}">
+            <div class="rc-header">
+              <span class="rc-icon">${esc(ch.icon)}</span>
+              <span class="rc-label">${esc(ch.label)}</span>
+              <span class="rc-score ${scoreCls}">${ch.passed}/${ch.total}</span>
+            </div>
+            <ul class="rc-check-list">${checks}</ul>
+          </div>`;
+      }).join('');
+
+      // ── Fill listing formats ────────────────────────────────────────────
+      const formats = pkg.formats;
+
+      document.getElementById('text-ota').value   = formats.ota_card.content;
+      document.getElementById('hint-ota').textContent = formats.ota_card.hint;
+
+      document.getElementById('text-social').value   = formats.social_snippet.content;
+      document.getElementById('hint-social').textContent = formats.social_snippet.hint;
+
+      const heroUrl = formats.social_snippet.hero_image ?? '';
+      document.getElementById('text-hero-url').value = heroUrl;
+      const heroPreview = document.getElementById('hero-preview');
+      if (heroUrl) {
+        document.getElementById('hero-img').src = heroUrl;
+        heroPreview.style.display = 'flex';
+      } else {
+        heroPreview.style.display = 'none';
+      }
+
+      document.getElementById('text-agent').value   = formats.agent_brief.content;
+      document.getElementById('hint-agent').textContent = formats.agent_brief.hint;
+
+      document.getElementById('dist-content').style.display = 'block';
+
+    } catch (err) {
+      showError(`Error: ${err.message}`);
+      document.getElementById('dist-placeholder').style.display = 'block';
+    }
+  });
+
+  // Auto-load if tour id in URL param
+  const params = new URLSearchParams(window.location.search);
+  const tidParam = params.get('tour');
+  if (tidParam) {
+    const sel = document.getElementById('tour-select');
+    sel.value = tidParam;
+    if (sel.value === tidParam) {
+      document.getElementById('btn-load').click();
+    }
+  }
+
+})();
+</script>
+</body>
+</html>

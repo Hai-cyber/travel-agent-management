@@ -128,6 +128,21 @@ reports.get('/overview', async (c) => {
       .bind(tenantId)
       .all();
 
+    // ── 6. Email leads stats ───────────────────────────────────────────────
+    let emailLeadsTotal = 0, emailLeadsNew = 0;
+    try {
+      const emailTotal = await db
+        .prepare(`SELECT COUNT(*) AS cnt FROM email_drafts WHERE tenant_id = ? AND received_at >= ?`)
+        .bind(tenantId, cutoffSec).first();
+      const emailNew = await db
+        .prepare(`SELECT COUNT(*) AS cnt FROM email_drafts WHERE tenant_id = ? AND status = 'new' AND received_at >= ?`)
+        .bind(tenantId, cutoffSec).first();
+      emailLeadsTotal = emailTotal?.cnt ?? 0;
+      emailLeadsNew   = emailNew?.cnt   ?? 0;
+    } catch {
+      // table may not exist in older DB versions — silently skip
+    }
+
     return c.json({
       ok: true,
       period,
@@ -142,6 +157,8 @@ reports.get('/overview', async (c) => {
         revenue_month:    revMonthRow?.total   ?? 0,
         revenue_all_time: revAllTimeRow?.total ?? 0,
         revenue_currency: revPeriodRow?.currency ?? 'USD',
+        email_leads_total: emailLeadsTotal,
+        email_leads_new:   emailLeadsNew,
       },
       top_tours:    topToursRows.results  ?? [],
       monthly:      monthlyRows.results   ?? [],

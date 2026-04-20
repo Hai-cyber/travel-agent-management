@@ -162,6 +162,45 @@ Avoid framing such as:
 - `all-in-one enterprise suite`
 - `channel manager + PMS + OTA stack`
 
+## Concrete tier map (runtime)
+
+These are the four `product_tier_key` values stored in `tenants.product_tier_key` (column already exists, default `'starter_landing'`).
+
+| `product_tier_key` | Commercial name | Engines unlocked | Payment config | Custom domain |
+|---|---|---|---|---|
+| `starter_landing` | Tier 1 — Landing | Website builder only | ❌ gated | ❌ gated |
+| `tours_pro` | Tier 2 — Tours Pro | Tour engine + booking form | ✅ | ✅ |
+| `hotel_pro` | Tier 3 — Hotel Pro | Property engine + reservations | ✅ | ✅ |
+| `all_in_one` | Tier 4 — All-in-One | Tour + Hotel + all modules | ✅ | ✅ |
+
+### Feature gate rules
+
+- `starter_landing` tenants can **see** all dashboard UI surfaces (low risk — empty data)
+- `starter_landing` tenants are **blocked at the API** from saving payment config or activating a booking form
+- `custom_domain` column remains `NULL` until tier ≥ `tours_pro` or `hotel_pro`
+- Hotel-only sidebar items carry `data-tier="hotel"` in HTML — hidden on `tours_pro`
+- Tour-only sidebar items carry `data-tier="tours"` in HTML — hidden on `hotel_pro`
+- Shared items (Dashboard, Calendar, Reports, Team) carry no `data-tier` — always visible
+
+### Implementation decision log
+
+**Decision (2026-04-20):** Tier gating deferred until after the hotel engine is complete.
+
+Reason: hotel sidebar items and ops pages are still being built. Defining gates against half-built surfaces creates constant maintenance drag. Better to mark up `data-tier` as pages are built, then do a single gating pass at the end.
+
+**What to do as you build hotel pages:**
+- Add `data-tier="hotel"` to every hotel-only sidebar `<li>` as it is created.
+- Add `data-tier="tours"` to every tours-only sidebar `<li>`.
+- Leave shared items unmarked.
+
+**What the gating pass will do (deferred checkpoint CHK-R113):**
+1. Expose `product_tier_key` in `GET /api/billing/status` response (1 line in `billing.js`)
+2. Dashboard JS reads the key and hides/shows `[data-tier]` items accordingly
+3. Payment config save API rejects `starter_landing` tenants (1 guard in `payments.js`)
+4. Booking form activation rejects `starter_landing` tenants (1 guard in `bookings.js`)
+
+No DB migration needed — the column already exists.
+
 ## Companion docs
 
 - `06_PRODUCT_MODEL.md` — overall product model and layers

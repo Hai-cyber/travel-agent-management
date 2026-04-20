@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Accept Invitation — Tours Platform</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 100%);display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#fff;border-radius:16px;padding:40px;max-width:420px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+    h1{font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px}
+    .subtitle{font-size:14px;color:#64748b;margin-bottom:28px}
+    .field{margin-bottom:18px}
+    label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px}
+    input{width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
+    input:focus{border-color:#2563eb}
+    .btn{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .badge{display:inline-block;padding:2px 10px;border-radius:9px;font-size:12px;font-weight:700;background:#dbeafe;color:#1e40af;margin-bottom:16px}
+    .msg{margin-top:18px;padding:12px 14px;border-radius:8px;font-size:13px;display:none}
+    .msg.err{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;display:block}
+    .msg.ok{background:#f0fdf4;color:#166534;border:1px solid #86efac;display:block}
+    .loading{color:#64748b;font-size:14px;text-align:center;padding:20px 0}
+  </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
+</head>
+<body>
+<div class="card" id="card-loading">
+  <div class="loading">Verifying invitation…</div>
+</div>
+
+<div class="card" id="card-form" style="display:none">
+  <h1>Join the Team</h1>
+  <p class="subtitle" id="form-subtitle">Set your password to activate your account.</p>
+  <div id="invite-info" style="margin-bottom:20px"></div>
+
+  <div class="field">
+    <label>Email address</label>
+    <input type="email" id="field-email" readonly style="background:#f8fafc;color:#94a3b8;cursor:not-allowed" />
+  </div>
+  <div class="field">
+    <label for="field-pw">Create password <span style="color:#94a3b8;font-weight:400">(min. 8 characters)</span></label>
+    <input type="password" id="field-pw" placeholder="Choose a strong password" autocomplete="new-password" />
+  </div>
+  <div class="field">
+    <label for="field-pw2">Confirm password</label>
+    <input type="password" id="field-pw2" placeholder="Re-enter password" autocomplete="new-password" />
+  </div>
+
+  <button class="btn" id="btn-accept">Accept Invitation</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="card" id="card-done" style="display:none">
+  <h1 style="color:#166534">&#10003; You're in!</h1>
+  <p class="subtitle" style="margin-top:8px">Your account is ready. You can now log in to the platform.</p>
+  <a href="/dashboard.html" style="display:block;margin-top:24px;padding:12px;background:#2563eb;color:#fff;border-radius:8px;font-size:15px;font-weight:600;text-align:center;text-decoration:none">Go to Dashboard</a>
+</div>
+
+<div class="card" id="card-error" style="display:none">
+  <h1 style="color:#dc2626">Invalid Invitation</h1>
+  <p class="subtitle" style="margin-top:8px" id="error-detail">This invitation link is invalid, expired, or has already been used.</p>
+  <a href="/dashboard.html" style="display:block;margin-top:24px;padding:12px;background:#e2e8f0;color:#374151;border-radius:8px;font-size:14px;font-weight:600;text-align:center;text-decoration:none">Back to Dashboard</a>
+</div>
+
+<script>
+'use strict';
+
+const params = new URLSearchParams(window.location.search);
+const token  = params.get('token')?.trim() || '';
+
+const ROLE_LABEL = { manager: 'Manager', staff: 'Staff', provider: 'Provider', owner: 'Owner' };
+
+function show(id) {
+  ['card-loading','card-form','card-done','card-error'].forEach(c => {
+    document.getElementById(c).style.display = c === id ? '' : 'none';
+  });
+}
+
+async function verifyToken() {
+  if (!token) {
+    document.getElementById('error-detail').textContent = 'No invitation token found in the link.';
+    show('card-error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/staff/invite/verify?token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('error-detail').textContent = data.error || 'Invitation not found or expired.';
+      show('card-error');
+      return;
+    }
+
+    // Populate form
+    document.getElementById('field-email').value = data.email;
+    document.getElementById('form-subtitle').textContent =
+      `You've been invited to join ${data.tenant_name} as ${ROLE_LABEL[data.role] || data.role}.`;
+    document.getElementById('invite-info').innerHTML =
+      `<span class="badge">${ROLE_LABEL[data.role] || data.role}</span> at <strong>${escHtml(data.tenant_name)}</strong>`;
+
+    show('card-form');
+  } catch (err) {
+    document.getElementById('error-detail').textContent = 'Could not verify invitation. Please try again.';
+    show('card-error');
+  }
+}
+
+document.getElementById('btn-accept').addEventListener('click', async () => {
+  const pw  = document.getElementById('field-pw').value;
+  const pw2 = document.getElementById('field-pw2').value;
+  const msg = document.getElementById('msg');
+
+  msg.className = 'msg';
+  msg.style.display = 'none';
+
+  if (!pw || pw.length < 8) {
+    msg.textContent = 'Password must be at least 8 characters.';
+    msg.className = 'msg err';
+    return;
+  }
+  if (pw !== pw2) {
+    msg.textContent = 'Passwords do not match.';
+    msg.className = 'msg err';
+    return;
+  }
+
+  const btn = document.getElementById('btn-accept');
+  btn.disabled = true;
+  btn.textContent = 'Activating account…';
+
+  try {
+    const res = await fetch('/api/staff/invite/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password: pw }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      msg.textContent = data.error || 'Failed to accept invitation.';
+      msg.className = 'msg err';
+      return;
+    }
+
+    show('card-done');
+  } catch (err) {
+    msg.textContent = 'Network error. Please try again.';
+    msg.className = 'msg err';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Accept Invitation';
+  }
+});
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Kick off on load
+verifyToken();
+</script>
+</body>
+</html>

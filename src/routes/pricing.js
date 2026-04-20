@@ -123,6 +123,7 @@ const NUMERIC_COLUMNS = {
   tour_prices:      {
     adult_shared_room_price:         'real',
     adult_single_room_price:         'real',
+    adult_triple_room_price:         'real',
     child_shared_with_parents_price: 'real',
     infant_price:                    'real',
     is_active:                       'int',

@@ -1457,7 +1457,7 @@ publicConfig.patch('/config', async (c) => {
 
   // Merge each allowed section with shallow Object.assign.
   // Sections not present in the request body are left untouched.
-  const ALLOWED_SECTIONS = ['brand', 'content', 'features', 'custom_selectors', 'custom_imgs'];
+  const ALLOWED_SECTIONS = ['brand', 'content', 'features', 'custom_selectors', 'custom_imgs', 'analytics'];
   for (const section of ALLOWED_SECTIONS) {
     if (section in body && body[section] !== null && typeof body[section] === 'object') {
       cfg[section] = Object.assign({}, cfg[section] ?? {}, body[section]);
@@ -1576,6 +1576,27 @@ publicConfig.patch('/config', async (c) => {
                             typeof v === 'string' &&
                             v.startsWith('https://'))
     );
+  }
+
+  // [SEC] Validate analytics: only well-known ID patterns accepted to prevent script injection.
+  //   GA4:  G-XXXXXXXXXX  (letters/digits, 1-12 chars after G-)
+  //   GTM:  GTM-XXXXXXX   (letters/digits, 1-10 chars after GTM-)
+  //   FB pixel: numeric only, 1-20 digits
+  if (cfg.analytics && typeof cfg.analytics === 'object') {
+    const clean = {};
+    if (typeof cfg.analytics.ga4_id === 'string') {
+      const v = cfg.analytics.ga4_id.trim().toUpperCase();
+      if (/^G-[A-Z0-9]{1,12}$/.test(v) || v === '') clean.ga4_id = v;
+    }
+    if (typeof cfg.analytics.gtm_id === 'string') {
+      const v = cfg.analytics.gtm_id.trim().toUpperCase();
+      if (/^GTM-[A-Z0-9]{1,10}$/.test(v) || v === '') clean.gtm_id = v;
+    }
+    if (typeof cfg.analytics.fb_pixel_id === 'string') {
+      const v = cfg.analytics.fb_pixel_id.trim();
+      if (/^\d{1,20}$/.test(v) || v === '') clean.fb_pixel_id = v;
+    }
+    cfg.analytics = clean;
   }
 
   await c.env.DB

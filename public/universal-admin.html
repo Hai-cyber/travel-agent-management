@@ -475,6 +475,14 @@
       }
     }
   </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
 </head>
 <body>
   <iframe id="preview-frame" class="preview-frame" title="Universal Storefront Preview"></iframe>
@@ -1643,6 +1651,7 @@
       const socialRailUi = ui.socialRail || {};
       const menuDrawerUi = ui.menuDrawer || {};
       const contacts = state.bundle?.contacts || { contactForm: {}, channels: {} };
+      const analyticsConfig = site.analytics && typeof site.analytics === 'object' ? site.analytics : {};
       const menuItems = Array.isArray(state.bundle?.menu) ? state.bundle.menu : (state.bundle?.menu?.items || []);
       const editablePages = getPages().filter((page) => page.page_type !== 'system');
       const pageOptions = getPages()
@@ -1866,13 +1875,20 @@
       legalPanel.appendChild(makeFull(buildField('Terms Body', 'system-terms-body', termsBlock?.content?.body || '', true)));
       legalPanel.appendChild(makeFull(buildField('Privacy Body', 'system-privacy-body', privacyBlock?.content?.body || '', true)));
 
+      const analyticsPanel = createSystemTabPanel('analytics');
+      analyticsPanel.appendChild(makeSpan(buildSectionHeading('Tracking & Analytics', 'Paste your measurement IDs below. Scripts are injected into every public page. Leave a field blank to disable that service.')));
+      analyticsPanel.appendChild(buildField('Google Analytics 4 ID (e.g. G-XXXXXXXXXX)', 'system-ga4-id', analyticsConfig.ga4_id || '', false));
+      analyticsPanel.appendChild(buildField('Google Tag Manager ID (e.g. GTM-XXXXXXX)', 'system-gtm-id', analyticsConfig.gtm_id || '', false));
+      analyticsPanel.appendChild(buildField('Facebook Pixel ID (numeric)', 'system-fb-pixel-id', analyticsConfig.fb_pixel_id || '', false));
+
       form.appendChild(buildSystemTabs([
         { key: 'skin', label: 'Skin' },
         { key: 'chrome', label: 'Chrome' },
         { key: 'navigation', label: 'Navigation' },
         { key: 'contacts', label: 'Contacts' },
         { key: 'legal', label: 'Legal & SEO' },
-      ], [skinPanel, chromePanel, navigationPanel, contactsPanel, legalPanel]));
+        { key: 'analytics', label: 'Analytics' },
+      ], [skinPanel, chromePanel, navigationPanel, contactsPanel, legalPanel, analyticsPanel]));
 
       openPanel();
       applySystemPanelGuidance();
@@ -2356,6 +2372,25 @@
         const payload = await readApiPayload(response, 'Failed to save system settings');
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error || 'Failed to save system settings');
+        }
+
+        // CHK-R106: Save analytics config via PATCH /api/tenant/config
+        const ga4Id    = $('system-ga4-id')?.value?.trim() || '';
+        const gtmId    = $('system-gtm-id')?.value?.trim() || '';
+        const fbPixelId = $('system-fb-pixel-id')?.value?.trim() || '';
+        if (ga4Id !== (state.bundle?.site?.analytics?.ga4_id ?? '')
+          || gtmId !== (state.bundle?.site?.analytics?.gtm_id ?? '')
+          || fbPixelId !== (state.bundle?.site?.analytics?.fb_pixel_id ?? '')) {
+          setStatus('Saving analytics config...');
+          const analyticsRes = await fetch('/api/tenant/config', {
+            method: 'PATCH',
+            headers: { ...buildHeaders(state.tenantId), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ analytics: { ga4_id: ga4Id, gtm_id: gtmId, fb_pixel_id: fbPixelId } }),
+          });
+          const analyticsPayload = await analyticsRes.json().catch(() => ({}));
+          if (!analyticsRes.ok) {
+            throw new Error(analyticsPayload?.error || 'Failed to save analytics config');
+          }
         }
 
         state.bundle = payload;

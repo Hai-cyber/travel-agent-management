@@ -31,6 +31,7 @@ import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './
 import registerReportsRoutes from './routes/reports.js';
 import registerCalendarRoutes from './routes/calendar.js';
 import registerBookingCalRoutes from './routes/bookingcal.js';
+import registerDistributionRoutes from './routes/distribution.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
 import {
   handleListProperties,
@@ -246,6 +247,9 @@ const PROTECTED_API_PREFIXES = [
 
 app.use('/api/*', async (c, next) => {
   const pathname = new URL(c.req.url).pathname;
+  // Public endpoints nested under otherwise-protected prefixes
+  const PUBLIC_EXCEPTIONS = ['/api/universal/search'];
+  if (PUBLIC_EXCEPTIONS.some(p => pathname.startsWith(p))) { await next(); return; }
   const needsAuth = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (!needsAuth) {
     await next();
@@ -324,12 +328,83 @@ registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 registerReportsRoutes && registerReportsRoutes(app);
 registerCalendarRoutes && registerCalendarRoutes(app);
 registerBookingCalRoutes && registerBookingCalRoutes(app);
+registerDistributionRoutes && registerDistributionRoutes(app);
 registerSupplierRoutes && registerSupplierRoutes(app);
 registerSeoRoutes && registerSeoRoutes(app);
 registerStaffRoutes && registerStaffRoutes(app);
 registerEmailRoutes && registerEmailRoutes(app);
 
-// ── Platform contact form ─────────────────────────────────────────────────────
+// ── Platform-wide tour search (public, no auth) ───────────────────────────────
+// GET /api/universal/search?q=&page=&limit=
+// Searches published/on_sale tours across all tenants.
+app.get('/api/universal/search', async (c) => {
+  const q     = (c.req.query('q') || '').trim();
+  const page  = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit = Math.min(50, Math.max(1, parseInt(c.req.query('limit') || '18', 10)));
+  const offset = (page - 1) * limit;
+
+  if (!q || q.length < 2) {
+    return c.json({ ok: true, results: [], total: 0, page, limit, query: q });
+  }
+
+  try {
+    const db = c.env.DB;
+    // Keyword match against title + duration_text; safe parameterized LIKE
+    const like = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
+
+    const [rows, countRow] = await Promise.all([
+      db.prepare(`
+        SELECT t.id, t.title, t.status, t.duration_text, t.tour_type,
+               tn.name   AS tenant_name,
+               tn.custom_domain,
+               tn.subdomain,
+               COALESCE(tgs.slug, t.slug) AS tour_slug
+          FROM tours t
+          JOIN tenants tn ON tn.id = t.tenant_id
+          LEFT JOIN tour_growth_slugs tgs
+                 ON tgs.tour_id = t.id AND tgs.tenant_id = t.tenant_id
+         WHERE t.status IN ('published','on_sale')
+           AND (t.title LIKE ? OR t.duration_text LIKE ?)
+         ORDER BY t.title ASC
+         LIMIT ? OFFSET ?
+      `).bind(like, like, limit, offset).all(),
+
+      db.prepare(`
+        SELECT COUNT(*) AS cnt
+          FROM tours t
+         WHERE t.status IN ('published','on_sale')
+           AND (t.title LIKE ? OR t.duration_text LIKE ?)
+      `).bind(like, like).first(),
+    ]);
+
+    const results = (rows.results ?? []).map(r => {
+      let tour_url = '#';
+      const slug = r.tour_slug;
+      if (slug) {
+        if (r.custom_domain) {
+          tour_url = `https://${r.custom_domain}/tours/${slug}`;
+        } else if (r.subdomain) {
+          tour_url = `https://${r.subdomain}.tours-market.com/tours/${slug}`;
+        }
+      }
+      return {
+        id:            r.id,
+        title:         r.title,
+        duration_text: r.duration_text,
+        tour_type:     r.tour_type,
+        tenant_name:   r.tenant_name,
+        tour_url,
+      };
+    });
+
+    return c.json({ ok: true, results, total: countRow?.cnt ?? 0, page, limit, query: q });
+  } catch (err) {
+    console.error('[SEARCH] error', err);
+    return c.json({ error: 'Search failed.' }, 500);
+  }
+});
+
+
 app.post('/api/contact', async (c) => {
   let body;
   try { body = await c.req.json(); } catch { return c.json({ error: 'invalid_json' }, 400); }
@@ -802,7 +877,10 @@ export default {
         }
 
         // ── Path 1b: Universal site render on platform/custom host ───────
-        const requestedSlug = slugify(url.pathname.replace(/^\/+/, '').replace(/\.html$/, '') || 'home');
+        // Strip /t/ prefix used for tour detail deep-links (e.g. /t/my-tour-slug)
+        const rawPath = url.pathname.replace(/^\/+/, '').replace(/\.html$/, '');
+        const pathForSlug = rawPath.startsWith('t/') ? rawPath.slice(2) : rawPath;
+        const requestedSlug = slugify(pathForSlug || 'home');
         let pageRow = await env.DB
           .prepare('SELECT * FROM tenant_universal_pages WHERE tenant_id = ? AND slug = ?')
           .bind(tenant.id, requestedSlug)

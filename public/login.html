@@ -122,6 +122,14 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
 </head>
 <body>
 <div class="page-shell">
@@ -162,10 +170,18 @@
 <script src="/auth-page-i18n.js"></script>
 <script>
 (async () => {
+  const _loginRedirect = (() => {
+    try {
+      const r = new URLSearchParams(window.location.search).get('redirect');
+      if (r && r.startsWith('/')) return r; // only allow same-origin relative paths
+      return null;
+    } catch { return null; }
+  })();
+
   const sessionRes = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
   if (sessionRes?.authenticated && sessionRes?.session?.tenant_id) {
     localStorage.setItem('tam_tenant_id', sessionRes.session.tenant_id);
-    location.replace('/dashboard.html');
+    location.replace(_loginRedirect || '/dashboard.html');
     return;
   }
 
@@ -250,7 +266,7 @@
 
       localStorage.setItem('tam_tenant_id', data.tenant_id);
       okEl.style.display = 'block';
-      setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
+      setTimeout(() => location.replace(_loginRedirect || data.redirect_url || '/dashboard.html'), 350);
     } catch (_) {
       showError(shared('network_error', 'Connection error. Please try again.'));
       resetTurnstile();
@@ -327,7 +343,7 @@
           }
           localStorage.setItem('tam_tenant_id', data.tenant_id);
           okEl.style.display = 'block';
-          setTimeout(() => location.replace(data.redirect_url || '/dashboard.html'), 350);
+          setTimeout(() => location.replace(_loginRedirect || data.redirect_url || '/dashboard.html'), 350);
         } catch (_) {
           showError(shared('network_error', 'Connection error. Please try again.'));
           resetTurnstile();

@@ -540,7 +540,7 @@ tours.patch('/:id', async (c) => {
   catch { return c.json({ error: 'Request body is not valid JSON.' }, 400); }
 
   // Whitelist prevents column-injection; tenant_id / id / created_at are immutable
-  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug', 'category_id', 'tour_type'];
+  const ALLOWED = ['title', 'lang', 'duration_text', 'start_date', 'status', 'content_data', 'template_id', 'slug', 'category_id', 'tour_type', 'meta_title', 'meta_description', 'og_image'];
   const updates  = {};
   for (const key of ALLOWED) {
     if (!(key in body)) continue;

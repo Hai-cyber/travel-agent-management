@@ -959,6 +959,90 @@ function renderPreviewHtml(siteBundle, tourPreview) {
 </html>`;
 }
 
+/**
+ * CHK-R105 — Build JSON-LD structured data for tour detail pages.
+ * Returns an empty string for non-tour pages.
+ * Schema type: TouristTrip (https://schema.org/TouristTrip)
+ */
+function buildTourJsonLd(page, snapshot, site, priceCards, canonicalPath) {
+  if (!page || page.page_type !== 'tour_detail' || !snapshot) return '';
+
+  const name = snapshot.title || page.title || '';
+  if (!name) return '';
+
+  const description = snapshot.summary || snapshot.about_section || '';
+  const image = snapshot.hero_image || '';
+  const duration = snapshot.duration_text || '';
+
+  // Build offers from pricing cards if available
+  let offers = undefined;
+  if (Array.isArray(priceCards) && priceCards.length > 0) {
+    const prices = priceCards
+      .map(c => Number(c.adult_shared_room_price ?? c.adult_price ?? c.base_price ?? 0))
+      .filter(p => p > 0);
+    if (prices.length > 0) {
+      const lowestPrice = Math.min(...prices);
+      const currency = site.booking_currency || 'USD';
+      offers = {
+        '@type':         'Offer',
+        price:           lowestPrice,
+        priceCurrency:   currency,
+        availability:    'https://schema.org/InStock',
+        url:             canonicalPath,
+      };
+    }
+  }
+
+  const ld = {
+    '@context':   'https://schema.org',
+    '@type':      'TouristTrip',
+    name,
+    url:          canonicalPath,
+    ...(description ? { description } : {}),
+    ...(image      ? { image }       : {}),
+    ...(duration   ? { duration }    : {}),
+    ...(offers     ? { offers }      : {}),
+    provider: {
+      '@type': 'TravelAgency',
+      name:    site.site_name || '',
+    },
+  };
+
+  return `<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
+}
+
+/**
+ * CHK-R106 — Inject third-party analytics scripts in the page <head>.
+ * Supports GA4 (gtag.js), GTM, and Facebook Pixel.
+ * All IDs are pre-validated by the PATCH /api/tenant/config handler —
+ * additional escaping here is defence-in-depth.
+ */
+function buildAnalyticsScripts(analytics) {
+  if (!analytics || typeof analytics !== 'object') return '';
+  const parts = [];
+
+  // Google Tag Manager (preferred over raw gtag when GTM ID is set)
+  const gtmId = String(analytics.gtm_id || '').trim();
+  if (gtmId) {
+    parts.push(`<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${escapeHtml(gtmId)}');</script>`);
+  }
+
+  // Google Analytics 4 (only when no GTM)
+  const ga4Id = String(analytics.ga4_id || '').trim();
+  if (ga4Id && !gtmId) {
+    parts.push(`<script async src="https://www.googletagmanager.com/gtag/js?id=${escapeHtml(ga4Id)}"></script>`);
+    parts.push(`<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${escapeHtml(ga4Id)}');</script>`);
+  }
+
+  // Facebook Pixel
+  const fbId = String(analytics.fb_pixel_id || '').trim();
+  if (fbId) {
+    parts.push(`<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${escapeHtml(fbId)}');fbq('track','PageView');</script>`);
+  }
+
+  return parts.join('\n  ');
+}
+
 export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const theme = siteBundle.theme || {};
   const site = siteBundle.site || {};
@@ -1750,6 +1834,8 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   <meta property="og:image" content="${escapeHtml(ogImage)}">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="${escapeHtml(canonicalPath)}">
+  ${buildTourJsonLd(page, snapshot, site, priceCards, canonicalPath)}
+  ${buildAnalyticsScripts(site.analytics)}
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     ${buildThemeFontImports(theme)}
@@ -2909,6 +2995,13 @@ export async function getSiteBundle(tenantId, tenant, db, env = null, options = 
   });
   const tenantSiteConfig = parseJsonSafe(tenant.site_config, {});
   site.current_theme = typeof tenantSiteConfig.current_theme === 'string' ? tenantSiteConfig.current_theme.trim() : '';
+  // CHK-R106: expose analytics config (GA4, FB pixel, GTM)
+  const _a = tenantSiteConfig.analytics && typeof tenantSiteConfig.analytics === 'object' ? tenantSiteConfig.analytics : {};
+  site.analytics = {
+    ga4_id:      typeof _a.ga4_id      === 'string' ? _a.ga4_id.trim()      : '',
+    fb_pixel_id: typeof _a.fb_pixel_id === 'string' ? _a.fb_pixel_id.trim() : '',
+    gtm_id:      typeof _a.gtm_id      === 'string' ? _a.gtm_id.trim()      : '',
+  };
   const theme = normalizeTheme(themeRow);
   const contacts = localizeUniversalContacts(normalizeContacts(contactsRow), site.default_lang);
   const menu = localizeUniversalMenuItems(await listMenuItems(tenantId, db), site.group_key, site.default_lang);
@@ -4668,26 +4761,29 @@ router.get('/search', async (c) => {
   if (tenantId) {
     // [SCOPED] Per-tenant search — no public_indexing_enabled gate
     const countRow = await c.env.DB
-      .prepare(`SELECT COUNT(*) as n FROM tours t WHERE t.tenant_id = ? AND t.status = 'published' AND (t.title LIKE ? OR t.duration_text LIKE ?)`)
+      .prepare(`SELECT COUNT(*) as n FROM tours t WHERE t.tenant_id = ? AND t.status IN ('published','on_sale') AND (t.title LIKE ? OR t.duration_text LIKE ?)`)
       .bind(tenantId, pattern, pattern)
       .first();
     total = Number(countRow?.n ?? 0);
 
     rows = (await c.env.DB
       .prepare(`SELECT t.id, t.title, t.slug, t.duration_text, t.tour_type, t.published_url,
-                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain
+                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain,
+                       up.slug AS page_slug
                 FROM tours t
                 JOIN tenants te ON te.id = t.tenant_id
-                WHERE t.tenant_id = ? AND t.status = 'published'
+                LEFT JOIN tenant_universal_pages up
+                       ON up.tenant_id = t.tenant_id AND up.page_key = ('tour-' || t.id)
+                WHERE t.tenant_id = ? AND t.status IN ('published','on_sale')
                   AND (t.title LIKE ? OR t.duration_text LIKE ?)
                 ORDER BY t.created_at DESC LIMIT ? OFFSET ?`)
       .bind(tenantId, pattern, pattern, limit, offset)
       .all()).results ?? [];
   } else {
-    // [PLATFORM] Cross-tenant search — only publicly indexed tenants
+    // [PLATFORM] Cross-tenant search — publicly indexed tenants OR any tenant with on_sale/published tours
     const countRow = await c.env.DB
       .prepare(`SELECT COUNT(*) as n FROM tours t JOIN tenants te ON te.id = t.tenant_id
-                WHERE t.status = 'published' AND te.public_indexing_enabled = 1
+                WHERE t.status IN ('published','on_sale')
                   AND (t.title LIKE ? OR t.duration_text LIKE ?)`)
       .bind(pattern, pattern)
       .first();
@@ -4695,10 +4791,13 @@ router.get('/search', async (c) => {
 
     rows = (await c.env.DB
       .prepare(`SELECT t.id, t.title, t.slug, t.duration_text, t.tour_type, t.published_url,
-                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain
+                       te.id AS tenant_id, te.name AS tenant_name, te.subdomain, te.custom_domain,
+                       up.slug AS page_slug
                 FROM tours t
                 JOIN tenants te ON te.id = t.tenant_id
-                WHERE t.status = 'published' AND te.public_indexing_enabled = 1
+                LEFT JOIN tenant_universal_pages up
+                       ON up.tenant_id = t.tenant_id AND up.page_key = ('tour-' || t.id)
+                WHERE t.status IN ('published','on_sale')
                   AND (t.title LIKE ? OR t.duration_text LIKE ?)
                 ORDER BY t.created_at DESC LIMIT ? OFFSET ?`)
       .bind(pattern, pattern, limit, offset)
@@ -4707,13 +4806,15 @@ router.get('/search', async (c) => {
 
   const results = rows.map((r) => {
     const host = r.custom_domain || (r.subdomain ? `${r.subdomain}.tours-market.com` : null);
+    // Use the page slug from tenant_universal_pages if available (correct linkable path)
+    const linkSlug = r.page_slug || r.slug;
     return {
       tour_id: r.id,
       title: r.title,
-      slug: r.slug,
+      slug: linkSlug,
       duration_text: r.duration_text || null,
       tour_type: r.tour_type || 'group_tour',
-      tour_url: r.published_url || (host ? `https://${host}/t/${r.slug}` : `/p/${r.tenant_id}/${r.slug}`),
+      tour_url: r.published_url || (host && linkSlug ? `https://${host}/t/${linkSlug}` : `/p/${r.tenant_id}/${linkSlug}`),
       tenant_id: r.tenant_id,
       tenant_name: r.tenant_name,
       tenant_host: host,
