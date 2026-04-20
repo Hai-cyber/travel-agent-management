@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="team.meta.title">Team — Agent Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #F1F5F9; color: #1a1a2e; min-height: 100vh; }
+
+    .topbar {
+      background: #1e1e2e; color: #cdd6f4; padding: 0 20px;
+      display: flex; align-items: center; gap: 16px; height: 52px;
+      border-bottom: 2px solid #313244;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 700; color: #cba6f7; flex-shrink: 0; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
+    .topbar-right a:hover { color: #cdd6f4; }
+    #connect-status { font-size: 12px; color: #a6e3a1; }
+
+    .app-layout { display: flex; min-height: calc(100vh - 52px); }
+
+    .sidebar {
+      width: 200px; flex-shrink: 0;
+      background: #fff; border-right: 1px solid #e2e8f0;
+      padding: 12px 0; position: sticky; top: 0;
+      height: calc(100vh - 52px); overflow-y: auto; z-index: 9;
+    }
+    .sidebar-group { margin-bottom: 4px; }
+    .sidebar-group-label {
+      padding: 10px 16px 3px;
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #94a3b8;
+    }
+    .sidebar-item {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; border-left: 3px solid transparent;
+      padding: 8px 16px 8px 19px;
+      font-size: 13px; font-weight: 500; color: #475569;
+      cursor: pointer; text-decoration: none; font-family: inherit;
+      line-height: 1.4; transition: background .1s, color .1s;
+    }
+    .sidebar-item:hover { background: #f1f5f9; color: #1e293b; }
+    .sidebar-item.active { color: #6366F1; border-left-color: #6366F1; background: #eef2ff; font-weight: 600; }
+    .sidebar-divider { border: none; border-top: 1px solid #e2e8f0; margin: 6px 0; }
+
+    .main-content { flex: 1; padding: 28px 32px; min-width: 0; }
+
+    .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; margin-bottom: 24px; overflow: hidden; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-header h2 { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .card-body { padding: 20px; }
+    .empty-state { text-align: center; padding: 32px; color: #94a3b8; font-size: 14px; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; font-family: inherit; }
+    .btn-primary { background: #6366F1; color: #fff; border-color: #6366F1; }
+    .btn-primary:hover { background: #4F46E5; }
+    .btn-ghost { background: transparent; color: #475569; border-color: #d1d5db; }
+    .btn-ghost:hover { background: #f1f5f9; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    /* Upgrade banner */
+    .upgrade-banner {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
+      padding: 14px 18px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px; font-size: 13px; color: #7c2d12;
+    }
+    .upgrade-banner strong { color: #c2410c; }
+
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); opacity: 0; transition: all .3s; background: #1e293b; color: #f1f5f9; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 999; pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.err { background: #dc2626; }
+  </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+    <span data-i18n="team.page_title">Team</span>
+  </h1>
+  <div class="topbar-right">
+    <span id="connect-status"></span>
+    <a href="tour-config.html" data-i18n="tour_config.tabs.tour_builder">Tour Builder</a>
+    <a href="dashboard.html" data-i18n="tour_config.header.dashboard">Dashboard</a>
+  </div>
+</header>
+
+<div class="app-layout">
+  <nav class="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-group-label" data-i18n="tour_config.tabs.tour_builder">Tour Builder</div>
+      <a class="sidebar-item" href="tour-config.html#tours"   data-i18n="tour_config.tabs.tours">Tours</a>
+      <a class="sidebar-item" href="tour-config.html#stops"   data-i18n="tour_config.tabs.stops">Stops</a>
+      <a class="sidebar-item" href="tour-config.html#pricing" data-i18n="tour_config.tabs.pricing">Price Config</a>
+      <a class="sidebar-item" href="tour-config.html#tagging" data-i18n="tour_config.tabs.tagging">Tagging</a>
+      <a class="sidebar-item" href="tour-config.html#content" data-i18n="tour_config.tabs.content">Content</a>
+      <a class="sidebar-item" href="tour-config.html#preview" data-i18n="tour_config.tabs.preview">Preview</a>
+      <a class="sidebar-item" href="tour-config.html#publish" data-i18n="tour_config.tabs.publish">Publish</a>
+    </div>
+    <hr class="sidebar-divider" />
+    <div class="sidebar-group">
+      <div class="sidebar-group-label" data-i18n="tour_config.tabs.business">Business</div>
+      <a class="sidebar-item" href="suppliers.html" data-i18n="tour_config.tabs.suppliers">Suppliers</a>
+      <a class="sidebar-item active" href="team.html" data-i18n="tour_config.tabs.team">Team</a>
+    </div>
+    <hr class="sidebar-divider" />
+    <a class="sidebar-item" href="inbox.html" data-i18n="tour_config.tabs.inbox">Inbox</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="card" style="max-width:700px">
+      <div class="card-header">
+        <h2 data-i18n="team.card_title">Team Members</h2>
+        <button class="btn btn-primary btn-sm" id="btn-invite-open" data-i18n="team.btn_invite">+ Invite Member</button>
+      </div>
+      <div class="card-body">
+
+        <!-- Upgrade banner (shown when limit reached) -->
+        <div class="upgrade-banner" style="display:none" id="upgrade-banner">
+          ⚠️ <span id="upgrade-msg" data-i18n="team.upgrade_limit_msg">Team member limit reached for your current plan.</span>
+          <strong style="margin-left:auto;white-space:nowrap" data-i18n="team.upgrade_cta">Upgrade to add more →</strong>
+        </div>
+
+        <!-- Invite form -->
+        <div id="team-invite-form" style="display:none;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#0284c7;margin-bottom:12px" data-i18n="team.invite_heading">Invite a new team member</div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px" data-i18n="team.field_email">Email address *</label>
+              <input id="invite-email" type="email" placeholder="colleague@example.com" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px" data-i18n="team.field_role">Role</label>
+              <select id="invite-role" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+                <option value="staff"    data-i18n="team.role_staff">Staff</option>
+                <option value="manager"  data-i18n="team.role_manager">Manager</option>
+                <option value="provider" data-i18n="team.role_provider">Provider</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button class="btn btn-ghost btn-sm" id="btn-invite-cancel" data-i18n="team.btn_cancel">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="btn-invite-send" data-i18n="team.btn_send">Send Invite</button>
+          </div>
+        </div>
+
+        <!-- Active members list -->
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px" data-i18n="team.active_members">Active Members</div>
+        <div id="team-members-list"><div class="empty-state">Loading…</div></div>
+
+        <!-- Pending invites list -->
+        <div id="team-pending-section" style="margin-top:24px;display:none">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px" data-i18n="team.pending_invites">Pending Invitations</div>
+          <div id="team-pending-list"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── i18n runtime ───────────────────────────────────────────────────────────
+let UI_MESSAGES = {}, UI_MESSAGES_FALLBACK = {};
+function getNestedValue(dict, key) {
+  return String(key).split('.').reduce((n, p) => n?.[p], dict);
+}
+function applyVars(tmpl, vars = {}) {
+  return String(tmpl).replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
+}
+function ti(key, vars = {}) {
+  return applyVars(getNestedValue(UI_MESSAGES, key) ?? getNestedValue(UI_MESSAGES_FALLBACK, key) ?? key, vars);
+}
+function applyStaticTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = ti(el.getAttribute('data-i18n')); });
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = ti(el.getAttribute('data-i18n-placeholder')); });
+  const titleEl = document.querySelector('title[data-i18n]');
+  if (titleEl) document.title = ti(titleEl.getAttribute('data-i18n'));
+}
+async function loadUiLocale() {
+  const lang = localStorage.getItem('tc_ui_lang') || 'en';
+  try {
+    const [main, fb] = await Promise.all([
+      fetch(`/api/i18n/${encodeURIComponent(lang)}`).then(r => r.json()).catch(() => ({})),
+      lang !== 'en' ? fetch('/api/i18n/en').then(r => r.json()).catch(() => ({})) : Promise.resolve({}),
+    ]);
+    UI_MESSAGES = main?.messages || {};
+    UI_MESSAGES_FALLBACK = lang === 'en' ? UI_MESSAGES : (fb?.messages || {});
+    document.documentElement.lang = lang;
+    applyStaticTranslations();
+  } catch { /* use defaults */ }
+}
+
+const pageParams = new URLSearchParams(window.location.search);
+const S = {
+  tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '',
+  baseUrl: window.location.origin,
+  teamLimit: 0,
+  tierKey: '',
+};
+
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 4000);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const h = () => ({ 'Content-Type': 'application/json', 'X-Tenant-ID': S.tenantId });
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign(h(), opts.headers ?? {});
+  const res = await fetch(S.baseUrl + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    const ret = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.replace('/login.html?redirect=' + ret);
+    throw new Error('Session expired');
+  }
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+async function resolveTenantContext() {
+  const payload = await fetch('/api/auth/session', { credentials: 'same-origin' }).then(r => r.json()).catch(() => null);
+  if (!payload?.authenticated || !payload?.session?.tenant_id) {
+    const ret = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.replace('/login.html?redirect=' + ret);
+    return '';
+  }
+  S.tenantId = payload.session.tenant_id;
+  localStorage.setItem('tam_tenant_id', S.tenantId);
+  localStorage.setItem('tc_tenant', S.tenantId);
+  return S.tenantId;
+}
+
+const ROLE_BADGE = {
+  owner:    `<span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px">${ti('team.role_owner')}</span>`,
+  manager:  `<span style="background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px">${ti('team.role_manager')}</span>`,
+  staff:    `<span style="background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px">${ti('team.role_staff')}</span>`,
+  provider: `<span style="background:#fae8ff;color:#6b21a8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px">${ti('team.role_provider')}</span>`,
+};
+
+async function loadTeam() {
+  const container = document.getElementById('team-members-list');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state">Loading team…</div>';
+  try {
+    const data = await api('/api/staff');
+    // Store tier info
+    if (data.tier) {
+      S.teamLimit = data.tier.team_limit ?? 0;
+      S.tierKey = data.tier.key ?? '';
+    }
+    const nonOwnerCount = (data.members || []).filter(m => m.role !== 'owner').length;
+    const banner = document.getElementById('upgrade-banner');
+    const upgradeMsg = document.getElementById('upgrade-msg');
+    if (banner) {
+      if (S.teamLimit === 0 || nonOwnerCount >= S.teamLimit) {
+        banner.style.display = 'flex';
+        if (upgradeMsg) upgradeMsg.textContent = S.teamLimit === 0
+          ? 'Your current plan (starter) does not include additional team members. Upgrade to add staff.'
+          : `Team limit reached (${nonOwnerCount}/${S.teamLimit}). Upgrade to add more members.`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+    renderTeamMembers(data.members || []);
+    renderPendingInvites(data.pending_invites || []);
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state" style="color:#ef4444">Failed to load team: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderTeamMembers(members) {
+  const container = document.getElementById('team-members-list');
+  if (!container) return;
+  if (!members.length) { container.innerHTML = `<div class="empty-state">${esc(ti('team.empty'))}</div>`; return; }
+  container.innerHTML = members.map(m => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;background:#fff">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.email)}</div>
+        <div style="margin-top:4px">${ROLE_BADGE[m.role] || m.role}</div>
+      </div>
+      ${m.role !== 'owner' ? `
+      <div style="display:flex;gap:6px;align-items:center;margin-left:12px;flex-shrink:0">
+        <select onchange="changeTeamRole('${esc(m.id)}', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">
+          <option value="manager"  ${m.role==='manager'  ? 'selected':''}>Manager</option>
+          <option value="staff"    ${m.role==='staff'    ? 'selected':''}>Staff</option>
+          <option value="provider" ${m.role==='provider' ? 'selected':''}>Provider</option>
+        </select>
+        <button onclick="removeTeamMember('${esc(m.id)}', '${esc(m.email)}')" class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:#fca5a5" title="Remove">✕</button>
+      </div>` : ''}
+    </div>`).join('');
+}
+
+function renderPendingInvites(invites) {
+  const section = document.getElementById('team-pending-section');
+  const container = document.getElementById('team-pending-list');
+  if (!section || !container) return;
+  if (!invites.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  container.innerHTML = invites.map(inv => {
+    const expDate = new Date(inv.expires_at * 1000).toLocaleDateString();
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px dashed #bae6fd;border-radius:8px;margin-bottom:8px;background:#f0f9ff">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#0f172a">${esc(inv.email)}</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">${ROLE_BADGE[inv.role] || inv.role} &mdash; ${esc(ti('team.expires'))} ${expDate}</div>
+      </div>
+      <button onclick="revokeInvite('${esc(inv.id)}')" class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:#fca5a5;flex-shrink:0;margin-left:12px" data-i18n="team.btn_revoke">${esc(ti('team.btn_revoke'))}</button>
+    </div>`;
+  }).join('');
+}
+
+async function changeTeamRole(userId, role) {
+  try {
+    await api(`/api/staff/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) });
+    toast(ti('team.toast_role_updated'));
+    loadTeam();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+    loadTeam();
+  }
+}
+
+async function removeTeamMember(userId, email) {
+  if (!confirm(ti('team.confirm_remove', { email }))) return;
+  try {
+    await api(`/api/staff/${userId}`, { method: 'DELETE' });
+    toast(ti('team.toast_removed'));
+    loadTeam();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+async function revokeInvite(inviteId) {
+  if (!confirm(ti('team.confirm_revoke'))) return;
+  try {
+    await api(`/api/staff/invites/${inviteId}`, { method: 'DELETE' });
+    toast(ti('team.toast_invite_revoked'));
+    loadTeam();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+document.getElementById('btn-invite-open').addEventListener('click', () => {
+  const form = document.getElementById('team-invite-form');
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+});
+document.getElementById('btn-invite-cancel').addEventListener('click', () => {
+  document.getElementById('team-invite-form').style.display = 'none';
+  document.getElementById('invite-email').value = '';
+});
+document.getElementById('btn-invite-send').addEventListener('click', async () => {
+  const email = document.getElementById('invite-email')?.value?.trim();
+  const role  = document.getElementById('invite-role')?.value || 'staff';
+  if (!email) { toast(ti('team.error_email_required'), 'err'); return; }
+  const btn = document.getElementById('btn-invite-send');
+  btn.disabled = true; btn.textContent = ti('team.sending');
+  try {
+    await api('/api/staff/invite', { method: 'POST', body: JSON.stringify({ email, role }) });
+    toast(ti('team.toast_invite_sent', { email }));
+    document.getElementById('team-invite-form').style.display = 'none';
+    document.getElementById('invite-email').value = '';
+    loadTeam();
+  } catch (e) {
+    if (e.message && e.message.includes('limit')) {
+      document.getElementById('upgrade-banner').style.display = 'flex';
+    }
+    toast('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = ti('team.btn_send');
+  }
+});
+
+(async () => {
+  await loadUiLocale();
+  const tenantId = await resolveTenantContext();
+  if (!tenantId) return;
+  await loadTeam();
+})();
+</script>
+</body>
+</html>

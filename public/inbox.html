@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="inbox.meta.title">Inbox — Agent Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #F1F5F9; color: #1a1a2e; min-height: 100vh; }
+
+    .topbar {
+      background: #1e1e2e; color: #cdd6f4; padding: 0 20px;
+      display: flex; align-items: center; gap: 16px; height: 52px;
+      border-bottom: 2px solid #313244;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 700; color: #cba6f7; flex-shrink: 0; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .topbar-right a { color: #6e738d; font-size: 12px; text-decoration: none; }
+    .topbar-right a:hover { color: #cdd6f4; }
+    #connect-status { font-size: 12px; color: #a6e3a1; }
+
+    .app-layout { display: flex; min-height: calc(100vh - 52px); }
+
+    .sidebar {
+      width: 200px; flex-shrink: 0;
+      background: #fff; border-right: 1px solid #e2e8f0;
+      padding: 12px 0; position: sticky; top: 0;
+      height: calc(100vh - 52px); overflow-y: auto; z-index: 9;
+    }
+    .sidebar-group { margin-bottom: 4px; }
+    .sidebar-group-label {
+      padding: 10px 16px 3px;
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #94a3b8;
+    }
+    .sidebar-item {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; border-left: 3px solid transparent;
+      padding: 8px 16px 8px 19px;
+      font-size: 13px; font-weight: 500; color: #475569;
+      cursor: pointer; text-decoration: none; font-family: inherit;
+      line-height: 1.4; transition: background .1s, color .1s;
+    }
+    .sidebar-item:hover { background: #f1f5f9; color: #1e293b; }
+    .sidebar-item.active { color: #6366F1; border-left-color: #6366F1; background: #eef2ff; font-weight: 600; }
+    .sidebar-divider { border: none; border-top: 1px solid #e2e8f0; margin: 6px 0; }
+
+    .main-content { flex: 1; padding: 28px 32px; min-width: 0; }
+
+    .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; margin-bottom: 24px; overflow: hidden; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .card-header h2 { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .empty-state { text-align: center; padding: 32px; color: #94a3b8; font-size: 14px; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; font-family: inherit; text-decoration: none; }
+    .btn-primary { background: #6366F1; color: #fff; border-color: #6366F1; }
+    .btn-primary:hover { background: #4F46E5; }
+    .btn-ghost { background: transparent; color: #475569; border-color: #d1d5db; }
+    .btn-ghost:hover { background: #f1f5f9; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    .inbox-item { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background .15s; }
+    .inbox-item:hover { background: #f8fafc; }
+    .inbox-item.selected { background: #eff6ff; }
+
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); opacity: 0; transition: all .3s; background: #1e293b; color: #f1f5f9; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 999; pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.err { background: #dc2626; }
+  </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+    <span data-i18n="inbox.page_title">Inbox</span>
+    <span id="inbox-badge" style="display:none;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;vertical-align:middle;margin-left:6px"></span>
+  </h1>
+  <div class="topbar-right">
+    <span id="connect-status"></span>
+    <a href="tour-config.html" data-i18n="tour_config.tabs.tour_builder">Tour Builder</a>
+    <a href="dashboard.html" data-i18n="tour_config.header.dashboard">Dashboard</a>
+  </div>
+</header>
+
+<div class="app-layout">
+  <nav class="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-group-label" data-i18n="tour_config.tabs.tour_builder">Tour Builder</div>
+      <a class="sidebar-item" href="tour-config.html#tours"   data-i18n="tour_config.tabs.tours">Tours</a>
+      <a class="sidebar-item" href="tour-config.html#stops"   data-i18n="tour_config.tabs.stops">Stops</a>
+      <a class="sidebar-item" href="tour-config.html#pricing" data-i18n="tour_config.tabs.pricing">Price Config</a>
+      <a class="sidebar-item" href="tour-config.html#tagging" data-i18n="tour_config.tabs.tagging">Tagging</a>
+      <a class="sidebar-item" href="tour-config.html#content" data-i18n="tour_config.tabs.content">Content</a>
+      <a class="sidebar-item" href="tour-config.html#preview" data-i18n="tour_config.tabs.preview">Preview</a>
+      <a class="sidebar-item" href="tour-config.html#publish" data-i18n="tour_config.tabs.publish">Publish</a>
+    </div>
+    <hr class="sidebar-divider" />
+    <div class="sidebar-group">
+      <div class="sidebar-group-label" data-i18n="tour_config.tabs.business">Business</div>
+      <a class="sidebar-item" href="suppliers.html" data-i18n="tour_config.tabs.suppliers">Suppliers</a>
+      <a class="sidebar-item" href="team.html"       data-i18n="tour_config.tabs.team">Team</a>
+    </div>
+    <hr class="sidebar-divider" />
+    <a class="sidebar-item active" href="inbox.html" data-i18n="tour_config.tabs.inbox">Inbox</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="card" style="max-width:960px">
+      <div class="card-header">
+        <h2 data-i18n="inbox.card_title">Email Inbox</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="inbox-status-filter" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+            <option value="new"      data-i18n="inbox.status_new">New</option>
+            <option value="reviewed" data-i18n="inbox.status_reviewed">Reviewed</option>
+            <option value="replied"  data-i18n="inbox.status_replied">Replied</option>
+            <option value="archived" data-i18n="inbox.status_archived">Archived</option>
+            <option value="all"      data-i18n="inbox.status_all">All</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="btn-inbox-refresh" data-i18n="inbox.btn_refresh">Refresh</button>
+        </div>
+      </div>
+      <div style="padding:0">
+        <!-- Split view -->
+        <div style="display:flex;min-height:500px">
+          <!-- List pane -->
+          <div id="inbox-list-pane" style="width:360px;flex-shrink:0;border-right:1px solid #e2e8f0;overflow-y:auto;max-height:calc(100vh - 180px)">
+            <div id="inbox-list"><div class="empty-state" style="padding:24px">Loading…</div></div>
+          </div>
+          <!-- Detail pane -->
+          <div id="inbox-detail-pane" style="flex:1;padding:20px;overflow-y:auto;max-height:calc(100vh - 180px)">
+            <div style="color:#94a3b8;font-size:14px;text-align:center;padding:80px 20px" data-i18n="inbox.select_prompt">Select an email to view</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── i18n runtime ───────────────────────────────────────────────────────────
+let UI_MESSAGES = {}, UI_MESSAGES_FALLBACK = {};
+function getNestedValue(dict, key) {
+  return String(key).split('.').reduce((n, p) => n?.[p], dict);
+}
+function applyVars(tmpl, vars = {}) {
+  return String(tmpl).replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
+}
+function ti(key, vars = {}) {
+  return applyVars(getNestedValue(UI_MESSAGES, key) ?? getNestedValue(UI_MESSAGES_FALLBACK, key) ?? key, vars);
+}
+function applyStaticTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = ti(el.getAttribute('data-i18n')); });
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = ti(el.getAttribute('data-i18n-placeholder')); });
+  const titleEl = document.querySelector('title[data-i18n]');
+  if (titleEl) document.title = ti(titleEl.getAttribute('data-i18n'));
+}
+async function loadUiLocale() {
+  const lang = localStorage.getItem('tc_ui_lang') || 'en';
+  try {
+    const [main, fb] = await Promise.all([
+      fetch(`/api/i18n/${encodeURIComponent(lang)}`).then(r => r.json()).catch(() => ({})),
+      lang !== 'en' ? fetch('/api/i18n/en').then(r => r.json()).catch(() => ({})) : Promise.resolve({}),
+    ]);
+    UI_MESSAGES = main?.messages || {};
+    UI_MESSAGES_FALLBACK = lang === 'en' ? UI_MESSAGES : (fb?.messages || {});
+    document.documentElement.lang = lang;
+    applyStaticTranslations();
+  } catch { /* use defaults */ }
+}
+
+const pageParams = new URLSearchParams(window.location.search);
+const S = {
+  tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '',
+  baseUrl: window.location.origin,
+};
+
+let inboxCurrentDraftId = null;
+
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 4000);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const h = () => ({ 'Content-Type': 'application/json', 'X-Tenant-ID': S.tenantId });
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign(h(), opts.headers ?? {});
+  const res = await fetch(S.baseUrl + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    const ret = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.replace('/login.html?redirect=' + ret);
+    throw new Error('Session expired');
+  }
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+async function resolveTenantContext() {
+  const payload = await fetch('/api/auth/session', { credentials: 'same-origin' }).then(r => r.json()).catch(() => null);
+  if (!payload?.authenticated || !payload?.session?.tenant_id) {
+    const ret = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.replace('/login.html?redirect=' + ret);
+    return '';
+  }
+  S.tenantId = payload.session.tenant_id;
+  localStorage.setItem('tam_tenant_id', S.tenantId);
+  localStorage.setItem('tc_tenant', S.tenantId);
+  return S.tenantId;
+}
+
+const STATUS_COLORS = {
+  new:      { bg:'#eff6ff', color:'#1e40af' },
+  reviewed: { bg:'#f0fdf4', color:'#166534' },
+  replied:  { bg:'#fef9c3', color:'#92400e' },
+  archived: { bg:'#f1f5f9', color:'#64748b' },
+};
+
+function tryParseJson(str) {
+  try { return JSON.parse(str); } catch { return null; }
+}
+
+async function loadInbox() {
+  const listEl = document.getElementById('inbox-list');
+  if (!listEl) return;
+  listEl.innerHTML = `<div class="empty-state" style="padding:24px">${esc(ti('inbox.loading'))}</div>`;
+  const status = document.getElementById('inbox-status-filter')?.value || 'new';
+  try {
+    const data = await api(`/api/email/drafts?status=${encodeURIComponent(status)}&limit=100`);
+    const drafts = data.drafts || [];
+    renderInboxList(drafts);
+    const badge = document.getElementById('inbox-badge');
+    if (badge) {
+      if (status === 'new' && drafts.length) {
+        badge.textContent = drafts.length;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    listEl.innerHTML = `<div class="empty-state" style="padding:24px;color:#ef4444">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderInboxList(drafts) {
+  const listEl = document.getElementById('inbox-list');
+  if (!listEl) return;
+  if (!drafts.length) { listEl.innerHTML = `<div class="empty-state" style="padding:24px">${esc(ti('inbox.empty'))}</div>`; return; }
+  listEl.innerHTML = drafts.map(d => {
+    const col = STATUS_COLORS[d.status] || STATUS_COLORS.new;
+    const date = d.received_at ? new Date(d.received_at * 1000).toLocaleDateString() : '';
+    const hints = d.parsed_json ? tryParseJson(d.parsed_json) : null;
+    const paxHint = hints?.pax ? `<span style="font-size:11px;color:#64748b">${hints.pax} pax</span>` : '';
+    return `
+    <div class="inbox-item${inboxCurrentDraftId === d.id ? ' selected' : ''}" data-id="${esc(d.id)}" onclick="selectInboxDraft('${esc(d.id)}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+        <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${esc(d.from_name || d.from_email || ti('inbox.unknown_sender'))}</div>
+        <div style="font-size:11px;color:#94a3b8;flex-shrink:0;margin-left:6px">${date}</div>
+      </div>
+        <div style="font-size:12px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.subject || ti('inbox.no_subject'))}</div>
+      <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
+        <span style="background:${col.bg};color:${col.color};font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">${d.status}</span>
+        ${paxHint}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function selectInboxDraft(id) {
+  inboxCurrentDraftId = id;
+  document.querySelectorAll('.inbox-item').forEach(el => el.classList.toggle('selected', el.dataset.id === id));
+  const detail = document.getElementById('inbox-detail-pane');
+  if (!detail) return;
+  detail.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:40px">' + esc(ti('inbox.loading')) + '</div>';
+  try {
+    const data = await api(`/api/email/drafts/${id}`);
+    renderInboxDetail(data.draft);
+  } catch (e) {
+    detail.innerHTML = `<div style="color:#ef4444;padding:20px">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderInboxDetail(d) {
+  const detail = document.getElementById('inbox-detail-pane');
+  if (!detail || !d) return;
+  const hints = d.parsed_json ? tryParseJson(d.parsed_json) : null;
+  const hintsHtml = hints ? `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">${esc(ti('inbox.extracted_info'))}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px">
+        ${hints.tour_interest ? `<div><span style="color:#64748b">${esc(ti('inbox.field_tour'))}:</span> ${esc(hints.tour_interest)}</div>` : ''}
+        ${hints.pax           ? `<div><span style="color:#64748b">${esc(ti('inbox.field_pax'))}:</span> ${hints.pax}</div>` : ''}
+        ${hints.dates         ? `<div><span style="color:#64748b">${esc(ti('inbox.field_dates'))}:</span> ${esc(hints.dates)}</div>` : ''}
+        ${hints.budget        ? `<div><span style="color:#64748b">${esc(ti('inbox.field_budget'))}:</span> ${esc(hints.budget)}</div>` : ''}
+        ${hints.phone         ? `<div><span style="color:#64748b">${esc(ti('inbox.field_phone'))}:</span> ${esc(hints.phone)}</div>` : ''}
+      </div>
+    </div>` : '';
+  const receivedDate = d.received_at ? new Date(d.received_at * 1000).toLocaleString() : '';
+  detail.innerHTML = `
+    <div style="margin-bottom:20px">
+      <h3 style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px">${esc(d.subject || '(no subject)')}</h3>
+      <div style="font-size:13px;color:#64748b;margin-bottom:2px">${esc(ti('inbox.label_from'))}: <strong>${esc(d.from_name || '')} &lt;${esc(d.from_email || '')}&gt;</strong></div>
+      ${d.to_email ? `<div style="font-size:12px;color:#94a3b8">${esc(ti('inbox.label_to'))}: ${esc(d.to_email)}</div>` : ''}
+      <div style="font-size:12px;color:#94a3b8">${esc(ti('inbox.label_received'))}: ${receivedDate}</div>
+    </div>
+    ${hintsHtml}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:20px;font-size:13px;white-space:pre-wrap;line-height:1.6;color:#374151;max-height:300px;overflow-y:auto">${esc(d.body_text || ti('inbox.no_text'))}</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px">${esc(ti('inbox.internal_notes'))}</label>
+      <textarea id="inbox-notes-${esc(d.id)}" rows="3" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;resize:vertical">${esc(d.notes || '')}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="inbox-status-${esc(d.id)}" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+        <option value="new"      ${d.status==='new'      ? 'selected':''}>${esc(ti('inbox.status_new'))}</option>
+        <option value="reviewed" ${d.status==='reviewed' ? 'selected':''}>${esc(ti('inbox.status_reviewed'))}</option>
+        <option value="replied"  ${d.status==='replied'  ? 'selected':''}>${esc(ti('inbox.status_replied'))}</option>
+        <option value="archived" ${d.status==='archived' ? 'selected':''}>${esc(ti('inbox.status_archived'))}</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="saveInboxDraft('${esc(d.id)}')">${esc(ti('inbox.btn_save'))}</button>
+      ${d.from_email ? `<a href="mailto:${esc(d.from_email)}?subject=Re: ${encodeURIComponent(d.subject || '')}" class="btn btn-ghost btn-sm">${esc(ti('inbox.btn_reply'))}</a>` : ''}
+    </div>`;
+}
+
+async function saveInboxDraft(id) {
+  const status = document.getElementById(`inbox-status-${id}`)?.value;
+  const notes  = document.getElementById(`inbox-notes-${id}`)?.value?.trim() || null;
+  try {
+    await api(`/api/email/drafts/${id}`, { method: 'PATCH', body: JSON.stringify({ status, notes }) });
+    toast(ti('inbox.toast_saved'));
+    loadInbox();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+document.getElementById('inbox-status-filter').addEventListener('change', loadInbox);
+document.getElementById('btn-inbox-refresh').addEventListener('click', loadInbox);
+
+(async () => {
+  await loadUiLocale();
+  const tenantId = await resolveTenantContext();
+  if (!tenantId) return;
+  await loadInbox();
+})();
+</script>
+</body>
+</html>

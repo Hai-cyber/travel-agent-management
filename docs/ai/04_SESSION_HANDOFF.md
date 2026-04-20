@@ -1,4 +1,46 @@
 ## Latest Handoff
+Date: 2026-04-20
+Checkpoint: i18n for Suppliers / Team / Inbox pages + MS Clarity tracking installed
+
+### What was completed
+
+- **Locale files — all 11 updated** (`src/locales/*.json`):
+  - Added `tour_config.tabs.tour_builder`, `business`, `suppliers`, `team`, `inbox` keys to all locales
+  - Added top-level `suppliers.*`, `team.*`, `inbox.*` sections with full translations in: en, vi, zh, ja, ko, de, fr, es, th, en-gb, en-au
+  - Fixed duplicate keys in `en.json` and `vi.json`; filled missing keys in `zh`, `ja`, `ko`, `de`, `th`
+  - Script: `scripts/add-i18n-pages.mjs` (one-shot, already executed)
+
+- **`public/suppliers.html`** — full i18n:
+  - `data-i18n` / `data-i18n-placeholder` attributes on title, topbar, sidebar, card header, search filters, all form labels and buttons
+  - i18n runtime (`getNestedValue`, `applyVars`, `ti`, `applyStaticTranslations`, `loadUiLocale`) injected into `<script>`
+  - All JS hardcoded strings replaced with `ti()` calls
+  - Boot IIFE now calls `await loadUiLocale()` first
+
+- **`public/team.html`** — full i18n:
+  - Same runtime + `data-i18n` treatment on topbar, sidebar, invite form, role badges, section headings
+  - `ROLE_BADGE` map now uses `ti()` for translated labels
+  - All `toast()`, `confirm()`, button label resets use `ti()` with `{{email}}` interpolation
+
+- **`public/inbox.html`** — full i18n:
+  - Same runtime + `data-i18n` treatment on topbar, sidebar, status filter options, select prompt
+  - All dynamically rendered strings in `renderInboxList` / `renderInboxDetail` use `ti()`
+  - Extracted lead info labels (Tour, Pax, Dates, Budget, Phone) localised
+
+- **MS Clarity** (`weog9ymwey`) already present in all 31 HTML pages — confirmed, no action needed
+
+- **Deployed**: `npx wrangler deploy` — 3 files uploaded, Worker `square-wind-2594` live on `tours-market.com`
+
+### What is still not done
+
+- CHK-R79 inline service-todo editing (date fields, person-in-charge) still incomplete
+- Secrets placeholders: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_DOMAIN_WEBHOOK_SECRET`, `[COMPANY ADDRESS]`
+
+### Suggested next prompt
+"Continue CHK-R79: implement inline editing for service todo cards — date fields and person-in-charge assignment in ops.html."
+
+---
+
+## Latest Handoff
 Date: 2026-04-19
 Checkpoint: Docs sync after remote pull — runtime now materially beyond CHK-R77 snapshot
 
