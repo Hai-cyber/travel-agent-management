@@ -1,0 +1,614 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Booking Calendar — Travel Agent Management</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    body {
+      background: radial-gradient(circle at top left, rgba(96,165,250,.16), transparent 24%),
+                  linear-gradient(145deg,#0f172a 0%,#1d4ed8 100%) fixed !important;
+      background-color: #0f172a !important;
+    }
+    #page-wrapper { background: transparent; }
+    #header-wrapper { background: transparent; padding-top: 3.5em; }
+    #main-wrapper {
+      background: rgba(255,255,255,.96);
+      border-top-left-radius: 24px; border-top-right-radius: 24px;
+      box-shadow: 0 20px 48px rgba(15,23,42,.18);
+    }
+    #footer-wrapper { background: rgba(248,250,252,.96); }
+    #logo h1 a { font-size:18px; }
+    #logo span  { font-size:12px; color:rgba(226,232,240,.9); }
+    #banner-wrapper,#features-wrapper { display:none; }
+
+    /* ── Today strip ── */
+    .today-strip {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .today-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 14px 20px; text-align: center; flex: 1 1 120px;
+    }
+    .today-card.accent { background: linear-gradient(135deg,#1d4ed8,#3b82f6); border-color: transparent; }
+    .today-val { font-size: 28px; font-weight: 800; line-height: 1.1; color: #0f172a; margin-bottom: 2px; }
+    .today-card.accent .today-val { color: #fff; }
+    .today-lbl { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; }
+    .today-card.accent .today-lbl { color: rgba(255,255,255,.8); }
+    .today-val.green { color: #16a34a; }
+    .today-val.amber { color: #d97706; }
+
+    /* ── Month nav ── */
+    .month-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .month-nav h2 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; }
+    .month-nav-btn {
+      background: #fff; border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 7px 14px; font-size: 14px; cursor: pointer; color: #374151;
+      font-weight: 600; transition: background .15s;
+    }
+    .month-nav-btn:hover { background: #f1f5f9; }
+    .today-btn {
+      background: #1d4ed8; color: #fff; border-color: #1d4ed8;
+    }
+    .today-btn:hover { background: #1e40af; }
+
+    /* ── Calendar grid ── */
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 4px; margin-bottom: 24px;
+    }
+    .cal-dow {
+      text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; padding: 6px 0; letter-spacing: .05em;
+    }
+    .cal-cell {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      min-height: 72px; padding: 8px 6px;
+      cursor: pointer; transition: border-color .15s, box-shadow .15s;
+      position: relative; overflow: hidden;
+    }
+    .cal-cell:hover { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+    .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+    .cal-cell.today { border-color: #3b82f6; background: #eff6ff; }
+    .cal-cell.selected { border-color: #1d4ed8; box-shadow: 0 0 0 2px rgba(29,78,216,.2); }
+    .cal-day-num {
+      font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block;
+    }
+    .cal-cell.today .cal-day-num { color: #1d4ed8; }
+    .cal-cell.other-month .cal-day-num { color: #cbd5e1; }
+    .cal-cell.other-month { background: #fafafa; }
+
+    /* Booking dots */
+    .cal-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+    .cal-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .dot-green  { background: #16a34a; }
+    .dot-amber  { background: #d97706; }
+    .dot-gray   { background: #94a3b8; }
+    .cal-count {
+      font-size: 11px; font-weight: 700; margin-top: 3px; color: #64748b;
+    }
+    .cal-count.has-bookings { color: #1d4ed8; }
+
+    /* skeleton */
+    .skeleton { background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation: shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── Day detail panel ── */
+    .day-panel {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 20px; margin-bottom: 24px; display: none;
+    }
+    .day-panel.visible { display: block; }
+    .day-panel h3 { margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 800; }
+    .booking-list { list-style: none; margin: 0; padding: 0; }
+    .booking-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .booking-item:last-child { border-bottom: none; }
+    .booking-status-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+    }
+    .booking-info { flex: 1; min-width: 0; }
+    .booking-tour { font-size: 14px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .booking-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .booking-id   { font-size: 11px; color: #94a3b8; margin-top: 1px; font-family: monospace; }
+    .booking-right { text-align: right; flex-shrink: 0; }
+    .booking-total { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    }
+    .badge-green  { background:#dcfce7; color:#166534; }
+    .badge-amber  { background:#fef3c7; color:#92400e; }
+    .badge-blue   { background:#dbeafe; color:#1e40af; }
+    .badge-red    { background:#fee2e2; color:#991b1b; }
+    .badge-gray   { background:#f3f4f6; color:#374151; }
+    .empty-day { color: #94a3b8; font-size:13px; padding: 8px 0; }
+
+    /* ── Loading overlay for day panel ── */
+    .day-panel-loading { color: #94a3b8; font-size: 13px; padding: 8px 0; }
+
+    /* ── Sidebar ── */
+    .sidebar-section { margin-bottom: 24px; }
+    .sidebar-section h4 { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; }
+    .nav-list { list-style: none; margin: 0; padding: 0; }
+    .nav-list li a {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+      border-radius: 7px; font-size: 13px; color: #374151; text-decoration: none;
+      transition: background .12s;
+    }
+    .nav-list li a:hover { background: #f1f5f9; }
+    .nav-list li a.active { background: #eff6ff; color: #1d4ed8; font-weight: 700; }
+    .icon { font-size: 15px; line-height: 1; }
+
+    /* ── Error banner ── */
+    .error-banner {
+      display: none; background:#fef2f2; border:1px solid #fca5a5;
+      border-radius:8px; padding:12px 16px; margin-bottom:16px;
+      color:#b91c1c; font-size:13px;
+    }
+
+    @media screen and (max-width:768px) {
+      .cal-cell { min-height: 52px; }
+      .today-strip { gap: 8px; }
+      .today-card { padding: 10px 12px; }
+      .today-val { font-size: 22px; }
+    }
+  </style>
+  <!-- MS Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "weog9ymwey");
+  </script>
+</head>
+<body class="is-preload left-sidebar">
+<div id="page-wrapper">
+
+  <div id="header-wrapper">
+    <header id="header" class="container">
+      <div id="logo">
+        <h1><a href="dashboard.html">Tours Market</a></h1>
+        <span>Booking Calendar</span>
+      </div>
+      <nav id="nav">
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li class="current"><a href="calendar.html">Calendar</a></li>
+          <li><a href="#" id="nav-logout">Logout</a></li>
+        </ul>
+      </nav>
+    </header>
+  </div>
+
+  <div id="main-wrapper">
+    <div class="container">
+      <div class="row gtr-200">
+
+        <!-- Sidebar -->
+        <div class="col-3 col-12-medium">
+          <div id="sidebar">
+            <div class="sidebar-section">
+              <h4>Navigation</h4>
+              <ul class="nav-list">
+                <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+                <li><a href="calendar.html" class="active"><span class="icon">📅</span> Booking Calendar</a></li>
+                <li><a href="reports.html"><span class="icon">📈</span> Reports</a></li>
+              </ul>
+            </div>
+            <div class="sidebar-section">
+              <h4>Quick Jump</h4>
+              <ul class="nav-list" id="quick-jump">
+                <li><a href="#" id="goto-today"><span class="icon">📍</span> Today</a></li>
+                <li><a href="#" id="goto-prev-month"><span class="icon">◀</span> Previous Month</a></li>
+                <li><a href="#" id="goto-next-month"><span class="icon">▶</span> Next Month</a></li>
+              </ul>
+            </div>
+            <div class="sidebar-section">
+              <h4>Legend</h4>
+              <ul class="nav-list">
+                <li style="padding:4px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#374151">
+                  <span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block"></span> Confirmed
+                </li>
+                <li style="padding:4px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#374151">
+                  <span style="width:10px;height:10px;border-radius:50%;background:#d97706;display:inline-block"></span> Pending
+                </li>
+                <li style="padding:4px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#374151">
+                  <span style="width:10px;height:10px;border-radius:50%;background:#94a3b8;display:inline-block"></span> Cancelled / Expired
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-9 col-12-medium imp-medium">
+          <div id="content">
+
+            <div class="error-banner" id="error-banner"></div>
+
+            <!-- Today at a glance -->
+            <div class="today-strip" id="today-strip">
+              <div class="today-card accent">
+                <div class="today-val" id="kpi-today-total">—</div>
+                <div class="today-lbl">Today's Bookings</div>
+              </div>
+              <div class="today-card">
+                <div class="today-val green" id="kpi-today-confirmed">—</div>
+                <div class="today-lbl">Confirmed Today</div>
+              </div>
+              <div class="today-card">
+                <div class="today-val amber" id="kpi-today-pending">—</div>
+                <div class="today-lbl">Pending Today</div>
+              </div>
+              <div class="today-card">
+                <div class="today-val" id="kpi-month-total">—</div>
+                <div class="today-lbl">This Month Total</div>
+              </div>
+            </div>
+
+            <!-- Month navigation -->
+            <div class="month-nav">
+              <button class="month-nav-btn" id="btn-prev">&#8249;</button>
+              <h2 id="month-heading">Loading…</h2>
+              <div style="display:flex;gap:8px">
+                <button class="month-nav-btn today-btn" id="btn-today">Today</button>
+                <button class="month-nav-btn" id="btn-next">&#8250;</button>
+              </div>
+            </div>
+
+            <!-- Calendar grid -->
+            <div class="cal-grid" id="cal-grid">
+              <!-- Day-of-week headers -->
+              <div class="cal-dow">Mon</div>
+              <div class="cal-dow">Tue</div>
+              <div class="cal-dow">Wed</div>
+              <div class="cal-dow">Thu</div>
+              <div class="cal-dow">Fri</div>
+              <div class="cal-dow">Sat</div>
+              <div class="cal-dow">Sun</div>
+              <!-- cells injected by JS -->
+            </div>
+
+            <!-- Day detail panel -->
+            <div class="day-panel" id="day-panel">
+              <h3 id="day-panel-title">Bookings for —</h3>
+              <div id="day-panel-body">
+                <p class="day-panel-loading">Select a date to see bookings.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-wrapper">
+    <div class="container">
+      <footer id="footer">
+        <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;padding:12px 0">
+          Travel Agent Management Platform
+        </p>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script>
+(async () => {
+  'use strict';
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  let tenantId = '';
+  try {
+    const sessRes = await fetch('/api/auth/session', { credentials: 'include' });
+    const sess    = await sessRes.json();
+    if (!sess?.authenticated || !sess.session?.tenant_id) {
+      window.location.href = '/login.html';
+      return;
+    }
+    tenantId = sess.session.tenant_id;
+  } catch {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  document.getElementById('nav-logout').addEventListener('click', async e => {
+    e.preventDefault();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    window.location.href = '/login.html';
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function esc(v) {
+    return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtMoney(amount, currency) {
+    if (!amount) return '—';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: currency ?? 'USD',
+        minimumFractionDigits: 0, maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `${currency ?? 'USD'} ${Number(amount).toLocaleString()}`;
+    }
+  }
+
+  const MONTH_NAMES = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December',
+  ];
+
+  const STATUS_BADGE = {
+    CONFIRMED:       '<span class="badge badge-green">Confirmed</span>',
+    PROOF_UPLOADED:  '<span class="badge badge-blue">Proof Uploaded</span>',
+    AWAITING_PROOF:  '<span class="badge badge-amber">Awaiting Proof</span>',
+    AWAITING_PAYMENT:'<span class="badge badge-amber">Awaiting Payment</span>',
+    PENDING_ARRIVAL: '<span class="badge badge-blue">Pending Arrival</span>',
+    EXPIRED:         '<span class="badge badge-red">Expired</span>',
+    CANCELLED:       '<span class="badge badge-gray">Cancelled</span>',
+  };
+
+  function statusDotColor(status) {
+    if (status === 'CONFIRMED' || status === 'PENDING_ARRIVAL') return '#16a34a';
+    if (status === 'EXPIRED' || status === 'CANCELLED') return '#94a3b8';
+    return '#d97706';
+  }
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date(todayStr);
+  let viewYear  = todayDate.getFullYear();
+  let viewMonth = todayDate.getMonth() + 1; // 1-based
+  let monthData = null; // cached API response for current month
+  let selectedDate = null;
+
+  // ── API fetch ─────────────────────────────────────────────────────────────
+  async function loadMonth(year, month) {
+    showError('');
+    try {
+      const res = await fetch(
+        `/api/bookingcal/month?year=${year}&month=${month}`,
+        { headers: { 'X-Tenant-ID': tenantId }, credentials: 'include' }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? 'API error');
+      return data;
+    } catch (err) {
+      showError(`Failed to load calendar: ${err.message}`);
+      return null;
+    }
+  }
+
+  async function loadDay(date) {
+    const panel = document.getElementById('day-panel');
+    const body  = document.getElementById('day-panel-body');
+    const title = document.getElementById('day-panel-title');
+
+    // Format display date
+    const [y, m, d] = date.split('-').map(Number);
+    title.textContent = `Bookings for ${MONTH_NAMES[m - 1]} ${d}, ${y}`;
+    body.innerHTML = '<p class="day-panel-loading">Loading…</p>';
+    panel.classList.add('visible');
+
+    try {
+      const res = await fetch(
+        `/api/bookingcal/day?date=${encodeURIComponent(date)}`,
+        { headers: { 'X-Tenant-ID': tenantId }, credentials: 'include' }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? 'API error');
+
+      const bookings = data.bookings ?? [];
+      if (bookings.length === 0) {
+        body.innerHTML = '<p class="empty-day">No bookings on this date.</p>';
+        return;
+      }
+
+      const items = bookings.map(b => `
+        <li class="booking-item">
+          <span class="booking-status-dot" style="background:${statusDotColor(b.status)}"></span>
+          <div class="booking-info">
+            <div class="booking-tour">${esc(b.tour_name)}</div>
+            <div class="booking-meta">
+              ${b.guest_name ? esc(b.guest_name) + ' · ' : ''}
+              ${b.pax} pax
+              ${b.guest_phone ? ' · ' + esc(b.guest_phone) : ''}
+            </div>
+            <div class="booking-id">${esc(b.id)}</div>
+          </div>
+          <div class="booking-right">
+            ${STATUS_BADGE[b.status] ?? `<span class="badge badge-gray">${esc(b.status)}</span>`}
+            <div class="booking-total" style="margin-top:4px">${fmtMoney(b.total, b.currency)}</div>
+          </div>
+        </li>
+      `).join('');
+
+      body.innerHTML = `<ul class="booking-list">${items}</ul>`;
+    } catch (err) {
+      body.innerHTML = `<p class="day-panel-loading" style="color:#b91c1c">Error: ${esc(err.message)}</p>`;
+    }
+  }
+
+  // ── Error banner ──────────────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById('error-banner');
+    if (msg) { el.textContent = msg; el.style.display = 'block'; }
+    else el.style.display = 'none';
+  }
+
+  // ── Render calendar grid ──────────────────────────────────────────────────
+  function renderGrid(year, month, data) {
+    const grid = document.getElementById('cal-grid');
+
+    // Remove existing cells (keep the 7 DOW headers)
+    const headers = Array.from(grid.querySelectorAll('.cal-dow'));
+    grid.innerHTML = '';
+    headers.forEach(h => grid.appendChild(h));
+
+    // Day map from API data
+    const dayMap = {};
+    for (const d of (data?.days ?? [])) {
+      dayMap[d.date] = d;
+    }
+
+    // First day of the month (0=Sun, 1=Mon … 6=Sat)
+    // We want Mon=0 offset
+    const firstDow = new Date(year, month - 1, 1).getDay(); // 0=Sun
+    const offset   = (firstDow + 6) % 7; // Mon-based offset (Mon=0, Sun=6)
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    // Empty leading cells
+    for (let i = 0; i < offset; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell empty';
+      grid.appendChild(cell);
+    }
+
+    // Day cells
+    for (let day = 1; day <= daysInMonth; day++) {
+      const mm   = String(month).padStart(2, '0');
+      const dd   = String(day).padStart(2, '0');
+      const date = `${year}-${mm}-${dd}`;
+      const info = dayMap[date];
+
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      if (date === todayStr) cell.classList.add('today');
+      if (date === selectedDate) cell.classList.add('selected');
+
+      const dayNum = document.createElement('span');
+      dayNum.className = 'cal-day-num';
+      dayNum.textContent = day;
+      cell.appendChild(dayNum);
+
+      if (info && info.total > 0) {
+        // Dots row
+        const dots = document.createElement('div');
+        dots.className = 'cal-dots';
+        for (let i = 0; i < Math.min(info.confirmed, 5); i++) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot dot-green';
+          dots.appendChild(dot);
+        }
+        for (let i = 0; i < Math.min(info.pending, 3); i++) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot dot-amber';
+          dots.appendChild(dot);
+        }
+        if (info.cancelled > 0) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot dot-gray';
+          dots.appendChild(dot);
+        }
+        cell.appendChild(dots);
+
+        // Count label
+        const count = document.createElement('div');
+        count.className = 'cal-count has-bookings';
+        count.textContent = `${info.total} booking${info.total !== 1 ? 's' : ''}`;
+        cell.appendChild(count);
+      }
+
+      cell.addEventListener('click', () => {
+        // Deselect previous
+        document.querySelectorAll('.cal-cell.selected').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+        selectedDate = date;
+        loadDay(date);
+      });
+
+      grid.appendChild(cell);
+    }
+  }
+
+  // ── Update KPI strip ──────────────────────────────────────────────────────
+  function updateKpis(data) {
+    const days = data?.days ?? [];
+
+    // Today's stats (may be in a different month view — show 0 if not in view)
+    const todayInfo = days.find(d => d.date === todayStr);
+    document.getElementById('kpi-today-total').textContent     = todayInfo?.total ?? 0;
+    document.getElementById('kpi-today-confirmed').textContent = todayInfo?.confirmed ?? 0;
+    document.getElementById('kpi-today-pending').textContent   = todayInfo?.pending ?? 0;
+
+    // Month total (sum of all active bookings this month)
+    const monthTotal = days.reduce((acc, d) => acc + (d.confirmed ?? 0) + (d.pending ?? 0), 0);
+    document.getElementById('kpi-month-total').textContent = monthTotal;
+  }
+
+  // ── Render month ──────────────────────────────────────────────────────────
+  async function renderMonth(year, month) {
+    document.getElementById('month-heading').textContent = `${MONTH_NAMES[month - 1]} ${year}`;
+    // Close day panel when navigating months
+    document.getElementById('day-panel').classList.remove('visible');
+    selectedDate = null;
+
+    monthData = await loadMonth(year, month);
+    renderGrid(year, month, monthData);
+    updateKpis(monthData);
+  }
+
+  // ── Nav controls ─────────────────────────────────────────────────────────
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    viewMonth--;
+    if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+    renderMonth(viewYear, viewMonth);
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    viewMonth++;
+    if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+    renderMonth(viewYear, viewMonth);
+  });
+  document.getElementById('btn-today').addEventListener('click', () => {
+    viewYear  = todayDate.getFullYear();
+    viewMonth = todayDate.getMonth() + 1;
+    renderMonth(viewYear, viewMonth);
+  });
+  document.getElementById('goto-today').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('btn-today').click();
+  });
+  document.getElementById('goto-prev-month').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('btn-prev').click();
+  });
+  document.getElementById('goto-next-month').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('btn-next').click();
+  });
+
+  // ── Initial render ────────────────────────────────────────────────────────
+  await renderMonth(viewYear, viewMonth);
+
+  // Auto-show today's detail if there are bookings
+  if (monthData) {
+    const todayInfo = (monthData.days ?? []).find(d => d.date === todayStr);
+    if (todayInfo && todayInfo.total > 0) {
+      await loadDay(todayStr);
+      selectedDate = todayStr;
+      // Mark today cell as selected
+      document.querySelectorAll('.cal-cell.today').forEach(c => c.classList.add('selected'));
+    }
+  }
+
+})();
+</script>
+</body>
+</html>

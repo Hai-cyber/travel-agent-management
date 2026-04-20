@@ -30,6 +30,7 @@ import registerMarketingRoutes from './routes/marketing.js';
 import registerUniversalSiteRoutes, { getSiteBundle, renderPublicHtml } from './routes/universalSites.js';
 import registerReportsRoutes from './routes/reports.js';
 import registerCalendarRoutes from './routes/calendar.js';
+import registerBookingCalRoutes from './routes/bookingcal.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
 import {
   handleListProperties,
@@ -80,6 +81,10 @@ import registerPricingRoutes, {
   // [FIX] handleDeletePricing được dùng trong patterns[] nhưng trước đây bị thiếu import
   handleDeletePricing
 } from './routes/pricing.js';
+import registerSupplierRoutes from './routes/suppliers.js';
+import registerSeoRoutes from './routes/seo.js';
+import registerStaffRoutes from './routes/staff.js';
+import registerEmailRoutes from './routes/emailIngest.js';
 import { resolveTenantByHost, serveSitePage } from './lib/siteStudio.js';
 import { slugify } from './lib/universalSite.js';
 import { clearAuthSessionCookie, getAuthSession, readAuthSessionToken } from './lib/auth.js';
@@ -318,6 +323,11 @@ registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
 registerReportsRoutes && registerReportsRoutes(app);
 registerCalendarRoutes && registerCalendarRoutes(app);
+registerBookingCalRoutes && registerBookingCalRoutes(app);
+registerSupplierRoutes && registerSupplierRoutes(app);
+registerSeoRoutes && registerSeoRoutes(app);
+registerStaffRoutes && registerStaffRoutes(app);
+registerEmailRoutes && registerEmailRoutes(app);
 
 // ── Platform contact form ─────────────────────────────────────────────────────
 app.post('/api/contact', async (c) => {
