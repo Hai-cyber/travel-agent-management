@@ -32,6 +32,7 @@ import registerReportsRoutes from './routes/reports.js';
 import registerCalendarRoutes from './routes/calendar.js';
 import registerBookingCalRoutes from './routes/bookingcal.js';
 import registerDistributionRoutes from './routes/distribution.js';
+import registerGuestPayRoutes from './routes/guestPay.js';
 import { dispatchContactFormEmail } from './lib/bookingEmails.js';
 import {
   handleListProperties,
@@ -248,7 +249,7 @@ const PROTECTED_API_PREFIXES = [
 app.use('/api/*', async (c, next) => {
   const pathname = new URL(c.req.url).pathname;
   // Public endpoints nested under otherwise-protected prefixes
-  const PUBLIC_EXCEPTIONS = ['/api/universal/search'];
+  const PUBLIC_EXCEPTIONS = ['/api/universal/search', '/api/pay'];
   if (PUBLIC_EXCEPTIONS.some(p => pathname.startsWith(p))) { await next(); return; }
   const needsAuth = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (!needsAuth) {
@@ -329,6 +330,7 @@ registerReportsRoutes && registerReportsRoutes(app);
 registerCalendarRoutes && registerCalendarRoutes(app);
 registerBookingCalRoutes && registerBookingCalRoutes(app);
 registerDistributionRoutes && registerDistributionRoutes(app);
+registerGuestPayRoutes && registerGuestPayRoutes(app);
 registerSupplierRoutes && registerSupplierRoutes(app);
 registerSeoRoutes && registerSeoRoutes(app);
 registerStaffRoutes && registerStaffRoutes(app);

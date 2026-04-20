@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Cancelled</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.35);width:100%;max-width:440px;padding:52px 36px;text-align:center}
+    .icon{font-size:64px;margin-bottom:24px}
+    h1{font-size:26px;font-weight:800;color:#b45309;margin-bottom:12px}
+    p{font-size:15px;color:#475569;line-height:1.7;margin-bottom:24px}
+    .btn{display:inline-block;padding:12px 28px;background:#1d4ed8;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;margin:6px;transition:background .18s}
+    .btn:hover{background:#1e40af}
+    .btn-secondary{background:#64748b}
+    .btn-secondary:hover{background:#475569}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">⚠️</div>
+  <h1>Payment Not Completed</h1>
+  <p>Your payment was cancelled or not completed.<br>Your booking reservation is still held — you can try again using the link below.</p>
+  <a href="#" id="retry-btn" class="btn">Try Again</a>
+  <a href="/" class="btn btn-secondary">Return to Home</a>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('order');
+  const token   = params.get('t') ?? '';
+  if (orderId) {
+    document.getElementById('retry-btn').href = `/pay.html?order=${encodeURIComponent(orderId)}&t=${encodeURIComponent(token)}`;
+  } else {
+    document.getElementById('retry-btn').style.display = 'none';
+  }
+</script>
+</body>
+</html>

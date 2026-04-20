@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Successful</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.35);width:100%;max-width:440px;padding:52px 36px;text-align:center}
+    .icon{font-size:64px;margin-bottom:24px}
+    h1{font-size:26px;font-weight:800;color:#059669;margin-bottom:12px}
+    p{font-size:15px;color:#475569;line-height:1.7;margin-bottom:24px}
+    .btn{display:inline-block;padding:12px 28px;background:#1d4ed8;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;transition:background .18s}
+    .btn:hover{background:#1e40af}
+    .order-badge{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 16px;margin-bottom:24px;font-size:13px;color:#15803d;font-weight:600}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">✅</div>
+  <h1>Payment Confirmed!</h1>
+  <div class="order-badge" id="order-badge" style="display:none">Order: <span id="order-id-text"></span></div>
+  <p>Thank you — your payment was received and your booking is confirmed.<br>You'll receive a confirmation email shortly.</p>
+  <a href="/" class="btn">Return to Home</a>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('order');
+  if (orderId) {
+    document.getElementById('order-badge').style.display = 'block';
+    document.getElementById('order-id-text').textContent = orderId;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pay for Your Booking</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 32px 16px 64px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+      width: 100%;
+      max-width: 520px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      color: #fff;
+      padding: 28px 32px;
+    }
+    .card-header .logo {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      opacity: .7;
+      margin-bottom: 12px;
+    }
+    .card-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .card-header .amount {
+      margin-top: 8px;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .card-header .amount .currency {
+      font-size: 18px;
+      font-weight: 600;
+      vertical-align: top;
+      margin-top: 5px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .card-body { padding: 28px 32px; }
+
+    .order-details {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .order-details h3 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      margin-bottom: 12px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 4px 0;
+      font-size: 14px;
+    }
+    .detail-row .label { color: #64748b; }
+    .detail-row .value { color: #1e293b; font-weight: 500; text-align: right; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      margin-bottom: 14px;
+    }
+
+    .methods { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+    .method-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 14px 18px;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .18s, background .18s, box-shadow .18s;
+      text-align: left;
+    }
+    .method-btn:hover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+    }
+    .method-btn.loading {
+      pointer-events: none;
+      opacity: .65;
+    }
+    .method-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .method-info { flex: 1 }
+    .method-name { font-size: 15px; font-weight: 600; color: #1e293b; }
+    .method-desc { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    .method-arrow { color: #94a3b8; font-size: 18px; }
+
+    /* Manual/bank transfer section */
+    .manual-section { margin-top: 8px; }
+    .manual-section details {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .manual-section summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      cursor: pointer;
+      list-style: none;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .manual-section summary::-webkit-details-marker { display: none; }
+    .manual-section .manual-body { padding: 0 18px 18px; font-size: 13px; color: #475569; line-height: 1.7; }
+    .manual-section .bank-info { margin-top: 10px; padding: 12px 14px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .manual-section .bank-info p { margin: 2px 0; }
+    .manual-section .bank-info strong { color: #1e293b; }
+
+    /* Upload proof */
+    .proof-area { margin-top: 16px; }
+    .proof-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: block; }
+    .proof-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .18s;
+    }
+    .proof-upload-btn:hover { background: #1e40af; }
+    .proof-file-input { display: none; }
+    .proof-status { margin-top: 8px; font-size: 13px; color: #059669; font-weight: 500; }
+
+    /* States */
+    #state-loading, #state-confirmed, #state-error { display: none; }
+    #state-loading.visible, #state-confirmed.visible, #state-error.visible { display: block; }
+    #state-loading { text-align: center; padding: 40px 0; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #state-confirmed {
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .check-icon { font-size: 52px; margin-bottom: 16px; }
+    #state-confirmed h2 { font-size: 22px; font-weight: 700; color: #059669; margin-bottom: 8px; }
+    #state-confirmed p { font-size: 14px; color: #475569; line-height: 1.6; }
+
+    #state-error {
+      padding: 20px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 10px;
+      color: #b91c1c;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .deadline-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .card-body { padding: 22px 20px; }
+      .card-header { padding: 22px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="logo">Tours Market</div>
+    <h1 id="tour-title">Your Tour Booking</h1>
+    <div class="amount">
+      <span class="currency" id="currency-symbol">USD</span>
+      <span id="amount-display">—</span>
+    </div>
+    <div id="deadline-wrapper"></div>
+  </div>
+
+  <div class="card-body">
+    <!-- Loading state -->
+    <div id="state-loading" class="visible">
+      <div class="spinner"></div>
+      <p style="color:#64748b;font-size:14px">Loading your booking…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error"></div>
+
+    <!-- Confirmed state -->
+    <div id="state-confirmed">
+      <div class="check-icon">✅</div>
+      <h2>Payment Confirmed!</h2>
+      <p>Thank you! Your booking has been confirmed.<br>You'll receive a confirmation email shortly.</p>
+    </div>
+
+    <!-- Payment main body (hidden until order loads) -->
+    <div id="pay-main" style="display:none">
+      <div class="order-details">
+        <h3>Order Summary</h3>
+        <div class="detail-row">
+          <span class="label">Guest</span>
+          <span class="value" id="guest-name">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Travel Date</span>
+          <span class="value" id="travel-date">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Passengers</span>
+          <span class="value" id="pax-count">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Order ID</span>
+          <span class="value" id="order-id-display" style="font-size:12px;font-family:monospace">—</span>
+        </div>
+      </div>
+
+      <div id="methods-section">
+        <p class="section-title">Choose Payment Method</p>
+        <div class="methods" id="methods-list"></div>
+        <div class="manual-section" id="manual-section" style="display:none">
+          <details>
+            <summary>
+              <span style="font-size:24px">🏦</span>
+              <div>
+                <div style="font-size:15px;font-weight:600;color:#1e293b">Bank Transfer / Manual</div>
+                <div style="font-size:12px;color:#64748b;font-weight:400;margin-top:2px">Transfer & upload payment proof</div>
+              </div>
+            </summary>
+            <div class="manual-body">
+              <p>Please transfer the exact amount to the account below, then upload your payment proof.</p>
+              <div class="bank-info" id="bank-info">
+                <p><strong>Bank:</strong> <span id="bank-name">Contact your agent for details</span></p>
+                <p><strong>Account Number:</strong> <span id="bank-account">—</span></p>
+                <p><strong>Account Name:</strong> <span id="bank-holder">—</span></p>
+                <p><strong>Amount:</strong> <span id="bank-amount">—</span></p>
+                <p><strong>Reference:</strong> <span id="bank-ref">—</span></p>
+              </div>
+              <div class="proof-area">
+                <label class="proof-label">Upload Payment Proof</label>
+                <button class="proof-upload-btn" id="proof-upload-btn" onclick="document.getElementById('proof-file').click()">
+                  📎 Select File
+                </button>
+                <input type="file" id="proof-file" class="proof-file-input" accept="image/*,.pdf" onchange="handleProofUpload()">
+                <div id="proof-status" class="proof-status" style="display:none"></div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────────
+  let ORDER_ID   = null;
+  let SECURE_TOKEN = null;
+  let orderData  = null;
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const params   = new URLSearchParams(location.search);
+    ORDER_ID       = params.get('order');
+    SECURE_TOKEN   = params.get('t') ?? '';
+
+    if (!ORDER_ID) { showError('No order specified. Please use the link from your booking confirmation email.'); return; }
+
+    fetchOrder();
+  });
+
+  // ── Fetch order ───────────────────────────────────────────────────────────────
+  async function fetchOrder() {
+    try {
+      const res = await fetch(`/api/pay/status?order_id=${encodeURIComponent(ORDER_ID)}&t=${encodeURIComponent(SECURE_TOKEN)}`);
+      const statusData = await res.json();
+
+      if (!res.ok) { showError(statusData.error ?? 'Failed to load order.'); return; }
+
+      // If already confirmed, show success
+      if (statusData.status === 'CONFIRMED' || statusData.status === 'PAID') {
+        showConfirmed(); return;
+      }
+
+      // Load full booking details for display
+      const detailRes = await fetch(`/api/bookings/public/${encodeURIComponent(SECURE_TOKEN)}`);
+      if (detailRes.ok) {
+        const detailData = await detailRes.json();
+        orderData = detailData.order ?? detailData;
+        renderOrderDetails(orderData);
+      }
+
+      // Load tenant payment methods
+      const tid = orderData?.tenant_id;
+      if (tid) {
+        const pmRes = await fetch('/api/payments/settings', { headers: { 'X-Tenant-ID': tid } });
+        if (pmRes.ok) {
+          const pmData = await pmRes.json();
+          renderPaymentMethods(pmData.payment_methods ?? []);
+        }
+      } else {
+        // Fallback: show generic methods
+        renderPaymentMethods([
+          { id: 'STRIPE', label: 'Credit / Debit Card', enabled: true, category: 'instant' },
+          { id: 'BANK_TRANSFER', label: 'Bank Transfer', enabled: true, category: 'manual' },
+        ]);
+      }
+
+      showMain();
+
+    } catch (err) {
+      showError('Unable to load your booking. Please try again or contact your travel agent.');
+      console.error(err);
+    }
+  }
+
+  // ── Render order ─────────────────────────────────────────────────────────────
+  function renderOrderDetails(order) {
+    const amt      = order.grand_total_amount ?? order.grand_total_usd ?? 0;
+    const currency = (order.booking_currency ?? 'USD').toUpperCase();
+
+    document.getElementById('tour-title').textContent  = order.tour_title ?? 'Tour Booking';
+    document.getElementById('currency-symbol').textContent = currency;
+    document.getElementById('amount-display').textContent  = formatAmount(amt, currency);
+    document.getElementById('guest-name').textContent   = order.guest_name ?? '—';
+    document.getElementById('travel-date').textContent  = order.travel_date ?? '—';
+    document.getElementById('order-id-display').textContent = ORDER_ID;
+
+    const pax = [
+      order.pax_shared   ? `${order.pax_shared} adult${order.pax_shared > 1 ? 's' : ''}` : null,
+      order.pax_private  ? `${order.pax_private} private` : null,
+      order.pax_children ? `${order.pax_children} child${order.pax_children > 1 ? 'ren' : ''}` : null,
+    ].filter(Boolean).join(', ');
+    document.getElementById('pax-count').textContent = pax || '—';
+
+    // Payment deadline badge
+    if (order.payment_deadline) {
+      const deadlineWrapper = document.getElementById('deadline-wrapper');
+      const d = new Date(order.payment_deadline * 1000 || order.payment_deadline);
+      const label = isNaN(d) ? order.payment_deadline : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      deadlineWrapper.innerHTML = `<span class="deadline-badge">⏰ Pay by ${label}</span>`;
+    }
+
+    // Bank transfer info
+    const snapshot = typeof order.price_snapshot_json === 'string'
+      ? JSON.parse(order.price_snapshot_json || '{}')
+      : (order.price_snapshot_json ?? {});
+    const bankInfo = snapshot.bank_info ?? order.bank_info ?? {};
+    if (bankInfo.bank_name) document.getElementById('bank-name').textContent    = bankInfo.bank_name;
+    if (bankInfo.account_number) document.getElementById('bank-account').textContent  = bankInfo.account_number;
+    if (bankInfo.account_holder) document.getElementById('bank-holder').textContent   = bankInfo.account_holder;
+    document.getElementById('bank-amount').textContent = `${currency} ${formatAmount(amt, currency)}`;
+    document.getElementById('bank-ref').textContent    = ORDER_ID;
+  }
+
+  // ── Render payment methods ────────────────────────────────────────────────────
+  const METHOD_CONFIG = {
+    STRIPE:          { icon: '💳', label: 'Credit / Debit Card',      desc: 'Visa, Mastercard, Amex — secure via Stripe', provider: 'stripe' },
+    CREDIT_CARD:     { icon: '💳', label: 'Credit / Debit Card',      desc: 'Visa, Mastercard, Amex — secure via Stripe', provider: 'stripe' },
+    XENDIT:          { icon: '🌏', label: 'SEA E-Wallet / Card',      desc: 'OVO, DANA, GoPay, GCash, Maya, QRIS & more',  provider: 'xendit' },
+    MOMO:            { icon: '🟣', label: 'MoMo Wallet',              desc: 'Vietnam e-wallet', provider: 'xendit' },
+    ZALOPAY:         { icon: '🔵', label: 'ZaloPay',                  desc: 'Vietnam e-wallet', provider: 'xendit' },
+    VNPAY:           { icon: '🔴', label: 'VNPay',                    desc: 'Vietnam QR & ATM',  provider: 'xendit' },
+    PAYPAL:          { icon: '🅿️', label: 'PayPal',                   desc: 'Pay with your PayPal account', provider: 'stripe' },
+    GRABPAY:         { icon: '🟢', label: 'GrabPay',                  desc: 'Grab wallet',       provider: 'xendit' },
+    BANK_TRANSFER:   { icon: '🏦', label: 'Bank Transfer',            desc: 'Manual transfer, upload proof', manual: true },
+    CASH_AT_OFFICE:  { icon: '💵', label: 'Cash at Office',           desc: 'Pay at the agent\'s office', manual: true },
+    PAY_ON_ARRIVAL:  { icon: '🏨', label: 'Pay on Arrival',           desc: 'Pay on the day of departure', manual: true },
+  };
+
+  // Deduplicate: STRIPE + CREDIT_CARD both map to Stripe — show only once
+  const DEDUP_STRIPE = new Set();
+
+  function renderPaymentMethods(methods) {
+    const enabled = methods.filter(m => m.enabled === true);
+    const electronic = enabled.filter(m => {
+      const cfg = METHOD_CONFIG[m.id?.toUpperCase()];
+      return cfg && !cfg.manual;
+    });
+    const manual = enabled.filter(m => {
+      const cfg = METHOD_CONFIG[m.id?.toUpperCase()];
+      return cfg?.manual;
+    });
+
+    const list = document.getElementById('methods-list');
+    list.innerHTML = '';
+    DEDUP_STRIPE.clear();
+
+    electronic.forEach(m => {
+      const cfg = METHOD_CONFIG[m.id?.toUpperCase()];
+      if (!cfg) return;
+      // Deduplicate STRIPE/CREDIT_CARD
+      if (cfg.provider === 'stripe' && DEDUP_STRIPE.has('stripe')) return;
+      if (cfg.provider === 'stripe') DEDUP_STRIPE.add('stripe');
+
+      const btn = document.createElement('button');
+      btn.className = 'method-btn';
+      btn.dataset.provider = cfg.provider;
+      btn.innerHTML = `
+        <span class="method-icon">${cfg.icon}</span>
+        <div class="method-info">
+          <div class="method-name">${cfg.label}</div>
+          <div class="method-desc">${cfg.desc}</div>
+        </div>
+        <span class="method-arrow">›</span>
+      `;
+      btn.onclick = () => initiatePayment(cfg.provider, btn);
+      list.appendChild(btn);
+    });
+
+    if (manual.length > 0) {
+      document.getElementById('manual-section').style.display = 'block';
+    }
+  }
+
+  // ── Initiate payment ──────────────────────────────────────────────────────────
+  async function initiatePayment(provider, btn) {
+    btn.classList.add('loading');
+    btn.querySelector('.method-arrow').textContent = '…';
+
+    try {
+      const res = await fetch('/api/pay/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id:     ORDER_ID,
+          provider,
+          secure_token: SECURE_TOKEN,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        showError(data.error ?? 'Unable to create payment session. Please try again.');
+        btn.classList.remove('loading');
+        btn.querySelector('.method-arrow').textContent = '›';
+        return;
+      }
+
+      // Redirect to hosted payment page
+      window.location.href = data.url;
+
+    } catch (err) {
+      showError('Network error. Please check your connection and try again.');
+      btn.classList.remove('loading');
+      btn.querySelector('.method-arrow').textContent = '›';
+    }
+  }
+
+  // ── Proof upload ──────────────────────────────────────────────────────────────
+  async function handleProofUpload() {
+    const file = document.getElementById('proof-file').files[0];
+    if (!file) return;
+
+    const maxMb = 10;
+    if (file.size > maxMb * 1024 * 1024) {
+      document.getElementById('proof-status').style.display = 'block';
+      document.getElementById('proof-status').textContent   = `File too large. Max ${maxMb}MB.`;
+      document.getElementById('proof-status').style.color   = '#dc2626';
+      return;
+    }
+
+    const statusEl = document.getElementById('proof-status');
+    statusEl.style.display = 'block';
+    statusEl.style.color   = '#2563eb';
+    statusEl.textContent   = '⏳ Uploading…';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`/api/bookings/public/${encodeURIComponent(SECURE_TOKEN)}/proof`, { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        statusEl.style.color = '#059669';
+        statusEl.textContent = '✓ Uploaded! Your agent will verify and confirm your booking.';
+      } else {
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = data.error ?? 'Upload failed. Please try again.';
+      }
+    } catch {
+      statusEl.style.color = '#dc2626';
+      statusEl.textContent = 'Upload failed. Please check your connection.';
+    }
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────────
+  function showMain() {
+    document.getElementById('state-loading').classList.remove('visible');
+    document.getElementById('pay-main').style.display = 'block';
+  }
+
+  function showError(msg) {
+    document.getElementById('state-loading').classList.remove('visible');
+    const el = document.getElementById('state-error');
+    el.classList.add('visible');
+    el.textContent = msg;
+  }
+
+  function showConfirmed() {
+    document.getElementById('state-loading').classList.remove('visible');
+    document.getElementById('state-confirmed').classList.add('visible');
+  }
+
+  function formatAmount(amount, currency) {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch { return amount.toString(); }
+  }
+</script>
+</body>
+</html>
