@@ -136,12 +136,7 @@
       padding: 18px;
     }
 
-    .layout {
-      display: grid;
-      grid-template-columns: 320px minmax(0, 1fr);
-      gap: 20px;
-      align-items: start;
-    }
+    .layout { display:none; } /* sidebar layout removed */
 
     .sidebar-head,
     .panel-head,
@@ -365,6 +360,75 @@
     .flash.ok { background: #ecfdf5; color: #166534; border: 1px solid rgba(15,118,110,0.18); }
     .flash.err { background: #fef2f2; color: #991b1b; border: 1px solid rgba(185,28,28,0.16); }
 
+    /* ── Room Rack ──────────────────────────────────────── */
+    .rack-legend { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; font-weight:700; }
+    .leg { display:inline-flex; align-items:center; gap:5px; }
+    .leg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .rack-floor-label { font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:10px 0 5px; }
+    .rack-grid { display:flex; flex-wrap:wrap; gap:5px; }
+    .rack-cell {
+      width:50px; height:44px; border-radius:8px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+      cursor:pointer; border:2px solid transparent; transition:transform .12s,box-shadow .12s;
+      position:relative; padding:3px; text-align:center; user-select:none;
+    }
+    .rack-cell:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.22); }
+    .rack-cell .rc-num  { font-size:13px; font-weight:900; line-height:1; }
+    .rack-cell .rc-type { font-size:8px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; opacity:.7; max-width:46px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .rack-cell .rc-guest{ font-size:8px; font-weight:600; max-width:46px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    /* ── Kiosk mode (property-specific URL) ─────────────── */
+    body.kiosk [data-staff-tab="settings"] { display:none; }
+    .rack-cell.vacant      { background:#dcfce7; border-color:#86efac; color:#166534; }
+    .rack-cell.dirty       { background:#fef9c3; border-color:#fde047; color:#713f12; }
+    .rack-cell.arriving    { background:#ede9fe; border-color:#a78bfa; color:#4c1d95; }
+    .rack-cell.occupied    { background:#dbeafe; border-color:#93c5fd; color:#1e3a8a; }
+    .rack-cell.departing   { background:#ffedd5; border-color:#fdba74; color:#7c2d12; }
+    .rack-cell.maintenance { background:#fef3c7; border-color:#fcd34d; color:#78350f; }
+    .rack-cell.out-of-order{ background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+    /* ── Guest Slide-Over ───────────────────────────────── */
+    .guest-overlay { position:fixed; inset:0; z-index:1000; background:rgba(10,18,40,.52); backdrop-filter:blur(5px); display:flex; justify-content:flex-end; }
+    .guest-overlay[hidden] { display:none !important; }
+    .guest-sheet { width:min(620px,100vw); height:100vh; background:#fff; display:flex; flex-direction:column; box-shadow:-20px 0 70px rgba(15,23,42,.28); overflow:hidden; animation:sheetIn .2s ease; }
+    @keyframes sheetIn { from { transform:translateX(40px); opacity:.4; } to { transform:translateX(0); opacity:1; } }
+    .sh-head { padding:16px 20px; background:linear-gradient(135deg,#0f172a 0%,#1e40af 100%); color:#fff; display:flex; align-items:center; gap:13px; flex-shrink:0; }
+    .sh-avatar { width:56px; height:56px; border-radius:50%; background:#334155; flex-shrink:0; cursor:pointer; border:2.5px solid rgba(255,255,255,.24); display:flex; align-items:center; justify-content:center; font-size:22px; overflow:hidden; position:relative; }
+    .sh-avatar:hover::after { content:"📷"; position:absolute; inset:0; background:rgba(0,0,0,.45); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .sh-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .sh-info { flex:1; min-width:0; }
+    .sh-info h3 { margin:0; font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sh-info .sh-sub { font-size:11px; opacity:.68; margin-top:3px; }
+    .sh-badge { padding:3px 10px; border-radius:999px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
+    .sh-close { background:rgba(255,255,255,.15); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .sh-close:hover { background:rgba(255,255,255,.28); }
+    .sh-tabs { display:flex; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0; overflow-x:auto; }
+    .sh-tab { padding:10px 14px; font-size:11px; font-weight:700; cursor:pointer; border:none; background:none; color:#64748b; white-space:nowrap; border-bottom:2px solid transparent; font-family:inherit; }
+    .sh-tab.active { color:#0f766e; border-bottom-color:#0f766e; }
+    .sh-body { flex:1; overflow-y:auto; padding:16px 20px; display:grid; gap:12px; align-content:start; }
+    .sh-body [data-sh-panel][hidden] { display:none !important; }
+    .sh-sec { background:#f8fafc; border-radius:13px; padding:12px 14px; display:grid; gap:8px; }
+    .sh-sec h4 { margin:0; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#64748b; }
+    .sh-2col { display:grid; gap:8px; grid-template-columns:1fr 1fr; }
+    .sh-field { display:grid; gap:4px; font-size:12px; font-weight:700; color:#475569; }
+    .sh-input { min-height:34px; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; font:inherit; width:100%; background:#fff; color:#0f172a; }
+    .sh-input:focus { outline:none; border-color:#60a5fa; }
+    .sh-actions { display:flex; flex-wrap:wrap; gap:7px; }
+    .sa { padding:8px 14px; border-radius:10px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .1s; }
+    .sa.ci  { background:#0f766e; color:#fff; }
+    .sa.co  { background:#1d4ed8; color:#fff; }
+    .sa.ec  { background:#c2410c; color:#fff; }
+    .sa.ns  { background:#7f1d1d; color:#fff; }
+    .sa.un  { background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; }
+    .sa.can { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .sa:disabled { opacity:.38; cursor:not-allowed; }
+    .inv-line { display:flex; align-items:center; gap:7px; font-size:12px; padding:5px 0; border-bottom:1px solid #f1f5f9; }
+    .inv-line span.inv-name { flex:1; }
+    .inv-line .inv-amt { font-weight:700; white-space:nowrap; }
+    .inv-line .inv-rm { background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; padding:0 3px; line-height:1; }
+    .inv-total { text-align:right; font-weight:800; font-size:14px; color:#0f172a; padding-top:8px; }
+    .tl-ev { border-left:2px solid #e2e8f0; padding-left:11px; display:grid; gap:3px; }
+    .tl-ev strong { font-size:12px; font-weight:800; }
+    .tl-ev .tl-s { font-size:11px; color:#64748b; }
+
     @media (max-width: 1180px) {
       .hero,
       .layout,
@@ -389,107 +453,50 @@
 </head>
 <body>
   <main class="shell">
-    <section class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow">Staff Operations</div>
-        <h1>Front Desk And Operational Workflows Need Their Own Surface.</h1>
-        <p class="lead">This workspace is for staff-facing operations, not tenant configuration. Front desk, room status handling, guest support, and future housekeeping or folio flows belong here, separate from the tenant-side property builder.</p>
-        <div class="tip-grid">
-          <div class="tip">Tenant config stays in <strong>properties-engine</strong>: property setup, inventory structure, pricing policy, seasons, and commercial configuration.</div>
-          <div class="tip">Staff operations live here: reservation desk, room-status response, guest support, and operational lanes that should not be mixed into config forms.</div>
-        </div>
-      </div>
-      <aside class="hero-side">
-        <div class="side-card stack">
-          <div>
-            <h2>Tenant Context</h2>
-            <p class="muted">This page also requires a signed-in actor for the tenant in the current session.</p>
-          </div>
-          <form id="tenant-form" class="stack">
-            <label>Tenant ID
-              <input id="tenant-id" name="tenant_id" placeholder="tenant_from_current_session" />
-            </label>
-            <div class="action-row">
-              <button class="button primary" type="submit">Load Tenant</button>
-              <a class="button" href="/dashboard.html">Dashboard</a>
-              <a id="btn-open-config" class="button secondary" href="/properties-engine.html">Tenant Config</a>
-            </div>
-          </form>
-        </div>
-        <div class="side-card stack">
-          <h2>Operational Lanes</h2>
-          <div class="pill-row">
-            <span class="tag ok">Front Desk</span>
-            <span class="tag ok">Housekeeping</span>
-            <span class="tag warn">Maintenance</span>
-            <span class="tag ok">Guest Support</span>
-            <span class="tag warn">POS / Folio</span>
-          </div>
-        </div>
-      </aside>
-    </section>
-
     <div id="flash" class="flash"></div>
 
-    <section class="layout">
-      <aside class="panel">
-        <div class="sidebar-head">
-          <h2>Properties</h2>
-          <p class="muted">Choose the operating property for this shift.</p>
-        </div>
-        <div class="sidebar-actions">
-          <button id="btn-refresh-properties" class="button secondary">Refresh List</button>
-        </div>
-        <div id="property-list" class="property-list">
-          <div class="empty">Load a tenant to see property workspaces.</div>
-        </div>
-      </aside>
+    <!-- Ops briefing: shown when a property is loaded -->
+    <div id="ops-brief" class="ops-brief" style="display:none">
+      <div class="ops-brief-row">
+        <span class="ops-brief-label">Arrivals</span>
+        <span id="brief-arrivals">—</span>
+      </div>
+      <div class="ops-brief-row">
+        <span class="ops-brief-label">Departures</span>
+        <span id="brief-departures">—</span>
+      </div>
+      <div class="ops-brief-row">
+        <span class="ops-brief-label">Stayovers</span>
+        <span id="brief-stayovers">—</span>
+      </div>
+    </div>
 
-      <section class="grid">
-        <div class="panel">
-          <div class="panel-head toolbar">
-            <div>
-              <h2 id="selected-property-title">No property selected</h2>
-              <p id="selected-property-subtitle" class="muted">Choose a property to open the staff workspace.</p>
-            </div>
-            <div class="pill-row">
-              <span id="selected-property-status" class="tag">No Property</span>
-            </div>
-          </div>
-          <div class="panel-body">
-            <div class="stats">
-              <div class="stat"><div id="metric-arrivals" class="value">0</div><div class="label">Arrivals</div></div>
-              <div class="stat"><div id="metric-departures" class="value">0</div><div class="label">Departures</div></div>
-              <div class="stat"><div id="metric-stayovers" class="value">0</div><div class="label">Stayovers</div></div>
-              <div class="stat"><div id="metric-maintenance" class="value">0</div><div class="label">Maintenance</div></div>
-            </div>
+    <section class="grid">
+      <div class="panel">
+        <!-- compact property context row -->
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 18px 8px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+          <span id="selected-property-title" style="font-weight:800;font-size:15px">No property selected</span>
+          <span id="selected-property-status" class="tag" style="margin-left:2px">—</span>
+          <span id="selected-property-subtitle" class="muted" style="font-size:11px;margin-left:4px"></span>
+        </div>
+        <div class="panel-head" style="padding:0">
+          <div class="tab-strip" id="staff-tab-strip" style="border-bottom:none;padding:0 18px">
+            <button class="tab-button" type="button" data-staff-tab="rack">🏨 Rack</button>
+            <button class="tab-button" type="button" data-staff-tab="frontdesk">Front Desk</button>
+            <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
+            <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
+            <button class="tab-button" type="button" data-staff-tab="support">Guest Support</button>
+            <button class="tab-button" type="button" data-staff-tab="folio">POS / Folio</button>
+            <button class="tab-button" type="button" data-staff-tab="settings" title="Properties &amp; settings" style="margin-left:auto">⚙</button>
           </div>
         </div>
-
-        <div class="panel">
-          <div class="panel-head toolbar">
-            <div>
-              <h2>Staff Workspace</h2>
-              <p class="muted">Operate the property without crossing into tenant configuration.</p>
-            </div>
-            <div class="tab-strip" id="staff-tab-strip">
-              <button class="tab-button active" type="button" data-staff-tab="frontdesk">Front Desk</button>
-              <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
-              <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
-              <button class="tab-button" type="button" data-staff-tab="support">Guest Support</button>
-              <button class="tab-button" type="button" data-staff-tab="folio">POS / Folio</button>
-            </div>
-          </div>
-          <div class="panel-body tab-panels">
+        <div class="panel-body tab-panels">
             <section data-staff-panel="frontdesk">
               <div class="section-grid">
                 <div class="section">
                   <div class="section-head toolbar">
-                    <div>
-                      <h2>Reservation Board</h2>
-                      <p class="muted">Arrivals, departures, and stayovers for the selected board date.</p>
-                    </div>
-                    <button id="btn-refresh-board" class="button secondary">Refresh Board</button>
+                    <h2>Board</h2>
+                    <button id="btn-refresh-board" class="button small secondary">↻</button>
                   </div>
                   <div class="section-body stack">
                     <div class="field-grid three">
@@ -520,8 +527,7 @@
                 </div>
                 <div class="section">
                   <div class="section-head">
-                    <h2>Front Desk Detail</h2>
-                    <p class="muted">Open one reservation to operate status changes and review the current stay.</p>
+                    <h2>Detail</h2>
                   </div>
                   <div class="section-body stack">
                     <div id="frontdesk-detail" class="empty">Select a reservation from the board or load one by id.</div>
@@ -544,14 +550,9 @@
               <div class="section-grid">
                 <div class="section">
                   <div class="section-head">
-                    <h2>Housekeeping Baseline</h2>
-                    <p class="muted">This lane is separated from front desk, but cleaning state persistence is not implemented yet.</p>
+                    <h2>Housekeeping</h2>
                   </div>
                   <div class="section-body stack">
-                    <div class="list-card">
-                      <strong>Current honest boundary</strong>
-                      <div class="muted">Room cleaning tasks, inspector sign-off, linen turns, and room-ready timestamps still need dedicated backend tables. This page keeps the housekeeping lane visible without pretending that workflow already exists.</div>
-                    </div>
                     <div id="housekeeping-room-list" class="room-list">
                       <div class="empty">Load a property to inspect room readiness.</div>
                     </div>
@@ -560,7 +561,6 @@
                 <div class="section">
                   <div class="section-head">
                     <h2>Turnover Notes</h2>
-                    <p class="muted">Use departures and room status together until a true housekeeping task engine lands.</p>
                   </div>
                   <div class="section-body">
                     <div id="housekeeping-turnover" class="response">Departure-linked turnover notes will render here.</div>
@@ -572,11 +572,8 @@
             <section data-staff-panel="maintenance" hidden>
               <div class="section">
                 <div class="section-head toolbar">
-                  <div>
-                    <h2>Maintenance Desk</h2>
-                    <p class="muted">Operate room units already flagged for maintenance or out-of-order status.</p>
-                  </div>
-                  <button id="btn-refresh-room-units" class="button secondary">Refresh Rooms</button>
+                  <h2>Maintenance</h2>
+                  <button id="btn-refresh-room-units" class="button small secondary">↻</button>
                 </div>
                 <div class="section-body">
                   <div id="maintenance-room-list" class="room-list">
@@ -591,7 +588,6 @@
                 <div class="section">
                   <div class="section-head">
                     <h2>Guest Support</h2>
-                    <p class="muted">Hold release and reservation event history stay here, not in tenant setup.</p>
                   </div>
                   <div class="section-body stack">
                     <label>Hold ID
@@ -605,8 +601,7 @@
                 </div>
                 <div class="section">
                   <div class="section-head">
-                    <h2>Reservation Timeline</h2>
-                    <p class="muted">Event trail for the currently loaded reservation.</p>
+                    <h2>Timeline</h2>
                   </div>
                   <div class="section-body">
                     <div id="reservation-timeline" class="timeline">
@@ -620,16 +615,10 @@
             <section data-staff-panel="folio" hidden>
               <div class="section">
                 <div class="section-head">
-                  <h2>POS / Folio Boundary</h2>
-                  <p class="muted">This is a separate operational lane and should not be merged into tenant config pages. Addons are onsite-only by policy, except airport pickup.</p>
+                  <h2>POS / Folio</h2>
                 </div>
                 <div class="section-body stack">
-                  <div class="list-card">
-                    <strong>Not live yet</strong>
-                    <div class="muted">Folio headers, folio lines, POS tickets, payment capture, service-posting, and shift-close workflows still need dedicated runtime on top of the planned property folio schema. This tab exists now so the operational separation is explicit.</div>
-                  </div>
                   <div>
-                    <strong>Configured Addon Presets</strong>
                     <div id="folio-addon-preset-list" class="room-list" style="margin-top:12px">
                       <div class="empty">Load a property to see which addon services the tenant has preset for future posting.</div>
                     </div>
@@ -638,16 +627,208 @@
                 </div>
               </div>
             </section>
+
+            <section data-staff-panel="rack">
+              <div class="rack-legend" style="padding:8px 0 6px">
+                <span class="leg"><span class="leg-dot" style="background:#22c55e"></span>Ready</span>
+                <span class="leg"><span class="leg-dot" style="background:#facc15"></span>Dirty</span>
+                <span class="leg"><span class="leg-dot" style="background:#818cf8"></span>Arriving</span>
+                <span class="leg"><span class="leg-dot" style="background:#60a5fa"></span>Occupied</span>
+                <span class="leg"><span class="leg-dot" style="background:#fb923c"></span>Departing</span>
+                <span class="leg"><span class="leg-dot" style="background:#fbbf24"></span>Maint.</span>
+                <span class="leg"><span class="leg-dot" style="background:#f87171"></span>OOO</span>
+                <span style="flex:1"></span>
+                <button id="btn-copy-staff-link" class="button small" type="button" title="Copy staff link for this property">🔗</button>
+                <button id="btn-refresh-rack" class="button small secondary" type="button" title="Refresh rack">↻</button>
+              </div>
+              <div id="rack-grid-container">
+                <div class="empty">Load a property to view the room rack.</div>
+              </div>
+            </section>
+
+            <section data-staff-panel="settings" hidden>
+              <div class="section-grid">
+                <div class="section">
+                  <div class="section-head toolbar">
+                    <h2>Properties</h2>
+                    <button id="btn-refresh-properties" class="button small secondary">↻</button>
+                  </div>
+                  <div id="property-list" class="property-list">
+                    <div class="empty">Load a tenant to see properties.</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-head"><h2>Today</h2></div>
+                  <div class="section-body stack">
+                    <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+                      <div class="stat"><div id="metric-arrivals" class="value">0</div><div class="label">Arrivals</div></div>
+                      <div class="stat"><div id="metric-departures" class="value">0</div><div class="label">Departures</div></div>
+                      <div class="stat"><div id="metric-stayovers" class="value">0</div><div class="label">Stayovers</div></div>
+                      <div class="stat"><div id="metric-maintenance" class="value">0</div><div class="label">Maintenance</div></div>
+                    </div>
+                    <div class="section" style="margin-top:8px">
+                      <div class="section-head"><h2>Account</h2></div>
+                      <div class="section-body stack">
+                        <form id="tenant-form" class="tenant-form-row">
+                          <input id="tenant-id" name="tenant_id" class="tenant-input" placeholder="Tenant ID" />
+                          <button class="button primary" type="submit">Load</button>
+                        </form>
+                        <div class="action-row">
+                          <a class="button" href="/dashboard.html">Dashboard</a>
+                          <a id="btn-open-config" class="button secondary" href="/properties-engine.html">Config</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </section>
-    </section>
   </main>
+
+  <!-- Guest Slide-Over Overlay -->
+  <div id="guest-overlay" class="guest-overlay" hidden>
+    <div class="guest-sheet">
+      <div class="sh-head">
+        <div class="sh-avatar" id="sh-avatar-wrap" title="Click to upload passport photo">
+          <span id="sh-avatar-icon">🧑</span>
+          <img id="sh-avatar-img" src="" alt="" style="display:none" />
+        </div>
+        <input id="sh-photo-input" type="file" accept="image/*" style="display:none" />
+        <div class="sh-info">
+          <h3 id="sh-guest-name">Guest</h3>
+          <div class="sh-sub" id="sh-guest-sub">Room · Check-in → Check-out</div>
+        </div>
+        <span id="sh-badge" class="sh-badge">—</span>
+        <button class="sh-close" id="btn-close-sheet" type="button">✕</button>
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab active" data-sh-tab="profile" type="button">👤 Profile</button>
+        <button class="sh-tab" data-sh-tab="stay" type="button">🗓 Stay</button>
+        <button class="sh-tab" data-sh-tab="services" type="button">🛎 Services</button>
+        <button class="sh-tab" data-sh-tab="actions" type="button">⚡ Actions</button>
+        <button class="sh-tab" data-sh-tab="history" type="button">📋 History</button>
+      </div>
+      <div class="sh-body">
+
+        <!-- PROFILE -->
+        <div data-sh-panel="profile">
+          <div class="sh-sec">
+            <h4>Guest Details</h4>
+            <div class="sh-2col">
+              <label class="sh-field">Full Name<input id="sf-name" class="sh-input" placeholder="Full name" /></label>
+              <label class="sh-field">Email<input id="sf-email" type="email" class="sh-input" placeholder="Email" /></label>
+              <label class="sh-field">Phone<input id="sf-phone" class="sh-input" placeholder="+xx xxx xxx xxxx" /></label>
+              <label class="sh-field">Nationality<input id="sf-nationality" class="sh-input" placeholder="e.g. Vietnamese" /></label>
+              <label class="sh-field">Passport / ID No.<input id="sf-passport" class="sh-input" placeholder="Document number" /></label>
+              <label class="sh-field">Date of Birth<input id="sf-dob" type="date" class="sh-input" /></label>
+            </div>
+            <div class="sh-actions">
+              <button id="btn-save-profile" class="sa ci" type="button">Save Profile</button>
+              <button id="btn-upload-photo" class="sa un" type="button">📷 Upload Photo</button>
+            </div>
+          </div>
+          <div class="sh-sec">
+            <h4>Special Requests &amp; Notes</h4>
+            <textarea id="sf-requests" class="sh-input" rows="3" placeholder="Dietary restrictions, room preferences, VIP notes..." style="resize:vertical"></textarea>
+            <button id="btn-save-requests" class="sa un" type="button">Save Notes</button>
+          </div>
+        </div>
+
+        <!-- STAY -->
+        <div data-sh-panel="stay" hidden>
+          <div class="sh-sec">
+            <h4>Reservation Info</h4>
+            <div id="sh-stay-body" style="display:grid;gap:7px;font-size:13px;color:#334155"></div>
+          </div>
+          <div class="sh-sec">
+            <h4>Pricing Snapshot</h4>
+            <pre id="sh-pricing" style="margin:0;font-size:11px;background:#f1f5f9;border-radius:8px;padding:10px;overflow:auto;max-height:200px;color:#334155;white-space:pre-wrap;word-break:break-all"></pre>
+          </div>
+          <div class="sh-sec">
+            <h4>Rebook Dates</h4>
+            <div class="sh-2col">
+              <label class="sh-field">New Check-in<input id="sf-rebook-ci" type="date" class="sh-input" /></label>
+              <label class="sh-field">New Check-out<input id="sf-rebook-co" type="date" class="sh-input" /></label>
+            </div>
+            <button id="btn-sheet-rebook" class="sa un" type="button">↩ Rebook</button>
+          </div>
+        </div>
+
+        <!-- SERVICES / INVOICE -->
+        <div data-sh-panel="services" hidden>
+          <div class="sh-sec">
+            <h4>Add Charge</h4>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="sf-svc-select" class="sh-input" style="flex:1"><option value="">— Select service preset —</option></select>
+              <input id="sf-svc-qty" type="number" min="1" value="1" class="sh-input" style="width:60px" />
+              <button id="btn-add-svc" class="sa ci" type="button">Add</button>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input id="sf-svc-custom" class="sh-input" placeholder="Custom charge description" style="flex:1" />
+              <input id="sf-svc-price" type="number" min="0" step="0.01" class="sh-input" style="width:90px" placeholder="Price" />
+              <button id="btn-add-custom-svc" class="sa un" type="button">Add Custom</button>
+            </div>
+          </div>
+          <div class="sh-sec">
+            <h4>Invoice</h4>
+            <div id="sh-inv-lines"><div style="font-size:12px;color:#94a3b8">No charges yet.</div></div>
+            <div class="inv-total" id="sh-inv-total">Total: — 0.00</div>
+            <div class="sh-actions" style="margin-top:6px">
+              <button id="btn-print-inv" class="sa un" type="button">🖨 Print Invoice</button>
+              <button id="btn-clear-inv" class="sa can" type="button">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div data-sh-panel="actions" hidden>
+          <div class="sh-sec">
+            <h4>Reservation Status</h4>
+            <div class="sh-actions">
+              <button id="btn-sh-ci" class="sa ci" type="button">✓ Check In</button>
+              <button id="btn-sh-co" class="sa co" type="button">→ Check Out</button>
+              <button id="btn-sh-eco" class="sa ec" type="button">↙ Early Check-out</button>
+              <button id="btn-sh-ns" class="sa ns" type="button">✗ No Show</button>
+              <button id="btn-sh-undo" class="sa un" type="button">↩ Undo</button>
+            </div>
+            <label class="sh-field" style="margin-top:6px">Early Check-out Date<input id="sf-eco-date" type="date" class="sh-input" /></label>
+          </div>
+          <div class="sh-sec">
+            <h4>Room Unit Assignment</h4>
+            <select id="sf-room-assign" class="sh-input"><option value="">— Assign room unit —</option></select>
+            <p style="margin:0;font-size:11px;color:#94a3b8">Writes to session only. Per-unit reservation linking needs a future migration.</p>
+          </div>
+          <div class="sh-sec">
+            <h4>Cancel Reservation</h4>
+            <textarea id="sf-cancel-reason" class="sh-input" rows="2" placeholder="Cancellation reason..." style="resize:none"></textarea>
+            <button id="btn-sh-cancel" class="sa can" type="button">Cancel Reservation</button>
+          </div>
+        </div>
+
+        <!-- HISTORY -->
+        <div data-sh-panel="history" hidden>
+          <div class="sh-sec">
+            <h4>Lifecycle Events</h4>
+            <div id="sh-timeline" style="display:grid;gap:10px"></div>
+          </div>
+          <div class="sh-sec">
+            <h4>Raw JSON</h4>
+            <pre id="sh-raw" style="margin:0;font-size:10px;background:#f1f5f9;border-radius:8px;padding:10px;overflow:auto;max-height:280px;color:#334155;white-space:pre-wrap;word-break:break-all"></pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <script>
     (() => {
       const state = {
         tenantId: '',
+        kioskPropertyId: '',
         properties: [],
         selectedPropertyId: '',
         selectedProperty: null,
@@ -658,7 +839,13 @@
         currentReservation: null,
         roomUnits: [],
         addonServicePresets: [],
-        activeTab: 'frontdesk',
+        activeTab: 'rack',
+        roomTypes: [],
+        sheetRoomUnit: null,
+        sheetReservation: null,
+        sheetActiveTab: 'profile',
+        invoiceLines: [],
+        guestPhotos: {},
       };
 
       const els = {
@@ -917,6 +1104,244 @@
         `).join('');
       }
 
+      // ── Room Rack ──────────────────────────────────────────────────────────
+      function rackCellState(unit) {
+        if (unit.operational_status === 'out_of_order') return 'out-of-order';
+        if (unit.operational_status === 'maintenance')  return 'maintenance';
+        const active = state.reservations.filter(r =>
+          r.room_type_id === unit.room_type_id && ['confirmed', 'checked_in'].includes(r.status)
+        );
+        if (!active.length) {
+          const recentDep = state.reservations.some(r =>
+            r.room_type_id === unit.room_type_id && r.departure_today && r.status === 'checked_out'
+          );
+          return recentDep ? 'dirty' : 'vacant';
+        }
+        const r = active[0];
+        if (r.departure_today) return 'departing';
+        if (r.arrival_today || r.status === 'confirmed') return 'arriving';
+        return 'occupied';
+      }
+
+      function rackReservationForUnit(unit) {
+        return state.reservations.find(r =>
+          r.room_type_id === unit.room_type_id && ['confirmed', 'checked_in'].includes(r.status)
+        ) || null;
+      }
+
+      function renderRack() {
+        const container = document.getElementById('rack-grid-container');
+        if (!state.roomUnits.length) {
+          container.innerHTML = '<div class="empty">Load a property to view the room rack.</div>';
+          return;
+        }
+        const typeMap = {};
+        state.roomTypes.forEach(t => { typeMap[t.id] = t.code || t.name || t.id; });
+        const floors = {};
+        state.roomUnits.forEach(u => {
+          const fl = u.floor_label || '—';
+          if (!floors[fl]) floors[fl] = [];
+          floors[fl].push(u);
+        });
+        // Sort within each floor: room type left→right, then room number
+        Object.values(floors).forEach(units => units.sort((a, b) => {
+          const ta = typeMap[a.room_type_id] || '';
+          const tb = typeMap[b.room_type_id] || '';
+          return ta.localeCompare(tb) || (a.room_number || '').localeCompare(b.room_number || '', undefined, { numeric: true });
+        }));
+        const sorted = Object.keys(floors).sort((a, b) => {
+          const na = parseFloat(a), nb = parseFloat(b);
+          return isNaN(na) || isNaN(nb) ? b.localeCompare(a) : nb - na;
+        });
+        container.innerHTML = sorted.map(floor => {
+          const cells = floors[floor].map(u => {
+            const cs  = rackCellState(u);
+            const res = rackReservationForUnit(u);
+            const code = escapeHtml((typeMap[u.room_type_id] || u.room_type_id || '').slice(0, 8));
+            const first = res ? escapeHtml((res.guest_name || '').split(' ')[0] || '…') : '';
+            const hasPhoto = res && state.guestPhotos[res.id];
+            return `<div class="rack-cell ${cs}" data-unit-id="${escapeHtml(u.id)}"
+              title="${escapeHtml(u.room_number)}${res ? ' · ' + escapeHtml(res.guest_name || '') + ' · ' + escapeHtml(res.check_in) + ' → ' + escapeHtml(res.check_out) : ''}">
+              ${hasPhoto ? `<img src="${escapeHtml(state.guestPhotos[res.id])}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:11px;opacity:.18">` : ''}
+              <div class="rc-num">${escapeHtml(u.room_number)}</div>
+              <div class="rc-type">${code}</div>
+              ${first ? `<div class="rc-guest">${first}</div>` : ''}
+            </div>`;
+          }).join('');
+          return `<div style="margin-bottom:16px">
+            <div class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
+            <div class="rack-grid">${cells}</div>
+          </div>`;
+        }).join('');
+      }
+
+      // ── Guest Sheet ─────────────────────────────────────────────────────────
+      function sheetStatusStyle(status) {
+        if (status === 'checked_in')  return 'background:#22c55e33;color:#166534';
+        if (status === 'confirmed')   return 'background:#818cf833;color:#4c1d95';
+        if (status === 'checked_out') return 'background:#60a5fa33;color:#1e3a8a';
+        if (status === 'cancelled' || status === 'no_show') return 'background:#ef444433;color:#7f1d1d';
+        return 'background:rgba(255,255,255,.18);color:#fff';
+      }
+
+      function switchSheetTab(tab) {
+        state.sheetActiveTab = tab;
+        document.querySelectorAll('#guest-overlay [data-sh-panel]').forEach(p => {
+          p.hidden = p.getAttribute('data-sh-panel') !== tab;
+        });
+        document.querySelectorAll('.sh-tab').forEach(b => {
+          b.classList.toggle('active', b.getAttribute('data-sh-tab') === tab);
+        });
+      }
+
+      function renderSheetInvoice() {
+        const lines = state.invoiceLines;
+        const linesEl = document.getElementById('sh-inv-lines');
+        const totalEl = document.getElementById('sh-inv-total');
+        if (!lines.length) {
+          linesEl.innerHTML = '<div style="font-size:12px;color:#94a3b8">No charges yet.</div>';
+          totalEl.textContent = 'Total: — 0.00';
+          return;
+        }
+        const currency = lines[0]?.currency || '';
+        const total = lines.reduce((s, l) => s + Number(l.amount || 0), 0);
+        linesEl.innerHTML = lines.map((l, i) => `
+          <div class="inv-line">
+            <span class="inv-name">${escapeHtml(l.name)}</span>
+            <span class="inv-amt">${escapeHtml(l.currency || currency)} ${Number(l.amount).toFixed(2)}</span>
+            <button class="inv-rm" data-rm-line="${i}" type="button" title="Remove">✕</button>
+          </div>`).join('');
+        totalEl.textContent = `Total: ${currency} ${total.toFixed(2)}`;
+      }
+
+      function renderSheetTimeline() {
+        const events = state.sheetReservation?.events || [];
+        const el = document.getElementById('sh-timeline');
+        if (!events.length) {
+          el.innerHTML = '<div style="font-size:12px;color:#94a3b8">No events yet.</div>';
+          return;
+        }
+        el.innerHTML = events.map(ev => `
+          <article class="tl-ev">
+            <strong>${escapeHtml(ev.action)}</strong>
+            <div class="tl-s">${escapeHtml(ev.from_status || '—')} → ${escapeHtml(ev.to_status || '—')}</div>
+            <div class="tl-s">${new Date(Number(ev.created_at || 0) * 1000).toLocaleString()}</div>
+          </article>`).join('');
+      }
+
+      async function openGuestSheet(unitId) {
+        const unit = state.roomUnits.find(u => u.id === unitId);
+        if (!unit) return;
+        state.sheetRoomUnit = unit;
+        state.sheetReservation = null;
+        state.invoiceLines = [];
+        const overlay = document.getElementById('guest-overlay');
+        let res = rackReservationForUnit(unit);
+        if (res) {
+          try {
+            const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`);
+            state.sheetReservation = detail;
+            res = detail.reservation;
+          } catch { res = null; }
+        }
+        // Header
+        document.getElementById('sh-guest-name').textContent = res?.guest_name || `Room ${unit.room_number}`;
+        document.getElementById('sh-guest-sub').textContent = res
+          ? `Room ${unit.room_number} · ${res.check_in} → ${res.check_out}`
+          : `Room ${unit.room_number} · ${unit.operational_status}`;
+        const badge = document.getElementById('sh-badge');
+        badge.textContent = res?.status || unit.operational_status;
+        badge.setAttribute('style', sheetStatusStyle(res?.status || unit.operational_status));
+        // Photo
+        const photo = res && state.guestPhotos[res.id];
+        const avatarImg  = document.getElementById('sh-avatar-img');
+        const avatarIcon = document.getElementById('sh-avatar-icon');
+        if (photo) { avatarImg.src = photo; avatarImg.style.display = 'block'; avatarIcon.style.display = 'none'; }
+        else        { avatarImg.style.display = 'none'; avatarIcon.style.display = 'block'; avatarIcon.textContent = res ? '🧑' : '🛏'; }
+        // Profile
+        document.getElementById('sf-name').value        = res?.guest_name  || '';
+        document.getElementById('sf-email').value       = res?.guest_email || '';
+        document.getElementById('sf-phone').value       = res?.guest_phone || '';
+        document.getElementById('sf-nationality').value = '';
+        document.getElementById('sf-passport').value    = '';
+        document.getElementById('sf-dob').value         = '';
+        document.getElementById('sf-requests').value    = res?.special_requests || '';
+        // Stay tab
+        if (res) {
+          const typeMap = {}; state.roomTypes.forEach(t => { typeMap[t.id] = t.name || t.code || t.id; });
+          document.getElementById('sh-stay-body').innerHTML = `
+            <div style="display:grid;gap:5px;grid-template-columns:120px 1fr">
+              <span style="color:#64748b;font-size:12px">Room</span><span style="font-weight:700">${escapeHtml(unit.room_number)}</span>
+              <span style="color:#64748b;font-size:12px">Room Type</span><span>${escapeHtml(typeMap[res.room_type_id] || res.room_type_id || '')}</span>
+              <span style="color:#64748b;font-size:12px">Check-in</span><span style="font-weight:700">${escapeHtml(res.check_in || '')}</span>
+              <span style="color:#64748b;font-size:12px">Check-out</span><span style="font-weight:700">${escapeHtml(res.check_out || '')}</span>
+              <span style="color:#64748b;font-size:12px">Guests</span><span>${Number(res.adults||0)}A / ${Number(res.children||0)}C</span>
+              <span style="color:#64748b;font-size:12px">Rooms</span><span>${Number(res.rooms_requested||0)}</span>
+              <span style="color:#64748b;font-size:12px">Status</span><span style="font-weight:700;text-transform:capitalize">${escapeHtml(res.status||'')}</span>
+            </div>`;
+          document.getElementById('sh-pricing').textContent = JSON.stringify(res.pricing_snapshot || {}, null, 2);
+          document.getElementById('sf-rebook-ci').value = res.check_in || '';
+          document.getElementById('sf-rebook-co').value = res.check_out || '';
+          document.getElementById('sf-eco-date').value  = res.check_out || '';
+        } else {
+          document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">No active reservation for this room.</div>';
+          document.getElementById('sh-pricing').textContent = '';
+        }
+        // Service preset select
+        const svcSel = document.getElementById('sf-svc-select');
+        svcSel.innerHTML = '<option value="">— Select service preset —</option>' +
+          state.addonServicePresets.map(p =>
+            `<option value="${escapeHtml(p.id)}" data-price="${Number(p.default_unit_price||0)}" data-currency="${escapeHtml(p.currency||'')}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)} (${escapeHtml(p.currency)} ${Number(p.default_unit_price||0).toFixed(2)})</option>`
+          ).join('');
+        // Room assign dropdown
+        const roomSel = document.getElementById('sf-room-assign');
+        roomSel.innerHTML = '<option value="">— Assign room unit —</option>' +
+          state.roomUnits.filter(u => !res || u.room_type_id === res.room_type_id).map(u =>
+            `<option value="${escapeHtml(u.id)}" ${u.id === unit.id ? 'selected' : ''}>${escapeHtml(u.room_number)}${u.floor_label ? ' (Fl. ' + escapeHtml(u.floor_label) + ')' : ''} · ${escapeHtml(u.operational_status)}</option>`
+          ).join('');
+        renderSheetInvoice();
+        renderSheetTimeline();
+        document.getElementById('sh-raw').textContent = JSON.stringify(state.sheetReservation || { unit }, null, 2);
+        switchSheetTab('profile');
+        overlay.hidden = false;
+      }
+
+      function closeGuestSheet() {
+        document.getElementById('guest-overlay').hidden = true;
+        state.sheetRoomUnit = null;
+        state.sheetReservation = null;
+      }
+
+      async function sheetAction(action, extra = {}) {
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('No reservation loaded in sheet.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/${action}`, {
+            method: 'POST', body: JSON.stringify(extra),
+          });
+          setFlash(`${action} succeeded.`);
+          await loadWorkspace();
+          if (state.sheetRoomUnit) await openGuestSheet(state.sheetRoomUnit.id);
+        } catch (err) { setFlash(err.message, 'err'); }
+      }
+
+      function renderOpsBriefing() {
+        const brief = document.getElementById('ops-brief');
+        if (!state.selectedPropertyId || !state.reservations.length) { brief.style.display = 'none'; return; }
+        brief.style.display = '';
+        const today = state.boardDate;
+        const arrivals   = state.reservations.filter(r => r.arrival_today);
+        const departures = state.reservations.filter(r => r.departure_today);
+        const stayovers  = state.reservations.filter(r => r.stayover);
+        const chip = (r) => `<button class="ops-chip" data-reservation-id="${escapeHtml(r.id)}">
+          <span class="chip-dot" style="background:${r.status === 'checked_in' ? '#22c55e' : r.status === 'confirmed' ? '#818cf8' : '#fb923c'}"></span>
+          ${escapeHtml(r.guest_name || 'Guest')} · ${escapeHtml(r.room_type_code || r.room_type_id || '')}
+        </button>`;
+        document.getElementById('brief-arrivals').innerHTML   = arrivals.length   ? arrivals.map(chip).join('')   : '<span class="muted">None today</span>';
+        document.getElementById('brief-departures').innerHTML = departures.length ? departures.map(chip).join('') : '<span class="muted">None today</span>';
+        document.getElementById('brief-stayovers').innerHTML  = stayovers.length  ? `<span style="font-weight:700">${stayovers.length}</span>` : '<span class="muted">0</span>';
+      }
+
       function applyActiveTab() {
         document.querySelectorAll('[data-staff-panel]').forEach((panel) => {
           panel.hidden = panel.getAttribute('data-staff-panel') !== state.activeTab;
@@ -929,11 +1354,19 @@
       async function loadProperties() {
         const payload = await api('/api/properties');
         state.properties = payload.properties || [];
-        if (!state.selectedPropertyId && state.properties.length) state.selectedPropertyId = state.properties[0].id;
-        if (state.selectedPropertyId && !state.properties.some((item) => item.id === state.selectedPropertyId)) {
-          state.selectedPropertyId = state.properties[0]?.id || '';
+        if (state.kioskPropertyId) {
+          // Kiosk mode: lock to the property from the URL
+          const match = state.properties.find((p) => p.id === state.kioskPropertyId);
+          state.selectedPropertyId = match ? match.id : (state.properties[0]?.id || '');
+          // Render a minimal locked list (no switching)
+          renderPropertyList();
+        } else {
+          if (!state.selectedPropertyId && state.properties.length) state.selectedPropertyId = state.properties[0].id;
+          if (state.selectedPropertyId && !state.properties.some((item) => item.id === state.selectedPropertyId)) {
+            state.selectedPropertyId = state.properties[0]?.id || '';
+          }
+          renderPropertyList();
         }
-        renderPropertyList();
         await loadWorkspace();
       }
 
@@ -951,17 +1384,21 @@
           renderHousekeeping();
           renderMaintenance();
           renderFolioAddonPresets();
+          renderRack();
+          renderOpsBriefing();
           return;
         }
         const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
-        const [reservationPayload, roomUnitsPayload, addonPresetsPayload] = await Promise.all([
+        const [reservationPayload, roomUnitsPayload, addonPresetsPayload, roomTypesPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/reservations?${boardQuery}`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
           api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`),
+          api(`/api/properties/${state.selectedPropertyId}/room-types`),
         ]);
         state.reservations = reservationPayload.reservations || [];
         state.roomUnits = roomUnitsPayload.room_units || [];
         state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
+        state.roomTypes = roomTypesPayload.room_types || [];
         if (state.selectedReservationId) {
           try {
             const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}`);
@@ -978,6 +1415,8 @@
         renderHousekeeping();
         renderMaintenance();
         renderFolioAddonPresets();
+        renderRack();
+        renderOpsBriefing();
       }
 
       async function loadReservation(reservationId) {
@@ -1099,6 +1538,16 @@
         }
       });
 
+      // Briefing chips → jump to front desk and load reservation
+      document.getElementById('ops-brief').addEventListener('click', async (event) => {
+        const chip = event.target.closest('[data-reservation-id]');
+        if (!chip) return;
+        state.activeTab = 'frontdesk';
+        applyActiveTab();
+        try { await loadReservation(chip.getAttribute('data-reservation-id')); }
+        catch (err) { setFlash(err.message, 'err'); }
+      });
+
       els.reservationActionRow.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-reservation-action]');
         if (!button || !state.selectedPropertyId || !state.selectedReservationId) return;
@@ -1161,9 +1610,17 @@
       });
 
       function restoreTenant() {
-        const urlTenant = new URLSearchParams(window.location.search).get('tid');
+        const params = new URLSearchParams(window.location.search);
+        const urlTenant = params.get('tid');
+        const urlPid   = params.get('pid');
         const storedTenant = localStorage.getItem(storageKey());
         const tenantId = String(urlTenant || storedTenant || '').trim();
+        if (urlPid) {
+          state.kioskPropertyId = urlPid;
+          document.body.classList.add('kiosk');
+          state.activeTab = 'rack';
+          applyActiveTab();
+        }
         if (!tenantId) return;
         els.tenantId.value = tenantId;
         bootTenant(tenantId).catch((error) => setFlash(error.message, 'err'));
@@ -1171,6 +1628,158 @@
 
       applyActiveTab();
       restoreTenant();
+
+      // ── Room Rack events ────────────────────────────────────────────────────
+      document.getElementById('rack-grid-container').addEventListener('click', async (e) => {
+        const cell = e.target.closest('[data-unit-id]');
+        if (!cell || !state.selectedPropertyId) return;
+        try { await openGuestSheet(cell.getAttribute('data-unit-id')); }
+        catch (err) { setFlash(err.message, 'err'); }
+      });
+
+      document.getElementById('btn-copy-staff-link').addEventListener('click', () => {
+        if (!state.selectedPropertyId || !state.tenantId) return setFlash('Select a property first.', 'err');
+        const url = new URL(window.location.href);
+        url.searchParams.set('tid', state.tenantId);
+        url.searchParams.set('pid', state.selectedPropertyId);
+        const link = url.toString();
+        navigator.clipboard.writeText(link).then(
+          () => setFlash('Staff link copied! Share with front-desk staff only.'),
+          () => setFlash('Copy failed. Link: ' + link, 'err')
+        );
+      });
+
+      document.getElementById('btn-refresh-rack').addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try { await loadWorkspace(); setFlash('Rack refreshed.'); }
+        catch (err) { setFlash(err.message, 'err'); }
+      });
+
+      // ── Guest Sheet events ──────────────────────────────────────────────────
+      document.getElementById('btn-close-sheet').addEventListener('click', closeGuestSheet);
+      document.getElementById('guest-overlay').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeGuestSheet();
+      });
+
+      document.querySelector('.sh-tabs').addEventListener('click', (e) => {
+        const btn = e.target.closest('.sh-tab');
+        if (btn) switchSheetTab(btn.getAttribute('data-sh-tab'));
+      });
+
+      // Photo upload
+      document.getElementById('sh-avatar-wrap').addEventListener('click', () => {
+        document.getElementById('sh-photo-input').click();
+      });
+      document.getElementById('btn-upload-photo').addEventListener('click', () => {
+        document.getElementById('sh-photo-input').click();
+      });
+      document.getElementById('sh-photo-input').addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const url = ev.target.result;
+          const resId = state.sheetReservation?.reservation?.id;
+          if (resId) state.guestPhotos[resId] = url;
+          document.getElementById('sh-avatar-img').src = url;
+          document.getElementById('sh-avatar-img').style.display = 'block';
+          document.getElementById('sh-avatar-icon').style.display = 'none';
+          renderRack();
+          setFlash('Photo saved for this session.');
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Profile save
+      document.getElementById('btn-save-profile').addEventListener('click', () => {
+        setFlash('Profile saved in session (backend PATCH endpoint for guest details coming soon).');
+      });
+      document.getElementById('btn-save-requests').addEventListener('click', () => {
+        setFlash('Notes saved in session.');
+      });
+
+      // Add preset service
+      document.getElementById('btn-add-svc').addEventListener('click', () => {
+        const sel = document.getElementById('sf-svc-select');
+        const opt = sel.selectedOptions[0];
+        if (!opt?.value) return setFlash('Select a service first.', 'err');
+        const qty = Math.max(1, parseInt(document.getElementById('sf-svc-qty').value) || 1);
+        const price = Number(opt.dataset.price || 0);
+        state.invoiceLines.push({ name: `${opt.dataset.name} ×${qty}`, amount: price * qty, currency: opt.dataset.currency || '' });
+        renderSheetInvoice();
+      });
+
+      // Add custom service
+      document.getElementById('btn-add-custom-svc').addEventListener('click', () => {
+        const desc  = document.getElementById('sf-svc-custom').value.trim();
+        const price = parseFloat(document.getElementById('sf-svc-price').value) || 0;
+        if (!desc) return setFlash('Enter a description.', 'err');
+        const currency = state.sheetReservation?.reservation?.pricing_snapshot?.currency || state.invoiceLines[0]?.currency || '—';
+        state.invoiceLines.push({ name: desc, amount: price, currency });
+        document.getElementById('sf-svc-custom').value = '';
+        document.getElementById('sf-svc-price').value = '';
+        renderSheetInvoice();
+      });
+
+      // Remove invoice line
+      document.getElementById('sh-inv-lines').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-rm-line]');
+        if (!btn) return;
+        state.invoiceLines.splice(parseInt(btn.getAttribute('data-rm-line')), 1);
+        renderSheetInvoice();
+      });
+
+      // Print invoice
+      document.getElementById('btn-print-inv').addEventListener('click', () => {
+        if (!state.invoiceLines.length) return setFlash('No charges to print.', 'err');
+        const res = state.sheetReservation?.reservation;
+        const header = res
+          ? `INVOICE\n${'─'.repeat(48)}\nGuest : ${res.guest_name || 'Guest'}\nRoom  : ${state.sheetRoomUnit?.room_number || '—'}\nStay  : ${res.check_in} → ${res.check_out}\n${'─'.repeat(48)}\n\n`
+          : 'INVOICE\n\n';
+        const lines = state.invoiceLines.map(l => `${String(l.name).padEnd(34)} ${l.currency} ${Number(l.amount).toFixed(2)}`).join('\n');
+        const total = state.invoiceLines.reduce((s, l) => s + Number(l.amount), 0);
+        const currency = state.invoiceLines[0]?.currency || '';
+        const text = `${header}${lines}\n\n${'─'.repeat(48)}\nTOTAL     ${currency} ${total.toFixed(2)}\n${'─'.repeat(48)}`;
+        const w = window.open('', '_blank', 'width=640,height=520');
+        if (!w) return setFlash('Pop-up blocked. Allow pop-ups and try again.', 'err');
+        w.document.write(`<html><head><title>Invoice</title></head><body><pre style="font:14px/1.7 monospace;padding:32px;color:#0f172a">${text.replace(/</g,'&lt;')}</pre></body></html>`);
+        w.document.close();
+        w.focus();
+        w.print();
+      });
+
+      // Clear invoice
+      document.getElementById('btn-clear-inv').addEventListener('click', () => {
+        state.invoiceLines = [];
+        renderSheetInvoice();
+      });
+
+      // Reservation actions
+      document.getElementById('btn-sh-ci').addEventListener('click',   () => sheetAction('check-in'));
+      document.getElementById('btn-sh-co').addEventListener('click',   () => sheetAction('check-out'));
+      document.getElementById('btn-sh-ns').addEventListener('click',   () => sheetAction('no-show'));
+      document.getElementById('btn-sh-undo').addEventListener('click', () => sheetAction('undo-status'));
+      document.getElementById('btn-sh-eco').addEventListener('click', () => {
+        const d = document.getElementById('sf-eco-date').value;
+        if (!d) return setFlash('Set an early check-out date first.', 'err');
+        sheetAction('early-check-out', { effective_check_out: d });
+      });
+      document.getElementById('btn-sheet-rebook').addEventListener('click', () => {
+        const ci = document.getElementById('sf-rebook-ci').value;
+        const co = document.getElementById('sf-rebook-co').value;
+        if (!ci || !co) return setFlash('Set new check-in and check-out dates.', 'err');
+        sheetAction('rebook', { check_in: ci, check_out: co });
+      });
+      document.getElementById('btn-sh-cancel').addEventListener('click', () => {
+        const reason = document.getElementById('sf-cancel-reason').value.trim();
+        if (!confirm('Cancel this reservation? This is hard to reverse.')) return;
+        sheetAction('cancel', { cancel_reason: reason });
+      });
+
+      // Keyboard close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeGuestSheet();
+      });
     })();
   </script>
 </body>

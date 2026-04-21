@@ -36,6 +36,8 @@ Status legend:
 | CHK-R96 | Property addon service presets for tenant config | done | Added migration `0075_property_addon_service_presets.sql` plus tenant-scoped property addon catalog APIs: `GET/POST/PATCH /api/properties/:propertyId/addon-service-presets` and `POST /api/properties/:propertyId/addon-service-presets/seed-defaults`. `public/properties-engine.html` now lets tenants seed common presets or define custom addon services such as airport pickup, breakfast upgrade, extra bed, late checkout, laundry, or spa passes. The catalog now enforces the commercial rule at the backend layer: addons are onsite-only by default, and airport pickup is the only pre-arrival exception. `public/property-staff.html` shows the configured addon catalog read-only in the `POS / Folio` lane so staff can see what should later be postable into folios without mixing config into staff operations. | 2026-04-19 | Verified locally on port 8800. Seeded defaults now returned 5 presets, with only `AIRPORT-PICKUP` carrying `prearrival_exception = true`. A custom `SPA-PASS` create returned `onsite_only = true` and `prearrival_exception = false`. |
 | CHK-R97 | Properties-engine UI — CRUD actions for all item types | done | Added Edit/Copy/Del action buttons to all list items in `properties-engine.html`: room types, room units, base rates, rate seasons, seasonal room rates, and addon presets. Each row now has an inline action bar. Edit fills the corresponding form and puts it into update (PATCH) mode with a teal submit button and Cancel to restore create mode. Copy pre-fills the form as a new item. Delete confirms then calls the resource-specific DELETE endpoint. Added `clearEditMode`, `setEditMode`, and `fillForm` helpers. Action buttons for room units show Edit + Del only (no Copy, as bulk-create is the preferred path for units). Properties list was refactored from a flat button to a card div with an inner select-button and a separate action row so Edit/Copy/Del fit cleanly below each property card. | 2026-04-21 | Deployed `9ede6a46`. Delete JSON parse error fixed (empty 204 body no longer throws). |
 | CHK-R98 | Backend DELETE routes for all property builder resources | done | Added 7 DELETE handler functions in `src/routes/properties.js` and registered their routes in `src/index.js`: `DELETE /api/properties/:propertyId`, `DELETE .../room-types/:roomTypeId`, `DELETE .../room-units/:roomUnitId`, `DELETE .../room-rates/:roomRateId`, `DELETE .../addon-service-presets/:presetId`, `DELETE .../rate-seasons/:seasonId`, `DELETE .../season-room-rates/:seasonRoomRateId`. Each handler verifies tenant, requires manager role, returns 404 if not found, and returns 204 No Content on success. Previously all DELETE calls fell through to a 404 with empty body causing the "Delete failed: Delete failed" client error. | 2026-04-21 | Deployed `3f48217e`. |
+| CHK-R99 | Room Rack kiosk view in property-staff.html | done | Added full Room Rack tab to `public/property-staff.html`: color-coded cells (vacant/dirty/arriving/occupied/departing/maintenance/out-of-order) sorted by floor descending + room type left-to-right. Clicking any cell opens a 5-tab guest slide-over (Profile, Stay, Services, Actions, History). Services tab allows adding preset or custom charges and printing a text invoice. Actions tab covers check-in, check-out, early check-out, no-show, undo, rebook, cancel. History tab shows lifecycle event trail + raw JSON. Photo upload stored in session per reservation. Staff Link button generates a property-locked kiosk URL (`?tid=…&pid=…`). | 2026-04-21 | Deployed `f793635c`. JS functions: `rackCellState`, `rackReservationForUnit`, `renderRack`, `sheetStatusStyle`, `switchSheetTab`, `renderSheetInvoice`, `renderSheetTimeline`, `openGuestSheet`, `closeGuestSheet`, `sheetAction`. |
+| CHK-R100 | Staff desk UX — kiosk layout + compact rack + ops briefing | done | Major UX overhaul of `public/property-staff.html`: (1) Removed hero/marketing block entirely. (2) Removed sidebar — properties + stats moved into ⚙ Settings tab. (3) Rack cells shrunk from 86×74px to 50×44px, cells sorted by room type within each floor. (4) Added ops briefing strip (arrivals/departures/stayovers chips, clickable to jump to Front Desk). (5) Tenant login bar removed from page top — form moved into Settings > Account. (6) Page auto-loads tenant from `?tid=` URL param or `localStorage` on boot — no manual Load step. (7) Default tab is Rack, not Front Desk. (8) Kiosk mode (`?tid=…&pid=…`) hides ⚙ Settings tab entirely — staff cannot switch properties. (9) Legend row and ↻/🔗 buttons merged into a single compact row, no "Room Rack" title. | 2026-04-21 | Deployed `051068fb` → `5daa7448` → `8244cf60`. |
 
 ## Property runtime that now exists
 
@@ -113,6 +115,37 @@ Status legend:
 - room-type-level hold granularity only
 - reservation create baseline verified only for `rooms_requested = 1`
 - no admin/manual confirm route yet, no actor-aware authorization model beyond the current tenant-admin gate, and no richer post-stay settlement flow tied to folios yet
+
+## Recommended next sprint (PMS gap analysis — 2026-04-21)
+
+Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for boutique property tier:
+
+### 🔴 Critical — needed for real operations
+
+| ID | Title | Notes |
+|---|---|---|
+| NEXT-P01 | **Room assignment** | Add `assigned_room_unit_id` to `property_reservations`. Rack currently matches by `room_type_id` — multiple rooms of same type are ambiguous. Requires migration + PATCH on check-in + assignment dropdown in sheet Actions tab. |
+| NEXT-P02 | **Walk-in creation from rack** | Click vacant cell → modal to create reservation immediately without leaving rack. High ROI, frontend-only form calling existing `POST /reservations`. |
+| NEXT-P03 | **Payment recording on folio** | Invoice has charge lines but no settlement entry. Add cash/card/bank transfer settlement rows + balance-due calculation. No new table needed if folio_lines accepts `line_type = 'payment'`. |
+| NEXT-P04 | **Night audit / auto room-rate post** | Room rate should auto-post to folio each night. Requires a scheduled Cloudflare Worker Cron (already wired in wrangler.jsonc) calling a new `POST /api/properties/:pid/folios/night-audit`. |
+
+### 🟠 Important — affects daily ops
+
+| ID | Title | Notes |
+|---|---|---|
+| NEXT-P05 | **Housekeeping task engine** | Tab is currently empty. Needs: dirty → cleaning → inspected → ready state machine per room unit, assignable to a housekeeper actor. Likely needs `housekeeping_tasks` table (already in schema list but not live). |
+| NEXT-P06 | **Auto-dirty on checkout** | When check-out fires, room unit `operational_status` should flip to `dirty` automatically. One-line addition in the check-out handler. |
+| NEXT-P07 | **Active holds list** | Hold release UI exists but there is no list of currently active holds. Add `GET /api/properties/:pid/availability/holds` route and render in Guest Support tab. |
+| NEXT-P08 | **Early arrival / late checkout fees** | Common boutique upsell. Add `early_arrival_fee` and `late_checkout_fee` fields to addon presets and wire into folio posting. |
+
+### 🟡 Completeness — rounds out the product
+
+| ID | Title | Notes |
+|---|---|---|
+| NEXT-P09 | **Guest photo persist to backend** | Currently session-only. Add `guest_photo_url` to reservations or a separate `guest_profiles` table. Upload to R2 bucket. |
+| NEXT-P10 | **Multi-room reservation on rack** | `rooms_requested > 1` is stored but rack only shows one unit per reservation. |
+| NEXT-P11 | **Shift handover notes** | Free-text note from outgoing shift visible to incoming shift. Could be a single `shift_notes` field on properties or a lightweight append-only log. |
+| NEXT-P12 | **Do Not Disturb / Room Service flag** | Extra per-cell status overlay on rack. Frontend-only if stored in `room_unit` `operational_status` or as a new lightweight flag. |
 
 ## Boundary notes
 
