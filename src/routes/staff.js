@@ -27,11 +27,10 @@ const ALLOWED_PATCH_ROLES = new Set(['manager', 'staff', 'provider']);
 
 // Maximum number of non-owner members allowed per tier (owner does not count against limit)
 const TIER_TEAM_LIMITS = {
-  starter_landing: 0,   // owner only — no additional members
-  starter:         2,
-  growth:          10,
-  pro:             25,
-  enterprise:      999,
+  starter_landing:    0,  // owner only — no additional members
+  tour_operator_pro:  1,  // owner + 1 (e.g. one front-desk / coordinator)
+  hotel_operator_pro: 1,  // owner + 1
+  tour_hotel_suite:   2,  // owner + 2
 };
 const DEFAULT_TEAM_LIMIT = 0; // unknown tiers default to most restrictive
 
@@ -150,19 +149,22 @@ export default function registerStaffRoutes(app) {
     const db = c.env.DB;
     const now = Math.floor(Date.now() / 1000);
 
-    // Enforce team size limit for tenant's subscription tier
-    const tenantRow = await db.prepare('SELECT product_tier_key FROM tenants WHERE id = ?').bind(tenantId).first();
-    const tierKey = tenantRow?.product_tier_key ?? '';
-    const teamLimit = TIER_TEAM_LIMITS[tierKey] ?? DEFAULT_TEAM_LIMIT;
+    // Enforce team size limit: tier base + any purchased extra_staff_slots
+    const tenantRow = await db.prepare('SELECT product_tier_key, extra_staff_slots FROM tenants WHERE id = ?').bind(tenantId).first();
+    const tierKey      = tenantRow?.product_tier_key ?? '';
+    const extraSlots   = tenantRow?.extra_staff_slots ?? 0;
+    const baseLimit    = TIER_TEAM_LIMITS[tierKey] ?? DEFAULT_TEAM_LIMIT;
+    const teamLimit    = baseLimit + extraSlots;
     const { count: currentNonOwnerCount } = await db.prepare(
       `SELECT COUNT(*) AS count FROM memberships WHERE tenant_id = ? AND role != 'owner'`
     ).bind(tenantId).first() ?? { count: 0 };
     if (currentNonOwnerCount >= teamLimit) {
       return c.json({
-        error: 'Team member limit reached for your current plan. Upgrade to add more members.',
+        error: 'Team member limit reached. Purchase an additional staff seat (+1.00 EUR/month) or upgrade your plan to add more members.',
         upgrade_required: true,
         current_tier: tierKey,
         team_limit: teamLimit,
+        addon_url: '/api/billing/addon',
       }, 403);
     }
 
@@ -347,14 +349,16 @@ export default function registerStaffRoutes(app) {
     ).bind(tenantId, now).all();
 
     // Include tier limit info so UI can show upgrade prompts
-    const tenantRow = await db.prepare('SELECT product_tier_key FROM tenants WHERE id = ?').bind(tenantId).first();
-    const tierKey = tenantRow?.product_tier_key ?? '';
-    const teamLimit = TIER_TEAM_LIMITS[tierKey] ?? DEFAULT_TEAM_LIMIT;
+    const tenantRow = await db.prepare('SELECT product_tier_key, extra_staff_slots FROM tenants WHERE id = ?').bind(tenantId).first();
+    const tierKey   = tenantRow?.product_tier_key ?? '';
+    const extraSlots = tenantRow?.extra_staff_slots ?? 0;
+    const baseLimit  = TIER_TEAM_LIMITS[tierKey] ?? DEFAULT_TEAM_LIMIT;
+    const teamLimit  = baseLimit + extraSlots;
 
     return c.json({
       members: members.results ?? [],
       pending_invites: pendingInvites.results ?? [],
-      tier: { key: tierKey, team_limit: teamLimit },
+      tier: { key: tierKey, base_team_limit: baseLimit, extra_staff_slots: extraSlots, team_limit: teamLimit },
     });
   });
 

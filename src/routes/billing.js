@@ -185,6 +185,109 @@ billing.post('/checkout', async (c) => {
   });
 });
 
+// ── POST /api/billing/addon ───────────────────────────────────────────────────
+// Creates a Stripe Checkout Session to purchase one or more paid add-on slots.
+//
+// Request headers:
+//   X-Tenant-ID  (required)
+//
+// Request body:
+//   { addon_type: 'property' | 'staff', quantity?: number (default 1) }
+//
+// On checkout.session.completed with purchase_type='addon':
+//   addon_type='property' → increments tenants.extra_property_slots
+//   addon_type='staff'    → increments tenants.extra_staff_slots
+//
+// Pricing:
+//   property slot: STRIPE_PRICE_ID_EXTRA_PROPERTY (4.99 EUR/month recurring)
+//   staff slot:    STRIPE_PRICE_ID_EXTRA_STAFF    (1.00 EUR/month recurring)
+billing.post('/addon', async (c) => {
+  const tenantId = c.req.header('X-Tenant-ID')?.trim();
+  if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
+
+  const stripeKey = c.env.STRIPE_SECRET_KEY?.trim();
+  const baseUrl   = (c.env.PLATFORM_BASE_URL ?? '').replace(/\/$/, '');
+  if (!stripeKey) return c.json({ error: 'Stripe is not configured on this platform.' }, 503);
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, subscription_status, stripe_customer_id FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+
+  if (!['ACTIVE', 'TRIAL'].includes(tenant.subscription_status)) {
+    return c.json({ error: 'An active subscription is required to purchase add-ons.' }, 402);
+  }
+
+  let body = {};
+  try { body = await c.req.json(); } catch { /* optional */ }
+
+  const addonType = String(body.addon_type || '').trim();
+  if (!['property', 'staff'].includes(addonType)) {
+    return c.json({ error: 'addon_type must be "property" or "staff".' }, 400);
+  }
+
+  const quantity = Math.max(1, Math.min(50, parseInt(body.quantity ?? '1', 10) || 1));
+
+  const priceId = addonType === 'property'
+    ? c.env.STRIPE_PRICE_ID_EXTRA_PROPERTY?.trim()
+    : c.env.STRIPE_PRICE_ID_EXTRA_STAFF?.trim();
+
+  if (!priceId || priceId.startsWith('price_REPLACE_ME')) {
+    return c.json({ error: `Add-on price for "${addonType}" is not configured yet. Contact support.` }, 503);
+  }
+
+  const sessionParams = new URLSearchParams({
+    mode:                         'subscription',
+    'line_items[0][price]':       priceId,
+    'line_items[0][quantity]':    String(quantity),
+    client_reference_id:          tenantId,
+    'success_url':                `${baseUrl}/dashboard.html?addon_success=1&addon=${encodeURIComponent(addonType)}&qty=${quantity}`,
+    'cancel_url':                 `${baseUrl}/dashboard.html?addon_cancelled=1`,
+    'subscription_data[metadata][tenant_id]':  tenantId,
+    'subscription_data[metadata][purchase_type]': 'addon',
+    'subscription_data[metadata][addon_type]': addonType,
+    'subscription_data[metadata][quantity]':   String(quantity),
+    'metadata[purchase_type]': 'addon',
+    'metadata[addon_type]':    addonType,
+    'metadata[quantity]':      String(quantity),
+  });
+
+  if (tenant.stripe_customer_id) {
+    sessionParams.set('customer', tenant.stripe_customer_id);
+  }
+
+  let session;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${stripeKey}`,
+        'Content-Type':  'application/x-www-form-urlencoded',
+      },
+      body: sessionParams.toString(),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[BILLING_ADDON_ERROR]', data);
+      return c.json({ error: `Stripe error: ${data?.error?.message ?? 'Unknown error'}.`, stripe_code: data?.error?.code }, 502);
+    }
+    session = data;
+  } catch (err) {
+    console.error('[BILLING_ADDON_FETCH_ERROR]', err.message);
+    return c.json({ error: 'Failed to reach Stripe API. Try again.' }, 502);
+  }
+
+  if (!tenant.stripe_customer_id && session.customer) {
+    await c.env.DB
+      .prepare('UPDATE tenants SET stripe_customer_id = ? WHERE id = ?')
+      .bind(session.customer, tenantId)
+      .run();
+  }
+
+  return c.json({ ok: true, checkout_url: session.url, session_id: session.id, addon_type: addonType, quantity });
+});
+
 // ── POST /api/billing/webhook ─────────────────────────────────────────────────
 // Receives Stripe events and updates tenant subscription status.
 //
@@ -246,6 +349,65 @@ billing.post('/webhook', async (c) => {
       // Domain purchases are handled by /api/domains/stripe-webhook — skip here.
       if (obj.metadata?.purchase_type === 'domain') {
         return c.json({ ok: true, note: 'domain_purchase_skip' });
+      }
+
+      // ── Add-on slot purchase ──────────────────────────────────────────────
+      // purchase_type='addon' increments extra_property_slots or extra_staff_slots.
+      if (obj.metadata?.purchase_type === 'addon') {
+        const addonType = obj.metadata?.addon_type ?? '';
+        const qty       = Math.max(1, parseInt(obj.metadata?.quantity ?? '1', 10) || 1);
+        const col       = addonType === 'property' ? 'extra_property_slots'
+                        : addonType === 'staff'    ? 'extra_staff_slots'
+                        : null;
+
+        if (!col) {
+          console.warn(`[BILLING_WEBHOOK] addon session ${sessionId} unknown addon_type="${addonType}"`);
+          return c.json({ ok: true, note: 'addon_unknown_type' });
+        }
+
+        // Idempotency
+        const addonAlready = await c.env.DB
+          .prepare(
+            `SELECT id FROM tenant_audit_log
+              WHERE tenant_id = ? AND action = 'BILLING_ADDON_PURCHASED' AND old_value = ?
+              LIMIT 1`
+          )
+          .bind(tenantId, sessionId)
+          .first();
+        if (addonAlready) {
+          console.log(`[BILLING_WEBHOOK] addon session ${sessionId} already processed.`);
+          return c.json({ ok: true, note: 'already_processed' });
+        }
+
+        await c.env.DB
+          .prepare(`UPDATE tenants SET ${col} = ${col} + ? WHERE id = ?`)
+          .bind(qty, tenantId)
+          .run();
+
+        if (customerId) {
+          await c.env.DB
+            .prepare('UPDATE tenants SET stripe_customer_id = COALESCE(stripe_customer_id, ?) WHERE id = ?')
+            .bind(customerId, tenantId)
+            .run();
+        }
+
+        await c.env.DB
+          .prepare(
+            `INSERT INTO tenant_audit_log (id, tenant_id, action, field_name, old_value, new_value, created_at)
+             VALUES (?, ?, 'BILLING_ADDON_PURCHASED', ?, ?, ?, ?)`
+          )
+          .bind(
+            crypto.randomUUID().replace(/-/g, '').slice(0, 21),
+            tenantId,
+            col,
+            sessionId,      // old_value used as idempotency key
+            String(qty),
+            Math.floor(Date.now() / 1000)
+          )
+          .run();
+
+        console.log(`[BILLING_WEBHOOK] ✓ Tenant ${tenantId} addon=${addonType} qty=${qty} col=${col}`);
+        return c.json({ ok: true, addon_credited: addonType, quantity: qty, tenant_id: tenantId });
       }
 
       // Idempotency: check if this session was already processed
@@ -469,7 +631,7 @@ billing.get('/status', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, subscription_status, stripe_customer_id, created_at FROM tenants WHERE id = ?')
+    .prepare('SELECT id, subscription_status, stripe_customer_id, created_at, extra_property_slots, extra_staff_slots FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
@@ -490,6 +652,15 @@ billing.get('/status', async (c) => {
       trial_ends_at:    trialEndsAt,
       trial_days_left:  trialDaysLeft,
       trial_expired:    tenant.subscription_status === 'TRIAL' && nowS > trialEndsAt,
+    },
+    addons: {
+      extra_property_slots: tenant.extra_property_slots ?? 0,
+      extra_staff_slots:    tenant.extra_staff_slots ?? 0,
+      pricing: {
+        property_slot_eur: 4.99,
+        staff_slot_eur:    1.00,
+      },
+      addon_url_hint: '/api/billing/addon',
     },
     checkout_url_hint: '/api/billing/checkout',
   });

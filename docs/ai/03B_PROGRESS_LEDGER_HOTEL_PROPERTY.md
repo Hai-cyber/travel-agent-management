@@ -34,6 +34,8 @@ Status legend:
 | CHK-R94 | Property lifecycle v3 — reservation event trail and checked-out undo baseline | done | Added migration `0074_property_reservation_events.sql` plus lifecycle event recording for reservation create, rebook, cancel, check-in, check-out, early check-out, no-show, and undo actions. Reservation reads now return `events[]` so operational history is explicit. `POST /api/properties/:propertyId/reservations/:reservationId/undo-status` now also supports `checked_out -> checked_in`; when the checked-out state came from an early check-out, the restore path uses the recorded event payload to recover the previous `check_out`, rebuild a fresh selected stay plan, and relock room-night allocations when inventory is still available. `public/properties-engine.html` was reorganized into parent tabs (`Availability`, `Ops`) plus room-type tabs to keep lifecycle and availability surfaces dense but navigable. | 2026-04-19 | Verified locally with authenticated tenant session cookie on port 8795. Standard checkout undo restored reservation status from `checked_out` to `checked_in` and appended an `undo_status` event. Early-check-out undo restored `check_out` from `2026-12-22` back to `2026-12-23`, rebuilt locked allocations for the recovered night, and returned a clear event trail including `early_check_out` and `undo_status`. Builder page `GET /properties-engine?tid=<tenantId>` returned `200 OK` after the tabbed UI refactor. |
 | CHK-R95 | Property UI split — tenant config vs staff operations | done | Formalized the separation between tenant-facing property configuration and staff-facing property operations. Added `GET /api/properties/:propertyId/reservations` as a staff-board feed filtered by `board_date`, `status`, and `limit`, then created `public/property-staff.html` as a separate staff workspace with tabs for front desk, housekeeping baseline, maintenance, guest support, and POS/folio boundary. `public/properties-engine.html` now links directly to the staff workspace so property configuration and shift operations are no longer collapsed into one surface. | 2026-04-19 | Verified locally on port 8798. `GET /property-staff` and `GET /properties-engine` both returned `200 OK`. An authenticated smoke flow created tenant/property/room/reservation data and `GET /api/properties/:propertyId/reservations?board_date=2026-12-24&status=all` returned a live front-desk reservation summary with `arrival_today = true`. |
 | CHK-R96 | Property addon service presets for tenant config | done | Added migration `0075_property_addon_service_presets.sql` plus tenant-scoped property addon catalog APIs: `GET/POST/PATCH /api/properties/:propertyId/addon-service-presets` and `POST /api/properties/:propertyId/addon-service-presets/seed-defaults`. `public/properties-engine.html` now lets tenants seed common presets or define custom addon services such as airport pickup, breakfast upgrade, extra bed, late checkout, laundry, or spa passes. The catalog now enforces the commercial rule at the backend layer: addons are onsite-only by default, and airport pickup is the only pre-arrival exception. `public/property-staff.html` shows the configured addon catalog read-only in the `POS / Folio` lane so staff can see what should later be postable into folios without mixing config into staff operations. | 2026-04-19 | Verified locally on port 8800. Seeded defaults now returned 5 presets, with only `AIRPORT-PICKUP` carrying `prearrival_exception = true`. A custom `SPA-PASS` create returned `onsite_only = true` and `prearrival_exception = false`. |
+| CHK-R97 | Properties-engine UI — CRUD actions for all item types | done | Added Edit/Copy/Del action buttons to all list items in `properties-engine.html`: room types, room units, base rates, rate seasons, seasonal room rates, and addon presets. Each row now has an inline action bar. Edit fills the corresponding form and puts it into update (PATCH) mode with a teal submit button and Cancel to restore create mode. Copy pre-fills the form as a new item. Delete confirms then calls the resource-specific DELETE endpoint. Added `clearEditMode`, `setEditMode`, and `fillForm` helpers. Action buttons for room units show Edit + Del only (no Copy, as bulk-create is the preferred path for units). Properties list was refactored from a flat button to a card div with an inner select-button and a separate action row so Edit/Copy/Del fit cleanly below each property card. | 2026-04-21 | Deployed `9ede6a46`. Delete JSON parse error fixed (empty 204 body no longer throws). |
+| CHK-R98 | Backend DELETE routes for all property builder resources | done | Added 7 DELETE handler functions in `src/routes/properties.js` and registered their routes in `src/index.js`: `DELETE /api/properties/:propertyId`, `DELETE .../room-types/:roomTypeId`, `DELETE .../room-units/:roomUnitId`, `DELETE .../room-rates/:roomRateId`, `DELETE .../addon-service-presets/:presetId`, `DELETE .../rate-seasons/:seasonId`, `DELETE .../season-room-rates/:seasonRoomRateId`. Each handler verifies tenant, requires manager role, returns 404 if not found, and returns 204 No Content on success. Previously all DELETE calls fell through to a 404 with empty body causing the "Delete failed: Delete failed" client error. | 2026-04-21 | Deployed `3f48217e`. |
 
 ## Property runtime that now exists
 
@@ -60,22 +62,28 @@ Status legend:
   - `GET /api/properties`
   - `POST /api/properties`
   - `PATCH /api/properties/:propertyId`
+  - `DELETE /api/properties/:propertyId`
   - `GET /api/properties/:propertyId/room-types`
   - `POST /api/properties/:propertyId/room-types`
   - `PATCH /api/properties/:propertyId/room-types/:roomTypeId`
+  - `DELETE /api/properties/:propertyId/room-types/:roomTypeId`
   - `GET /api/properties/:propertyId/room-units`
   - `POST /api/properties/:propertyId/room-units`
   - `POST /api/properties/:propertyId/room-units/bulk-create`
   - `PATCH /api/properties/:propertyId/room-units/:roomUnitId`
+  - `DELETE /api/properties/:propertyId/room-units/:roomUnitId`
   - `GET /api/properties/:propertyId/room-rates`
   - `POST /api/properties/:propertyId/room-rates`
   - `PATCH /api/properties/:propertyId/room-rates/:roomRateId`
+  - `DELETE /api/properties/:propertyId/room-rates/:roomRateId`
   - `GET /api/properties/:propertyId/rate-seasons`
   - `POST /api/properties/:propertyId/rate-seasons`
   - `PATCH /api/properties/:propertyId/rate-seasons/:seasonId`
+  - `DELETE /api/properties/:propertyId/rate-seasons/:seasonId`
   - `GET /api/properties/:propertyId/season-room-rates`
   - `POST /api/properties/:propertyId/season-room-rates`
   - `PATCH /api/properties/:propertyId/season-room-rates/:seasonRoomRateId`
+  - `DELETE /api/properties/:propertyId/season-room-rates/:seasonRoomRateId`
   - `POST /api/properties/:propertyId/rates/quote`
   - `POST /api/properties/:propertyId/availability`
   - `POST /api/properties/:propertyId/availability/hold`
@@ -84,6 +92,7 @@ Status legend:
   - `POST /api/properties/:propertyId/addon-service-presets`
   - `POST /api/properties/:propertyId/addon-service-presets/seed-defaults`
   - `PATCH /api/properties/:propertyId/addon-service-presets/:presetId`
+  - `DELETE /api/properties/:propertyId/addon-service-presets/:presetId`
   - `POST /api/properties/:propertyId/reservations`
   - `GET /api/properties/:propertyId/reservations`
   - `GET /api/properties/:propertyId/reservations/:reservationId`

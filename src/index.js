@@ -55,9 +55,16 @@ import {
   handleListRateSeasons,
   handleCreateRateSeason,
   handleUpdateRateSeason,
+  handleDeleteRateSeason,
   handleListSeasonRoomRates,
   handleCreateSeasonRoomRate,
   handleUpdateSeasonRoomRate,
+  handleDeleteSeasonRoomRate,
+  handleDeleteProperty,
+  handleDeleteRoomType,
+  handleDeleteRoomUnit,
+  handleDeleteRoomRate,
+  handleDeletePropertyAddonServicePreset,
   handleQuotePropertyRoomRate,
   handleCheckPropertyAvailability,
   handleCreatePropertyAvailabilityHold,
@@ -242,8 +249,18 @@ const PROTECTED_API_PREFIXES = [
   '/api/tours',
   '/api/universal',
   '/api/billing/checkout',
+  '/api/billing/portal',
+  '/api/billing/addon',
+  '/api/billing/status',
   '/api/domains/search',    // domain availability + price lookup
   '/api/domains/purchase',  // covers /purchase and /purchases (startsWith)
+  '/api/reports',
+  '/api/marketing',
+  '/api/seo',
+  '/api/distribution',
+  '/api/suppliers',
+  '/api/calendar',
+  '/api/bookingcal',
 ];
 
 app.use('/api/*', async (c, next) => {
@@ -275,7 +292,51 @@ app.use('/api/*', async (c, next) => {
 
   c.set('authSession', session);
 
-  // ── Subscription enforcement ──────────────────────────────────────────────
+  // ── Role-based access control ─────────────────────────────────────────────
+  // owner   (4) — full access including billing and account management
+  // manager (3) — all config and operations, cannot touch billing/subscription
+  // staff   (2) — operations only: tasks, bookings, calendar, reservations
+  // provider(1) — own assigned tasks only
+  const ROLE_RANK_MAP = { owner: 4, manager: 3, staff: 2, provider: 1 };
+  const sessionRole = session.role ?? 'staff';
+  const roleRank    = ROLE_RANK_MAP[sessionRole] ?? 0;
+
+  // Owner-only: billing mutations (money / subscription management)
+  const OWNER_ONLY_PATHS = [
+    '/api/billing/checkout',
+    '/api/billing/portal',
+    '/api/billing/addon',
+  ];
+  if (OWNER_ONLY_PATHS.some(p => pathname.startsWith(p))) {
+    if (sessionRole !== 'owner') {
+      return c.json({ error: 'Only the account owner can perform this action.' }, 403);
+    }
+  }
+
+  // Manager+ required to view billing status and reports
+  const MANAGER_PLUS_ALL_PATHS = ['/api/billing/status', '/api/reports'];
+  if (MANAGER_PLUS_ALL_PATHS.some(p => pathname.startsWith(p)) && roleRank < 3) {
+    return c.json({ error: 'Manager or owner access required.' }, 403);
+  }
+
+  // Manager+ required for write operations on configuration routes
+  // Staff can still read (GET) these routes for operational context.
+  const MANAGER_PLUS_WRITE_PATHS = [
+    '/api/tours',
+    '/api/categories',
+    '/api/tenants',
+    '/api/tenant/pages',
+    '/api/marketing',
+    '/api/seo',
+    '/api/distribution',
+    '/api/suppliers',
+  ];
+  const WRITE_METHODS_SET = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  if (WRITE_METHODS_SET.has(c.req.method) && MANAGER_PLUS_WRITE_PATHS.some(p => pathname.startsWith(p)) && roleRank < 3) {
+    return c.json({ error: 'Manager or owner access required.' }, 403);
+  }
+
+
   // Block mutating operations for SUSPENDED, CANCELLED, and trial-expired tenants.
   // GET requests and /api/billing/* (so tenants can reactivate) are always allowed.
   const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -549,6 +610,11 @@ const patterns = [
     handler: (req, env, match) => handleUpdateProperty(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId' }),
+    handler: (req, env, match) => handleDeleteProperty(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types' }),
     handler: (req, env, match) => handleListRoomTypes(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -562,6 +628,11 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types/:roomTypeId' }),
     handler: (req, env, match) => handleUpdateRoomType(req, env, { propertyId: match.pathname.groups.propertyId, roomTypeId: match.pathname.groups.roomTypeId })
+  },
+  {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-types/:roomTypeId' }),
+    handler: (req, env, match) => handleDeleteRoomType(req, env, { propertyId: match.pathname.groups.propertyId, roomTypeId: match.pathname.groups.roomTypeId })
   },
   {
     method: 'GET',
@@ -584,6 +655,11 @@ const patterns = [
     handler: (req, env, match) => handleUpdateRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
   },
   {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId' }),
+    handler: (req, env, match) => handleDeleteRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
+  },
+  {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
     handler: (req, env, match) => handleListRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -597,6 +673,11 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates/:roomRateId' }),
     handler: (req, env, match) => handleUpdateRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, roomRateId: match.pathname.groups.roomRateId })
+  },
+  {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates/:roomRateId' }),
+    handler: (req, env, match) => handleDeleteRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, roomRateId: match.pathname.groups.roomRateId })
   },
   {
     method: 'GET',
@@ -619,6 +700,11 @@ const patterns = [
     handler: (req, env, match) => handleUpdatePropertyAddonServicePreset(req, env, { propertyId: match.pathname.groups.propertyId, presetId: match.pathname.groups.presetId })
   },
   {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/addon-service-presets/:presetId' }),
+    handler: (req, env, match) => handleDeletePropertyAddonServicePreset(req, env, { propertyId: match.pathname.groups.propertyId, presetId: match.pathname.groups.presetId })
+  },
+  {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rate-seasons' }),
     handler: (req, env, match) => handleListRateSeasons(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -634,6 +720,11 @@ const patterns = [
     handler: (req, env, match) => handleUpdateRateSeason(req, env, { propertyId: match.pathname.groups.propertyId, seasonId: match.pathname.groups.seasonId })
   },
   {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/rate-seasons/:seasonId' }),
+    handler: (req, env, match) => handleDeleteRateSeason(req, env, { propertyId: match.pathname.groups.propertyId, seasonId: match.pathname.groups.seasonId })
+  },
+  {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates' }),
     handler: (req, env, match) => handleListSeasonRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -647,6 +738,11 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates/:seasonRoomRateId' }),
     handler: (req, env, match) => handleUpdateSeasonRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, seasonRoomRateId: match.pathname.groups.seasonRoomRateId })
+  },
+  {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/season-room-rates/:seasonRoomRateId' }),
+    handler: (req, env, match) => handleDeleteSeasonRoomRate(req, env, { propertyId: match.pathname.groups.propertyId, seasonRoomRateId: match.pathname.groups.seasonRoomRateId })
   },
   {
     method: 'POST',

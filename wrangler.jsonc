@@ -85,6 +85,8 @@
 	//   STRIPE_DOMAIN_WEBHOOK_SECRET — Stripe webhook secret for /api/domains/stripe-webhook
 	"vars": {
 		"STRIPE_PRICE_ID": "price_REPLACE_ME",
+		"STRIPE_PRICE_ID_EXTRA_PROPERTY": "price_REPLACE_ME_EXTRA_PROPERTY",
+		"STRIPE_PRICE_ID_EXTRA_STAFF": "price_REPLACE_ME_EXTRA_STAFF",
 		"PLATFORM_BASE_URL": "https://tours-market.com",
 		"GOOGLE_CLIENT_ID": "373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com",
 		"TURNSTILE_SITE_KEY": "0x4AAAAAAC0RoU63f5ipBatl",
@@ -135,6 +137,8 @@
 			],
 			"vars": {
 				"STRIPE_PRICE_ID": "price_REPLACE_ME",
+				"STRIPE_PRICE_ID_EXTRA_PROPERTY": "price_REPLACE_ME_EXTRA_PROPERTY",
+				"STRIPE_PRICE_ID_EXTRA_STAFF": "price_REPLACE_ME_EXTRA_STAFF",
 				"PLATFORM_BASE_URL": "https://staging.tours-market.com",
 				"GOOGLE_CLIENT_ID": "373960611484-3umaivbmg6vcnfan49nvcs75dsb705ir.apps.googleusercontent.com"
 			}

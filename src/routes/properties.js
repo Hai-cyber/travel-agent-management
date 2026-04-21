@@ -45,6 +45,18 @@ async function requireTenantActor(request, env, tenantId) {
   return { session };
 }
 
+// Manager+ required for property/room configuration (not operational use).
+// owner=4, manager=3, staff=2, provider=1
+const PROPERTY_ROLE_RANK = { owner: 4, manager: 3, staff: 2, provider: 1 };
+async function requireManagerActor(request, env, tenantId) {
+  const result = await requireTenantActor(request, env, tenantId);
+  if (result.error) return result;
+  if ((PROPERTY_ROLE_RANK[result.session.role] ?? 0) < 3) {
+    return { error: jsonResponse({ error: 'Manager or owner access required.' }, 403) };
+  }
+  return result;
+}
+
 function currentUnixSeconds() {
   return Math.floor(Date.now() / 1000);
 }
@@ -505,6 +517,12 @@ function validatePropertyCreateRequest(body) {
     maxUpgradeSegmentsPerStay,
     maxUpgradeLevelJump,
     sameDayTurnoverSellable: normalizeBooleanInteger(body?.same_day_turnover_sellable, 0),
+    addressLine1: body?.address_line_1 ? String(body.address_line_1).trim().slice(0, 255) : null,
+    addressLine2: body?.address_line_2 ? String(body.address_line_2).trim().slice(0, 255) : null,
+    city: body?.city ? String(body.city).trim().slice(0, 100) : null,
+    stateProvince: body?.state_province ? String(body.state_province).trim().slice(0, 100) : null,
+    postalCode: body?.postal_code ? String(body.postal_code).trim().slice(0, 20) : null,
+    countryCode: body?.country_code ? String(body.country_code).trim().toUpperCase().slice(0, 2) : null,
   };
 }
 
@@ -513,6 +531,7 @@ function validatePropertyPatchRequest(body) {
     'name', 'slug', 'status', 'timezone', 'currency', 'default_check_in_time', 'default_check_out_time',
     'split_stay_enabled', 'split_stay_public_visible', 'allow_upgrade_to_preserve_stay', 'upgrade_mode',
     'max_room_moves_per_reservation', 'max_upgrade_segments_per_stay', 'max_upgrade_level_jump', 'same_day_turnover_sellable',
+    'address_line_1', 'address_line_2', 'city', 'state_province', 'postal_code', 'country_code',
   ]);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
@@ -563,6 +582,12 @@ function validatePropertyPatchRequest(body) {
     }
   }
   if ('same_day_turnover_sellable' in body) updates.same_day_turnover_sellable = normalizeBooleanInteger(body.same_day_turnover_sellable);
+  for (const key of ['address_line_1', 'address_line_2', 'city', 'state_province', 'postal_code']) {
+    if (key in body) updates[key] = body[key] ? String(body[key]).trim().slice(0, 255) : null;
+  }
+  if ('country_code' in body) {
+    updates.country_code = body.country_code ? String(body.country_code).trim().toUpperCase().slice(0, 2) : null;
+  }
 
   return { updates };
 }
@@ -1140,7 +1165,9 @@ async function loadPropertyById(env, tenantId, propertyId) {
               split_stay_enabled, split_stay_public_visible,
               allow_upgrade_to_preserve_stay, upgrade_mode,
               max_room_moves_per_reservation, max_upgrade_segments_per_stay, max_upgrade_level_jump,
-              same_day_turnover_sellable, created_at, updated_at
+              same_day_turnover_sellable,
+              address_line_1, address_line_2, city, state_province, postal_code, country_code,
+              created_at, updated_at
          FROM properties
         WHERE id = ? AND tenant_id = ?`
     )
@@ -1388,7 +1415,7 @@ export async function handleCreateProperty(request, env) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1398,6 +1425,26 @@ export async function handleCreateProperty(request, env) {
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
   try {
+    // Property slot enforcement: 1 base property included, +1 per extra_property_slots purchased.
+    const tenantRow = await env.DB
+      .prepare('SELECT extra_property_slots FROM tenants WHERE id = ?')
+      .bind(tenantId)
+      .first();
+    const extraSlots  = tenantRow?.extra_property_slots ?? 0;
+    const propertyLimit = 1 + extraSlots;
+    const { count: existingCount } = await env.DB
+      .prepare(`SELECT COUNT(*) AS count FROM properties WHERE tenant_id = ?`)
+      .bind(tenantId)
+      .first() ?? { count: 0 };
+    if (existingCount >= propertyLimit) {
+      return jsonResponse({
+        error: `Property limit reached. Your plan includes ${propertyLimit} propert${propertyLimit === 1 ? 'y' : 'ies'}. Purchase an additional property slot (+4.99 EUR/month) to add more.`,
+        upgrade_required: true,
+        property_limit: propertyLimit,
+        addon_url: '/api/billing/addon',
+      }, 403);
+    }
+
     const id = nanoid();
     const now = currentUnixSeconds();
     await env.DB
@@ -1406,14 +1453,16 @@ export async function handleCreateProperty(request, env) {
           (id, tenant_id, name, slug, status, timezone, currency, default_check_in_time, default_check_out_time,
            split_stay_enabled, split_stay_public_visible, allow_upgrade_to_preserve_stay, upgrade_mode,
            max_room_moves_per_reservation, max_upgrade_segments_per_stay, max_upgrade_level_jump, same_day_turnover_sellable,
+           address_line_1, address_line_2, city, state_province, postal_code, country_code,
            created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id, tenantId, parsed.name, parsed.slug, parsed.status, parsed.timezone, parsed.currency,
         parsed.defaultCheckInTime, parsed.defaultCheckOutTime,
         parsed.splitStayEnabled, parsed.splitStayPublicVisible, parsed.allowUpgradeToPreserveStay, parsed.upgradeMode,
         parsed.maxRoomMovesPerReservation, parsed.maxUpgradeSegmentsPerStay, parsed.maxUpgradeLevelJump, parsed.sameDayTurnoverSellable,
+        parsed.addressLine1, parsed.addressLine2, parsed.city, parsed.stateProvince, parsed.postalCode, parsed.countryCode,
         now, now
       )
       .run();
@@ -1431,7 +1480,7 @@ export async function handleUpdateProperty(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1490,7 +1539,7 @@ export async function handleCreateRoomType(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1527,7 +1576,7 @@ export async function handleUpdateRoomType(request, env, params) {
   const propertyId = String(params?.propertyId || '').trim();
   const roomTypeId = String(params?.roomTypeId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1584,7 +1633,7 @@ export async function handleCreateRoomUnit(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1619,7 +1668,7 @@ export async function handleBulkCreateRoomUnits(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1680,7 +1729,7 @@ export async function handleUpdateRoomUnit(request, env, params) {
   const propertyId = String(params?.propertyId || '').trim();
   const roomUnitId = String(params?.roomUnitId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1776,7 +1825,7 @@ export async function handleCreatePropertyAddonServicePreset(request, env, param
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1832,7 +1881,7 @@ export async function handleSeedPropertyAddonServicePresets(request, env, params
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body = {};
@@ -1902,7 +1951,7 @@ export async function handleUpdatePropertyAddonServicePreset(request, env, param
   const propertyId = String(params?.propertyId || '').trim();
   const presetId = String(params?.presetId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1935,7 +1984,7 @@ export async function handleCreateRoomRate(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -1989,7 +2038,7 @@ export async function handleUpdateRoomRate(request, env, params) {
   const propertyId = String(params?.propertyId || '').trim();
   const roomRateId = String(params?.roomRateId || '').trim();
 
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -2042,7 +2091,7 @@ export async function handleCreateRateSeason(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -2077,7 +2126,7 @@ export async function handleUpdateRateSeason(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
   const seasonId = String(params?.seasonId || '').trim();
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -2138,7 +2187,7 @@ export async function handleCreateSeasonRoomRate(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -2192,7 +2241,7 @@ export async function handleUpdateSeasonRoomRate(request, env, params) {
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
   const propertyId = String(params?.propertyId || '').trim();
   const seasonRoomRateId = String(params?.seasonRoomRateId || '').trim();
-  const actor = await requireTenantActor(request, env, tenantId);
+  const actor = await requireManagerActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
   let body;
@@ -3923,6 +3972,131 @@ export async function handleUndoPropertyReservationStatus(request, env, params) 
     return jsonResponse({ error: 'Undo is only supported for checked_in, checked_out, and no_show reservations in this baseline.' }, 409);
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_UNDO_STATUS]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteProperty(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadPropertyById(env, tenantId, propertyId);
+    if (!existing) return jsonResponse({ error: 'Property not found.' }, 404);
+    await env.DB.prepare('DELETE FROM properties WHERE id = ? AND tenant_id = ?').bind(propertyId, tenantId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[PROPERTY_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteRoomType(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomTypeId = String(params?.roomTypeId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadRoomTypeById(env, tenantId, propertyId, roomTypeId);
+    if (!existing) return jsonResponse({ error: 'Room type not found.' }, 404);
+    await env.DB.prepare('DELETE FROM room_types WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(roomTypeId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[ROOM_TYPE_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteRoomUnit(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomUnitId = String(params?.roomUnitId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+    if (!existing) return jsonResponse({ error: 'Room unit not found.' }, 404);
+    await env.DB.prepare('DELETE FROM room_units WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(roomUnitId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[ROOM_UNIT_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomRateId = String(params?.roomRateId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadRoomRateById(env, tenantId, propertyId, roomRateId);
+    if (!existing) return jsonResponse({ error: 'Room rate not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_room_rates WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(roomRateId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[ROOM_RATE_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeletePropertyAddonServicePreset(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const presetId = String(params?.presetId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadAddonServicePresetById(env, tenantId, propertyId, presetId);
+    if (!existing) return jsonResponse({ error: 'Addon service preset not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_addon_service_presets WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(presetId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[ADDON_PRESET_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteRateSeason(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const seasonId = String(params?.seasonId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadRateSeasonById(env, tenantId, propertyId, seasonId);
+    if (!existing) return jsonResponse({ error: 'Rate season not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_rate_seasons WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(seasonId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[RATE_SEASON_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeleteSeasonRoomRate(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const seasonRoomRateId = String(params?.seasonRoomRateId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadSeasonRoomRateById(env, tenantId, propertyId, seasonRoomRateId);
+    if (!existing) return jsonResponse({ error: 'Season room rate not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_room_rate_season_prices WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(seasonRoomRateId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[SEASON_ROOM_RATE_DELETE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
