@@ -48,6 +48,8 @@ import {
   handleBulkCreateRoomUnits,
   handleUpdateRoomUnit,
   handleUpdateRoomUnitFlags,
+  handleGetRoomUnitAvailabilityCalendar,
+  handleGetPropertyRoomRackSummary,
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
@@ -727,9 +729,19 @@ const patterns = [
     handler: (req, env, match) => handleUpdateRoomUnitFlags(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
   },
   {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId/availability-calendar' }),
+    handler: (req, env, match) => handleGetRoomUnitAvailabilityCalendar(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
+  },
+  {
     method: 'DELETE',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId' }),
     handler: (req, env, match) => handleDeleteRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rack-summary' }),
+    handler: (req, env, match) => handleGetPropertyRoomRackSummary(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
     method: 'GET',

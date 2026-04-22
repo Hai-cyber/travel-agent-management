@@ -8,6 +8,14 @@ function jsonResponse(payload, status = 200) {
   });
 }
 
+function imageResponse(object) {
+  if (!object?.body) return new Response('Not found', { status: 404 });
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  return new Response(object.body, { status: 200, headers });
+}
+
 function resolveTenantId(request) {
   const tenantId = request.headers.get('X-Tenant-ID');
   return tenantId ? tenantId.trim() : null;
@@ -289,6 +297,8 @@ const PROPERTY_RESERVATION_SOURCES = new Set([
 const PROPERTY_STATUSES = new Set(['draft', 'active', 'inactive']);
 const PROPERTY_UPGRADE_MODES = new Set(['off', 'suggest_only', 'auto_if_penalty_better']);
 const ROOM_UNIT_OPERATIONAL_STATUSES = new Set(['ready', 'maintenance', 'out_of_order']);
+const HOUSEKEEPING_TASK_STATUSES = new Set(['pending', 'in_progress', 'waiting_inspection', 'completed', 'cancelled']);
+const HOUSEKEEPING_TASK_PRIORITIES = new Set(['arrival_today_high', 'arrival_today_normal', 'departure_clean', 'routine', 'blocked_maintenance']);
 const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
 const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
@@ -337,7 +347,20 @@ const DEFAULT_PROPERTY_ADDON_PRESETS = {
     default_unit_price: 20,
     default_unit_label: 'booking',
     scope: 'per_stay',
+    late_checkout_fee: 20,
     notes: 'Onsite-only fee preset for front desk approval.',
+  },
+  early_arrival: {
+    code: 'EARLY-ARRIVAL',
+    name: 'Early Arrival',
+    service_type: 'fee',
+    pricing_mode: 'fixed',
+    currency: 'USD',
+    default_unit_price: 20,
+    default_unit_label: 'booking',
+    scope: 'per_stay',
+    early_arrival_fee: 20,
+    notes: 'Onsite-only fee preset for front desk approval before standard check-in time.',
   },
   laundry_bag: {
     code: 'LAUNDRY-BAG',
@@ -416,6 +439,27 @@ function serializeAddonConfigJson(serviceType, code, name, rawConfig) {
   return JSON.stringify(config);
 }
 
+function buildReservationGuestPhotoKey(tenantId, propertyId, reservationId, extension = 'bin') {
+  const safeExtension = String(extension || 'bin').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'bin';
+  return `property-guest-photos/${tenantId}/${propertyId}/${reservationId}/primary.${safeExtension}`;
+}
+
+function buildReservationGuestPhotoUrl(propertyId, reservationId, guestPhotoKey) {
+  if (!guestPhotoKey) return null;
+  return `/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(reservationId)}/guest-photo`;
+}
+
+function detectFileExtension(contentType, filename) {
+  const name = String(filename || '').trim().toLowerCase();
+  if (name.includes('.') && /^[a-z0-9]+$/.test(name.split('.').pop())) return name.split('.').pop();
+  const normalizedContentType = String(contentType || '').trim().toLowerCase();
+  if (normalizedContentType === 'image/jpeg') return 'jpg';
+  if (normalizedContentType === 'image/png') return 'png';
+  if (normalizedContentType === 'image/webp') return 'webp';
+  if (normalizedContentType === 'image/gif') return 'gif';
+  return 'bin';
+}
+
 function roomNumberFromSequence(prefix, number) {
   return `${prefix || ''}${String(number)}`;
 }
@@ -441,6 +485,8 @@ function mapRoomUnitRow(row) {
   return {
     ...row,
     active: Boolean(row.active),
+    do_not_disturb: Boolean(row.do_not_disturb),
+    room_service_requested: Boolean(row.room_service_requested),
   };
 }
 
@@ -470,11 +516,30 @@ function mapAddonServicePresetRow(row) {
   return {
     ...row,
     active: Boolean(row.active),
+    early_arrival_fee: Number(row.early_arrival_fee || 0),
+    late_checkout_fee: Number(row.late_checkout_fee || 0),
     config_json: parsedConfig,
     sales_policy: buildAddonSalesPolicy(row.service_type, row.code, row.name),
     onsite_only: true,
     prearrival_exception: isAirportPickupAddonPreset(row.service_type, row.code, row.name),
   };
+}
+
+function buildSegmentsForContiguousUnits(roomTypeId, checkIn, checkOut, contiguousUnits, roomsRequested) {
+  if (!Array.isArray(contiguousUnits) || contiguousUnits.length < roomsRequested) {
+    return Array.from({ length: roomsRequested }, (_, index) => ({
+      room_type_id: roomTypeId,
+      room_unit_id: contiguousUnits[index]?.id ? String(contiguousUnits[index].id) : null,
+      check_in: checkIn,
+      check_out: checkOut,
+    }));
+  }
+  return contiguousUnits.slice(0, roomsRequested).map((roomUnit) => ({
+    room_type_id: roomTypeId,
+    room_unit_id: String(roomUnit.id),
+    check_in: checkIn,
+    check_out: checkOut,
+  }));
 }
 
 function validatePropertyCreateRequest(body) {
@@ -664,11 +729,13 @@ function validateRoomUnitCreateRequest(body) {
     sortOrder,
     active: normalizeBooleanInteger(body?.active, 1),
     operationalStatus,
+    doNotDisturb: normalizeBooleanInteger(body?.do_not_disturb, 0),
+    roomServiceRequested: normalizeBooleanInteger(body?.room_service_requested, 0),
   };
 }
 
 function validateRoomUnitPatchRequest(body) {
-  const allowed = new Set(['room_type_id', 'room_number', 'floor_label', 'sort_order', 'active', 'operational_status']);
+  const allowed = new Set(['room_type_id', 'room_number', 'floor_label', 'sort_order', 'active', 'operational_status', 'do_not_disturb', 'room_service_requested']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -697,6 +764,8 @@ function validateRoomUnitPatchRequest(body) {
     if (!ROOM_UNIT_OPERATIONAL_STATUSES.has(value)) return { error: 'operational_status is invalid.' };
     updates.operational_status = value;
   }
+  if ('do_not_disturb' in body) updates.do_not_disturb = normalizeBooleanInteger(body.do_not_disturb);
+  if ('room_service_requested' in body) updates.room_service_requested = normalizeBooleanInteger(body.room_service_requested);
   return { updates };
 }
 
@@ -722,7 +791,32 @@ function validateRoomUnitBulkCreateRequest(body) {
     sortOrderStart,
     active: normalizeBooleanInteger(body?.active, 1),
     operationalStatus: String(body?.operational_status || 'ready').trim(),
+    doNotDisturb: normalizeBooleanInteger(body?.do_not_disturb, 0),
+    roomServiceRequested: normalizeBooleanInteger(body?.room_service_requested, 0),
   };
+}
+
+function validateShiftHandoverPatchRequest(body) {
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const allowed = new Set(['note']);
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+  const note = body?.note ? String(body.note).trim() : null;
+  if (note && note.length > 4000) return { error: 'note must be 4000 characters or fewer.' };
+  return { note };
+}
+
+function validateRoomUnitFlagPatchRequest(body) {
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const allowed = new Set(['do_not_disturb', 'room_service_requested']);
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+  const updates = {};
+  if ('do_not_disturb' in body) updates.do_not_disturb = normalizeBooleanInteger(body.do_not_disturb);
+  if ('room_service_requested' in body) updates.room_service_requested = normalizeBooleanInteger(body.room_service_requested);
+  return { updates };
 }
 
 function validateRoomRateCreateRequest(body) {
@@ -768,6 +862,8 @@ function validateAddonServicePresetCreateRequest(body) {
   const defaultUnitLabel = body?.default_unit_label ? String(body.default_unit_label).trim() : null;
   const scope = String(body?.scope || 'per_stay').trim();
   const sortOrder = normalizeInteger(body?.sort_order, 0);
+  const earlyArrivalFee = Number(body?.early_arrival_fee ?? 0);
+  const lateCheckoutFee = Number(body?.late_checkout_fee ?? 0);
   const notes = body?.notes ? String(body.notes).trim() : null;
   const rawConfig = body?.config_json !== undefined && body?.config_json !== null && body?.config_json !== ''
     ? (typeof body.config_json === 'string' ? parseJsonSafe(body.config_json) : body.config_json)
@@ -779,6 +875,8 @@ function validateAddonServicePresetCreateRequest(body) {
   if (!PROPERTY_ADDON_PRICING_MODES.has(pricingMode)) return { error: 'pricing_mode is invalid.' };
   if (!PROPERTY_ADDON_SCOPES.has(scope)) return { error: 'scope is invalid.' };
   if (!Number.isFinite(defaultUnitPrice) || defaultUnitPrice < 0) return { error: 'default_unit_price must be a number greater than or equal to 0.' };
+  if (!Number.isFinite(earlyArrivalFee) || earlyArrivalFee < 0) return { error: 'early_arrival_fee must be a number greater than or equal to 0.' };
+  if (!Number.isFinite(lateCheckoutFee) || lateCheckoutFee < 0) return { error: 'late_checkout_fee must be a number greater than or equal to 0.' };
   if (!Number.isInteger(sortOrder)) return { error: 'sort_order must be an integer.' };
 
   return {
@@ -790,6 +888,8 @@ function validateAddonServicePresetCreateRequest(body) {
     defaultUnitPrice,
     defaultUnitLabel,
     scope,
+    earlyArrivalFee,
+    lateCheckoutFee,
     active: normalizeBooleanInteger(body?.active, 1),
     sortOrder,
     notes,
@@ -798,7 +898,7 @@ function validateAddonServicePresetCreateRequest(body) {
 }
 
 function validateAddonServicePresetPatchRequest(body) {
-  const allowed = new Set(['code', 'name', 'service_type', 'pricing_mode', 'currency', 'default_unit_price', 'default_unit_label', 'scope', 'active', 'sort_order', 'notes', 'config_json']);
+  const allowed = new Set(['code', 'name', 'service_type', 'pricing_mode', 'currency', 'default_unit_price', 'default_unit_label', 'scope', 'early_arrival_fee', 'late_checkout_fee', 'active', 'sort_order', 'notes', 'config_json']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -830,6 +930,16 @@ function validateAddonServicePresetPatchRequest(body) {
     const value = Number(body.default_unit_price);
     if (!Number.isFinite(value) || value < 0) return { error: 'default_unit_price must be a number greater than or equal to 0.' };
     updates.default_unit_price = value;
+  }
+  if ('early_arrival_fee' in body) {
+    const value = Number(body.early_arrival_fee);
+    if (!Number.isFinite(value) || value < 0) return { error: 'early_arrival_fee must be a number greater than or equal to 0.' };
+    updates.early_arrival_fee = value;
+  }
+  if ('late_checkout_fee' in body) {
+    const value = Number(body.late_checkout_fee);
+    if (!Number.isFinite(value) || value < 0) return { error: 'late_checkout_fee must be a number greater than or equal to 0.' };
+    updates.late_checkout_fee = value;
   }
   if ('default_unit_label' in body) updates.default_unit_label = body.default_unit_label ? String(body.default_unit_label).trim() : null;
   if ('scope' in body) {
@@ -1166,6 +1276,7 @@ async function loadPropertyById(env, tenantId, propertyId) {
               allow_upgrade_to_preserve_stay, upgrade_mode,
               max_room_moves_per_reservation, max_upgrade_segments_per_stay, max_upgrade_level_jump,
               same_day_turnover_sellable,
+              shift_handover_note, shift_handover_updated_at, shift_handover_updated_by,
               address_line_1, address_line_2, city, state_province, postal_code, country_code,
               created_at, updated_at
          FROM properties
@@ -1180,7 +1291,8 @@ async function loadAddonServicePresetById(env, tenantId, propertyId, presetId) {
   const row = await env.DB
     .prepare(
       `SELECT id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
-              default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+              default_unit_price, default_unit_label, scope, early_arrival_fee, late_checkout_fee,
+              active, sort_order, notes, config_json,
               created_at, updated_at
          FROM property_addon_service_presets
         WHERE tenant_id = ? AND property_id = ? AND id = ?`
@@ -1205,13 +1317,191 @@ async function loadRoomTypeById(env, tenantId, propertyId, roomTypeId) {
 async function loadRoomUnitById(env, tenantId, propertyId, roomUnitId) {
   const row = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at
+      `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status,
+              do_not_disturb, room_service_requested, created_at, updated_at
          FROM room_units
         WHERE id = ? AND tenant_id = ? AND property_id = ?`
     )
     .bind(roomUnitId, tenantId, propertyId)
     .first();
   return row ? mapRoomUnitRow(row) : null;
+}
+
+function normalizeMonthKey(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) ? value : null;
+}
+
+function startOfMonthUtc(monthKey) {
+  return parseDateUtc(`${monthKey}-01`);
+}
+
+async function listRoomUnitReservationsInRange(env, tenantId, propertyId, roomUnitId, rangeStart, rangeEndExclusive) {
+  const result = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, status, guest_name, check_in, check_out, assigned_room_unit_id, room_type_id
+         FROM property_reservations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND assigned_room_unit_id = ?
+          AND status IN ('confirmed', 'checked_in', 'checked_out')
+          AND check_out > ?
+          AND check_in < ?
+        ORDER BY check_in ASC, created_at ASC`
+    )
+    .bind(tenantId, propertyId, roomUnitId, rangeStart, rangeEndExclusive)
+    .all();
+  return result.results || [];
+}
+
+function buildRoomUnitAvailabilityCalendarPayload(roomUnit, monthKey, reservations) {
+  const monthStart = startOfMonthUtc(monthKey);
+  const monthEndExclusive = addDays(new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1)), 0);
+  const days = enumerateDateRange(monthStart, addDays(monthEndExclusive, -1)).map((dateText) => {
+    const reservation = (reservations || []).find((entry) => entry.check_in <= dateText && entry.check_out > dateText);
+    return {
+      date: dateText,
+      status: reservation ? 'reserved' : 'available',
+      reservation_id: reservation?.id || null,
+      guest_name: reservation?.guest_name || null,
+    };
+  });
+
+  return {
+    ok: true,
+    room_unit: roomUnit,
+    month: monthKey,
+    days,
+    reservations: (reservations || []).map((entry) => ({
+      id: entry.id,
+      status: entry.status,
+      guest_name: entry.guest_name,
+      check_in: entry.check_in,
+      check_out: entry.check_out,
+    })),
+  };
+}
+
+export async function handleGetRoomUnitAvailabilityCalendar(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomUnitId = String(params?.roomUnitId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const monthKey = normalizeMonthKey(String(url.searchParams.get('month') || '').trim()) || formatDateUtc(new Date()).slice(0, 7);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+    if (!roomUnit) return jsonResponse({ error: 'Room unit not found.' }, 404);
+
+    const monthStart = formatDateUtc(startOfMonthUtc(monthKey));
+    const monthEndExclusive = formatDateUtc(new Date(Date.UTC(startOfMonthUtc(monthKey).getUTCFullYear(), startOfMonthUtc(monthKey).getUTCMonth() + 1, 1)));
+    const reservations = await listRoomUnitReservationsInRange(env, tenantId, propertyId, roomUnitId, monthStart, monthEndExclusive);
+    return jsonResponse(buildRoomUnitAvailabilityCalendarPayload(roomUnit, monthKey, reservations));
+  } catch (error) {
+    console.error('[ROOM_UNIT_AVAILABILITY_CALENDAR_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleGetPropertyRoomRackSummary(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const fromDate = String(url.searchParams.get('from_date') || formatDateUtc(new Date())).trim();
+  const lookaheadDays = Math.min(180, Math.max(7, Number(url.searchParams.get('lookahead_days') || 90)));
+  if (!isIsoDate(fromDate)) return jsonResponse({ error: 'from_date must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const roomUnitsResult = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status,
+                do_not_disturb, room_service_requested, created_at, updated_at
+           FROM room_units
+          WHERE tenant_id = ? AND property_id = ?`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+    const roomUnits = (roomUnitsResult.results || []).map(mapRoomUnitRow);
+    const rangeEndExclusive = formatDateUtc(addDays(parseDateUtc(fromDate), lookaheadDays));
+    const reservationsResult = await env.DB
+      .prepare(
+        `SELECT id, guest_name, check_in, check_out, assigned_room_unit_id, status
+           FROM property_reservations
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND assigned_room_unit_id IS NOT NULL
+            AND status IN ('confirmed', 'checked_in')
+            AND check_out > ?
+            AND check_in < ?
+          ORDER BY check_in ASC, created_at ASC`
+      )
+      .bind(tenantId, propertyId, fromDate, rangeEndExclusive)
+      .all();
+    const byUnit = new Map();
+    for (const reservation of (reservationsResult.results || [])) {
+      const unitId = String(reservation.assigned_room_unit_id || '').trim();
+      if (!unitId) continue;
+      if (!byUnit.has(unitId)) byUnit.set(unitId, []);
+      byUnit.get(unitId).push(reservation);
+    }
+
+    const summary = roomUnits.map((roomUnit) => {
+      const rows = byUnit.get(String(roomUnit.id)) || [];
+      const current = rows.find((entry) => entry.check_in <= fromDate && entry.check_out > fromDate) || null;
+      const nextReservation = rows.find((entry) => entry.check_in > fromDate) || null;
+      const nights = current ? 0 : nextReservation ? enumerateStayDates(fromDate, nextReservation.check_in).length : lookaheadDays;
+      return {
+        room_unit_id: roomUnit.id,
+        current_reservation_id: current?.id || null,
+        next_reservation_id: nextReservation?.id || null,
+        next_reservation_start: nextReservation?.check_in || null,
+        next_reservation_guest_name: nextReservation?.guest_name || null,
+        open_nights: nights,
+        fully_open_within_window: !nextReservation,
+      };
+    });
+
+    return jsonResponse({ ok: true, from_date: fromDate, lookahead_days: lookaheadDays, summary });
+  } catch (error) {
+    console.error('[ROOM_RACK_SUMMARY_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+async function loadPropertyShiftHandover(env, tenantId, propertyId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT p.id AS property_id, p.tenant_id, p.shift_handover_note, p.shift_handover_updated_at, p.shift_handover_updated_by,
+              u.email AS updated_by_email
+         FROM properties p
+         LEFT JOIN users u
+           ON u.id = p.shift_handover_updated_by
+        WHERE p.id = ? AND p.tenant_id = ?`
+    )
+    .bind(propertyId, tenantId)
+    .first();
+  if (!row) return null;
+  return {
+    property_id: row.property_id,
+    tenant_id: row.tenant_id,
+    note: row.shift_handover_note || null,
+    updated_at: row.shift_handover_updated_at || null,
+    updated_by: row.shift_handover_updated_by || null,
+    updated_by_email: row.updated_by_email || null,
+  };
 }
 
 async function loadRoomRateById(env, tenantId, propertyId, roomRateId) {
@@ -1394,7 +1684,7 @@ export async function handleListProperties(request, env) {
                 p.split_stay_enabled, p.split_stay_public_visible,
                 p.allow_upgrade_to_preserve_stay, p.upgrade_mode,
                 p.max_room_moves_per_reservation, p.max_upgrade_segments_per_stay, p.max_upgrade_level_jump,
-                p.same_day_turnover_sellable, p.created_at, p.updated_at,
+          p.same_day_turnover_sellable, p.shift_handover_note, p.shift_handover_updated_at, p.shift_handover_updated_by, p.created_at, p.updated_at,
                 (SELECT COUNT(*) FROM room_types rt WHERE rt.tenant_id = p.tenant_id AND rt.property_id = p.id) AS room_type_count,
                 (SELECT COUNT(*) FROM room_units ru WHERE ru.tenant_id = p.tenant_id AND ru.property_id = p.id) AS room_unit_count
            FROM properties p
@@ -1613,7 +1903,8 @@ export async function handleListRoomUnits(request, env, params) {
 
     const result = await env.DB
       .prepare(
-        `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at
+        `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status,
+          do_not_disturb, room_service_requested, created_at, updated_at
            FROM room_units
           WHERE tenant_id = ? AND property_id = ?
           ORDER BY sort_order ASC, room_number ASC`
@@ -1649,10 +1940,10 @@ export async function handleCreateRoomUnit(request, env, params) {
     await env.DB
       .prepare(
         `INSERT INTO room_units
-          (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, do_not_disturb, room_service_requested, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(id, tenantId, propertyId, parsed.roomTypeId, parsed.roomNumber, parsed.floorLabel, parsed.sortOrder, parsed.active, parsed.operationalStatus, now, now)
+      .bind(id, tenantId, propertyId, parsed.roomTypeId, parsed.roomNumber, parsed.floorLabel, parsed.sortOrder, parsed.active, parsed.operationalStatus, parsed.doNotDisturb, parsed.roomServiceRequested, now, now)
       .run();
     return jsonResponse({ ok: true, room_unit: await loadRoomUnitById(env, tenantId, propertyId, id) }, 201);
   } catch (error) {
@@ -1690,8 +1981,8 @@ export async function handleBulkCreateRoomUnits(request, env, params) {
       await env.DB
         .prepare(
           `INSERT INTO room_units
-            (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            (id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status, do_not_disturb, room_service_requested, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           roomUnitId,
@@ -1703,6 +1994,8 @@ export async function handleBulkCreateRoomUnits(request, env, params) {
           parsed.sortOrderStart + index,
           parsed.active,
           parsed.operationalStatus,
+          parsed.doNotDisturb,
+          parsed.roomServiceRequested,
           now,
           now
         )
@@ -1756,6 +2049,88 @@ export async function handleUpdateRoomUnit(request, env, params) {
   }
 }
 
+export async function handleUpdateRoomUnitFlags(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const roomUnitId = String(params?.roomUnitId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateRoomUnitFlagPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+    if (!existing) return jsonResponse({ error: 'Room unit not found.' }, 404);
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('room_units', parsed.updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, roomUnitId, tenantId, propertyId).run();
+    return jsonResponse({ ok: true, room_unit: await loadRoomUnitById(env, tenantId, propertyId, roomUnitId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[ROOM_UNIT_FLAGS_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleGetPropertyShiftHandover(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    return jsonResponse({ ok: true, shift_handover: await loadPropertyShiftHandover(env, tenantId, propertyId) });
+  } catch (error) {
+    console.error('[PROPERTY_SHIFT_HANDOVER_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyShiftHandover(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateShiftHandoverPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `UPDATE properties
+            SET shift_handover_note = ?,
+                shift_handover_updated_at = ?,
+                shift_handover_updated_by = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ?`
+      )
+      .bind(parsed.note, now, actor.session.user_id || null, now, propertyId, tenantId)
+      .run();
+    return jsonResponse({ ok: true, shift_handover: await loadPropertyShiftHandover(env, tenantId, propertyId) });
+  } catch (error) {
+    console.error('[PROPERTY_SHIFT_HANDOVER_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
 export async function handleListRoomRates(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
@@ -1804,7 +2179,8 @@ export async function handleListPropertyAddonServicePresets(request, env, params
     const result = await env.DB
       .prepare(
         `SELECT id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
-                default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
+                default_unit_price, default_unit_label, scope, early_arrival_fee, late_checkout_fee,
+                active, sort_order, notes, config_json,
                 created_at, updated_at
            FROM property_addon_service_presets
           WHERE tenant_id = ? AND property_id = ?
@@ -1842,9 +2218,9 @@ export async function handleCreatePropertyAddonServicePreset(request, env, param
       .prepare(
         `INSERT INTO property_addon_service_presets
           (id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
-           default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
-           created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           default_unit_price, default_unit_label, scope, early_arrival_fee, late_checkout_fee,
+           active, sort_order, notes, config_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
@@ -1858,6 +2234,8 @@ export async function handleCreatePropertyAddonServicePreset(request, env, param
         parsed.defaultUnitPrice,
         parsed.defaultUnitLabel,
         parsed.scope,
+        parsed.earlyArrivalFee,
+        parsed.lateCheckoutFee,
         parsed.active,
         parsed.sortOrder,
         parsed.notes,
@@ -1910,9 +2288,9 @@ export async function handleSeedPropertyAddonServicePresets(request, env, params
         .prepare(
           `INSERT INTO property_addon_service_presets
             (id, tenant_id, property_id, code, name, service_type, pricing_mode, currency,
-             default_unit_price, default_unit_label, scope, active, sort_order, notes, config_json,
-             created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`
+             default_unit_price, default_unit_label, scope, early_arrival_fee, late_checkout_fee,
+             active, sort_order, notes, config_json, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`
         )
         .bind(
           presetId,
@@ -1926,6 +2304,8 @@ export async function handleSeedPropertyAddonServicePresets(request, env, params
           preset.default_unit_price,
           preset.default_unit_label,
           preset.scope,
+          Number(preset.early_arrival_fee || 0),
+          Number(preset.late_checkout_fee || 0),
           index * 10,
           preset.notes || null,
           serializeAddonConfigJson(preset.service_type, preset.code, preset.name, null),
@@ -2485,6 +2865,13 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
   const contiguousCapacity = hasContiguousCapacity(requestedNightly, roomsRequested);
 
   if (contiguousCapacity) {
+    const contiguousSegments = buildSegmentsForContiguousUnits(
+      String(requestedRoomType.id),
+      checkIn,
+      checkOut,
+      contiguousUnits,
+      roomsRequested
+    );
     stayPlans.push(
       buildPlan(
         'contiguous_same_type',
@@ -2492,12 +2879,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
         0,
         0,
         true,
-        [{
-          room_type_id: String(requestedRoomType.id),
-          room_unit_id: contiguousUnits.length >= roomsRequested ? String(contiguousUnits[0]?.id || '') || null : null,
-          check_in: checkIn,
-          check_out: checkOut,
-        }],
+        contiguousSegments,
         contiguousUnits.length >= roomsRequested ? [] : ['Contiguous candidate uses room-type capacity only because active holds are not tied to a specific room unit.']
       )
     );
@@ -2538,12 +2920,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
             0,
             1,
             true,
-            [{
-              room_type_id: String(upgradeType.id),
-              room_unit_id: upgradeUnits.length >= roomsRequested ? String(upgradeUnits[0]?.id || '') || null : null,
-              check_in: checkIn,
-              check_out: checkOut,
-            }],
+            buildSegmentsForContiguousUnits(String(upgradeType.id), checkIn, checkOut, upgradeUnits, roomsRequested),
             ['Upgrade-preserve candidate uses a higher room type to keep the stay contiguous.']
           )
         );
@@ -2652,9 +3029,6 @@ function validateReservationCreateRequest(body, propertyId) {
   if (!Number.isInteger(children) || children < 0) {
     return { error: 'children must be an integer greater than or equal to 0.' };
   }
-  if (availability.roomsRequested !== 1) {
-    return { error: 'Reservation create baseline currently supports rooms_requested = 1 only.' };
-  }
 
   return {
     ...availability,
@@ -2697,6 +3071,19 @@ async function loadActiveHold(env, tenantId, propertyId, holdId) {
 
 function selectBestPlan(availability) {
   return Array.isArray(availability?.stayPlans) && availability.stayPlans.length ? availability.stayPlans[0] : null;
+}
+
+function deriveAssignedRoomUnitId(selectedPlan) {
+  if (!selectedPlan?.segments?.length) return null;
+  return String(selectedPlan.segments[0]?.room_unit_id || '').trim() || null;
+}
+
+function validateReservationRoomAssignmentRequest(body) {
+  const hasField = Object.prototype.hasOwnProperty.call(body || {}, 'assigned_room_unit_id');
+  if (!hasField) return { error: 'assigned_room_unit_id is required.' };
+  return {
+    assignedRoomUnitId: body?.assigned_room_unit_id ? String(body.assigned_room_unit_id).trim() : null,
+  };
 }
 
 function validateReservationRebookRequest(body, propertyId, existingReservation) {
@@ -2773,6 +3160,7 @@ async function attachSelectedStayPlanArtifacts(env, tenantId, reservationId, pro
   const now = currentUnixSeconds();
   const stayPlanId = nanoid();
   const planSegments = selectedPlan.segments || [];
+  const assignedRoomUnitId = deriveAssignedRoomUnitId(selectedPlan);
 
   await env.DB
     .prepare(
@@ -2848,24 +3236,35 @@ async function attachSelectedStayPlanArtifacts(env, tenantId, reservationId, pro
     }
   }
 
+  await env.DB
+    .prepare(
+      `UPDATE property_reservations
+          SET assigned_room_unit_id = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(assignedRoomUnitId, now, reservationId, tenantId, propertyId)
+    .run();
+
   return { stayPlanId, lockedAt: now };
 }
 
 async function createReservationArtifacts(env, tenantId, reservationId, propertyId, reservationInput, selectedPlan) {
   const now = currentUnixSeconds();
+  const assignedRoomUnitId = deriveAssignedRoomUnitId(selectedPlan);
 
   await env.DB
     .prepare(
       `INSERT INTO property_reservations
         (id, tenant_id, property_id, source, source_ref, source_payload, status,
          guest_name, guest_email, guest_phone,
-         check_in, check_out, room_type_id, rooms_requested, adults, children,
+         check_in, check_out, room_type_id, assigned_room_unit_id, rooms_requested, adults, children,
          pricing_snapshot, special_requests,
          expected_arrival_time, expected_flight_ref, expected_arrival_channel,
          airport_transfer_requested, airport_transfer_price_snapshot, cancellation_policy_snapshot,
-         confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason,
+         confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason, guest_photo_key, guest_photo_uploaded_at,
          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`
     )
     .bind(
       reservationId,
@@ -2880,6 +3279,7 @@ async function createReservationArtifacts(env, tenantId, reservationId, property
       reservationInput.checkIn,
       reservationInput.checkOut,
       reservationInput.roomTypeId,
+      assignedRoomUnitId,
       reservationInput.roomsRequested,
       reservationInput.adults,
       reservationInput.children,
@@ -2912,16 +3312,23 @@ async function createReservationArtifacts(env, tenantId, reservationId, property
 async function loadPropertyReservation(env, tenantId, propertyId, reservationId) {
   const reservation = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, source, source_ref, source_payload, status,
-              guest_name, guest_email, guest_phone,
-              check_in, check_out, room_type_id, rooms_requested, adults, children,
+      `SELECT pr.id, pr.tenant_id, pr.property_id, pr.source, pr.source_ref, pr.source_payload, pr.status,
+              pr.guest_name, pr.guest_email, pr.guest_phone,
+              pr.check_in, pr.check_out, pr.room_type_id, pr.assigned_room_unit_id,
+              aru.room_number AS assigned_room_number,
+              pr.guest_photo_key, pr.guest_photo_uploaded_at,
+              pr.rooms_requested, pr.adults, pr.children,
               pricing_snapshot, special_requests,
               expected_arrival_time, expected_flight_ref, expected_arrival_channel,
               airport_transfer_requested, airport_transfer_price_snapshot, cancellation_policy_snapshot,
               confirmed_at, confirmed_by, cancelled_at, cancelled_by, cancel_reason,
-              created_at, updated_at
-         FROM property_reservations
-        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+              pr.created_at, pr.updated_at
+         FROM property_reservations pr
+         LEFT JOIN room_units aru
+           ON aru.id = pr.assigned_room_unit_id
+          AND aru.tenant_id = pr.tenant_id
+          AND aru.property_id = pr.property_id
+        WHERE pr.id = ? AND pr.tenant_id = ? AND pr.property_id = ?`
     )
     .bind(reservationId, tenantId, propertyId)
     .first();
@@ -2941,9 +3348,15 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
 
   const segmentsResult = await env.DB
     .prepare(
-      `SELECT id, stay_plan_id, segment_order, room_type_id, room_unit_id, check_in, check_out, segment_type, upgrade_applied, ops_notes, created_at
-         FROM reservation_stay_plan_segments
-        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ?
+      `SELECT rss.id, rss.stay_plan_id, rss.segment_order, rss.room_type_id, rss.room_unit_id,
+              ru.room_number AS room_unit_number,
+              rss.check_in, rss.check_out, rss.segment_type, rss.upgrade_applied, rss.ops_notes, rss.created_at
+         FROM reservation_stay_plan_segments rss
+         LEFT JOIN room_units ru
+           ON ru.id = rss.room_unit_id
+          AND ru.tenant_id = rss.tenant_id
+          AND ru.property_id = rss.property_id
+        WHERE rss.tenant_id = ? AND rss.property_id = ? AND rss.reservation_id = ?
         ORDER BY segment_order ASC`
     )
     .bind(tenantId, propertyId, reservationId)
@@ -2984,6 +3397,8 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
 }
 
 function buildReservationPayload(record) {
+  const allocatedRoomUnitIds = Array.from(new Set((record.segments || []).map((segment) => String(segment.room_unit_id || '').trim()).filter(Boolean)));
+  const allocatedRoomNumbers = Array.from(new Set((record.segments || []).map((segment) => String(segment.room_unit_number || '').trim()).filter(Boolean)));
   return {
     ok: true,
     reservation: {
@@ -2998,6 +3413,13 @@ function buildReservationPayload(record) {
       check_in: record.reservation.check_in,
       check_out: record.reservation.check_out,
       room_type_id: record.reservation.room_type_id,
+      assigned_room_unit_id: record.reservation.assigned_room_unit_id,
+      assigned_room_number: record.reservation.assigned_room_number,
+      allocated_room_unit_ids: allocatedRoomUnitIds,
+      allocated_room_numbers: allocatedRoomNumbers,
+      guest_photo_key: record.reservation.guest_photo_key || null,
+      guest_photo_uploaded_at: record.reservation.guest_photo_uploaded_at || null,
+      guest_photo_url: buildReservationGuestPhotoUrl(record.reservation.property_id, record.reservation.id, record.reservation.guest_photo_key),
       rooms_requested: record.reservation.rooms_requested,
       adults: record.reservation.adults,
       children: record.reservation.children,
@@ -3034,6 +3456,12 @@ function buildReservationPayload(record) {
 
 function buildReservationBoardSummary(row, boardDate) {
   const pricingSnapshot = row.pricing_snapshot ? parseJsonSafe(row.pricing_snapshot) : null;
+  const allocatedRoomUnitIds = String(row.allocated_room_unit_ids || '').trim()
+    ? String(row.allocated_room_unit_ids).split(',').map((value) => value.trim()).filter(Boolean)
+    : [];
+  const allocatedRoomNumbers = String(row.allocated_room_numbers || '').trim()
+    ? String(row.allocated_room_numbers).split(',').map((value) => value.trim()).filter(Boolean)
+    : [];
   const arrivalToday = boardDate ? String(row.check_in) === String(boardDate) : false;
   const departureToday = boardDate ? String(row.check_out) === String(boardDate) : false;
   const stayover = boardDate ? String(row.check_in) < String(boardDate) && String(row.check_out) > String(boardDate) : false;
@@ -3051,6 +3479,11 @@ function buildReservationBoardSummary(row, boardDate) {
     room_type_id: row.room_type_id,
     room_type_code: row.room_type_code,
     room_type_name: row.room_type_name,
+    assigned_room_unit_id: row.assigned_room_unit_id,
+    assigned_room_number: row.assigned_room_number,
+    allocated_room_unit_ids: allocatedRoomUnitIds,
+    allocated_room_numbers: allocatedRoomNumbers,
+    guest_photo_url: buildReservationGuestPhotoUrl(row.property_id, row.id, row.guest_photo_key),
     rooms_requested: row.rooms_requested,
     adults: row.adults,
     children: row.children,
@@ -3064,6 +3497,825 @@ function buildReservationBoardSummary(row, boardDate) {
     departure_today: departureToday,
     stayover,
   };
+}
+
+function validateFolioChargeRequest(body) {
+  const description = String(body?.description || '').trim();
+  const category = body?.category ? String(body.category).trim() : null;
+  const quantity = Number(body?.quantity ?? 1);
+  const unitAmount = Number(body?.unit_amount ?? 0);
+  const currency = body?.currency ? String(body.currency).trim().toUpperCase() : null;
+  const note = body?.note ? String(body.note).trim() : null;
+  const lineType = String(body?.line_type || 'service_charge').trim();
+  const sourceType = String(body?.source_type || 'manual_frontdesk').trim();
+
+  if (!description) return { error: 'description is required.' };
+  if (!['service_charge', 'fee'].includes(lineType)) return { error: 'line_type must be service_charge or fee.' };
+  if (!['manual_frontdesk', 'manual_manager', 'reservation_system', 'imported'].includes(sourceType)) return { error: 'source_type is invalid.' };
+  if (!Number.isFinite(quantity) || quantity <= 0) return { error: 'quantity must be a number greater than 0.' };
+  if (!Number.isFinite(unitAmount) || unitAmount < 0) return { error: 'unit_amount must be a number greater than or equal to 0.' };
+
+  return { description, category, quantity, unitAmount, currency, note, lineType, sourceType };
+}
+
+function validateFolioPaymentRequest(body) {
+  const amount = Number(body?.amount ?? 0);
+  const method = String(body?.method || '').trim().toLowerCase();
+  const note = body?.note ? String(body.note).trim() : null;
+  const currency = body?.currency ? String(body.currency).trim().toUpperCase() : null;
+  if (!['cash', 'card', 'bank_transfer', 'other'].includes(method)) return { error: 'method must be cash, card, bank_transfer, or other.' };
+  if (!Number.isFinite(amount) || amount <= 0) return { error: 'amount must be a number greater than 0.' };
+  return { amount, method, note, currency };
+}
+
+async function loadReservationFolio(env, tenantId, propertyId, reservationId) {
+  return env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, reservation_id, status, currency, note, opened_at, settled_at, closed_by, created_at, updated_at
+         FROM folios
+        WHERE tenant_id = ? AND property_id = ? AND reservation_id = ?`
+    )
+    .bind(tenantId, propertyId, reservationId)
+    .first();
+}
+
+async function ensureReservationFolio(env, tenantId, propertyId, reservationRecord) {
+  let folio = await loadReservationFolio(env, tenantId, propertyId, reservationRecord.reservation.id);
+  if (folio) return folio;
+
+  const property = await loadPropertyById(env, tenantId, propertyId);
+  const pricingCurrency = reservationRecord.reservation.pricing_snapshot ? parseJsonSafe(reservationRecord.reservation.pricing_snapshot)?.currency : null;
+  const currency = String(pricingCurrency || property?.currency || 'USD').trim().toUpperCase();
+  const now = currentUnixSeconds();
+  const folioId = nanoid();
+
+  await env.DB
+    .prepare(
+      `INSERT INTO folios
+        (id, tenant_id, property_id, reservation_id, status, currency, note, opened_at, settled_at, closed_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'open', ?, NULL, ?, NULL, NULL, ?, ?)`
+    )
+    .bind(folioId, tenantId, propertyId, reservationRecord.reservation.id, currency, now, now, now)
+    .run();
+
+  folio = await loadReservationFolio(env, tenantId, propertyId, reservationRecord.reservation.id);
+  return folio;
+}
+
+async function loadFolioLines(env, tenantId, propertyId, folioId) {
+  const result = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+              quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at
+         FROM folio_lines
+        WHERE tenant_id = ? AND property_id = ? AND folio_id = ?
+        ORDER BY posted_at ASC, created_at ASC`
+    )
+    .bind(tenantId, propertyId, folioId)
+    .all();
+  return result.results || [];
+}
+
+async function recalculateFolioStatus(env, tenantId, propertyId, folioId) {
+  const totals = await env.DB
+    .prepare(
+      `SELECT COALESCE(SUM(total_amount), 0) AS balance_due,
+              COALESCE(SUM(CASE WHEN line_type = 'payment' THEN ABS(total_amount) ELSE 0 END), 0) AS payment_total,
+              COALESCE(SUM(CASE WHEN line_type != 'payment' AND total_amount > 0 THEN total_amount ELSE 0 END), 0) AS charge_total,
+              COALESCE(SUM(CASE WHEN line_type != 'payment' AND total_amount < 0 THEN total_amount ELSE 0 END), 0) AS adjustment_total
+         FROM folio_lines
+        WHERE tenant_id = ? AND property_id = ? AND folio_id = ? AND status = 'posted'`
+    )
+    .bind(tenantId, propertyId, folioId)
+    .first();
+
+  const now = currentUnixSeconds();
+  const balanceDue = Number(totals?.balance_due || 0);
+  const nextStatus = balanceDue <= 0 ? 'settled' : 'open';
+  await env.DB
+    .prepare(
+      `UPDATE folios
+          SET status = ?,
+              settled_at = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(nextStatus, nextStatus === 'settled' ? now : null, now, folioId, tenantId, propertyId)
+    .run();
+
+  return {
+    charge_total: Number(totals?.charge_total || 0),
+    payment_total: Number(totals?.payment_total || 0),
+    adjustment_total: Number(totals?.adjustment_total || 0),
+    balance_due: balanceDue,
+    status: nextStatus,
+  };
+}
+
+async function buildReservationFolioPayload(env, tenantId, propertyId, reservationRecord) {
+  const folio = await ensureReservationFolio(env, tenantId, propertyId, reservationRecord);
+  const lines = await loadFolioLines(env, tenantId, propertyId, folio.id);
+  const summary = await recalculateFolioStatus(env, tenantId, propertyId, folio.id);
+  const refreshedFolio = await loadReservationFolio(env, tenantId, propertyId, reservationRecord.reservation.id);
+  return {
+    ok: true,
+    reservation_id: reservationRecord.reservation.id,
+    folio: refreshedFolio,
+    lines,
+    summary,
+  };
+}
+
+function reservationPrimaryRoomUnitId(record) {
+  return String(
+    record?.reservation?.assigned_room_unit_id
+      || record?.segments?.[0]?.room_unit_id
+      || record?.allocations?.[0]?.room_unit_id
+      || ''
+  ).trim() || null;
+}
+
+async function loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, roomUnitIds) {
+  const ids = Array.from(new Set((roomUnitIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const placeholders = ids.map(() => '?').join(', ');
+  const result = await env.DB
+    .prepare(
+      `SELECT e.room_unit_id, e.previous_state, e.new_state, e.note, e.reservation_id, e.changed_by, e.created_at
+         FROM room_state_events e
+         JOIN (
+           SELECT room_unit_id, MAX(created_at) AS max_created_at
+             FROM room_state_events
+            WHERE tenant_id = ? AND property_id = ? AND room_unit_id IN (${placeholders})
+            GROUP BY room_unit_id
+         ) latest
+           ON latest.room_unit_id = e.room_unit_id
+          AND latest.max_created_at = e.created_at
+        WHERE e.tenant_id = ? AND e.property_id = ? AND e.room_unit_id IN (${placeholders})`
+    )
+    .bind(tenantId, propertyId, ...ids, tenantId, propertyId, ...ids)
+    .all();
+  return new Map((result.results || []).map((row) => [String(row.room_unit_id), row]));
+}
+
+async function recordRoomStateEvent(env, tenantId, propertyId, roomUnitId, newState, options = {}) {
+  const latestMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, [roomUnitId]);
+  const previousState = latestMap.get(String(roomUnitId))?.new_state || null;
+  const now = currentUnixSeconds();
+  await env.DB
+    .prepare(
+      `INSERT INTO room_state_events
+        (id, tenant_id, property_id, room_unit_id, reservation_id, previous_state, new_state, note, changed_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      nanoid(),
+      tenantId,
+      propertyId,
+      roomUnitId,
+      options.reservationId || null,
+      previousState,
+      newState,
+      options.note || null,
+      options.changedBy || null,
+      now
+    )
+    .run();
+  return { previousState, newState, created_at: now };
+}
+
+async function determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, turnoverDate, reservationId) {
+  const sameDayArrival = await env.DB
+    .prepare(
+      `SELECT id
+         FROM property_reservations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND id != ?
+          AND assigned_room_unit_id = ?
+          AND check_in = ?
+          AND status IN ('confirmed', 'checked_in')
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, reservationId || '', roomUnitId, turnoverDate)
+    .first();
+  return sameDayArrival ? 'arrival_today_high' : 'departure_clean';
+}
+
+async function ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, roomUnitId, reservationId, turnoverDate, actorUserId = null) {
+  if (!roomUnitId) return null;
+  const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+  if (!roomUnit || ['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status))) return null;
+
+  const existing = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+              started_at, completed_at, assigned_user_id, note, created_at, updated_at
+         FROM housekeeping_tasks
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND room_unit_id = ?
+          AND reservation_id = ?
+          AND status IN ('pending', 'in_progress', 'waiting_inspection')
+        ORDER BY created_at DESC
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, roomUnitId, reservationId || null)
+    .first();
+  if (existing) return existing;
+
+  const priority = await determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, turnoverDate, reservationId);
+  const now = currentUnixSeconds();
+  const scheduledFor = Math.floor(parseDateUtc(turnoverDate).getTime() / 1000);
+  const taskId = nanoid();
+  await env.DB
+    .prepare(
+      `INSERT INTO housekeeping_tasks
+        (id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+         started_at, completed_at, assigned_user_id, note, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NULL, NULL, NULL, ?, ?, ?)`
+    )
+    .bind(taskId, tenantId, propertyId, roomUnitId, reservationId || null, priority, scheduledFor, `Auto-created from checkout for ${turnoverDate}.`, now, now)
+    .run();
+  return env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+              started_at, completed_at, assigned_user_id, note, created_at, updated_at
+         FROM housekeeping_tasks
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(taskId, tenantId, propertyId)
+    .first();
+}
+
+async function syncHousekeepingTasksForProperty(env, tenantId, propertyId, boardDate) {
+  const departures = await env.DB
+    .prepare(
+      `SELECT id, assigned_room_unit_id, check_out
+         FROM property_reservations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND status = 'checked_out'
+          AND check_out = ?`
+    )
+    .bind(tenantId, propertyId, boardDate)
+    .all();
+
+  for (const reservation of (departures.results || [])) {
+    if (!reservation.assigned_room_unit_id) continue;
+    await ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, String(reservation.assigned_room_unit_id), String(reservation.id), boardDate, null);
+  }
+}
+
+async function loadHousekeepingTasks(env, tenantId, propertyId, options = {}) {
+  const statuses = Array.isArray(options.statuses) && options.statuses.length ? options.statuses : ['pending', 'in_progress', 'waiting_inspection'];
+  const placeholders = statuses.map(() => '?').join(', ');
+  const result = await env.DB
+    .prepare(
+      `SELECT ht.id, ht.tenant_id, ht.property_id, ht.room_unit_id, ht.reservation_id, ht.priority, ht.status, ht.scheduled_for,
+              ht.started_at, ht.completed_at, ht.assigned_user_id, ht.note, ht.created_at, ht.updated_at,
+              ru.room_number, ru.floor_label, ru.room_type_id, ru.operational_status,
+              pr.guest_name, pr.check_in, pr.check_out, pr.status AS reservation_status
+         FROM housekeeping_tasks ht
+         JOIN room_units ru
+           ON ru.id = ht.room_unit_id
+          AND ru.tenant_id = ht.tenant_id
+          AND ru.property_id = ht.property_id
+         LEFT JOIN property_reservations pr
+           ON pr.id = ht.reservation_id
+          AND pr.tenant_id = ht.tenant_id
+          AND pr.property_id = ht.property_id
+        WHERE ht.tenant_id = ?
+          AND ht.property_id = ?
+          AND ht.status IN (${placeholders})
+        ORDER BY ht.scheduled_for ASC, ht.created_at ASC`
+    )
+    .bind(tenantId, propertyId, ...statuses)
+    .all();
+  return result.results || [];
+}
+
+function validateHousekeepingTaskPatchRequest(body) {
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const allowed = new Set(['status', 'assigned_user_id', 'note']);
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+  const updates = {};
+  if ('status' in body) {
+    const status = String(body.status || '').trim();
+    if (!HOUSEKEEPING_TASK_STATUSES.has(status)) return { error: 'status is invalid.' };
+    updates.status = status;
+  }
+  if ('assigned_user_id' in body) updates.assigned_user_id = body.assigned_user_id ? String(body.assigned_user_id).trim() : null;
+  if ('note' in body) updates.note = body.note ? String(body.note).trim() : null;
+  return { updates };
+}
+
+function housekeepingStateFromTaskStatus(status) {
+  if (status === 'pending') return 'dirty';
+  if (status === 'in_progress') return 'cleaning';
+  if (status === 'waiting_inspection') return 'inspected';
+  if (status === 'completed') return 'ready';
+  return null;
+}
+
+async function resolveReservationNightlyRate(env, tenantId, propertyId, reservation, stayDate) {
+  const [property, roomType, baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
+    loadPropertyById(env, tenantId, propertyId),
+    loadRoomTypeById(env, tenantId, propertyId, reservation.room_type_id),
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
+         FROM property_room_rates
+        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1`
+    ).bind(tenantId, propertyId, reservation.room_type_id).first(),
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
+         FROM property_rate_seasons
+        WHERE tenant_id = ? AND property_id = ? AND active = 1
+        ORDER BY sort_order ASC, start_date ASC, created_at ASC`
+    ).bind(tenantId, propertyId).all(),
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
+         FROM property_room_rate_season_prices
+        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
+    ).bind(tenantId, propertyId, reservation.room_type_id).all(),
+  ]);
+
+  if (!property || !roomType) return null;
+  const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
+  const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
+  const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
+  const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
+  if (!resolved) return null;
+  const occupancyAdjustment = calculateOccupancyAdjustment(resolved, reservation.adults, reservation.children, reservation.rooms_requested);
+  const nightlyBaseTotal = Number(resolved.nightly_amount) * Number(reservation.rooms_requested || 1);
+  return {
+    currency: resolved.currency || property.currency,
+    unit_amount: Number(resolved.nightly_amount),
+    total_amount: nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0),
+    adjustment_amount: Number(occupancyAdjustment.adjustment_amount || 0),
+    source: resolved.source,
+    season_name: resolved.season_name,
+  };
+}
+
+export async function runPropertyNightAuditForDate(env, auditDate) {
+  const targetDate = String(auditDate || formatDateUtc(addDays(new Date(), -1))).trim();
+  const properties = await env.DB
+    .prepare(`SELECT id, tenant_id FROM properties WHERE status = 'active'`)
+    .all();
+
+  let postedCount = 0;
+  for (const property of (properties.results || [])) {
+    const reservations = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, rooms_requested, adults, children, status, check_in, check_out,
+                guest_name, pricing_snapshot, assigned_room_unit_id
+           FROM property_reservations
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND check_in <= ?
+            AND check_out > ?
+            AND status IN ('checked_in', 'checked_out')`
+      )
+      .bind(property.tenant_id, property.id, targetDate, targetDate)
+      .all();
+
+    for (const reservation of (reservations.results || [])) {
+      const record = { reservation, segments: [], allocations: [] };
+      const folio = await ensureReservationFolio(env, property.tenant_id, property.id, record);
+      const auditToken = `night_audit:${targetDate}`;
+      const existing = await env.DB
+        .prepare(
+          `SELECT id
+             FROM folio_lines
+            WHERE tenant_id = ?
+              AND property_id = ?
+              AND folio_id = ?
+              AND line_type = 'room_charge'
+              AND category = 'room_rate'
+              AND note = ?
+              AND status = 'posted'
+            LIMIT 1`
+        )
+        .bind(property.tenant_id, property.id, folio.id, auditToken)
+        .first();
+      if (existing) continue;
+
+      const nightly = await resolveReservationNightlyRate(env, property.tenant_id, property.id, reservation, targetDate);
+      if (!nightly) continue;
+      const now = currentUnixSeconds();
+      await env.DB
+        .prepare(
+          `INSERT INTO folio_lines
+            (id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+             quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'room_charge', 'reservation_system', 'room_rate', ?, 1, ?, ?, ?, 'posted', ?, NULL, ?, ?, ?)`
+        )
+        .bind(
+          nanoid(),
+          property.tenant_id,
+          property.id,
+          folio.id,
+          `Night audit room charge · ${targetDate}${nightly.season_name ? ` · ${nightly.season_name}` : ''}`,
+          nightly.unit_amount,
+          nightly.total_amount,
+          nightly.currency,
+          now,
+          auditToken,
+          now,
+          now
+        )
+        .run();
+      await recalculateFolioStatus(env, property.tenant_id, property.id, folio.id);
+      postedCount += 1;
+    }
+  }
+
+  return { ok: true, audit_date: targetDate, room_charge_lines_posted: postedCount };
+}
+
+export async function handleGetPropertyReservationFolio(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    return jsonResponse(await buildReservationFolioPayload(env, tenantId, propertyId, record));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_FOLIO_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyReservationFolioLine(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateFolioChargeRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    if (['cancelled', 'no_show'].includes(String(record.reservation.status))) {
+      return jsonResponse({ error: 'Cannot post folio charges for cancelled or no_show reservations.' }, 409);
+    }
+    const folio = await ensureReservationFolio(env, tenantId, propertyId, record);
+    const now = currentUnixSeconds();
+    const currency = parsed.currency || String(folio.currency || 'USD').trim().toUpperCase();
+    const totalAmount = Number((parsed.quantity * parsed.unitAmount).toFixed(2));
+    await env.DB
+      .prepare(
+        `INSERT INTO folio_lines
+          (id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+           quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, ?)`
+      )
+      .bind(nanoid(), tenantId, propertyId, folio.id, parsed.lineType, parsed.sourceType, parsed.category, parsed.description, parsed.quantity, parsed.unitAmount, totalAmount, currency, now, request.headers.get('X-User-ID')?.trim() || null, parsed.note, now, now)
+      .run();
+
+    return jsonResponse(await buildReservationFolioPayload(env, tenantId, propertyId, record), 201);
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_FOLIO_LINE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyReservationFolioPayment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateFolioPaymentRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    const folio = await ensureReservationFolio(env, tenantId, propertyId, record);
+    const now = currentUnixSeconds();
+    const currency = parsed.currency || String(folio.currency || 'USD').trim().toUpperCase();
+    const totalAmount = Number((-parsed.amount).toFixed(2));
+    await env.DB
+      .prepare(
+        `INSERT INTO folio_lines
+          (id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+           quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'payment', 'manual_frontdesk', ?, ?, 1, ?, ?, ?, 'posted', ?, ?, ?, ?, ?)`
+      )
+      .bind(nanoid(), tenantId, propertyId, folio.id, parsed.method, `Payment (${parsed.method.replace('_', ' ')})`, totalAmount, totalAmount, currency, now, request.headers.get('X-User-ID')?.trim() || null, parsed.note, now, now)
+      .run();
+
+    return jsonResponse(await buildReservationFolioPayload(env, tenantId, propertyId, record), 201);
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_FOLIO_PAYMENT_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUploadReservationGuestPhoto(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+
+    const formData = await request.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) return jsonResponse({ error: 'file is required.' }, 400);
+    const contentType = String(file.type || '').trim().toLowerCase();
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(contentType)) {
+      return jsonResponse({ error: 'Only jpeg, png, webp, and gif guest photos are supported.' }, 400);
+    }
+    if (Number(file.size || 0) > 5 * 1024 * 1024) return jsonResponse({ error: 'Guest photo must be 5 MB or smaller.' }, 400);
+
+    const key = buildReservationGuestPhotoKey(tenantId, propertyId, reservationId, detectFileExtension(contentType, file.name));
+    await env.BOOKING_PROOFS.put(key, file, {
+      httpMetadata: { contentType, cacheControl: 'private, max-age=300' },
+      customMetadata: { tenant_id: tenantId, property_id: propertyId, reservation_id: reservationId, kind: 'guest_photo' },
+    });
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `UPDATE property_reservations
+            SET guest_photo_key = ?, guest_photo_uploaded_at = ?, updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(key, now, now, reservationId, tenantId, propertyId)
+      .run();
+
+    return jsonResponse(buildReservationPayload(await loadPropertyReservation(env, tenantId, propertyId, reservationId)), 201);
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_GUEST_PHOTO_UPLOAD]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleGetReservationGuestPhoto(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record?.reservation?.guest_photo_key) return jsonResponse({ error: 'Guest photo not found.' }, 404);
+    const object = await env.BOOKING_PROOFS.get(String(record.reservation.guest_photo_key));
+    if (!object) return jsonResponse({ error: 'Guest photo not found.' }, 404);
+    return imageResponse(object);
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_GUEST_PHOTO_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyAvailabilityHolds(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const result = await env.DB
+      .prepare(
+        `SELECT ih.id, ih.tenant_id, ih.property_id, ih.room_type_id, ih.hold_type, ih.source_type, ih.source_id,
+                ih.check_in, ih.check_out, ih.rooms_requested, ih.status, ih.expires_at, ih.created_at,
+                rt.code AS room_type_code, rt.name AS room_type_name
+           FROM inventory_holds ih
+           LEFT JOIN room_types rt
+             ON rt.id = ih.room_type_id
+            AND rt.tenant_id = ih.tenant_id
+            AND rt.property_id = ih.property_id
+          WHERE ih.tenant_id = ?
+            AND ih.property_id = ?
+            AND ih.status = 'active'
+            AND ih.expires_at > ?
+          ORDER BY ih.expires_at ASC, ih.created_at DESC`
+      )
+      .bind(tenantId, propertyId, currentUnixSeconds())
+      .all();
+
+    return jsonResponse({ ok: true, property_id: propertyId, holds: result.results || [] });
+  } catch (error) {
+    console.error('[PROPERTY_HOLD_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleRunPropertyNightAudit(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body = {};
+  try {
+    if ((request.headers.get('content-type') || '').includes('application/json')) body = await parseJsonBody(request);
+  } catch {
+    return jsonResponse({ error: 'Request body is not valid JSON.' }, 400);
+  }
+
+  const auditDate = body?.audit_date ? String(body.audit_date).trim() : formatDateUtc(addDays(new Date(), -1));
+  if (!isIsoDate(auditDate)) return jsonResponse({ error: 'audit_date must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const reservations = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_type_id, rooms_requested, adults, children, status, check_in, check_out,
+                guest_name, pricing_snapshot, assigned_room_unit_id
+           FROM property_reservations
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND check_in <= ?
+            AND check_out > ?
+            AND status IN ('checked_in', 'checked_out')`
+      )
+      .bind(tenantId, propertyId, auditDate, auditDate)
+      .all();
+
+    let postedCount = 0;
+    for (const reservation of (reservations.results || [])) {
+      const record = { reservation, segments: [], allocations: [] };
+      const folio = await ensureReservationFolio(env, tenantId, propertyId, record);
+      const auditToken = `night_audit:${auditDate}`;
+      const existing = await env.DB
+        .prepare(
+          `SELECT id FROM folio_lines
+            WHERE tenant_id = ? AND property_id = ? AND folio_id = ?
+              AND line_type = 'room_charge' AND category = 'room_rate' AND note = ? AND status = 'posted'
+            LIMIT 1`
+        )
+        .bind(tenantId, propertyId, folio.id, auditToken)
+        .first();
+      if (existing) continue;
+
+      const nightly = await resolveReservationNightlyRate(env, tenantId, propertyId, reservation, auditDate);
+      if (!nightly) continue;
+      const now = currentUnixSeconds();
+      await env.DB
+        .prepare(
+          `INSERT INTO folio_lines
+            (id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+             quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'room_charge', 'reservation_system', 'room_rate', ?, 1, ?, ?, ?, 'posted', ?, ?, ?, ?, ?)`
+        )
+        .bind(nanoid(), tenantId, propertyId, folio.id, `Night audit room charge · ${auditDate}${nightly.season_name ? ` · ${nightly.season_name}` : ''}`, nightly.unit_amount, nightly.total_amount, nightly.currency, now, request.headers.get('X-User-ID')?.trim() || null, auditToken, now, now)
+        .run();
+      await recalculateFolioStatus(env, tenantId, propertyId, folio.id);
+      postedCount += 1;
+    }
+
+    return jsonResponse({ ok: true, property_id: propertyId, audit_date: auditDate, room_charge_lines_posted: postedCount });
+  } catch (error) {
+    console.error('[PROPERTY_NIGHT_AUDIT]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListHousekeepingTasks(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  const url = new URL(request.url);
+  const boardDate = String(url.searchParams.get('board_date') || formatDateUtc(new Date())).trim();
+  if (!isIsoDate(boardDate)) return jsonResponse({ error: 'board_date must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    await syncHousekeepingTasksForProperty(env, tenantId, propertyId, boardDate);
+    const tasks = await loadHousekeepingTasks(env, tenantId, propertyId);
+    const roomStateMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, tasks.map((task) => task.room_unit_id));
+    return jsonResponse({
+      ok: true,
+      property_id: propertyId,
+      board_date: boardDate,
+      housekeeping_tasks: tasks.map((task) => ({
+        ...task,
+        effective_room_state: roomStateMap.get(String(task.room_unit_id))?.new_state || housekeepingStateFromTaskStatus(task.status) || 'ready',
+      })),
+    });
+  } catch (error) {
+    console.error('[PROPERTY_HOUSEKEEPING_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleSyncHousekeepingTasks(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  const url = new URL(request.url);
+  const boardDate = String(url.searchParams.get('board_date') || formatDateUtc(new Date())).trim();
+  if (!isIsoDate(boardDate)) return jsonResponse({ error: 'board_date must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    await syncHousekeepingTasksForProperty(env, tenantId, propertyId, boardDate);
+    const tasks = await loadHousekeepingTasks(env, tenantId, propertyId);
+    return jsonResponse({ ok: true, property_id: propertyId, board_date: boardDate, housekeeping_task_count: tasks.length });
+  } catch (error) {
+    console.error('[PROPERTY_HOUSEKEEPING_SYNC]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdateHousekeepingTask(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const taskId = String(params?.taskId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateHousekeepingTaskPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for, started_at, completed_at,
+                assigned_user_id, note, created_at, updated_at
+           FROM housekeeping_tasks
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(taskId, tenantId, propertyId)
+      .first();
+    if (!existing) return jsonResponse({ error: 'Housekeeping task not found.' }, 404);
+
+    const updates = { ...parsed.updates };
+    const now = currentUnixSeconds();
+    if (updates.status === 'in_progress') updates.started_at = existing.started_at || now;
+    if (updates.status === 'completed') updates.completed_at = now;
+    if (updates.status === 'cancelled') updates.completed_at = existing.completed_at || null;
+    const { sql, values } = buildDynamicUpdateSql('housekeeping_tasks', updates);
+    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, taskId, tenantId, propertyId).run();
+
+    if (updates.status) {
+      const state = housekeepingStateFromTaskStatus(updates.status);
+      if (state) {
+        await recordRoomStateEvent(env, tenantId, propertyId, existing.room_unit_id, state, {
+          reservationId: existing.reservation_id,
+          note: updates.note || existing.note || null,
+          changedBy: request.headers.get('X-User-ID')?.trim() || null,
+        });
+      }
+    }
+
+    const updated = await env.DB
+      .prepare(
+        `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for, started_at, completed_at,
+                assigned_user_id, note, created_at, updated_at
+           FROM housekeeping_tasks
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(taskId, tenantId, propertyId)
+      .first();
+    return jsonResponse({ ok: true, housekeeping_task: updated });
+  } catch (error) {
+    console.error('[PROPERTY_HOUSEKEEPING_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
 }
 
 export async function handleCheckPropertyAvailability(request, env, params) {
@@ -3297,6 +4549,7 @@ export async function handleCreatePropertyReservation(request, env, params) {
         check_in: parsedRequest.checkIn,
         check_out: parsedRequest.checkOut,
         room_type_id: parsedRequest.roomTypeId,
+        assigned_room_unit_id: deriveAssignedRoomUnitId(selectedPlan),
         rooms_requested: parsedRequest.roomsRequested,
         adults: parsedRequest.adults,
         children: parsedRequest.children,
@@ -3352,17 +4605,51 @@ export async function handleListPropertyReservations(request, env, params) {
 
     const sql = `SELECT pr.id, pr.property_id, pr.source, pr.status,
                         pr.guest_name, pr.guest_email, pr.guest_phone,
-                        pr.check_in, pr.check_out, pr.room_type_id, pr.rooms_requested,
+                        pr.check_in, pr.check_out, pr.room_type_id, pr.assigned_room_unit_id, pr.guest_photo_key,
+                        aru.room_number AS assigned_room_number,
+                        pr.rooms_requested,
                         pr.adults, pr.children, pr.pricing_snapshot,
                         pr.confirmed_at, pr.cancelled_at, pr.cancel_reason,
                         pr.created_at, pr.updated_at,
                         rt.code AS room_type_code,
-                        rt.name AS room_type_name
+                        rt.name AS room_type_name,
+                        (
+                          SELECT GROUP_CONCAT(DISTINCT rss.room_unit_id)
+                            FROM reservation_stay_plan_segments rss
+                            JOIN reservation_stay_plans rsp
+                              ON rsp.id = rss.stay_plan_id
+                             AND rsp.tenant_id = rss.tenant_id
+                             AND rsp.property_id = rss.property_id
+                           WHERE rss.tenant_id = pr.tenant_id
+                             AND rss.property_id = pr.property_id
+                             AND rss.reservation_id = pr.id
+                             AND rsp.is_selected = 1
+                        ) AS allocated_room_unit_ids,
+                        (
+                          SELECT GROUP_CONCAT(DISTINCT ru2.room_number)
+                            FROM reservation_stay_plan_segments rss
+                            JOIN reservation_stay_plans rsp
+                              ON rsp.id = rss.stay_plan_id
+                             AND rsp.tenant_id = rss.tenant_id
+                             AND rsp.property_id = rss.property_id
+                            LEFT JOIN room_units ru2
+                              ON ru2.id = rss.room_unit_id
+                             AND ru2.tenant_id = rss.tenant_id
+                             AND ru2.property_id = rss.property_id
+                           WHERE rss.tenant_id = pr.tenant_id
+                             AND rss.property_id = pr.property_id
+                             AND rss.reservation_id = pr.id
+                             AND rsp.is_selected = 1
+                        ) AS allocated_room_numbers
                    FROM property_reservations pr
                    LEFT JOIN room_types rt
                      ON rt.id = pr.room_type_id
                     AND rt.tenant_id = pr.tenant_id
                     AND rt.property_id = pr.property_id
+                   LEFT JOIN room_units aru
+                     ON aru.id = pr.assigned_room_unit_id
+                    AND aru.tenant_id = pr.tenant_id
+                    AND aru.property_id = pr.property_id
                   WHERE ${clauses.join(' AND ')}
                   ORDER BY CASE
                              WHEN pr.check_in = ? THEN 0
@@ -3452,6 +4739,136 @@ export async function handleGetPropertyReservation(request, env, params) {
     return jsonResponse(buildReservationPayload(record));
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+async function assignReservationToRoomUnit(env, tenantId, propertyId, reservationId, record, assignedRoomUnitId, actorUserId) {
+  if (Number(record?.reservation?.rooms_requested || 0) !== 1) {
+    return { error: 'Room assignment baseline currently supports rooms_requested = 1 only.' };
+  }
+  if (!record?.stayPlan || !Array.isArray(record?.segments) || record.segments.length !== 1) {
+    return { error: 'Room assignment currently supports one-segment stays only.' };
+  }
+
+  if (!assignedRoomUnitId) {
+    await env.DB
+      .prepare(
+        `UPDATE property_reservations
+            SET assigned_room_unit_id = NULL,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
+      .run();
+    await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'room_assignment', record.reservation.status, record.reservation.status, {
+      previous_room_unit_id: record.reservation.assigned_room_unit_id || null,
+      next_room_unit_id: null,
+      cleared: true,
+    }, actorUserId);
+    return { ok: true };
+  }
+
+  const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, assignedRoomUnitId);
+  if (!roomUnit) return { error: 'Assigned room unit not found.' };
+  if (!roomUnit.active) return { error: 'Assigned room unit must be active.' };
+  if (['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status))) {
+    return { error: 'Assigned room unit is not available for assignment.' };
+  }
+
+  const allowedRoomTypeIds = new Set((record.segments || []).map((segment) => String(segment.room_type_id)).filter(Boolean));
+  if (!allowedRoomTypeIds.size) allowedRoomTypeIds.add(String(record.reservation.room_type_id));
+  if (!allowedRoomTypeIds.has(String(roomUnit.room_type_id))) {
+    return { error: 'Assigned room unit must belong to the reservation stay-plan room type.' };
+  }
+
+  const stayDates = enumerateStayDates(record.segments[0].check_in, record.segments[0].check_out);
+  if (!stayDates.length) return { error: 'Reservation stay dates are invalid for assignment.' };
+
+  const placeholders = stayDates.map(() => '?').join(', ');
+  const conflict = await env.DB
+    .prepare(
+      `SELECT id
+         FROM reservation_allocations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND room_unit_id = ?
+          AND reservation_id != ?
+          AND allocation_status IN ('soft_allocated', 'locked')
+          AND stay_date IN (${placeholders})
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, assignedRoomUnitId, reservationId, ...stayDates)
+    .first();
+  if (conflict) return { error: 'Assigned room unit is already occupied for part of this stay.' };
+
+  const now = currentUnixSeconds();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE property_reservations
+          SET assigned_room_unit_id = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    ).bind(assignedRoomUnitId, now, reservationId, tenantId, propertyId),
+    env.DB.prepare(
+      `UPDATE reservation_stay_plan_segments
+          SET room_unit_id = ?
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND reservation_id = ?
+          AND stay_plan_id = ?`
+    ).bind(assignedRoomUnitId, tenantId, propertyId, reservationId, record.stayPlan.id),
+    env.DB.prepare(
+      `UPDATE reservation_allocations
+          SET room_unit_id = ?,
+              updated_at = ?
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND reservation_id = ?
+          AND stay_plan_id = ?
+          AND allocation_status IN ('soft_allocated', 'locked')`
+    ).bind(assignedRoomUnitId, now, tenantId, propertyId, reservationId, record.stayPlan.id),
+  ]);
+
+  await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'room_assignment', record.reservation.status, record.reservation.status, {
+    previous_room_unit_id: record.reservation.assigned_room_unit_id || null,
+    next_room_unit_id: assignedRoomUnitId,
+    next_room_number: roomUnit.room_number,
+  }, actorUserId);
+  return { ok: true };
+}
+
+export async function handleUpdatePropertyReservationAssignment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validateReservationRoomAssignmentRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    if (!['confirmed', 'checked_in'].includes(String(record.reservation.status))) {
+      return jsonResponse({ error: 'Room assignment is only supported for confirmed or checked_in reservations.' }, 409);
+    }
+
+    const assignment = await assignReservationToRoomUnit(env, tenantId, propertyId, reservationId, record, parsed.assignedRoomUnitId, request.headers.get('X-User-ID')?.trim() || null);
+    if (assignment.error) return jsonResponse({ error: assignment.error }, 409);
+
+    const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    return jsonResponse({
+      ...buildReservationPayload(updatedRecord),
+      assignment_updated: true,
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_ASSIGNMENT_UPDATE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
@@ -3677,6 +5094,15 @@ export async function handleCheckInPropertyReservation(request, env, params) {
   const actor = await requireTenantActor(request, env, tenantId);
   if (actor.error) return actor.error;
 
+  let body = {};
+  try {
+    if ((request.headers.get('content-type') || '').includes('application/json')) {
+      body = await parseJsonBody(request);
+    }
+  } catch {
+    return jsonResponse({ error: 'Request body is not valid JSON.' }, 400);
+  }
+
   try {
     const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
     if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
@@ -3687,6 +5113,13 @@ export async function handleCheckInPropertyReservation(request, env, params) {
       .prepare(`UPDATE property_reservations SET status = 'checked_in', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
       .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
       .run();
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'assigned_room_unit_id')) {
+      const parsedAssignment = validateReservationRoomAssignmentRequest(body);
+      if (parsedAssignment.error) return jsonResponse({ error: parsedAssignment.error }, 400);
+      const assignment = await assignReservationToRoomUnit(env, tenantId, propertyId, reservationId, record, parsedAssignment.assignedRoomUnitId, request.headers.get('X-User-ID')?.trim() || null);
+      if (assignment.error) return jsonResponse({ error: assignment.error }, 409);
+    }
 
     await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'check_in', 'confirmed', 'checked_in', null, request.headers.get('X-User-ID')?.trim() || null);
 
@@ -3717,6 +5150,16 @@ export async function handleCheckOutPropertyReservation(request, env, params) {
       .prepare(`UPDATE property_reservations SET status = 'checked_out', updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
       .bind(currentUnixSeconds(), reservationId, tenantId, propertyId)
       .run();
+
+    const roomUnitId = reservationPrimaryRoomUnitId(record);
+    if (roomUnitId) {
+      await recordRoomStateEvent(env, tenantId, propertyId, roomUnitId, 'dirty', {
+        reservationId,
+        note: `Auto-dirty on check-out ${record.reservation.check_out}`,
+        changedBy: request.headers.get('X-User-ID')?.trim() || null,
+      });
+      await ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, roomUnitId, reservationId, record.reservation.check_out, request.headers.get('X-User-ID')?.trim() || null);
+    }
 
     await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'check_out', 'checked_in', 'checked_out', {
       effective_check_out: record.reservation.check_out,
@@ -3787,6 +5230,16 @@ export async function handleEarlyCheckOutPropertyReservation(request, env, param
             AND check_in >= ?`
       ).bind(tenantId, propertyId, reservationId, parsed.effectiveCheckOut),
     ]);
+
+    const roomUnitId = reservationPrimaryRoomUnitId(record);
+    if (roomUnitId) {
+      await recordRoomStateEvent(env, tenantId, propertyId, roomUnitId, 'dirty', {
+        reservationId,
+        note: `Auto-dirty on early check-out ${parsed.effectiveCheckOut}`,
+        changedBy: request.headers.get('X-User-ID')?.trim() || null,
+      });
+      await ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, roomUnitId, reservationId, parsed.effectiveCheckOut, request.headers.get('X-User-ID')?.trim() || null);
+    }
 
     await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'early_check_out', 'checked_in', 'checked_out', {
       previous_check_out: record.reservation.check_out,

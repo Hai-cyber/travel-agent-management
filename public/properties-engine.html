@@ -801,6 +801,16 @@
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Early Arrival Fee</label>
+                  <input name="early_arrival_fee" type="number" min="0" step="0.01" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Late Checkout Fee</label>
+                  <input name="late_checkout_fee" type="number" min="0" step="0.01" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
                   <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
                   <input name="notes" placeholder="Front-desk upsell note." class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
                 </div>
@@ -1322,6 +1332,7 @@
             <div class="flex-1 min-w-0">
               <div class="text-sm font-semibold text-slate-800">${escapeHtml(p.name)}</div>
               <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(p.code)} · ${escapeHtml(p.service_type)} · ${escapeHtml(p.pricing_mode)} · ${escapeHtml(p.scope)} · ${escapeHtml(p.currency)} ${Number(p.default_unit_price || 0).toLocaleString()}</div>
+              <div class="text-xs text-slate-500 mt-0.5">Early arrival fee: ${escapeHtml(p.currency)} ${Number(p.early_arrival_fee || 0).toLocaleString()} · Late checkout fee: ${escapeHtml(p.currency)} ${Number(p.late_checkout_fee || 0).toLocaleString()}</div>
               ${p.notes ? `<div class="text-xs text-slate-400">${escapeHtml(p.notes)}</div>` : ''}
             </div>
             <span class="text-xs font-bold uppercase px-2 py-0.5 rounded flex-shrink-0 ${p.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${p.active ? 'active' : 'inactive'}</span>
@@ -1605,6 +1616,8 @@
             await api('/api/properties/' + state.selectedPropertyId + '/addon-service-presets', { method: 'POST', body: JSON.stringify(data) });
             els.addonPresetForm.reset();
             els.addonPresetForm.querySelector('[name="currency"]').value = 'USD';
+            els.addonPresetForm.querySelector('[name="early_arrival_fee"]').value = '0';
+            els.addonPresetForm.querySelector('[name="late_checkout_fee"]').value = '0';
             setFlash('Addon service preset created.');
           }
           await loadPropertyDetails();

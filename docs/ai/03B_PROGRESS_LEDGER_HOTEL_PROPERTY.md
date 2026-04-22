@@ -38,6 +38,10 @@ Status legend:
 | CHK-R98 | Backend DELETE routes for all property builder resources | done | Added 7 DELETE handler functions in `src/routes/properties.js` and registered their routes in `src/index.js`: `DELETE /api/properties/:propertyId`, `DELETE .../room-types/:roomTypeId`, `DELETE .../room-units/:roomUnitId`, `DELETE .../room-rates/:roomRateId`, `DELETE .../addon-service-presets/:presetId`, `DELETE .../rate-seasons/:seasonId`, `DELETE .../season-room-rates/:seasonRoomRateId`. Each handler verifies tenant, requires manager role, returns 404 if not found, and returns 204 No Content on success. Previously all DELETE calls fell through to a 404 with empty body causing the "Delete failed: Delete failed" client error. | 2026-04-21 | Deployed `3f48217e`. |
 | CHK-R99 | Room Rack kiosk view in property-staff.html | done | Added full Room Rack tab to `public/property-staff.html`: color-coded cells (vacant/dirty/arriving/occupied/departing/maintenance/out-of-order) sorted by floor descending + room type left-to-right. Clicking any cell opens a 5-tab guest slide-over (Profile, Stay, Services, Actions, History). Services tab allows adding preset or custom charges and printing a text invoice. Actions tab covers check-in, check-out, early check-out, no-show, undo, rebook, cancel. History tab shows lifecycle event trail + raw JSON. Photo upload stored in session per reservation. Staff Link button generates a property-locked kiosk URL (`?tid=…&pid=…`). | 2026-04-21 | Deployed `f793635c`. JS functions: `rackCellState`, `rackReservationForUnit`, `renderRack`, `sheetStatusStyle`, `switchSheetTab`, `renderSheetInvoice`, `renderSheetTimeline`, `openGuestSheet`, `closeGuestSheet`, `sheetAction`. |
 | CHK-R100 | Staff desk UX — kiosk layout + compact rack + ops briefing | done | Major UX overhaul of `public/property-staff.html`: (1) Removed hero/marketing block entirely. (2) Removed sidebar — properties + stats moved into ⚙ Settings tab. (3) Rack cells shrunk from 86×74px to 50×44px, cells sorted by room type within each floor. (4) Added ops briefing strip (arrivals/departures/stayovers chips, clickable to jump to Front Desk). (5) Tenant login bar removed from page top — form moved into Settings > Account. (6) Page auto-loads tenant from `?tid=` URL param or `localStorage` on boot — no manual Load step. (7) Default tab is Rack, not Front Desk. (8) Kiosk mode (`?tid=…&pid=…`) hides ⚙ Settings tab entirely — staff cannot switch properties. (9) Legend row and ↻/🔗 buttons merged into a single compact row, no "Room Rack" title. | 2026-04-21 | Deployed `051068fb` → `5daa7448` → `8244cf60`. |
+| CHK-R101 | Property room assignment truth for rack and check-in | done | Implemented `NEXT-P01` with migration `0084_property_reservation_room_assignment.sql`, adding `assigned_room_unit_id` to `property_reservations`. Added `PATCH /api/properties/:propertyId/reservations/:reservationId` so staff can persist room assignment for single-room reservations. The assignment flow rewires `reservation_stay_plan_segments` and `reservation_allocations` to the chosen room unit, and `POST /api/properties/:propertyId/reservations/:reservationId/check-in` now also accepts `assigned_room_unit_id` for one-step assign+check-in. `public/property-staff.html` now saves the room assignment from the guest-sheet Actions tab and Room Rack matching prefers assigned room unit over room type. | 2026-04-21 | Verified locally on port 8801. PATCH assignment moved a confirmed reservation from room `201` to `202`, and `GET /api/properties/:propertyId/reservations/:reservationId` plus board list both returned `assigned_room_unit_id` / `assigned_room_number` with stay-plan segment + locked allocations rewritten to room `202`. Check-in with `assigned_room_unit_id` also returned `checked_in` with room `302` persisted in the same response. |
+| CHK-R102 | Rack walk-ins + folio settlement baseline | done | Implemented `NEXT-P02` and `NEXT-P03`. `public/property-staff.html` now lets staff click a vacant rack cell and create a walk-in directly from the guest sheet, then auto-checks the guest into the clicked room unit using the existing reservation create path plus check-in with `assigned_room_unit_id`. Added reservation folio runtime in `src/routes/properties.js`: `GET /api/properties/:propertyId/reservations/:reservationId/folio`, `POST .../folio/lines`, and `POST .../folio/payments`. Added migration `0085_folio_payments.sql` so `folio_lines` accepts `line_type = 'payment'`. The guest-sheet Services tab now posts preset/custom charges and manual payments to the persisted folio instead of keeping invoice rows in session-only state. | 2026-04-21 | Verified locally on port 8802. Served `property-staff` HTML included the new `Create Walk-in & Check In` and `Record Payment` controls. Live smoke created and checked in a reservation assigned to room `401`, posted `Breakfast upgrade ×2` as a `service_charge` for `24 USD`, then recorded a `card` payment for `24 USD`; the folio returned two persisted lines (`service_charge`, `payment`) and summary `charge_total = 24`, `payment_total = 24`, `balance_due = 0`, `status = settled`. |
+| CHK-R103 | Night audit + housekeeping task engine baseline | done | Implemented `NEXT-P04` and `NEXT-P05`. Added `POST /api/properties/:propertyId/folios/night-audit` so managers can post nightly `room_charge` rows to folios using the live property pricing engine, with idempotence enforced by `note = night_audit:YYYY-MM-DD`. Added cron integration in `src/index.js` so the daily `0 8 * * *` tick runs night audit for the previous date. Added housekeeping runtime in `src/routes/properties.js`: `GET /api/properties/:propertyId/housekeeping-tasks`, `POST .../housekeeping-tasks/sync`, and `PATCH .../housekeeping-tasks/:taskId`. Checkout and early-check-out now auto-record a `dirty` room-state event and auto-create a `departure_clean` housekeeping task for the assigned room. `public/property-staff.html` now renders live housekeeping tasks and lets staff progress them through `Start`, `Inspect`, and `Ready`, while Rack cells can show `dirty`, `cleaning`, and `inspected` from task state. | 2026-04-21 | Verified locally on port 8803. Manual night audit for `2026-07-10` posted exactly one `room_charge` line on first run and `0` on the second run, proving idempotence. The folio then showed one persisted `room_charge` line for `90 USD`. After checkout on `2026-07-12`, `GET /api/properties/:propertyId/housekeeping-tasks?board_date=2026-07-12` returned one auto-created task for room `501` with `priority = departure_clean`, `status = pending`, and `effective_room_state = dirty`; PATCH moved the same task to `in_progress` and then `completed`. |
+| CHK-R104 | Active holds board + operational fee presets | done | Implemented `NEXT-P07` and `NEXT-P08`. Added `GET /api/properties/:propertyId/availability/holds` so Guest Support can list active holds with room-type labels and expiry times before releasing them. Added migration `0086_property_addon_fee_fields.sql`, exposing first-class `early_arrival_fee` and `late_checkout_fee` on `property_addon_service_presets`, and extended addon preset create/list/update/seed runtime accordingly. Seed defaults now include `EARLY-ARRIVAL`, and `LATE-CHECKOUT` now carries a dedicated `late_checkout_fee`. `public/property-staff.html` now renders active holds with one-click release and adds `Post Early Arrival Fee` / `Post Late Checkout Fee` actions that post those configured amounts into the reservation folio. `public/properties-engine.html` now exposes both fee fields in the addon preset form/list. | 2026-04-22 | Verified locally on port 8804. `GET /api/properties/:propertyId/availability/holds` returned one active `manual_hold` for room type `SUP`, `POST /api/properties/:propertyId/availability/hold/:holdId/release` changed it to `released`, and a follow-up `GET` returned an empty hold list. `GET /api/properties/:propertyId/addon-service-presets` after seeding defaults returned `EARLY-ARRIVAL` with `early_arrival_fee = 20` and `LATE-CHECKOUT` with `late_checkout_fee = 20`. Served HTML also contained `support-hold-list`, `Post Early Arrival Fee`, `Post Late Checkout Fee`, and the new addon preset fee inputs. |
 
 ## Property runtime that now exists
 
@@ -98,6 +102,20 @@ Status legend:
   - `POST /api/properties/:propertyId/reservations`
   - `GET /api/properties/:propertyId/reservations`
   - `GET /api/properties/:propertyId/reservations/:reservationId`
+  - `GET /api/properties/:propertyId/reservations/:reservationId/guest-photo`
+  - `POST /api/properties/:propertyId/reservations/:reservationId/guest-photo`
+  - `GET /api/properties/:propertyId/shift-handover`
+  - `PATCH /api/properties/:propertyId/shift-handover`
+  - `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags`
+  - `PATCH /api/properties/:propertyId/reservations/:reservationId`
+  - `GET /api/properties/:propertyId/reservations/:reservationId/folio`
+  - `POST /api/properties/:propertyId/reservations/:reservationId/folio/lines`
+  - `POST /api/properties/:propertyId/reservations/:reservationId/folio/payments`
+  - `POST /api/properties/:propertyId/folios/night-audit`
+  - `GET /api/properties/:propertyId/housekeeping-tasks`
+  - `POST /api/properties/:propertyId/housekeeping-tasks/sync`
+  - `PATCH /api/properties/:propertyId/housekeeping-tasks/:taskId`
+  - `GET /api/properties/:propertyId/availability/holds`
   - `POST /api/properties/:propertyId/reservations/:reservationId/cancel`
   - `POST /api/properties/:propertyId/reservations/:reservationId/rebook`
   - `POST /api/properties/:propertyId/reservations/:reservationId/check-in`
@@ -113,7 +131,6 @@ Status legend:
 - no separate admin/manual confirm route yet
 - no guest/public hotel booking UI yet
 - room-type-level hold granularity only
-- reservation create baseline verified only for `rooms_requested = 1`
 - no admin/manual confirm route yet, no actor-aware authorization model beyond the current tenant-admin gate, and no richer post-stay settlement flow tied to folios yet
 
 ## Recommended next sprint (PMS gap analysis — 2026-04-21)
@@ -122,30 +139,35 @@ Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for 
 
 ### 🔴 Critical — needed for real operations
 
+`NEXT-P01` room assignment is now done via `CHK-R101`.
+`NEXT-P02` walk-in creation is now done via `CHK-R102`.
+`NEXT-P03` folio payment recording is now done via `CHK-R102`.
+`NEXT-P04` night audit is now done via `CHK-R103`.
+`NEXT-P07` active holds list is now done via `CHK-R104`.
+`NEXT-P09` guest photo persistence is now done via `CHK-R105`.
+`NEXT-P11` shift handover notes are now done via `CHK-R106`.
+
 | ID | Title | Notes |
 |---|---|---|
-| NEXT-P01 | **Room assignment** | Add `assigned_room_unit_id` to `property_reservations`. Rack currently matches by `room_type_id` — multiple rooms of same type are ambiguous. Requires migration + PATCH on check-in + assignment dropdown in sheet Actions tab. |
-| NEXT-P02 | **Walk-in creation from rack** | Click vacant cell → modal to create reservation immediately without leaving rack. High ROI, frontend-only form calling existing `POST /reservations`. |
-| NEXT-P03 | **Payment recording on folio** | Invoice has charge lines but no settlement entry. Add cash/card/bank transfer settlement rows + balance-due calculation. No new table needed if folio_lines accepts `line_type = 'payment'`. |
-| NEXT-P04 | **Night audit / auto room-rate post** | Room rate should auto-post to folio each night. Requires a scheduled Cloudflare Worker Cron (already wired in wrangler.jsonc) calling a new `POST /api/properties/:pid/folios/night-audit`. |
 
 ### 🟠 Important — affects daily ops
 
+`NEXT-P05` housekeeping task engine is now done via `CHK-R103`.
+`NEXT-P08` early arrival / late checkout fees are now done via `CHK-R104`.
+`NEXT-P10` multi-room rack is now done via `CHK-R105`.
+`NEXT-P12` do-not-disturb / room-service overlay is now done via `CHK-R106`.
+
 | ID | Title | Notes |
 |---|---|---|
-| NEXT-P05 | **Housekeeping task engine** | Tab is currently empty. Needs: dirty → cleaning → inspected → ready state machine per room unit, assignable to a housekeeper actor. Likely needs `housekeeping_tasks` table (already in schema list but not live). |
-| NEXT-P06 | **Auto-dirty on checkout** | When check-out fires, room unit `operational_status` should flip to `dirty` automatically. One-line addition in the check-out handler. |
-| NEXT-P07 | **Active holds list** | Hold release UI exists but there is no list of currently active holds. Add `GET /api/properties/:pid/availability/holds` route and render in Guest Support tab. |
-| NEXT-P08 | **Early arrival / late checkout fees** | Common boutique upsell. Add `early_arrival_fee` and `late_checkout_fee` fields to addon presets and wire into folio posting. |
+| NEXT-P06 | **Auto-dirty on checkout** | Covered by `CHK-R103` through `room_state_events` + auto-created housekeeping tasks rather than mutating `room_units.operational_status`. Follow-up only if the product later needs a persisted room-unit column mirror in addition to operational task/state history. |
+
+| CHK-R105 | Guest photo persistence + multi-room rack baseline | done | Implemented `NEXT-P09` and `NEXT-P10`. Added migration `0087_property_reservation_guest_photos.sql`, plus `GET /api/properties/:propertyId/reservations/:reservationId/guest-photo` and `POST .../guest-photo` so the property staff desk can persist one primary guest photo per reservation in Worker-managed R2 storage using the existing `BOOKING_PROOFS` binding. Reservation payloads now expose `guest_photo_key`, `guest_photo_uploaded_at`, and `guest_photo_url`. For multi-room stays, contiguous availability plans now generate one concrete stay-plan segment per allocated room unit instead of collapsing to one room, reservation detail now returns `allocated_room_unit_ids` / `allocated_room_numbers`, and the board list exposes the same fields so `public/property-staff.html` can render one multi-room reservation across every occupied rack cell. The guest sheet now uploads photos through runtime, hydrates photo URLs from reservation payloads, and disables room-assignment edits for `rooms_requested > 1` because the assignment patch remains a single-room-only operation. | 2026-04-22 | Verified locally on port 8805. Creating a reservation with `rooms_requested = 2` returned a selected stay plan with two concrete room-unit segments (`801`, `802`), detail payload returned `allocated_room_unit_ids = [..2 ids..]` and `allocated_room_numbers = ['801','802']`, and board list exposed the same allocation arrays. Uploading a tiny GIF to `POST /api/properties/:propertyId/reservations/:reservationId/guest-photo` returned a persisted `guest_photo_key` plus `guest_photo_url`, and a follow-up authenticated `GET` on the photo route returned `200 OK` with `Content-Type: image/gif`. |
+| CHK-R106 | Shift handover notes + room service overlays | done | Implemented `NEXT-P11` and `NEXT-P12`. Added migration `0088_property_shift_handover_room_flags.sql`, persisting `shift_handover_note` / updater metadata on `properties` and `do_not_disturb` / `room_service_requested` on `room_units`. Added `GET/PATCH /api/properties/:propertyId/shift-handover` for current shift-turnover notes and a staff-scoped `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags` route limited to DND and room-service overlay fields. `public/property-staff.html` now shows a Shift Handover card in Support, saves/clears the live note, renders `DND` / `RS` chips on rack cells, and lets staff toggle those flags from the guest sheet for the clicked room unit. | 2026-04-22 | Verified locally on port 8806. `PATCH /api/properties/:propertyId/shift-handover` persisted a night-shift note and `GET` returned the same note plus updater email/timestamp. `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags` first set `do_not_disturb = true`, then set `room_service_requested = true`; the follow-up `GET /api/properties/:propertyId/room-units` returned both flags as `true`. Served `property-staff` HTML also contained `shift-handover-note`, `btn-save-shift-handover`, `btn-toggle-dnd`, `btn-toggle-room-service`, and rack overlay chip markup. |
 
 ### 🟡 Completeness — rounds out the product
 
 | ID | Title | Notes |
 |---|---|---|
-| NEXT-P09 | **Guest photo persist to backend** | Currently session-only. Add `guest_photo_url` to reservations or a separate `guest_profiles` table. Upload to R2 bucket. |
-| NEXT-P10 | **Multi-room reservation on rack** | `rooms_requested > 1` is stored but rack only shows one unit per reservation. |
-| NEXT-P11 | **Shift handover notes** | Free-text note from outgoing shift visible to incoming shift. Could be a single `shift_notes` field on properties or a lightweight append-only log. |
-| NEXT-P12 | **Do Not Disturb / Room Service flag** | Extra per-cell status overlay on rack. Frontend-only if stored in `room_unit` `operational_status` or as a new lightweight flag. |
 
 ## Boundary notes
 
@@ -155,7 +177,6 @@ Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for 
 
 ## Recommended next property slices
 
-- extend reservation commit beyond `rooms_requested = 1`
 - expand pricing v2 from seasons + per-room guest assignment pricing into richer rate plans, calendar overrides, and package/rule layers only after the current season model stays stable
 - connect addon presets to actual folio posting, cashier posting rules, and public/agent upsell surfaces while preserving the onsite-only policy and the airport-pickup-only pre-arrival exception
 - add real housekeeping task state, maintenance work orders, and folio/POS runtime behind the new staff-facing property operations shell

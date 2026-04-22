@@ -32,11 +32,13 @@
     }
 
     .shell {
-      max-width: 1520px;
-      margin: 0 auto;
-      padding: 24px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      min-height: 100vh;
+      padding: 6px 8px 8px;
       display: grid;
-      gap: 20px;
+      gap: 8px;
     }
 
     .hero {
@@ -97,7 +99,39 @@
     .tab-panels,
     .stack {
       display: grid;
-      gap: 16px;
+      gap: 10px;
+    }
+
+    .workspace-shell {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-height: calc(100vh - 62px);
+    }
+
+    .workspace-shell.sidebar-collapsed {
+      grid-template-columns: 48px minmax(0, 1fr);
+    }
+
+    .staff-sidebar {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+      position: sticky;
+      top: 6px;
+    }
+
+    .sidebar-toggle {
+      width: 100%;
+      min-height: 28px;
+      padding: 0;
+      border-radius: 12px;
+      justify-content: center;
+    }
+
+    .staff-content {
+      min-width: 0;
     }
 
     .tip {
@@ -120,6 +154,14 @@
       border-radius: 22px;
     }
 
+    .workspace-frame {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      overflow: visible;
+    }
+
     .side-card,
     .panel,
     .section,
@@ -134,6 +176,10 @@
     .response,
     .empty {
       padding: 18px;
+    }
+
+    .workspace-body {
+      padding: 6px 0 0;
     }
 
     .layout { display:none; } /* sidebar layout removed */
@@ -185,11 +231,11 @@
     .button,
     .tab-button,
     .tag {
-      min-height: 38px;
+      min-height: 34px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 14px;
+      padding: 0 11px;
       cursor: pointer;
       text-decoration: none;
       font-weight: 700;
@@ -210,9 +256,9 @@
 
     .button.small,
     .tag {
-      min-height: 32px;
-      padding: 0 11px;
-      font-size: 12px;
+      min-height: 28px;
+      padding: 0 9px;
+      font-size: 11px;
     }
 
     .tag.ok { color: var(--accent); background: #ecfdf5; }
@@ -227,6 +273,32 @@
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+    }
+
+    .tab-strip.sidebar-nav {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+
+    .tab-strip.sidebar-nav .tab-button {
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 36px;
+      padding: 0 10px;
+      text-align: left;
+      border-radius: 14px;
+      font-size: 12px;
+    }
+
+    .workspace-shell.sidebar-collapsed .tab-strip.sidebar-nav .tab-button {
+      justify-content: center;
+      padding: 0;
+      font-size: 0;
+    }
+
+    .workspace-shell.sidebar-collapsed .tab-strip.sidebar-nav .tab-button::first-letter {
+      font-size: 16px;
     }
 
     .toolbar { justify-content: space-between; }
@@ -264,13 +336,13 @@
 
     .section-grid {
       display: grid;
-      gap: 16px;
+      gap: 10px;
       grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
     }
 
     .field-grid {
       display: grid;
-      gap: 12px;
+      gap: 8px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -288,10 +360,10 @@
     select,
     textarea {
       width: 100%;
-      min-height: 42px;
+      min-height: 36px;
       border: 1px solid rgba(120,113,108,0.22);
-      border-radius: 14px;
-      padding: 10px 12px;
+      border-radius: 10px;
+      padding: 8px 10px;
       font: inherit;
       color: var(--ink);
       background: #fff;
@@ -316,7 +388,7 @@
     .room-list,
     .timeline {
       display: grid;
-      gap: 12px;
+      gap: 8px;
     }
 
     .reservation-item {
@@ -351,8 +423,8 @@
 
     .flash {
       display: none;
-      border-radius: 18px;
-      padding: 14px 16px;
+      border-radius: 12px;
+      padding: 10px 12px;
       font-weight: 700;
     }
 
@@ -361,30 +433,105 @@
     .flash.err { background: #fef2f2; color: #991b1b; border: 1px solid rgba(185,28,28,0.16); }
 
     /* ── Room Rack ──────────────────────────────────────── */
-    .rack-legend { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; font-weight:700; }
+    .rack-legend { display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:10px; font-weight:700; }
+    .rack-section { display:grid; gap:6px; }
+    .rack-toolbar {
+      display:grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+      padding: 0;
+    }
+    .rack-toolbar-main { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .rack-control-group { display:grid; gap:4px; }
+    .rack-floor-buttons { display:flex; gap:4px; flex-wrap:wrap; }
+    .rack-floor-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .rack-type-select-wrap { display:grid; gap:4px; width:min(190px,100%); }
+    .rack-legend-row {
+      display:flex;
+      gap:6px;
+      flex-wrap:nowrap;
+      align-items:center;
+      overflow-x:auto;
+      padding-bottom:2px;
+    }
+    .rack-select {
+      min-height:30px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#fff;
+      color:var(--ink);
+      font:inherit;
+      padding:0 10px;
+      width:100%;
+    }
+    .rack-legend-group {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      padding:6px 8px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(255,255,255,0.78);
+      flex: 0 0 auto;
+    }
     .leg { display:inline-flex; align-items:center; gap:5px; }
     .leg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-    .rack-floor-label { font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:10px 0 5px; }
-    .rack-grid { display:flex; flex-wrap:wrap; gap:5px; }
+    .rack-floor-section { display:grid; gap:4px; }
+    .rack-floor-label { font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0; scroll-margin-top: 56px; }
+    .rack-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:10px; }
     .rack-cell {
-      width:50px; height:44px; border-radius:8px;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+      width:100%; min-height:92px; border-radius:16px;
+      display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:4px;
       cursor:pointer; border:2px solid transparent; transition:transform .12s,box-shadow .12s;
-      position:relative; padding:3px; text-align:center; user-select:none;
+      position:relative; padding:10px 10px 18px; text-align:left; user-select:none; overflow:hidden;
+      font:inherit;
     }
     .rack-cell:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.22); }
-    .rack-cell .rc-num  { font-size:13px; font-weight:900; line-height:1; }
-    .rack-cell .rc-type { font-size:8px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; opacity:.7; max-width:46px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-    .rack-cell .rc-guest{ font-size:8px; font-weight:600; max-width:46px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .rack-cell .rc-head { display:flex; align-items:baseline; gap:6px; min-width:0; }
+    .rack-cell .rc-num  { font-size:19px; font-weight:900; line-height:1; }
+    .rack-cell .rc-type { font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; opacity:.78; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .rack-cell .rc-rate { font-size:10px; font-weight:800; letter-spacing:.02em; opacity:.94; }
+    .rack-cell .rc-primary { font-size:9px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; opacity:.84; }
+    .rack-cell .rc-secondary { font-size:9px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; opacity:.84; }
+    .rack-cell .rc-guest{ font-size:11px; font-weight:700; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .rack-cell .rc-badges { position:absolute; top:6px; right:6px; display:flex; gap:4px; flex-direction:column; align-items:flex-end; }
+    .rack-cell .rc-badge,
+    .rack-cell .rc-flag { min-width:18px; padding:2px 5px; border-radius:999px; font-size:8px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; background:rgba(255,255,255,.92); color:#0f172a; border:1px solid rgba(15,23,42,.08); }
+    .rack-cell .rc-badge.arrival { background:#e0e7ff; color:#3730a3; }
+    .rack-cell .rc-flag { min-width:18px; padding:1px 3px; border-radius:999px; font-size:7px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; background:rgba(255,255,255,.92); color:#0f172a; border:1px solid rgba(15,23,42,.08); }
+    .rack-cell .rc-flag.dnd { background:#fef3c7; color:#92400e; }
+    .rack-cell .rc-flag.rs { background:#ccfbf1; color:#115e59; }
+    .rack-cell .rc-strip {
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:14px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      padding:0 8px;
+      font-size:8px;
+      font-weight:800;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:#fff;
+    }
     /* ── Kiosk mode (property-specific URL) ─────────────── */
     body.kiosk [data-staff-tab="settings"] { display:none; }
-    .rack-cell.vacant      { background:#dcfce7; border-color:#86efac; color:#166534; }
-    .rack-cell.dirty       { background:#fef9c3; border-color:#fde047; color:#713f12; }
-    .rack-cell.arriving    { background:#ede9fe; border-color:#a78bfa; color:#4c1d95; }
-    .rack-cell.occupied    { background:#dbeafe; border-color:#93c5fd; color:#1e3a8a; }
-    .rack-cell.departing   { background:#ffedd5; border-color:#fdba74; color:#7c2d12; }
-    .rack-cell.maintenance { background:#fef3c7; border-color:#fcd34d; color:#78350f; }
-    .rack-cell.out-of-order{ background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+    .rack-cell.available         { background:#dcfce7; border-color:#86efac; color:#166534; }
+    .rack-cell.occupied          { background:#dbeafe; border-color:#93c5fd; color:#1e3a8a; }
+    .rack-cell.departing         { background:#ffedd5; border-color:#fdba74; color:#7c2d12; }
+    .rack-cell.checked-out       { background:#e5e7eb; border-color:#cbd5e1; color:#334155; }
+    .rack-cell.ready-housekeeping{ background:#fef3c7; border-color:#fcd34d; color:#78350f; }
+    .rack-cell.maintenance       { background:#f5e8d8; border-color:#d6b08a; color:#7c2d12; }
+    .rack-cell.out-of-order      { background:#0f172a; border-color:#334155; color:#e2e8f0; }
+    .rack-cell .rc-strip.clean      { background:#334155; }
+    .rack-cell .rc-strip.dirty      { background:#dc2626; }
+    .rack-cell .rc-strip.cleaning   { background:#0891b2; }
+    .rack-cell .rc-strip.inspected  { background:#7c3aed; }
+    .rack-cell .rc-strip.blocked    { background:#5b6574; }
     /* ── Guest Slide-Over ───────────────────────────────── */
     .guest-overlay { position:fixed; inset:0; z-index:1000; background:rgba(10,18,40,.52); backdrop-filter:blur(5px); display:flex; justify-content:flex-end; }
     .guest-overlay[hidden] { display:none !important; }
@@ -428,6 +575,28 @@
     .tl-ev { border-left:2px solid #e2e8f0; padding-left:11px; display:grid; gap:3px; }
     .tl-ev strong { font-size:12px; font-weight:800; }
     .tl-ev .tl-s { font-size:11px; color:#64748b; }
+    .av-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .av-nav { display:flex; gap:6px; align-items:center; }
+    .av-month { font-size:12px; font-weight:800; color:#0f172a; }
+    .av-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; }
+    .av-dow, .av-day {
+      min-height:34px;
+      border-radius:8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:11px;
+      text-align:center;
+      padding:4px;
+    }
+    .av-dow { color:#64748b; font-weight:800; text-transform:uppercase; background:#eef2f7; }
+    .av-day { border:1px solid #e2e8f0; background:#fff; color:#0f172a; }
+    .av-day.available { background:#dcfce7; border-color:#86efac; color:#166534; }
+    .av-day.reserved { background:#fed7aa; border-color:#fdba74; color:#9a3412; }
+    .av-day.empty { background:transparent; border-color:transparent; }
+    .av-day-label { display:grid; gap:2px; }
+    .av-day-date { font-weight:800; }
+    .av-day-guest { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 
     @media (max-width: 1180px) {
       .hero,
@@ -438,8 +607,30 @@
       .stats {
         grid-template-columns: 1fr;
       }
+      .shell { padding: 4px 6px 6px; }
+      .workspace-shell { grid-template-columns: 1fr; min-height: auto; }
+      .staff-sidebar { position: static; }
+      .tab-strip.sidebar-nav {
+        display:flex;
+        flex-wrap:wrap;
+      }
+      .tab-strip.sidebar-nav .tab-button {
+        width:auto;
+        justify-content:center;
+      }
+      .rack-toolbar { grid-template-columns: 1fr; }
+      .rack-toolbar-main { align-items:stretch; }
+      .rack-type-select-wrap { width:100%; }
       .hero-side { border-left: 0; border-top: 1px solid var(--line); }
       .property-list { max-height: none; }
+    }
+
+    @media (max-width: 720px) {
+      .rack-grid { grid-template-columns:repeat(auto-fit, minmax(82px, 1fr)); gap:8px; }
+      .rack-cell { min-height:82px; padding:9px 8px 17px; }
+      .rack-cell .rc-head { gap:4px; }
+      .rack-cell .rc-num { font-size:17px; }
+      .rack-cell .rc-guest { font-size:10px; }
     }
   </style>
   <!-- MS Clarity -->
@@ -455,42 +646,30 @@
   <main class="shell">
     <div id="flash" class="flash"></div>
 
-    <!-- Ops briefing: shown when a property is loaded -->
-    <div id="ops-brief" class="ops-brief" style="display:none">
-      <div class="ops-brief-row">
-        <span class="ops-brief-label">Arrivals</span>
-        <span id="brief-arrivals">—</span>
-      </div>
-      <div class="ops-brief-row">
-        <span class="ops-brief-label">Departures</span>
-        <span id="brief-departures">—</span>
-      </div>
-      <div class="ops-brief-row">
-        <span class="ops-brief-label">Stayovers</span>
-        <span id="brief-stayovers">—</span>
-      </div>
-    </div>
-
     <section class="grid">
-      <div class="panel">
+      <div class="panel workspace-frame">
         <!-- compact property context row -->
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 18px 8px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 0 6px;border-bottom:1px solid rgba(120,113,108,0.14);flex-wrap:wrap">
           <span id="selected-property-title" style="font-weight:800;font-size:15px">No property selected</span>
           <span id="selected-property-status" class="tag" style="margin-left:2px">—</span>
           <span id="selected-property-subtitle" class="muted" style="font-size:11px;margin-left:4px"></span>
         </div>
-        <div class="panel-head" style="padding:0">
-          <div class="tab-strip" id="staff-tab-strip" style="border-bottom:none;padding:0 18px">
-            <button class="tab-button" type="button" data-staff-tab="rack">🏨 Rack</button>
-            <button class="tab-button" type="button" data-staff-tab="frontdesk">Front Desk</button>
-            <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
-            <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
-            <button class="tab-button" type="button" data-staff-tab="support">Guest Support</button>
-            <button class="tab-button" type="button" data-staff-tab="folio">POS / Folio</button>
-            <button class="tab-button" type="button" data-staff-tab="settings" title="Properties &amp; settings" style="margin-left:auto">⚙</button>
-          </div>
-        </div>
-        <div class="panel-body tab-panels">
+        <div class="panel-body workspace-body">
+          <div class="workspace-shell">
+            <div class="staff-sidebar">
+              <div class="tab-strip sidebar-nav" id="staff-tab-strip">
+                <button id="btn-toggle-sidebar" class="button small sidebar-toggle" type="button" title="Collapse sidebar">«</button>
+                <button class="tab-button" type="button" data-staff-tab="rack">🏨 Rack</button>
+                <button class="tab-button" type="button" data-staff-tab="frontdesk">Front Desk</button>
+                <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
+                <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
+                <button class="tab-button" type="button" data-staff-tab="support">Guest Support</button>
+                <button class="tab-button" type="button" data-staff-tab="folio">POS / Folio</button>
+                <button class="tab-button" type="button" data-staff-tab="settings" title="Properties &amp; settings">⚙</button>
+              </div>
+            </div>
+            <div class="staff-content">
+              <div class="tab-panels">
             <section data-staff-panel="frontdesk">
               <div class="section-grid">
                 <div class="section">
@@ -549,8 +728,12 @@
             <section data-staff-panel="housekeeping" hidden>
               <div class="section-grid">
                 <div class="section">
-                  <div class="section-head">
+                  <div class="section-head toolbar">
                     <h2>Housekeeping</h2>
+                    <div class="action-row">
+                      <button id="btn-sync-housekeeping" class="button small secondary" type="button">Sync</button>
+                      <button id="btn-refresh-housekeeping" class="button small secondary" type="button">↻</button>
+                    </div>
                   </div>
                   <div class="section-body stack">
                     <div id="housekeeping-room-list" class="room-list">
@@ -584,28 +767,50 @@
             </section>
 
             <section data-staff-panel="support" hidden>
-              <div class="section-grid">
-                <div class="section">
-                  <div class="section-head">
-                    <h2>Guest Support</h2>
-                  </div>
-                  <div class="section-body stack">
-                    <label>Hold ID
-                      <input id="hold-release-id" placeholder="hold_id" />
-                    </label>
-                    <div class="action-row">
-                      <button id="btn-release-hold" class="button secondary" type="button">Release Hold</button>
+              <div class="stack">
+                <div class="section-grid">
+                  <div class="section">
+                    <div class="section-head toolbar">
+                      <h2>Guest Support</h2>
+                      <button id="btn-refresh-holds" class="button small secondary" type="button">↻</button>
                     </div>
-                    <div id="support-response" class="response">Support actions will render here.</div>
+                    <div class="section-body stack">
+                      <label>Hold ID
+                        <input id="hold-release-id" placeholder="hold_id" />
+                      </label>
+                      <div class="action-row">
+                        <button id="btn-release-hold" class="button secondary" type="button">Release Hold</button>
+                      </div>
+                      <div id="support-hold-list" class="room-list">
+                        <div class="empty">Load a property to inspect active holds.</div>
+                      </div>
+                      <div id="support-response" class="response">Support actions will render here.</div>
+                    </div>
+                  </div>
+                  <div class="section">
+                    <div class="section-head">
+                      <h2>Timeline</h2>
+                    </div>
+                    <div class="section-body">
+                      <div id="reservation-timeline" class="timeline">
+                        <div class="empty">Load a reservation to inspect its lifecycle timeline.</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="section">
-                  <div class="section-head">
-                    <h2>Timeline</h2>
+                  <div class="section-head toolbar">
+                    <h2>Shift Handover</h2>
+                    <button id="btn-refresh-shift-handover" class="button small secondary" type="button">↻</button>
                   </div>
-                  <div class="section-body">
-                    <div id="reservation-timeline" class="timeline">
-                      <div class="empty">Load a reservation to inspect its lifecycle timeline.</div>
+                  <div class="section-body stack">
+                    <label>Current Note
+                      <textarea id="shift-handover-note" rows="4" placeholder="Outgoing shift summary, VIP arrivals, unresolved issues, special instructions..."></textarea>
+                    </label>
+                    <div id="shift-handover-meta" class="muted">Load a property to see the current handover note.</div>
+                    <div class="action-row">
+                      <button id="btn-save-shift-handover" class="button primary" type="button">Save Handover</button>
+                      <button id="btn-clear-shift-handover" class="button secondary" type="button">Clear</button>
                     </div>
                   </div>
                 </div>
@@ -629,17 +834,49 @@
             </section>
 
             <section data-staff-panel="rack">
-              <div class="rack-legend" style="padding:8px 0 6px">
-                <span class="leg"><span class="leg-dot" style="background:#22c55e"></span>Ready</span>
-                <span class="leg"><span class="leg-dot" style="background:#facc15"></span>Dirty</span>
-                <span class="leg"><span class="leg-dot" style="background:#818cf8"></span>Arriving</span>
-                <span class="leg"><span class="leg-dot" style="background:#60a5fa"></span>Occupied</span>
-                <span class="leg"><span class="leg-dot" style="background:#fb923c"></span>Departing</span>
-                <span class="leg"><span class="leg-dot" style="background:#fbbf24"></span>Maint.</span>
-                <span class="leg"><span class="leg-dot" style="background:#f87171"></span>OOO</span>
-                <span style="flex:1"></span>
-                <button id="btn-copy-staff-link" class="button small" type="button" title="Copy staff link for this property">🔗</button>
-                <button id="btn-refresh-rack" class="button small secondary" type="button" title="Refresh rack">↻</button>
+              <div class="rack-section">
+                <div class="rack-toolbar">
+                  <div class="rack-toolbar-main">
+                    <div class="rack-control-group">
+                      <div id="rack-floor-buttons" class="rack-floor-buttons">
+                        <button type="button" class="button small rack-floor-btn active" data-rack-floor="all">All floors</button>
+                      </div>
+                    </div>
+                    <div class="rack-type-select-wrap">
+                      <select id="rack-room-type-filter" class="rack-select">
+                        <option value="all">All room types</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="action-row">
+                    <button id="btn-copy-staff-link" class="button small" type="button" title="Copy staff link for this property">🔗</button>
+                    <button id="btn-refresh-rack" class="button small secondary" type="button" title="Refresh rack">↻</button>
+                  </div>
+                </div>
+                <div class="rack-legend-row">
+                  <div class="rack-legend-group">
+                    <div class="rack-legend">
+                      <span class="leg"><span class="leg-dot" style="background:#22c55e"></span>Available</span>
+                      <span class="leg"><span class="leg-dot" style="background:#60a5fa"></span>Occupied</span>
+                      <span class="leg"><span class="leg-dot" style="background:#fb923c"></span>Departing Today</span>
+                      <span class="leg"><span class="leg-dot" style="background:#94a3b8"></span>Checked-out</span>
+                      <span class="leg"><span class="leg-dot" style="background:#fcd34d"></span>Ready for Housekeeping</span>
+                      <span class="leg"><span class="leg-dot" style="background:#caa57c"></span>Maintenance</span>
+                      <span class="leg"><span class="leg-dot" style="background:#0f172a"></span>Out of Order</span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#e0e7ff;color:#3730a3;border:none">ARR</span></span>
+                    </div>
+                  </div>
+                  <div class="rack-legend-group">
+                    <div class="rack-legend">
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#dc2626;color:#fff;border:none">Dirty</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#0891b2;color:#fff;border:none">Being Cleaned</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#7c3aed;color:#fff;border:none">Inspected</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#334155;color:#fff;border:none">Clean</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#fef3c7;color:#92400e;border:none">DND</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#ccfbf1;color:#115e59;border:none">RS</span></span>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div id="rack-grid-container">
                 <div class="empty">Load a property to view the room rack.</div>
@@ -683,6 +920,8 @@
                 </div>
               </div>
             </section>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -744,6 +983,17 @@
             <div id="sh-stay-body" style="display:grid;gap:7px;font-size:13px;color:#334155"></div>
           </div>
           <div class="sh-sec">
+            <div class="av-head">
+              <h4 style="margin:0">Room Availability</h4>
+              <div class="av-nav">
+                <button id="btn-av-prev" class="sa un" type="button">←</button>
+                <div id="av-month-label" class="av-month">—</div>
+                <button id="btn-av-next" class="sa un" type="button">→</button>
+              </div>
+            </div>
+            <div id="sh-availability-grid" class="av-grid"></div>
+          </div>
+          <div class="sh-sec">
             <h4>Pricing Snapshot</h4>
             <pre id="sh-pricing" style="margin:0;font-size:11px;background:#f1f5f9;border-radius:8px;padding:10px;overflow:auto;max-height:200px;color:#334155;white-space:pre-wrap;word-break:break-all"></pre>
           </div>
@@ -777,14 +1027,38 @@
             <div id="sh-inv-lines"><div style="font-size:12px;color:#94a3b8">No charges yet.</div></div>
             <div class="inv-total" id="sh-inv-total">Total: — 0.00</div>
             <div class="sh-actions" style="margin-top:6px">
+              <select id="sf-pay-method" class="sh-input" style="flex:1;min-width:140px">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="other">Other</option>
+              </select>
+              <input id="sf-pay-amount" type="number" min="0" step="0.01" class="sh-input" style="width:110px" placeholder="Amount" />
+              <input id="sf-pay-note" class="sh-input" style="flex:1" placeholder="Payment note" />
+              <button id="btn-add-payment" class="sa ci" type="button">Record Payment</button>
+            </div>
+            <div class="sh-actions" style="margin-top:6px">
               <button id="btn-print-inv" class="sa un" type="button">🖨 Print Invoice</button>
-              <button id="btn-clear-inv" class="sa can" type="button">Clear</button>
+              <button id="btn-clear-inv" class="sa can" type="button">Reset Form</button>
             </div>
           </div>
         </div>
 
         <!-- ACTIONS -->
         <div data-sh-panel="actions" hidden>
+          <div id="sh-walkin-box" class="sh-sec" hidden>
+            <h4>Walk-in Creation</h4>
+            <div class="sh-2col">
+              <label class="sh-field">Guest Name<input id="sf-walkin-name" class="sh-input" placeholder="Walk-in guest" /></label>
+              <label class="sh-field">Phone<input id="sf-walkin-phone" class="sh-input" placeholder="+xx xxx xxx xxxx" /></label>
+              <label class="sh-field">Email<input id="sf-walkin-email" type="email" class="sh-input" placeholder="Email" /></label>
+              <label class="sh-field">Guests<input id="sf-walkin-adults" type="number" min="1" value="1" class="sh-input" /></label>
+              <label class="sh-field">Children<input id="sf-walkin-children" type="number" min="0" value="0" class="sh-input" /></label>
+              <label class="sh-field">Check-in<input id="sf-walkin-ci" type="date" class="sh-input" /></label>
+              <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
+            </div>
+            <button id="btn-create-walkin" class="sa ci" type="button">Create Walk-in &amp; Check In</button>
+          </div>
           <div class="sh-sec">
             <h4>Reservation Status</h4>
             <div class="sh-actions">
@@ -798,13 +1072,31 @@
           </div>
           <div class="sh-sec">
             <h4>Room Unit Assignment</h4>
-            <select id="sf-room-assign" class="sh-input"><option value="">— Assign room unit —</option></select>
-            <p style="margin:0;font-size:11px;color:#94a3b8">Writes to session only. Per-unit reservation linking needs a future migration.</p>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="sf-room-assign" class="sh-input"><option value="">— Assign room unit —</option></select>
+              <button id="btn-save-room-assignment" class="sa un" type="button">Save</button>
+            </div>
+            <p style="margin:0;font-size:11px;color:#94a3b8">Persists the assigned room unit for single-room reservations and rewires the current stay allocation.</p>
+          </div>
+          <div class="sh-sec">
+            <h4>Room Flags</h4>
+            <div class="sh-actions">
+              <button id="btn-toggle-dnd" class="sa un" type="button">Toggle DND</button>
+              <button id="btn-toggle-room-service" class="sa un" type="button">Toggle Room Service</button>
+            </div>
+            <div id="sheet-room-flags-meta" style="font-size:11px;color:#64748b">Open a room to inspect DND and room-service flags.</div>
           </div>
           <div class="sh-sec">
             <h4>Cancel Reservation</h4>
             <textarea id="sf-cancel-reason" class="sh-input" rows="2" placeholder="Cancellation reason..." style="resize:none"></textarea>
             <button id="btn-sh-cancel" class="sa can" type="button">Cancel Reservation</button>
+          </div>
+          <div class="sh-sec">
+            <h4>Operational Fees</h4>
+            <div class="sh-actions">
+              <button id="btn-post-early-arrival-fee" class="sa un" type="button">Post Early Arrival Fee</button>
+              <button id="btn-post-late-checkout-fee" class="sa un" type="button">Post Late Checkout Fee</button>
+            </div>
           </div>
         </div>
 
@@ -841,10 +1133,22 @@
         addonServicePresets: [],
         activeTab: 'rack',
         roomTypes: [],
+        roomRates: [],
+        rackAvailabilitySummary: {},
+        rackFloorFocus: 'all',
+        rackRoomTypeFilter: 'all',
+        sidebarCollapsed: false,
+        housekeepingTasks: [],
+        activeHolds: [],
+        shiftHandover: null,
         sheetRoomUnit: null,
         sheetReservation: null,
         sheetActiveTab: 'profile',
+        roomAvailabilityMonth: new Date().toISOString().slice(0, 7),
+        roomAvailabilityCalendar: null,
         invoiceLines: [],
+        currentFolio: null,
+        folioSummary: null,
         guestPhotos: {},
       };
 
@@ -863,6 +1167,11 @@
         metricStayovers: document.getElementById('metric-stayovers'),
         metricMaintenance: document.getElementById('metric-maintenance'),
         staffTabStrip: document.getElementById('staff-tab-strip'),
+        btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
+        workspaceShell: document.querySelector('.workspace-shell'),
+        rackFloorButtons: document.getElementById('rack-floor-buttons'),
+        rackRoomTypeFilter: document.getElementById('rack-room-type-filter'),
+        rackGridContainer: document.getElementById('rack-grid-container'),
         boardDate: document.getElementById('board-date'),
         boardStatus: document.getElementById('board-status'),
         btnRefreshBoard: document.getElementById('btn-refresh-board'),
@@ -874,11 +1183,20 @@
         effectiveCheckoutDate: document.getElementById('effective-checkout-date'),
         housekeepingRoomList: document.getElementById('housekeeping-room-list'),
         housekeepingTurnover: document.getElementById('housekeeping-turnover'),
+        btnSyncHousekeeping: document.getElementById('btn-sync-housekeeping'),
+        btnRefreshHousekeeping: document.getElementById('btn-refresh-housekeeping'),
         maintenanceRoomList: document.getElementById('maintenance-room-list'),
         btnRefreshRoomUnits: document.getElementById('btn-refresh-room-units'),
         holdReleaseId: document.getElementById('hold-release-id'),
         btnReleaseHold: document.getElementById('btn-release-hold'),
+        btnRefreshHolds: document.getElementById('btn-refresh-holds'),
+        btnRefreshShiftHandover: document.getElementById('btn-refresh-shift-handover'),
+        supportHoldList: document.getElementById('support-hold-list'),
         supportResponse: document.getElementById('support-response'),
+        shiftHandoverNote: document.getElementById('shift-handover-note'),
+        shiftHandoverMeta: document.getElementById('shift-handover-meta'),
+        btnSaveShiftHandover: document.getElementById('btn-save-shift-handover'),
+        btnClearShiftHandover: document.getElementById('btn-clear-shift-handover'),
         reservationTimeline: document.getElementById('reservation-timeline'),
         folioAddonPresetList: document.getElementById('folio-addon-preset-list'),
       };
@@ -919,6 +1237,80 @@
 
       function selectedProperty() {
         return state.properties.find((property) => property.id === state.selectedPropertyId) || null;
+      }
+
+      function applySidebarMode() {
+        els.workspaceShell?.classList.toggle('sidebar-collapsed', state.sidebarCollapsed);
+        if (els.btnToggleSidebar) {
+          els.btnToggleSidebar.textContent = state.sidebarCollapsed ? '»' : '«';
+          els.btnToggleSidebar.title = state.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        }
+      }
+
+      function formatRackPrice(unit, reservation) {
+        const snapshotCurrency = String(reservation?.pricing_snapshot?.currency || '').trim();
+        const snapshotNightly = Number(reservation?.pricing_snapshot?.nightly_amount || 0);
+        if (snapshotCurrency && snapshotNightly > 0) {
+          return `${snapshotCurrency} ${Math.round(snapshotNightly).toLocaleString()}`;
+        }
+        const roomRate = state.roomRates.find((rate) => String(rate.room_type_id) === String(unit.room_type_id) && rate.active);
+        if (!roomRate) return 'Rate n/a';
+        return `${String(roomRate.currency || 'VND')} ${Math.round(Number(roomRate.nightly_amount || 0)).toLocaleString()}`;
+      }
+
+      function monthLabel(monthKey) {
+        const [year, month] = String(monthKey || '').split('-').map(Number);
+        if (!year || !month) return '—';
+        return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      function shiftMonthKey(monthKey, delta) {
+        const [year, month] = String(monthKey || '').split('-').map(Number);
+        const base = new Date(Date.UTC(year, (month || 1) - 1 + delta, 1));
+        return base.toISOString().slice(0, 7);
+      }
+
+      function renderRoomAvailabilityCalendar() {
+        const grid = document.getElementById('sh-availability-grid');
+        const monthLabelEl = document.getElementById('av-month-label');
+        monthLabelEl.textContent = monthLabel(state.roomAvailabilityMonth);
+        if (!state.roomAvailabilityCalendar?.days?.length) {
+          grid.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;font-size:12px">No availability data for this room yet.</div>';
+          return;
+        }
+        const firstDate = new Date(`${state.roomAvailabilityCalendar.days[0].date}T00:00:00Z`);
+        const weekdayOffset = (firstDate.getUTCDay() + 6) % 7;
+        const headers = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => `<div class="av-dow">${label}</div>`).join('');
+        const blanks = Array.from({ length: weekdayOffset }, () => '<div class="av-day empty"></div>').join('');
+        const days = state.roomAvailabilityCalendar.days.map((day) => `
+          <div class="av-day ${day.status}" title="${escapeHtml(day.date)}${day.guest_name ? ' · ' + escapeHtml(day.guest_name) : ''}">
+            <div class="av-day-label">
+              <div class="av-day-date">${escapeHtml(String(Number(day.date.slice(-2))))}</div>
+              ${day.guest_name ? `<div class="av-day-guest">${escapeHtml(day.guest_name.split(' ')[0] || '')}</div>` : ''}
+            </div>
+          </div>`).join('');
+        grid.innerHTML = headers + blanks + days;
+      }
+
+      async function loadRoomAvailabilityCalendar(roomUnitId, monthKey = state.roomAvailabilityMonth) {
+        state.roomAvailabilityMonth = monthKey;
+        if (!state.selectedPropertyId || !roomUnitId) {
+          state.roomAvailabilityCalendar = null;
+          renderRoomAvailabilityCalendar();
+          return;
+        }
+        const payload = await api(`/api/properties/${state.selectedPropertyId}/room-units/${roomUnitId}/availability-calendar?month=${encodeURIComponent(monthKey)}`);
+        state.roomAvailabilityCalendar = payload;
+        renderRoomAvailabilityCalendar();
+      }
+
+      function nextOpenNightsLabel(unit, primaryKey) {
+        if (!['available', 'departing', 'checked-out'].includes(primaryKey)) return null;
+        const summary = state.rackAvailabilitySummary[String(unit.id)] || null;
+        if (!summary) return null;
+        const nights = Number(summary.open_nights || 0);
+        const label = summary.fully_open_within_window ? `${nights}+ nights` : `${nights} nights`;
+        return primaryKey === 'departing' ? `${label} after checkout` : label;
       }
 
       function renderPropertyList() {
@@ -1037,26 +1429,133 @@
         `).join('');
       }
 
+      function renderActiveHolds() {
+        if (!state.selectedPropertyId) {
+          els.supportHoldList.innerHTML = '<div class="empty">Load a property to inspect active holds.</div>';
+          return;
+        }
+        if (!state.activeHolds.length) {
+          els.supportHoldList.innerHTML = '<div class="empty">No active holds for this property.</div>';
+          return;
+        }
+        els.supportHoldList.innerHTML = state.activeHolds.map((hold) => `
+          <article class="list-card">
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(hold.room_type_name || hold.room_type_code || hold.room_type_id)}</strong>
+                <div class="muted">${escapeHtml(hold.check_in)} -> ${escapeHtml(hold.check_out)} · ${Number(hold.rooms_requested || 0)} room(s)</div>
+                <div class="muted">${escapeHtml(hold.hold_type)} · ${escapeHtml(hold.source_type || 'manual')} · expires ${new Date(Number(hold.expires_at || 0) * 1000).toLocaleString()}</div>
+              </div>
+              <button class="button small secondary" type="button" data-hold-id="${hold.id}">Release</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderShiftHandover() {
+        if (!state.selectedPropertyId) {
+          els.shiftHandoverNote.value = '';
+          els.shiftHandoverMeta.textContent = 'Load a property to see the current handover note.';
+          return;
+        }
+        els.shiftHandoverNote.value = state.shiftHandover?.note || '';
+        if (!state.shiftHandover?.updated_at) {
+          els.shiftHandoverMeta.textContent = 'No handover note yet for this property.';
+          return;
+        }
+        const updatedAt = new Date(Number(state.shiftHandover.updated_at || 0) * 1000).toLocaleString();
+        const actor = state.shiftHandover.updated_by_email || state.shiftHandover.updated_by || 'Unknown';
+        els.shiftHandoverMeta.textContent = `Last updated ${updatedAt} by ${actor}.`;
+      }
+
+      function renderSheetRoomFlags() {
+        const roomUnit = state.sheetRoomUnit;
+        const dndButton = document.getElementById('btn-toggle-dnd');
+        const roomServiceButton = document.getElementById('btn-toggle-room-service');
+        const meta = document.getElementById('sheet-room-flags-meta');
+        if (!roomUnit) {
+          dndButton.textContent = 'Toggle DND';
+          roomServiceButton.textContent = 'Toggle Room Service';
+          meta.textContent = 'Open a room to inspect DND and room-service flags.';
+          return;
+        }
+        dndButton.textContent = roomUnit.do_not_disturb ? 'Clear DND' : 'Set DND';
+        roomServiceButton.textContent = roomUnit.room_service_requested ? 'Clear Room Service' : 'Request Room Service';
+        meta.textContent = `Room ${roomUnit.room_number}: DND ${roomUnit.do_not_disturb ? 'on' : 'off'} · Room service ${roomUnit.room_service_requested ? 'requested' : 'clear'}.`;
+      }
+
+      function findAddonPresetByCode(code) {
+        return state.addonServicePresets.find((preset) => String(preset.code || '').trim().toUpperCase() === String(code || '').trim().toUpperCase()) || null;
+      }
+
+      async function postOperationalFee(presetCode, feeType) {
+        const reservation = state.sheetReservation?.reservation;
+        if (!reservation) return setFlash('Load a reservation first.', 'err');
+        const preset = findAddonPresetByCode(presetCode);
+        if (!preset) return setFlash(`Preset ${presetCode} is not configured for this property.`, 'err');
+        const unitAmount = Number(feeType === 'early_arrival' ? (preset.early_arrival_fee || preset.default_unit_price || 0) : (preset.late_checkout_fee || preset.default_unit_price || 0));
+        if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+          return setFlash(`${preset.name} fee is not configured with a positive amount.`, 'err');
+        }
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservation.id}/folio/lines`, {
+            method: 'POST',
+            body: JSON.stringify({
+              line_type: 'fee',
+              category: feeType === 'early_arrival' ? 'early_arrival_fee' : 'late_checkout_fee',
+              description: preset.name,
+              quantity: 1,
+              unit_amount: unitAmount,
+              currency: preset.currency || state.currentFolio?.currency || 'USD',
+              note: `Posted from staff desk preset ${preset.code}`,
+            }),
+          });
+          await refreshSheetFolio();
+          switchSheetTab('services');
+          setFlash(`${preset.name} posted to folio.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      }
+
       function renderHousekeeping() {
-        if (!state.roomUnits.length) {
+        if (!state.selectedPropertyId) {
           els.housekeepingRoomList.innerHTML = '<div class="empty">Load a property to inspect room readiness.</div>';
           els.housekeepingTurnover.textContent = 'Departure-linked turnover notes will render here.';
           return;
         }
-        els.housekeepingRoomList.innerHTML = state.roomUnits.map((room) => `
+
+        if (!state.housekeepingTasks.length) {
+          els.housekeepingRoomList.innerHTML = '<div class="empty">No active housekeeping tasks. Sync after departures or complete a checkout to create tasks.</div>';
+          const departures = state.reservations.filter((item) => item.departure_today).map((item) => `${item.guest_name || item.id} -> ${item.check_out}`).join('\n');
+          els.housekeepingTurnover.textContent = departures || 'No departures on this board date.';
+          return;
+        }
+
+        els.housekeepingRoomList.innerHTML = state.housekeepingTasks.map((task) => `
           <article class="list-card">
             <div class="list-card-head">
               <div>
-                <strong>${escapeHtml(room.room_number)}</strong>
-                <div class="muted">${escapeHtml(room.room_type_id)}${room.floor_label ? ` · floor ${escapeHtml(room.floor_label)}` : ''}</div>
+                <strong>${escapeHtml(task.room_number)}</strong>
+                <div class="muted">${escapeHtml(task.room_type_id)}${task.floor_label ? ` · floor ${escapeHtml(task.floor_label)}` : ''}</div>
+                <div class="muted">${escapeHtml(task.guest_name || 'No linked guest')} · ${escapeHtml(task.priority)}</div>
               </div>
-              <span class="tag ${room.operational_status === 'ready' ? 'ok' : room.operational_status === 'maintenance' ? 'warn' : 'danger'}">${escapeHtml(room.operational_status)}</span>
+              <span class="tag ${task.status === 'completed' ? 'ok' : task.status === 'in_progress' ? 'warn' : 'danger'}">${escapeHtml(task.status)}</span>
             </div>
-            <div class="muted">Cleaning workflow still needs dedicated status persistence. Use this baseline with front desk departures until housekeeping tasks land.</div>
+            <div class="muted">Room state: ${escapeHtml(task.effective_room_state || 'ready')}${task.scheduled_for ? ` · scheduled ${new Date(Number(task.scheduled_for) * 1000).toLocaleDateString()}` : ''}</div>
+            <div class="action-row">
+              <button class="button small primary" type="button" data-hk-task-id="${task.id}" data-hk-status="in_progress">Start</button>
+              <button class="button small secondary" type="button" data-hk-task-id="${task.id}" data-hk-status="waiting_inspection">Inspect</button>
+              <button class="button small" type="button" data-hk-task-id="${task.id}" data-hk-status="completed">Ready</button>
+            </div>
           </article>
         `).join('');
         const departures = state.reservations.filter((item) => item.departure_today).map((item) => `${item.guest_name || item.id} -> ${item.check_out}`).join('\n');
         els.housekeepingTurnover.textContent = departures || 'No departures on this board date.';
+      }
+
+      function activeHousekeepingTaskForUnit(unitId) {
+        return state.housekeepingTasks.find((task) => String(task.room_unit_id) === String(unitId) && ['pending', 'in_progress', 'waiting_inspection'].includes(task.status)) || null;
       }
 
       function renderMaintenance() {
@@ -1095,6 +1594,7 @@
                 <strong>${escapeHtml(preset.name)}</strong>
                 <div class="muted">${escapeHtml(preset.code)} · ${escapeHtml(preset.service_type)} · ${escapeHtml(preset.pricing_mode)} · ${escapeHtml(preset.scope)}</div>
                 <div class="muted">${escapeHtml(preset.currency)} ${Number(preset.default_unit_price || 0).toLocaleString()}${preset.default_unit_label ? ` per ${escapeHtml(preset.default_unit_label)}` : ''}</div>
+                <div class="muted">Early arrival fee: ${escapeHtml(preset.currency)} ${Number(preset.early_arrival_fee || 0).toLocaleString()} · Late checkout fee: ${escapeHtml(preset.currency)} ${Number(preset.late_checkout_fee || 0).toLocaleString()}</div>
                 <div class="muted">Policy: onsite only${preset.prearrival_exception ? ' · pre-arrival exception: airport pickup' : ''}</div>
                 ${preset.notes ? `<div class="muted">${escapeHtml(preset.notes)}</div>` : ''}
               </div>
@@ -1104,41 +1604,111 @@
         `).join('');
       }
 
-      // ── Room Rack ──────────────────────────────────────────────────────────
-      function rackCellState(unit) {
-        if (unit.operational_status === 'out_of_order') return 'out-of-order';
-        if (unit.operational_status === 'maintenance')  return 'maintenance';
-        const active = state.reservations.filter(r =>
-          r.room_type_id === unit.room_type_id && ['confirmed', 'checked_in'].includes(r.status)
-        );
-        if (!active.length) {
-          const recentDep = state.reservations.some(r =>
-            r.room_type_id === unit.room_type_id && r.departure_today && r.status === 'checked_out'
-          );
-          return recentDep ? 'dirty' : 'vacant';
+      function reservationUnitIds(reservation) {
+        if (Array.isArray(reservation?.allocated_room_unit_ids) && reservation.allocated_room_unit_ids.length) {
+          return reservation.allocated_room_unit_ids.map((value) => String(value));
         }
-        const r = active[0];
-        if (r.departure_today) return 'departing';
-        if (r.arrival_today || r.status === 'confirmed') return 'arriving';
-        return 'occupied';
+        if (reservation?.assigned_room_unit_id) return [String(reservation.assigned_room_unit_id)];
+        return [];
+      }
+
+      function reservationMatchesUnit(reservation, unit) {
+        const unitIds = reservationUnitIds(reservation);
+        if (unitIds.length) return unitIds.includes(String(unit.id));
+        return String(reservation?.room_type_id) === String(unit.room_type_id);
+      }
+
+      function checkedOutReservationForUnit(unit) {
+        return state.reservations.find((reservation) =>
+          reservationMatchesUnit(reservation, unit)
+          && reservation.status === 'checked_out'
+          && reservation.departure_today
+        ) || null;
+      }
+
+      function hydrateGuestPhotoCacheFromReservation(reservation) {
+        if (reservation?.id && reservation?.guest_photo_url) {
+          state.guestPhotos[reservation.id] = reservation.guest_photo_url;
+        }
+      }
+
+      // ── Room Rack ──────────────────────────────────────────────────────────
+      function rackPrimaryState(unit) {
+        if (unit.operational_status === 'out_of_order') return { key: 'out-of-order', label: 'Out of Order' };
+        if (unit.operational_status === 'maintenance') return { key: 'maintenance', label: 'Maintenance' };
+
+        const reservation = rackReservationForUnit(unit);
+        if (reservation) {
+          if (reservation.status === 'checked_in' && reservation.departure_today) {
+            return { key: 'departing', label: 'Departing Today' };
+          }
+          if (reservation.status === 'checked_in') {
+            return { key: 'occupied', label: 'Occupied' };
+          }
+          return { key: 'reserved', label: 'Reserved' };
+        }
+
+        if (checkedOutReservationForUnit(unit)) return { key: 'checked-out', label: 'Checked-out' };
+        return { key: 'available', label: 'Open Now' };
+      }
+
+      function rackSecondaryState(unit) {
+        if (['maintenance', 'out_of_order'].includes(String(unit.operational_status))) {
+          return { key: 'blocked', label: 'Blocked' };
+        }
+
+        const housekeepingTask = activeHousekeepingTaskForUnit(unit.id);
+        if (housekeepingTask?.status === 'pending') return { key: 'dirty', label: 'Dirty' };
+        if (housekeepingTask?.status === 'in_progress') return { key: 'cleaning', label: 'Being Cleaned' };
+        if (housekeepingTask?.status === 'waiting_inspection') return { key: 'inspected', label: 'Inspected' };
+        if (checkedOutReservationForUnit(unit)) return { key: 'dirty', label: 'Dirty' };
+        return { key: 'clean', label: 'Clean' };
+      }
+
+      function rackFloorAnchorId(floorLabel) {
+        return `rack-floor-${String(floorLabel || 'unknown').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'unknown'}`;
+      }
+
+      function filteredRackUnits() {
+        return state.roomUnits.filter((unit) => state.rackRoomTypeFilter === 'all' || String(unit.room_type_id) === String(state.rackRoomTypeFilter));
+      }
+
+      function renderRackControls(sortedFloors) {
+        const roomTypeOptions = ['<option value="all">All room types</option>']
+          .concat(state.roomTypes.map((roomType) => {
+            const label = roomType.code ? `${roomType.code} - ${roomType.name}` : roomType.name;
+            return `<option value="${escapeHtml(roomType.id)}">${escapeHtml(label)}</option>`;
+          }));
+        if (!state.roomTypes.some((roomType) => String(roomType.id) === String(state.rackRoomTypeFilter))) {
+          state.rackRoomTypeFilter = 'all';
+        }
+        els.rackRoomTypeFilter.innerHTML = roomTypeOptions.join('');
+        els.rackRoomTypeFilter.value = state.rackRoomTypeFilter;
+
+        const buttons = [
+          `<button type="button" class="button small rack-floor-btn ${state.rackFloorFocus === 'all' ? 'active' : ''}" data-rack-floor="all">All floors</button>`,
+          ...sortedFloors.map((floor) => `<button type="button" class="button small rack-floor-btn ${state.rackFloorFocus === floor ? 'active' : ''}" data-rack-floor="${escapeHtml(floor)}">Floor ${escapeHtml(floor)}</button>`),
+        ];
+        els.rackFloorButtons.innerHTML = buttons.join('');
       }
 
       function rackReservationForUnit(unit) {
         return state.reservations.find(r =>
-          r.room_type_id === unit.room_type_id && ['confirmed', 'checked_in'].includes(r.status)
+          reservationMatchesUnit(r, unit) && ['confirmed', 'checked_in'].includes(r.status)
         ) || null;
       }
 
       function renderRack() {
-        const container = document.getElementById('rack-grid-container');
+        const container = els.rackGridContainer;
         if (!state.roomUnits.length) {
+          renderRackControls([]);
           container.innerHTML = '<div class="empty">Load a property to view the room rack.</div>';
           return;
         }
         const typeMap = {};
         state.roomTypes.forEach(t => { typeMap[t.id] = t.code || t.name || t.id; });
         const floors = {};
-        state.roomUnits.forEach(u => {
+        filteredRackUnits().forEach((u) => {
           const fl = u.floor_label || '—';
           if (!floors[fl]) floors[fl] = [];
           floors[fl].push(u);
@@ -1153,23 +1723,41 @@
           const na = parseFloat(a), nb = parseFloat(b);
           return isNaN(na) || isNaN(nb) ? b.localeCompare(a) : nb - na;
         });
+        renderRackControls(sorted);
+        if (!sorted.length) {
+          container.innerHTML = '<div class="empty">No rooms match the current room-type filter.</div>';
+          return;
+        }
         container.innerHTML = sorted.map(floor => {
           const cells = floors[floor].map(u => {
-            const cs  = rackCellState(u);
-            const res = rackReservationForUnit(u);
+            const primary = rackPrimaryState(u);
+            const secondary = rackSecondaryState(u);
+            const res = rackReservationForUnit(u) || checkedOutReservationForUnit(u);
+            const nextOpenNights = nextOpenNightsLabel(u, primary.key);
             const code = escapeHtml((typeMap[u.room_type_id] || u.room_type_id || '').slice(0, 8));
             const first = res ? escapeHtml((res.guest_name || '').split(' ')[0] || '…') : '';
+            const suffix = res && Number(res.rooms_requested || 0) > 1 ? `+${Number(res.rooms_requested) - 1}` : '';
             const hasPhoto = res && state.guestPhotos[res.id];
-            return `<div class="rack-cell ${cs}" data-unit-id="${escapeHtml(u.id)}"
+            const currentRate = escapeHtml(formatRackPrice(u, res));
+            const badges = [
+              res?.status === 'confirmed' && res.arrival_today ? '<span class="rc-badge arrival">ARR</span>' : '',
+              u.do_not_disturb ? '<span class="rc-flag dnd">DND</span>' : '',
+              u.room_service_requested ? '<span class="rc-flag rs">RS</span>' : '',
+            ].filter(Boolean).join('');
+            const guestLine = first ? `${first}${suffix ? ` ${escapeHtml(suffix)}` : ''}` : '';
+            return `<button type="button" class="rack-cell ${primary.key}" data-unit-id="${escapeHtml(u.id)}"
               title="${escapeHtml(u.room_number)}${res ? ' · ' + escapeHtml(res.guest_name || '') + ' · ' + escapeHtml(res.check_in) + ' → ' + escapeHtml(res.check_out) : ''}">
               ${hasPhoto ? `<img src="${escapeHtml(state.guestPhotos[res.id])}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:11px;opacity:.18">` : ''}
-              <div class="rc-num">${escapeHtml(u.room_number)}</div>
-              <div class="rc-type">${code}</div>
-              ${first ? `<div class="rc-guest">${first}</div>` : ''}
-            </div>`;
+              ${badges ? `<div class="rc-badges">${badges}</div>` : ''}
+              <div class="rc-head"><div class="rc-num">${escapeHtml(u.room_number)}</div><div class="rc-type">${code}</div></div>
+              ${guestLine ? `<div class="rc-guest">${guestLine}</div>` : ''}
+              <div class="rc-rate">${currentRate}</div>
+              <div class="rc-primary">${escapeHtml(primary.label)}${nextOpenNights ? ` · ${escapeHtml(nextOpenNights)}` : ''}</div>
+              <div class="rc-strip ${secondary.key}">${escapeHtml(secondary.label)}</div>
+            </button>`;
           }).join('');
-          return `<div style="margin-bottom:16px">
-            <div class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
+          return `<div class="rack-floor-section">
+            <div id="${escapeHtml(rackFloorAnchorId(floor))}" class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
             <div class="rack-grid">${cells}</div>
           </div>`;
         }).join('');
@@ -1198,20 +1786,47 @@
         const lines = state.invoiceLines;
         const linesEl = document.getElementById('sh-inv-lines');
         const totalEl = document.getElementById('sh-inv-total');
-        if (!lines.length) {
-          linesEl.innerHTML = '<div style="font-size:12px;color:#94a3b8">No charges yet.</div>';
-          totalEl.textContent = 'Total: — 0.00';
+        const summary = state.folioSummary;
+        if (!state.sheetReservation?.reservation) {
+          linesEl.innerHTML = '<div style="font-size:12px;color:#94a3b8">Create or load a reservation to open folio posting.</div>';
+          totalEl.textContent = 'Balance Due: — 0.00';
           return;
         }
-        const currency = lines[0]?.currency || '';
-        const total = lines.reduce((s, l) => s + Number(l.amount || 0), 0);
+        if (!lines.length) {
+          linesEl.innerHTML = '<div style="font-size:12px;color:#94a3b8">No charges yet.</div>';
+          totalEl.textContent = `Balance Due: ${state.currentFolio?.currency || '—'} 0.00`;
+          return;
+        }
+        const currency = state.currentFolio?.currency || lines[0]?.currency || '';
         linesEl.innerHTML = lines.map((l, i) => `
           <div class="inv-line">
-            <span class="inv-name">${escapeHtml(l.name)}</span>
-            <span class="inv-amt">${escapeHtml(l.currency || currency)} ${Number(l.amount).toFixed(2)}</span>
-            <button class="inv-rm" data-rm-line="${i}" type="button" title="Remove">✕</button>
+            <span class="inv-name">${escapeHtml(l.description)}${l.category ? ` · ${escapeHtml(l.category)}` : ''}</span>
+            <span class="inv-amt">${escapeHtml(l.currency || currency)} ${Number(l.total_amount).toFixed(2)}</span>
           </div>`).join('');
-        totalEl.textContent = `Total: ${currency} ${total.toFixed(2)}`;
+        totalEl.textContent = `Charges ${currency} ${Number(summary?.charge_total || 0).toFixed(2)} · Payments ${currency} ${Number(summary?.payment_total || 0).toFixed(2)} · Balance Due ${currency} ${Number(summary?.balance_due || 0).toFixed(2)}`;
+      }
+
+      async function refreshSheetFolio() {
+        const res = state.sheetReservation?.reservation;
+        if (!res) {
+          state.currentFolio = null;
+          state.folioSummary = null;
+          state.invoiceLines = [];
+          renderSheetInvoice();
+          return;
+        }
+        const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/folio`);
+        state.currentFolio = payload.folio || null;
+        state.folioSummary = payload.summary || null;
+        state.invoiceLines = payload.lines || [];
+        renderSheetInvoice();
+      }
+
+      function addIsoDays(dateText, days) {
+        const base = new Date(`${dateText}T00:00:00Z`);
+        if (Number.isNaN(base.getTime())) return '';
+        base.setUTCDate(base.getUTCDate() + days);
+        return base.toISOString().slice(0, 10);
       }
 
       function renderSheetTimeline() {
@@ -1235,13 +1850,17 @@
         state.sheetRoomUnit = unit;
         state.sheetReservation = null;
         state.invoiceLines = [];
+        state.roomAvailabilityMonth = new Date().toISOString().slice(0, 7);
         const overlay = document.getElementById('guest-overlay');
+        const walkinBox = document.getElementById('sh-walkin-box');
         let res = rackReservationForUnit(unit);
         if (res) {
+          hydrateGuestPhotoCacheFromReservation(res);
           try {
             const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`);
             state.sheetReservation = detail;
             res = detail.reservation;
+            hydrateGuestPhotoCacheFromReservation(res);
           } catch { res = null; }
         }
         // Header
@@ -1266,12 +1885,24 @@
         document.getElementById('sf-passport').value    = '';
         document.getElementById('sf-dob').value         = '';
         document.getElementById('sf-requests').value    = res?.special_requests || '';
+        walkinBox.hidden = Boolean(res);
+        document.getElementById('sf-walkin-name').value = '';
+        document.getElementById('sf-walkin-phone').value = '';
+        document.getElementById('sf-walkin-email').value = '';
+        document.getElementById('sf-walkin-adults').value = '1';
+        document.getElementById('sf-walkin-children').value = '0';
+        document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
+        document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
         // Stay tab
         if (res) {
           const typeMap = {}; state.roomTypes.forEach(t => { typeMap[t.id] = t.name || t.code || t.id; });
+          const allocatedRoomNumbers = Array.isArray(res.allocated_room_numbers) && res.allocated_room_numbers.length
+            ? res.allocated_room_numbers.join(', ')
+            : (res.assigned_room_number || unit.room_number || '—');
           document.getElementById('sh-stay-body').innerHTML = `
             <div style="display:grid;gap:5px;grid-template-columns:120px 1fr">
               <span style="color:#64748b;font-size:12px">Room</span><span style="font-weight:700">${escapeHtml(unit.room_number)}</span>
+              <span style="color:#64748b;font-size:12px">Assigned Unit</span><span style="font-weight:700">${escapeHtml(allocatedRoomNumbers)}</span>
               <span style="color:#64748b;font-size:12px">Room Type</span><span>${escapeHtml(typeMap[res.room_type_id] || res.room_type_id || '')}</span>
               <span style="color:#64748b;font-size:12px">Check-in</span><span style="font-weight:700">${escapeHtml(res.check_in || '')}</span>
               <span style="color:#64748b;font-size:12px">Check-out</span><span style="font-weight:700">${escapeHtml(res.check_out || '')}</span>
@@ -1287,22 +1918,31 @@
           document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">No active reservation for this room.</div>';
           document.getElementById('sh-pricing').textContent = '';
         }
+        await loadRoomAvailabilityCalendar(unit.id, state.roomAvailabilityMonth);
         // Service preset select
         const svcSel = document.getElementById('sf-svc-select');
         svcSel.innerHTML = '<option value="">— Select service preset —</option>' +
           state.addonServicePresets.map(p =>
-            `<option value="${escapeHtml(p.id)}" data-price="${Number(p.default_unit_price||0)}" data-currency="${escapeHtml(p.currency||'')}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)} (${escapeHtml(p.currency)} ${Number(p.default_unit_price||0).toFixed(2)})</option>`
+            `<option value="${escapeHtml(p.id)}" data-price="${Number(p.default_unit_price||0)}" data-currency="${escapeHtml(p.currency||'')}" data-name="${escapeHtml(p.name)}" data-category="${escapeHtml(p.service_type || 'service')}" data-line-type="${p.service_type === 'fee' ? 'fee' : 'service_charge'}">${escapeHtml(p.name)} (${escapeHtml(p.currency)} ${Number(p.default_unit_price||0).toFixed(2)})</option>`
           ).join('');
         // Room assign dropdown
+        const allowedRoomTypeIds = new Set((state.sheetReservation?.stay_plan?.segments || []).map((segment) => String(segment.room_type_id)).filter(Boolean));
+        if (res?.room_type_id && !allowedRoomTypeIds.size) allowedRoomTypeIds.add(String(res.room_type_id));
         const roomSel = document.getElementById('sf-room-assign');
         roomSel.innerHTML = '<option value="">— Assign room unit —</option>' +
-          state.roomUnits.filter(u => !res || u.room_type_id === res.room_type_id).map(u =>
-            `<option value="${escapeHtml(u.id)}" ${u.id === unit.id ? 'selected' : ''}>${escapeHtml(u.room_number)}${u.floor_label ? ' (Fl. ' + escapeHtml(u.floor_label) + ')' : ''} · ${escapeHtml(u.operational_status)}</option>`
+          state.roomUnits.filter((u) => {
+            if (!res) return true;
+            return allowedRoomTypeIds.has(String(u.room_type_id));
+          }).map(u =>
+            `<option value="${escapeHtml(u.id)}" ${(u.id === (res?.assigned_room_unit_id || unit.id)) ? 'selected' : ''}>${escapeHtml(u.room_number)}${u.floor_label ? ' (Fl. ' + escapeHtml(u.floor_label) + ')' : ''} · ${escapeHtml(u.operational_status)}</option>`
           ).join('');
-        renderSheetInvoice();
+        roomSel.disabled = Boolean(res && Number(res.rooms_requested || 0) > 1);
+        document.getElementById('btn-save-room-assignment').disabled = Boolean(res && Number(res.rooms_requested || 0) > 1);
+        renderSheetRoomFlags();
+        await refreshSheetFolio();
         renderSheetTimeline();
         document.getElementById('sh-raw').textContent = JSON.stringify(state.sheetReservation || { unit }, null, 2);
-        switchSheetTab('profile');
+        switchSheetTab('stay');
         overlay.hidden = false;
       }
 
@@ -1323,23 +1963,6 @@
           await loadWorkspace();
           if (state.sheetRoomUnit) await openGuestSheet(state.sheetRoomUnit.id);
         } catch (err) { setFlash(err.message, 'err'); }
-      }
-
-      function renderOpsBriefing() {
-        const brief = document.getElementById('ops-brief');
-        if (!state.selectedPropertyId || !state.reservations.length) { brief.style.display = 'none'; return; }
-        brief.style.display = '';
-        const today = state.boardDate;
-        const arrivals   = state.reservations.filter(r => r.arrival_today);
-        const departures = state.reservations.filter(r => r.departure_today);
-        const stayovers  = state.reservations.filter(r => r.stayover);
-        const chip = (r) => `<button class="ops-chip" data-reservation-id="${escapeHtml(r.id)}">
-          <span class="chip-dot" style="background:${r.status === 'checked_in' ? '#22c55e' : r.status === 'confirmed' ? '#818cf8' : '#fb923c'}"></span>
-          ${escapeHtml(r.guest_name || 'Guest')} · ${escapeHtml(r.room_type_code || r.room_type_id || '')}
-        </button>`;
-        document.getElementById('brief-arrivals').innerHTML   = arrivals.length   ? arrivals.map(chip).join('')   : '<span class="muted">None today</span>';
-        document.getElementById('brief-departures').innerHTML = departures.length ? departures.map(chip).join('') : '<span class="muted">None today</span>';
-        document.getElementById('brief-stayovers').innerHTML  = stayovers.length  ? `<span style="font-weight:700">${stayovers.length}</span>` : '<span class="muted">0</span>';
       }
 
       function applyActiveTab() {
@@ -1377,32 +2000,47 @@
           state.reservations = [];
           state.roomUnits = [];
           state.addonServicePresets = [];
+          state.activeHolds = [];
+          state.shiftHandover = null;
           state.currentReservation = null;
           renderMetrics();
           renderReservations();
           renderReservationDetail();
           renderHousekeeping();
           renderMaintenance();
+          renderActiveHolds();
+          renderShiftHandover();
           renderFolioAddonPresets();
           renderRack();
-          renderOpsBriefing();
           return;
         }
         const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
-        const [reservationPayload, roomUnitsPayload, addonPresetsPayload, roomTypesPayload] = await Promise.all([
+        const [reservationPayload, roomUnitsPayload, addonPresetsPayload, roomTypesPayload, roomRatesPayload, rackSummaryPayload, housekeepingPayload, holdsPayload, shiftHandoverPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/reservations?${boardQuery}`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
           api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`),
           api(`/api/properties/${state.selectedPropertyId}/room-types`),
+          api(`/api/properties/${state.selectedPropertyId}/room-rates`),
+          api(`/api/properties/${state.selectedPropertyId}/room-rack-summary?from_date=${encodeURIComponent(state.boardDate)}&lookahead_days=90`),
+          api(`/api/properties/${state.selectedPropertyId}/housekeeping-tasks?board_date=${encodeURIComponent(state.boardDate)}`),
+          api(`/api/properties/${state.selectedPropertyId}/availability/holds`),
+          api(`/api/properties/${state.selectedPropertyId}/shift-handover`),
         ]);
         state.reservations = reservationPayload.reservations || [];
         state.roomUnits = roomUnitsPayload.room_units || [];
         state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
         state.roomTypes = roomTypesPayload.room_types || [];
+        state.roomRates = roomRatesPayload.room_rates || [];
+        state.rackAvailabilitySummary = Object.fromEntries((rackSummaryPayload.summary || []).map((entry) => [String(entry.room_unit_id), entry]));
+        state.housekeepingTasks = housekeepingPayload.housekeeping_tasks || [];
+        state.activeHolds = holdsPayload.holds || [];
+        state.shiftHandover = shiftHandoverPayload.shift_handover || null;
+        for (const reservation of state.reservations) hydrateGuestPhotoCacheFromReservation(reservation);
         if (state.selectedReservationId) {
           try {
             const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}`);
             state.currentReservation = detail;
+            hydrateGuestPhotoCacheFromReservation(detail.reservation);
           } catch {
             state.currentReservation = null;
             state.selectedReservationId = '';
@@ -1414,9 +2052,10 @@
         renderReservationDetail();
         renderHousekeeping();
         renderMaintenance();
+        renderActiveHolds();
+        renderShiftHandover();
         renderFolioAddonPresets();
         renderRack();
-        renderOpsBriefing();
       }
 
       async function loadReservation(reservationId) {
@@ -1489,10 +2128,34 @@
       });
 
       els.boardDate.value = state.boardDate;
+      applySidebarMode();
       els.boardDate.addEventListener('change', async () => {
         state.boardDate = els.boardDate.value || state.boardDate;
         try {
           await loadWorkspace();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnToggleSidebar?.addEventListener('click', () => {
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        applySidebarMode();
+      });
+
+      document.getElementById('btn-av-prev').addEventListener('click', async () => {
+        if (!state.sheetRoomUnit?.id) return;
+        try {
+          await loadRoomAvailabilityCalendar(state.sheetRoomUnit.id, shiftMonthKey(state.roomAvailabilityMonth, -1));
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      document.getElementById('btn-av-next').addEventListener('click', async () => {
+        if (!state.sheetRoomUnit?.id) return;
+        try {
+          await loadRoomAvailabilityCalendar(state.sheetRoomUnit.id, shiftMonthKey(state.roomAvailabilityMonth, 1));
         } catch (error) {
           setFlash(error.message, 'err');
         }
@@ -1517,6 +2180,45 @@
         }
       });
 
+      els.btnRefreshHousekeeping.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await loadWorkspace();
+          setFlash('Housekeeping refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnSyncHousekeeping.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/housekeeping-tasks/sync?board_date=${encodeURIComponent(state.boardDate)}`, { method: 'POST' });
+          await loadWorkspace();
+          setFlash('Housekeeping tasks synced.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.rackRoomTypeFilter.addEventListener('change', () => {
+        state.rackRoomTypeFilter = els.rackRoomTypeFilter.value || 'all';
+        state.rackFloorFocus = 'all';
+        renderRack();
+      });
+
+      els.rackFloorButtons.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-rack-floor]');
+        if (!button) return;
+        const floor = button.getAttribute('data-rack-floor') || 'all';
+        state.rackFloorFocus = floor;
+        renderRack();
+        const target = floor === 'all'
+          ? els.rackGridContainer
+          : document.getElementById(rackFloorAnchorId(floor));
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
       els.btnLoadReservation.addEventListener('click', async () => {
         const reservationId = String(els.reservationLookupId.value || '').trim();
         if (!reservationId) return setFlash('Reservation ID is required.', 'err');
@@ -1536,16 +2238,6 @@
         } catch (error) {
           setFlash(error.message, 'err');
         }
-      });
-
-      // Briefing chips → jump to front desk and load reservation
-      document.getElementById('ops-brief').addEventListener('click', async (event) => {
-        const chip = event.target.closest('[data-reservation-id]');
-        if (!chip) return;
-        state.activeTab = 'frontdesk';
-        applyActiveTab();
-        try { await loadReservation(chip.getAttribute('data-reservation-id')); }
-        catch (err) { setFlash(err.message, 'err'); }
       });
 
       els.reservationActionRow.addEventListener('click', async (event) => {
@@ -1592,6 +2284,88 @@
           await loadWorkspace();
           setFlash('Room unit status updated.');
         } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.housekeepingRoomList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-hk-task-id]');
+        if (!button || !state.selectedPropertyId) return;
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/housekeeping-tasks/${button.getAttribute('data-hk-task-id')}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: button.getAttribute('data-hk-status') }),
+          });
+          await loadWorkspace();
+          setFlash(`Housekeeping task moved to ${button.getAttribute('data-hk-status')}.`);
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnRefreshHolds.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          await loadWorkspace();
+          setFlash('Active holds refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnRefreshShiftHandover.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/shift-handover`);
+          state.shiftHandover = payload.shift_handover || null;
+          renderShiftHandover();
+          setFlash('Shift handover refreshed.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnSaveShiftHandover.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/shift-handover`, {
+            method: 'PATCH',
+            body: JSON.stringify({ note: els.shiftHandoverNote.value }),
+          });
+          state.shiftHandover = payload.shift_handover || null;
+          renderShiftHandover();
+          setFlash('Shift handover saved.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.btnClearShiftHandover.addEventListener('click', async () => {
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/shift-handover`, {
+            method: 'PATCH',
+            body: JSON.stringify({ note: '' }),
+          });
+          state.shiftHandover = payload.shift_handover || null;
+          renderShiftHandover();
+          setFlash('Shift handover cleared.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      els.supportHoldList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-hold-id]');
+        if (!button || !state.selectedPropertyId) return;
+        const holdId = button.getAttribute('data-hold-id');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/availability/hold/${holdId}/release`, { method: 'POST' });
+          els.supportResponse.textContent = JSON.stringify(payload, null, 2);
+          await loadWorkspace();
+          setFlash('Hold released.');
+        } catch (error) {
+          els.supportResponse.textContent = error.message;
           setFlash(error.message, 'err');
         }
       });
@@ -1676,18 +2450,29 @@
       document.getElementById('sh-photo-input').addEventListener('change', (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const url = ev.target.result;
-          const resId = state.sheetReservation?.reservation?.id;
-          if (resId) state.guestPhotos[resId] = url;
-          document.getElementById('sh-avatar-img').src = url;
-          document.getElementById('sh-avatar-img').style.display = 'block';
-          document.getElementById('sh-avatar-icon').style.display = 'none';
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('Load a reservation before uploading a photo.', 'err');
+        const form = new FormData();
+        form.append('file', file);
+        fetch(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/guest-photo`, {
+          method: 'POST',
+          headers: { 'X-Tenant-ID': state.tenantId },
+          body: form,
+          credentials: 'include',
+        }).then(async (response) => {
+          const payload = await response.json();
+          if (!response.ok) throw new Error(explainApiError(payload?.error || response.statusText || 'Upload failed.'));
+          state.sheetReservation = payload;
+          hydrateGuestPhotoCacheFromReservation(payload.reservation);
+          const url = payload.reservation?.guest_photo_url;
+          if (url) {
+            document.getElementById('sh-avatar-img').src = url;
+            document.getElementById('sh-avatar-img').style.display = 'block';
+            document.getElementById('sh-avatar-icon').style.display = 'none';
+          }
           renderRack();
-          setFlash('Photo saved for this session.');
-        };
-        reader.readAsDataURL(file);
+          setFlash('Guest photo uploaded.');
+        }).catch((error) => setFlash(error.message, 'err'));
       });
 
       // Profile save
@@ -1700,33 +2485,70 @@
 
       // Add preset service
       document.getElementById('btn-add-svc').addEventListener('click', () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('Create or load a reservation first.', 'err');
         const sel = document.getElementById('sf-svc-select');
         const opt = sel.selectedOptions[0];
         if (!opt?.value) return setFlash('Select a service first.', 'err');
         const qty = Math.max(1, parseInt(document.getElementById('sf-svc-qty').value) || 1);
         const price = Number(opt.dataset.price || 0);
-        state.invoiceLines.push({ name: `${opt.dataset.name} ×${qty}`, amount: price * qty, currency: opt.dataset.currency || '' });
-        renderSheetInvoice();
+        api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/folio/lines`, {
+          method: 'POST',
+          body: JSON.stringify({
+            line_type: opt.dataset.lineType || 'service_charge',
+            category: opt.dataset.category || 'service',
+            description: `${opt.dataset.name} ×${qty}`,
+            quantity: qty,
+            unit_amount: price,
+            currency: opt.dataset.currency || state.currentFolio?.currency || 'USD',
+          }),
+        }).then(async () => {
+          await refreshSheetFolio();
+          setFlash('Charge posted to folio.');
+        }).catch((error) => setFlash(error.message, 'err'));
       });
 
       // Add custom service
       document.getElementById('btn-add-custom-svc').addEventListener('click', () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('Create or load a reservation first.', 'err');
         const desc  = document.getElementById('sf-svc-custom').value.trim();
         const price = parseFloat(document.getElementById('sf-svc-price').value) || 0;
         if (!desc) return setFlash('Enter a description.', 'err');
-        const currency = state.sheetReservation?.reservation?.pricing_snapshot?.currency || state.invoiceLines[0]?.currency || '—';
-        state.invoiceLines.push({ name: desc, amount: price, currency });
-        document.getElementById('sf-svc-custom').value = '';
-        document.getElementById('sf-svc-price').value = '';
-        renderSheetInvoice();
+        const currency = state.sheetReservation?.reservation?.pricing_snapshot?.currency || state.currentFolio?.currency || 'USD';
+        api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/folio/lines`, {
+          method: 'POST',
+          body: JSON.stringify({
+            line_type: 'service_charge',
+            category: 'custom',
+            description: desc,
+            quantity: 1,
+            unit_amount: price,
+            currency,
+          }),
+        }).then(async () => {
+          document.getElementById('sf-svc-custom').value = '';
+          document.getElementById('sf-svc-price').value = '';
+          await refreshSheetFolio();
+          setFlash('Custom charge posted to folio.');
+        }).catch((error) => setFlash(error.message, 'err'));
       });
 
-      // Remove invoice line
-      document.getElementById('sh-inv-lines').addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-rm-line]');
-        if (!btn) return;
-        state.invoiceLines.splice(parseInt(btn.getAttribute('data-rm-line')), 1);
-        renderSheetInvoice();
+      document.getElementById('btn-add-payment').addEventListener('click', () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('Create or load a reservation first.', 'err');
+        const method = document.getElementById('sf-pay-method').value;
+        const amount = parseFloat(document.getElementById('sf-pay-amount').value) || 0;
+        const note = document.getElementById('sf-pay-note').value.trim();
+        api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/folio/payments`, {
+          method: 'POST',
+          body: JSON.stringify({ amount, method, note, currency: state.currentFolio?.currency || 'USD' }),
+        }).then(async () => {
+          document.getElementById('sf-pay-amount').value = '';
+          document.getElementById('sf-pay-note').value = '';
+          await refreshSheetFolio();
+          setFlash('Payment recorded on folio.');
+        }).catch((error) => setFlash(error.message, 'err'));
       });
 
       // Print invoice
@@ -1736,10 +2558,9 @@
         const header = res
           ? `INVOICE\n${'─'.repeat(48)}\nGuest : ${res.guest_name || 'Guest'}\nRoom  : ${state.sheetRoomUnit?.room_number || '—'}\nStay  : ${res.check_in} → ${res.check_out}\n${'─'.repeat(48)}\n\n`
           : 'INVOICE\n\n';
-        const lines = state.invoiceLines.map(l => `${String(l.name).padEnd(34)} ${l.currency} ${Number(l.amount).toFixed(2)}`).join('\n');
-        const total = state.invoiceLines.reduce((s, l) => s + Number(l.amount), 0);
-        const currency = state.invoiceLines[0]?.currency || '';
-        const text = `${header}${lines}\n\n${'─'.repeat(48)}\nTOTAL     ${currency} ${total.toFixed(2)}\n${'─'.repeat(48)}`;
+        const lines = state.invoiceLines.map(l => `${String(l.description).padEnd(34)} ${l.currency} ${Number(l.total_amount).toFixed(2)}`).join('\n');
+        const currency = state.currentFolio?.currency || state.invoiceLines[0]?.currency || '';
+        const text = `${header}${lines}\n\n${'─'.repeat(48)}\nCHARGES   ${currency} ${Number(state.folioSummary?.charge_total || 0).toFixed(2)}\nPAYMENTS  ${currency} ${Number(state.folioSummary?.payment_total || 0).toFixed(2)}\nBALANCE   ${currency} ${Number(state.folioSummary?.balance_due || 0).toFixed(2)}\n${'─'.repeat(48)}`;
         const w = window.open('', '_blank', 'width=640,height=520');
         if (!w) return setFlash('Pop-up blocked. Allow pop-ups and try again.', 'err');
         w.document.write(`<html><head><title>Invoice</title></head><body><pre style="font:14px/1.7 monospace;padding:32px;color:#0f172a">${text.replace(/</g,'&lt;')}</pre></body></html>`);
@@ -1750,12 +2571,25 @@
 
       // Clear invoice
       document.getElementById('btn-clear-inv').addEventListener('click', () => {
-        state.invoiceLines = [];
-        renderSheetInvoice();
+        document.getElementById('sf-svc-select').value = '';
+        document.getElementById('sf-svc-qty').value = '1';
+        document.getElementById('sf-svc-custom').value = '';
+        document.getElementById('sf-svc-price').value = '';
+        document.getElementById('sf-pay-method').value = 'cash';
+        document.getElementById('sf-pay-amount').value = '';
+        document.getElementById('sf-pay-note').value = '';
+        setFlash('Service and payment form reset.');
       });
 
       // Reservation actions
-      document.getElementById('btn-sh-ci').addEventListener('click',   () => sheetAction('check-in'));
+      document.getElementById('btn-sh-ci').addEventListener('click',   () => {
+        const reservation = state.sheetReservation?.reservation;
+        sheetAction('check-in', {
+          assigned_room_unit_id: reservation && Number(reservation.rooms_requested || 0) === 1
+            ? (document.getElementById('sf-room-assign').value || null)
+            : null,
+        });
+      });
       document.getElementById('btn-sh-co').addEventListener('click',   () => sheetAction('check-out'));
       document.getElementById('btn-sh-ns').addEventListener('click',   () => sheetAction('no-show'));
       document.getElementById('btn-sh-undo').addEventListener('click', () => sheetAction('undo-status'));
@@ -1774,6 +2608,93 @@
         const reason = document.getElementById('sf-cancel-reason').value.trim();
         if (!confirm('Cancel this reservation? This is hard to reverse.')) return;
         sheetAction('cancel', { cancel_reason: reason });
+      });
+      document.getElementById('btn-post-early-arrival-fee').addEventListener('click', () => postOperationalFee('EARLY-ARRIVAL', 'early_arrival'));
+      document.getElementById('btn-post-late-checkout-fee').addEventListener('click', () => postOperationalFee('LATE-CHECKOUT', 'late_checkout'));
+      document.getElementById('btn-toggle-dnd').addEventListener('click', async () => {
+        if (!state.sheetRoomUnit || !state.selectedPropertyId) return setFlash('Open a room first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-units/${state.sheetRoomUnit.id}/flags`, {
+            method: 'PATCH',
+            body: JSON.stringify({ do_not_disturb: state.sheetRoomUnit.do_not_disturb ? 0 : 1 }),
+          });
+          await loadWorkspace();
+          if (state.sheetRoomUnit?.id) await openGuestSheet(state.sheetRoomUnit.id);
+          setFlash('Room DND flag updated.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+      document.getElementById('btn-toggle-room-service').addEventListener('click', async () => {
+        if (!state.sheetRoomUnit || !state.selectedPropertyId) return setFlash('Open a room first.', 'err');
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/room-units/${state.sheetRoomUnit.id}/flags`, {
+            method: 'PATCH',
+            body: JSON.stringify({ room_service_requested: state.sheetRoomUnit.room_service_requested ? 0 : 1 }),
+          });
+          await loadWorkspace();
+          if (state.sheetRoomUnit?.id) await openGuestSheet(state.sheetRoomUnit.id);
+          setFlash('Room service flag updated.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      document.getElementById('btn-create-walkin').addEventListener('click', async () => {
+        if (!state.sheetRoomUnit || !state.selectedPropertyId) return setFlash('Open a room cell first.', 'err');
+        const guestName = document.getElementById('sf-walkin-name').value.trim();
+        const guestPhone = document.getElementById('sf-walkin-phone').value.trim();
+        const guestEmail = document.getElementById('sf-walkin-email').value.trim();
+        const checkIn = document.getElementById('sf-walkin-ci').value;
+        const checkOut = document.getElementById('sf-walkin-co').value;
+        const adults = Math.max(1, parseInt(document.getElementById('sf-walkin-adults').value, 10) || 1);
+        const children = Math.max(0, parseInt(document.getElementById('sf-walkin-children').value, 10) || 0);
+        if (!guestName) return setFlash('Guest name is required for walk-in.', 'err');
+        try {
+          const created = await api(`/api/properties/${state.selectedPropertyId}/reservations`, {
+            method: 'POST',
+            body: JSON.stringify({
+              room_type_id: state.sheetRoomUnit.room_type_id,
+              check_in: checkIn,
+              check_out: checkOut,
+              rooms_requested: 1,
+              guest_name: guestName,
+              guest_phone: guestPhone || null,
+              guest_email: guestEmail || null,
+              adults,
+              children,
+              source: 'manual_frontdesk',
+            }),
+          });
+          await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}/check-in`, {
+            method: 'POST',
+            body: JSON.stringify({ assigned_room_unit_id: state.sheetRoomUnit.id }),
+          });
+          await loadWorkspace();
+          await openGuestSheet(state.sheetRoomUnit.id);
+          switchSheetTab('stay');
+          setFlash('Walk-in created and checked in.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      document.getElementById('btn-save-room-assignment').addEventListener('click', async () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res) return setFlash('No reservation loaded in sheet.', 'err');
+        if (Number(res.rooms_requested || 0) > 1) return setFlash('Persisted room assignment edits currently support single-room reservations only.', 'err');
+        const assignedRoomUnitId = document.getElementById('sf-room-assign').value || null;
+        try {
+          await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ assigned_room_unit_id: assignedRoomUnitId }),
+          });
+          await loadWorkspace();
+          await openGuestSheet(assignedRoomUnitId || state.sheetRoomUnit?.id || '');
+          setFlash('Room assignment saved.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
       });
 
       // Keyboard close
