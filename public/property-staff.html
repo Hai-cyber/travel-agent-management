@@ -432,6 +432,59 @@
     .flash.ok { background: #ecfdf5; color: #166534; border: 1px solid rgba(15,118,110,0.18); }
     .flash.err { background: #fef2f2; color: #991b1b; border: 1px solid rgba(185,28,28,0.16); }
 
+    .workspace-context-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:4px 0 6px;
+      border-bottom:1px solid rgba(120,113,108,0.14);
+      flex-wrap:wrap;
+    }
+
+    .workspace-context-copy {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+      min-width:0;
+      flex:1 1 360px;
+    }
+
+    .ops-now {
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(15,23,42,0.1);
+      background:linear-gradient(145deg, rgba(15,23,42,0.98), rgba(30,64,175,0.92));
+      color:#fff;
+      box-shadow:0 12px 30px rgba(15,23,42,0.18);
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+
+    .ops-now-date {
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      opacity:.82;
+    }
+
+    .ops-now-time {
+      font-size:20px;
+      font-weight:950;
+      line-height:1;
+      letter-spacing:-.05em;
+    }
+
+    .ops-now-zone {
+      display:none;
+    }
+
     /* ── Room Rack ──────────────────────────────────────── */
     .rack-legend { display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:10px; font-weight:700; }
     .rack-section { display:grid; gap:6px; }
@@ -530,8 +583,33 @@
     .rack-cell .rc-strip.clean      { background:#334155; }
     .rack-cell .rc-strip.dirty      { background:#dc2626; }
     .rack-cell .rc-strip.cleaning   { background:#0891b2; }
+    .rack-cell .rc-strip.refresh-needed { background:#b45309; }
+    .rack-cell .rc-strip.refreshing { background:#0f766e; }
+    .rack-cell .rc-strip.ready-for-inspection { background:#d97706; }
     .rack-cell .rc-strip.inspected  { background:#7c3aed; }
     .rack-cell .rc-strip.blocked    { background:#5b6574; }
+    .hk-toolbar-copy { display:grid; gap:2px; }
+    .hk-toolbar-copy h2 { margin:0; }
+    .hk-flow-note { font-size:11px; font-weight:700; color:#64748b; }
+    .hk-grid-wrap { display:grid; gap:10px; }
+    .hk-cell { min-height:88px; }
+    .hk-cell .rc-head { margin-bottom:2px; }
+    .hk-cell .rc-primary,
+    .hk-cell .rc-secondary { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+    .hk-cell .rc-secondary { opacity:.92; }
+    .hk-cell .hk-next { font-size:9px; font-weight:800; opacity:.9; }
+    .hk-cell.static { cursor:default; }
+    .hk-cell.static:hover { transform:none; box-shadow:none; }
+    .hk-turnover-note {
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(255,255,255,0.78);
+      font-size:11px;
+      font-weight:700;
+      color:#475569;
+      white-space:pre-wrap;
+    }
     /* ── Guest Slide-Over ───────────────────────────────── */
     .guest-overlay { position:fixed; inset:0; z-index:1000; background:rgba(10,18,40,.52); backdrop-filter:blur(5px); display:flex; justify-content:flex-end; }
     .guest-overlay[hidden] { display:none !important; }
@@ -559,6 +637,7 @@
     .sh-input { min-height:34px; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; font:inherit; width:100%; background:#fff; color:#0f172a; }
     .sh-input:focus { outline:none; border-color:#60a5fa; }
     .sh-actions { display:flex; flex-wrap:wrap; gap:7px; }
+    .sh-validation { font-size:12px; font-weight:700; color:#b91c1c; }
     .sa { padding:8px 14px; border-radius:10px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .1s; }
     .sa.ci  { background:#0f766e; color:#fff; }
     .sa.co  { background:#1d4ed8; color:#fff; }
@@ -598,6 +677,170 @@
     .av-day-date { font-weight:800; }
     .av-day-guest { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 
+    /* ── Planning Calendar ───────────────────────────── */
+    #planning-cal-wrap { --plan-slot-w:40px; --plan-room-w:72px; --plan-days:14; }
+    .plan-cal { display:block; width:max-content; min-width:100%; }
+    .plan-header-row,
+    .plan-unit-row { display:flex; gap:0; border-bottom:1px solid var(--line); }
+    .plan-header-row { position:sticky; top:0; z-index:10; background:#f8f5ef; border-bottom:2px solid var(--line); }
+    .plan-room-cell {
+      flex:0 0 var(--plan-room-w); width:var(--plan-room-w); min-width:0;
+      padding:3px 5px;
+      font-size:10px; font-weight:800; color:#475569;
+      border-right:2px solid var(--line);
+      display:flex; flex-direction:column; justify-content:center; gap:1px;
+      background:rgba(255,255,255,0.92);
+      position:sticky; left:0; z-index:5; overflow:hidden;
+    }
+    .plan-room-cell .pr-num { font-size:12px; font-weight:900; color:#0f172a; line-height:1; }
+    .plan-room-cell .pr-type { font-size:8px; text-transform:uppercase; letter-spacing:.04em; opacity:.65; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .plan-header-room-cell {
+      flex:0 0 var(--plan-room-w); width:var(--plan-room-w); min-width:0;
+      padding:3px 5px; font-size:9px; font-weight:800; color:#64748b;
+      border-right:2px solid var(--line);
+      background:#f8f5ef;
+      position:sticky; left:0; z-index:15;
+    }
+    .plan-date-cell {
+      flex:0 0 var(--plan-slot-w); width:var(--plan-slot-w); min-width:0;
+      padding:2px 1px;
+      font-size:8px; font-weight:800; text-align:center; color:#475569;
+      border-right:1px solid rgba(120,113,108,0.1);
+      display:flex; flex-direction:column; align-items:center; gap:0;
+      line-height:1.2; overflow:hidden;
+    }
+    .plan-date-cell .pd-dow { font-size:7px; text-transform:uppercase; letter-spacing:.03em; opacity:.65; }
+    .plan-date-cell.today { background:rgba(15,118,110,0.1); color:#0f766e; }
+    .plan-date-cell.weekend { background:rgba(249,115,22,0.05); }
+    .plan-row-body {
+      position:relative;
+      flex:0 0 calc(var(--plan-slot-w) * var(--plan-days));
+      width:calc(var(--plan-slot-w) * var(--plan-days));
+      min-width:calc(var(--plan-slot-w) * var(--plan-days));
+      min-height:var(--plan-row-h, 32px);
+    }
+    .plan-slot-grid {
+      display:flex;
+      position:relative;
+      z-index:1;
+      min-height:var(--plan-row-h, 32px);
+    }
+    .plan-bar-layer {
+      position:absolute;
+      inset:0;
+      z-index:2;
+      pointer-events:none;
+      min-height:var(--plan-row-h, 32px);
+    }
+    .plan-slot {
+      flex:0 0 var(--plan-slot-w); width:var(--plan-slot-w); min-width:0;
+      min-height:var(--plan-row-h, 32px);
+      border-right:1px solid rgba(120,113,108,0.08);
+      cursor:default;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      overflow:hidden; padding:2px 1px; gap:1px;
+      background:#fff;
+    }
+    .plan-slot .ps-guest { font-size:8px; font-weight:800; letter-spacing:.02em; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
+    .plan-slot .ps-price { font-size:7px; font-weight:700; opacity:.8; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
+    .plan-slot .ps-vacant-price { font-size:7px; font-weight:700; color:#166534; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
+    .plan-slot.clickable { cursor:pointer; }
+    .plan-slot.clickable:hover { filter:brightness(0.88); }
+    /* ── Base cell states ── */
+    .plan-slot.booked      { background:#fff7ed; }
+    .plan-slot.vacant      { background:#f0fdf4; }
+    .plan-slot.maintenance { background:repeating-linear-gradient(45deg,#e5e7eb,#e5e7eb 5px,#f3f4f6 5px,#f3f4f6 10px); color:#6b7280; }
+    .plan-slot.out_of_order{ background:repeating-linear-gradient(45deg,#fecaca,#fecaca 5px,#fef2f2 5px,#fef2f2 10px); color:#b91c1c; }
+    /* ── Slot inner labels ── */
+    .plan-slot .ps-vacant-label  { font-size:18px; font-weight:200; color:#16a34a; line-height:1; }
+    .plan-slot .ps-status-label  { font-size:7px; font-weight:800; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; text-transform:uppercase; letter-spacing:.03em; }
+    .plan-res-bar {
+      position:absolute;
+      height:18px;
+      padding:0 6px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+      font-size:9px;
+      font-weight:800;
+      line-height:1;
+      box-shadow:0 1px 2px rgba(15, 23, 42, 0.15);
+      border:1px solid transparent;
+      pointer-events:auto;
+      cursor:pointer;
+    }
+    .plan-res-bar .prb-name { overflow:hidden; text-overflow:ellipsis; }
+    .plan-res-bar .prb-price { font-size:8px; opacity:.9; }
+    .plan-slot.booked.checked_in { background:#dbeafe; }
+    .plan-slot.booked.reserved { background:#ffedd5; }
+    .plan-slot.booked.draft { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#e2e8f0 6px,#e2e8f0 12px); }
+    .plan-slot.turnover { position:relative; background:#fff; padding:0; }
+    .plan-slot.turnover::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      z-index:3;
+      pointer-events:none;
+      background:linear-gradient(135deg,
+        transparent calc(50% - 1px),
+        rgba(15,23,42,0.35) calc(50% - 1px),
+        rgba(15,23,42,0.35) calc(50% + 1px),
+        transparent calc(50% + 1px));
+    }
+    .plan-turnover-hit {
+      position:absolute;
+      inset:0;
+      border:none;
+      padding:0;
+      margin:0;
+      cursor:pointer;
+      appearance:none;
+      background:#fff;
+      color:#0f172a;
+      overflow:hidden;
+    }
+    .plan-turnover-hit:hover { filter:brightness(0.95); }
+    .plan-turnover-hit.departing { clip-path:polygon(0 0, 0 100%, 100% 100%); }
+    .plan-turnover-hit.arriving { clip-path:polygon(0 0, 100% 0, 100% 100%); }
+    .plan-turnover-hit.checked_in { background:#dbeafe; color:#1d4ed8; }
+    .plan-turnover-hit.reserved { background:#ffedd5; color:#c2410c; }
+    .plan-turnover-hit.draft { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#e2e8f0 6px,#e2e8f0 12px); color:#334155; }
+    .plan-turnover-tag {
+      position:absolute;
+      font-size:7px;
+      font-weight:900;
+      letter-spacing:.05em;
+      line-height:1;
+      text-transform:uppercase;
+      pointer-events:none;
+      opacity:.95;
+    }
+    .plan-turnover-tag.departing { left:2px; bottom:2px; }
+    .plan-turnover-tag.arriving { right:2px; top:2px; }
+    .plan-res-bar.checked_in { background:#dbeafe; color:#1d4ed8; border-color:#60a5fa; }
+    .plan-res-bar.reserved { background:#ffedd5; color:#c2410c; border-color:#fb923c; }
+    .plan-res-bar.draft { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#e2e8f0 6px,#e2e8f0 12px); color:#334155; border-color:#94a3b8; }
+    .plan-empty { padding:24px; color:var(--muted); font-size:13px; }
+    .plan-floor-divider { display:flex; background:#f1efe7; border-bottom:2px solid var(--line); }
+    .plan-floor-divider-cell { flex:0 0 var(--plan-room-w); width:var(--plan-room-w); padding:2px 5px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); position:sticky; left:0; z-index:5; background:#f1efe7; overflow:hidden; }
+    .plan-floor-spacer { flex:0 0 calc(var(--plan-slot-w) * var(--plan-days)); width:calc(var(--plan-slot-w) * var(--plan-days)); min-width:calc(var(--plan-slot-w) * var(--plan-days)); }
+    .plan-legend { display:flex; gap:4px; flex-wrap:nowrap; align-items:center; font-size:9px; font-weight:800; overflow:hidden; }
+    .plan-leg { padding:2px 6px; border-radius:999px; white-space:nowrap; }
+    .plan-leg.checked_in  { background:#dbeafe; color:#1d4ed8; }
+    .plan-leg.reserved    { background:#ffedd5; color:#c2410c; }
+    .plan-leg.draft       { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#e2e8f0 6px,#e2e8f0 12px); color:#334155; border:1px solid #94a3b8; }
+    .plan-leg.turnover    { background:linear-gradient(135deg,#ffedd5 0 48%,#0f172a 48% 52%,#dbeafe 52% 100%); color:#0f172a; border:1px solid #cbd5e1; }
+    .plan-leg.vacant      { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+    .plan-leg.maintenance { background:#e5e7eb; color:#374151; }
+    .plan-leg.out_of_order{ background:#fee2e2; color:#b91c1c; }
+    .plan-view-btn { padding:1px 8px; font-size:10px; font-weight:800; border:1px solid rgba(120,113,108,0.3); border-radius:5px; background:#fff; cursor:pointer; color:#475569; line-height:1.7; flex-shrink:0; }
+    .plan-view-btn.active { background:#0f172a; color:#fff; border-color:#0f172a; }
+    .plan-view-btn:hover:not(.active) { background:#f1f5f9; }
+
     @media (max-width: 1180px) {
       .hero,
       .layout,
@@ -623,6 +866,7 @@
       .rack-type-select-wrap { width:100%; }
       .hero-side { border-left: 0; border-top: 1px solid var(--line); }
       .property-list { max-height: none; }
+      .ops-now { width:100%; justify-content:flex-start; }
     }
 
     @media (max-width: 720px) {
@@ -649,10 +893,17 @@
     <section class="grid">
       <div class="panel workspace-frame">
         <!-- compact property context row -->
-        <div style="display:flex;align-items:center;gap:6px;padding:4px 0 6px;border-bottom:1px solid rgba(120,113,108,0.14);flex-wrap:wrap">
-          <span id="selected-property-title" style="font-weight:800;font-size:15px">No property selected</span>
-          <span id="selected-property-status" class="tag" style="margin-left:2px">—</span>
-          <span id="selected-property-subtitle" class="muted" style="font-size:11px;margin-left:4px"></span>
+        <div class="workspace-context-row">
+          <div class="workspace-context-copy">
+            <span id="selected-property-title" style="font-weight:800;font-size:15px">No property selected</span>
+            <span id="selected-property-status" class="tag" style="margin-left:2px">—</span>
+            <span id="selected-property-subtitle" class="muted" style="font-size:11px;margin-left:4px"></span>
+          </div>
+          <div id="ops-now" class="ops-now" aria-live="polite">
+            <div id="ops-now-date" class="ops-now-date">Today</div>
+            <div id="ops-now-time" class="ops-now-time">--:--:--</div>
+            <div id="ops-now-zone" class="ops-now-zone">Local time</div>
+          </div>
         </div>
         <div class="panel-body workspace-body">
           <div class="workspace-shell">
@@ -660,6 +911,7 @@
               <div class="tab-strip sidebar-nav" id="staff-tab-strip">
                 <button id="btn-toggle-sidebar" class="button small sidebar-toggle" type="button" title="Collapse sidebar">«</button>
                 <button class="tab-button" type="button" data-staff-tab="rack">🏨 Rack</button>
+                <button class="tab-button" type="button" data-staff-tab="planning">📅 Plan</button>
                 <button class="tab-button" type="button" data-staff-tab="frontdesk">Front Desk</button>
                 <button class="tab-button" type="button" data-staff-tab="housekeeping">Housekeeping</button>
                 <button class="tab-button" type="button" data-staff-tab="maintenance">Maintenance</button>
@@ -670,6 +922,47 @@
             </div>
             <div class="staff-content">
               <div class="tab-panels">
+
+            <!-- CHK-R108: Multi-room planning calendar -->
+            <section data-staff-panel="planning" hidden>
+              <div class="section" style="padding:0">
+                <!-- one-line planning toolbar -->
+                <div style="display:flex;flex-wrap:nowrap;gap:4px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);overflow-x:auto;min-height:36px">
+                  <label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#64748b;margin:0;white-space:nowrap;flex-shrink:0">
+                    From <input id="plan-from-date" type="date" style="height:24px;padding:1px 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a" />
+                  </label>
+                  <div id="plan-view-btns" style="display:flex;gap:2px;flex-shrink:0">
+                    <button class="plan-view-btn" data-plan-days="7" type="button">W</button>
+                    <button class="plan-view-btn active" data-plan-days="14" type="button">2W</button>
+                    <button class="plan-view-btn" data-plan-days="21" type="button">3W</button>
+                    <button class="plan-view-btn" data-plan-days="28" type="button">4W</button>
+                  </div>
+                  <div style="width:1px;align-self:stretch;background:var(--line);flex-shrink:0;margin:0 2px"></div>
+                  <select id="plan-type-filter" title="Room type" style="height:24px;padding:0 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a;flex-shrink:0;max-width:90px">
+                    <option value="all">All types</option>
+                  </select>
+                  <select id="plan-floor-filter" title="Floor" style="height:24px;padding:0 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a;flex-shrink:0;max-width:72px">
+                    <option value="all">All floors</option>
+                  </select>
+                  <button id="btn-refresh-planning" class="button small secondary" type="button" style="height:24px;padding:0 7px;font-size:10px;flex-shrink:0">↻</button>
+                  <div class="plan-legend" style="flex:1;justify-content:flex-end;margin:0;min-width:0">
+                    <span class="plan-leg checked_in">Checked In</span>
+                    <span class="plan-leg reserved">Reserved</span>
+                    <span class="plan-leg draft">Draft</span>
+                    <span class="plan-leg turnover">Turnover</span>
+                    <span class="plan-leg vacant">Vacant</span>
+                    <span class="plan-leg maintenance">Maintenance</span>
+                    <span class="plan-leg out_of_order">Out of Order</span>
+                  </div>
+                </div>
+                <div id="planning-cal-wrap" style="overflow-x:hidden;-webkit-overflow-scrolling:touch">
+                  <div id="planning-cal" class="plan-cal">
+                    <div class="plan-empty">Load a property to view the planning calendar.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section data-staff-panel="frontdesk">
               <div class="section-grid">
                 <div class="section">
@@ -726,28 +1019,45 @@
             </section>
 
             <section data-staff-panel="housekeeping" hidden>
-              <div class="section-grid">
-                <div class="section">
-                  <div class="section-head toolbar">
-                    <h2>Housekeeping</h2>
-                    <div class="action-row">
-                      <button id="btn-sync-housekeeping" class="button small secondary" type="button">Sync</button>
-                      <button id="btn-refresh-housekeeping" class="button small secondary" type="button">↻</button>
+              <div class="rack-section">
+                <div class="rack-toolbar">
+                  <div class="rack-toolbar-main">
+                    <div class="hk-toolbar-copy">
+                      <h2>Housekeeping</h2>
+                      <div id="housekeeping-flow-note" class="hk-flow-note">Stayover refresh: refresh needed -> refreshing -> refreshed. Turnover clean: dirty -> being cleaned -> ready for inspection. Manager: ready for inspection -> inspected -> clean.</div>
+                    </div>
+                    <span id="housekeeping-role-badge" class="tag">role pending</span>
+                  </div>
+                  <div class="action-row">
+                    <button id="btn-sync-housekeeping" class="button small secondary" type="button">Sync</button>
+                    <button id="btn-refresh-housekeeping" class="button small secondary" type="button">↻</button>
+                  </div>
+                </div>
+                <div class="rack-legend-row">
+                  <div class="rack-legend-group">
+                    <div class="rack-legend">
+                      <span class="leg"><span class="leg-dot" style="background:#22c55e"></span>Available</span>
+                      <span class="leg"><span class="leg-dot" style="background:#60a5fa"></span>Occupied</span>
+                      <span class="leg"><span class="leg-dot" style="background:#fb923c"></span>Departing</span>
+                      <span class="leg"><span class="leg-dot" style="background:#caa57c"></span>Maintenance</span>
+                      <span class="leg"><span class="leg-dot" style="background:#0f172a"></span>Out of Order</span>
                     </div>
                   </div>
-                  <div class="section-body stack">
-                    <div id="housekeeping-room-list" class="room-list">
-                      <div class="empty">Load a property to inspect room readiness.</div>
+                  <div class="rack-legend-group">
+                    <div class="rack-legend">
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#dc2626;color:#fff;border:none">Dirty</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#0891b2;color:#fff;border:none">Being Cleaned</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#b45309;color:#fff;border:none">Refresh Needed</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#0f766e;color:#fff;border:none">Refreshing</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#d97706;color:#fff;border:none">Ready for Inspection</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#7c3aed;color:#fff;border:none">Inspected</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#334155;color:#fff;border:none">Clean</span></span>
                     </div>
                   </div>
                 </div>
-                <div class="section">
-                  <div class="section-head">
-                    <h2>Turnover Notes</h2>
-                  </div>
-                  <div class="section-body">
-                    <div id="housekeeping-turnover" class="response">Departure-linked turnover notes will render here.</div>
-                  </div>
+                <div id="housekeeping-turnover" class="hk-turnover-note">Departure-linked turnover notes will render here.</div>
+                <div id="housekeeping-room-list" class="hk-grid-wrap">
+                  <div class="empty">Load a property to inspect room readiness.</div>
                 </div>
               </div>
             </section>
@@ -870,6 +1180,8 @@
                     <div class="rack-legend">
                       <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#dc2626;color:#fff;border:none">Dirty</span></span>
                       <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#0891b2;color:#fff;border:none">Being Cleaned</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#b45309;color:#fff;border:none">Refresh Needed</span></span>
+                      <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#0f766e;color:#fff;border:none">Refreshing</span></span>
                       <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#7c3aed;color:#fff;border:none">Inspected</span></span>
                       <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#334155;color:#fff;border:none">Clean</span></span>
                       <span class="leg"><span class="tag" style="min-height:22px;padding:0 8px;background:#fef3c7;color:#92400e;border:none">DND</span></span>
@@ -1058,6 +1370,7 @@
               <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
             </div>
             <button id="btn-create-walkin" class="sa ci" type="button">Create Walk-in &amp; Check In</button>
+            <div id="sh-walkin-validation" class="sh-validation" hidden></div>
           </div>
           <div class="sh-sec">
             <h4>Reservation Status</h4>
@@ -1138,9 +1451,15 @@
         rackFloorFocus: 'all',
         rackRoomTypeFilter: 'all',
         sidebarCollapsed: false,
+        planningGrid: null,
+        planningFromDate: new Date().toISOString().slice(0, 10),
+        planningDays: 14,
         housekeepingTasks: [],
+        roomStatesByUnit: {},
+        actorRole: '',
         activeHolds: [],
         shiftHandover: null,
+        sheetCreateMode: null,
         sheetRoomUnit: null,
         sheetReservation: null,
         sheetActiveTab: 'profile',
@@ -1162,6 +1481,9 @@
         selectedPropertyTitle: document.getElementById('selected-property-title'),
         selectedPropertySubtitle: document.getElementById('selected-property-subtitle'),
         selectedPropertyStatus: document.getElementById('selected-property-status'),
+        opsNowDate: document.getElementById('ops-now-date'),
+        opsNowTime: document.getElementById('ops-now-time'),
+        opsNowZone: document.getElementById('ops-now-zone'),
         metricArrivals: document.getElementById('metric-arrivals'),
         metricDepartures: document.getElementById('metric-departures'),
         metricStayovers: document.getElementById('metric-stayovers'),
@@ -1183,6 +1505,8 @@
         effectiveCheckoutDate: document.getElementById('effective-checkout-date'),
         housekeepingRoomList: document.getElementById('housekeeping-room-list'),
         housekeepingTurnover: document.getElementById('housekeeping-turnover'),
+        housekeepingRoleBadge: document.getElementById('housekeeping-role-badge'),
+        housekeepingFlowNote: document.getElementById('housekeeping-flow-note'),
         btnSyncHousekeeping: document.getElementById('btn-sync-housekeeping'),
         btnRefreshHousekeeping: document.getElementById('btn-refresh-housekeeping'),
         maintenanceRoomList: document.getElementById('maintenance-room-list'),
@@ -1237,6 +1561,37 @@
 
       function selectedProperty() {
         return state.properties.find((property) => property.id === state.selectedPropertyId) || null;
+      }
+
+      const UI_ROLE_RANK = { owner: 4, manager: 3, staff: 2, provider: 1 };
+
+      function currentWorkspaceTimeZone() {
+        return String(selectedProperty()?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC').trim() || 'UTC';
+      }
+
+      function renderOpsClock() {
+        const now = new Date();
+        const timeZone = currentWorkspaceTimeZone();
+        try {
+          els.opsNowDate.textContent = new Intl.DateTimeFormat('en-GB', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            timeZone,
+          }).format(now);
+          els.opsNowTime.textContent = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone,
+          }).format(now);
+        } catch {
+          els.opsNowDate.textContent = now.toLocaleDateString();
+          els.opsNowTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        }
+        els.opsNowZone.textContent = '';
       }
 
       function applySidebarMode() {
@@ -1305,11 +1660,22 @@
       }
 
       function nextOpenNightsLabel(unit, primaryKey) {
-        if (!['available', 'departing', 'checked-out'].includes(primaryKey)) return null;
+        if (!['available', 'departing', 'checked-out', 'reserved'].includes(primaryKey)) return null;
         const summary = state.rackAvailabilitySummary[String(unit.id)] || null;
         if (!summary) return null;
+        // CHK-R107: use richer allocation-backed fields
+        if (primaryKey === 'reserved' || primaryKey === 'occupied') {
+          return summary.current_check_out ? `until ${summary.current_check_out}` : null;
+        }
+        if (summary.arrival_today) return `Arrives today`;
         const nights = Number(summary.open_nights || 0);
-        const label = summary.fully_open_within_window ? `${nights}+ nights` : `${nights} nights`;
+        if (summary.fully_open_within_window) return `${nights}+ nights free`;
+        if (summary.next_reservation_start) {
+          const guestFirst = (summary.next_reservation_guest_name || '').split(' ')[0] || '';
+          const untilLabel = `until ${summary.next_reservation_start}${guestFirst ? ` · ${guestFirst}` : ''}`;
+          return primaryKey === 'departing' ? `${nights}n free after · next: ${untilLabel}` : `${nights}n free · ${untilLabel}`;
+        }
+        const label = `${nights} night${nights !== 1 ? 's' : ''} free`;
         return primaryKey === 'departing' ? `${label} after checkout` : label;
       }
 
@@ -1339,6 +1705,7 @@
           els.selectedPropertyStatus.textContent = 'No Property';
           els.selectedPropertyStatus.className = 'tag';
           els.btnOpenConfig.href = '/properties-engine.html';
+          renderOpsClock();
           return;
         }
         els.selectedPropertyTitle.textContent = `${property.name} Staff Desk`;
@@ -1346,6 +1713,7 @@
         els.selectedPropertyStatus.textContent = property.status;
         els.selectedPropertyStatus.className = `tag ${property.status === 'active' ? 'ok' : 'warn'}`;
         els.btnOpenConfig.href = `/properties-engine.html?tid=${encodeURIComponent(state.tenantId)}`;
+        renderOpsClock();
       }
 
       function renderMetrics() {
@@ -1521,41 +1889,149 @@
       function renderHousekeeping() {
         if (!state.selectedPropertyId) {
           els.housekeepingRoomList.innerHTML = '<div class="empty">Load a property to inspect room readiness.</div>';
-          els.housekeepingTurnover.textContent = 'Departure-linked turnover notes will render here.';
+          els.housekeepingTurnover.hidden = true;
+          els.housekeepingRoleBadge.textContent = 'role pending';
           return;
         }
 
-        if (!state.housekeepingTasks.length) {
-          els.housekeepingRoomList.innerHTML = '<div class="empty">No active housekeeping tasks. Sync after departures or complete a checkout to create tasks.</div>';
-          const departures = state.reservations.filter((item) => item.departure_today).map((item) => `${item.guest_name || item.id} -> ${item.check_out}`).join('\n');
-          els.housekeepingTurnover.textContent = departures || 'No departures on this board date.';
+        if (!state.roomUnits.length) {
+          els.housekeepingRoomList.innerHTML = '<div class="empty">No rooms found for this property.</div>';
+          els.housekeepingTurnover.hidden = true;
+          els.housekeepingRoleBadge.textContent = state.actorRole || 'role pending';
           return;
         }
 
-        els.housekeepingRoomList.innerHTML = state.housekeepingTasks.map((task) => `
-          <article class="list-card">
-            <div class="list-card-head">
-              <div>
-                <strong>${escapeHtml(task.room_number)}</strong>
-                <div class="muted">${escapeHtml(task.room_type_id)}${task.floor_label ? ` · floor ${escapeHtml(task.floor_label)}` : ''}</div>
-                <div class="muted">${escapeHtml(task.guest_name || 'No linked guest')} · ${escapeHtml(task.priority)}</div>
-              </div>
-              <span class="tag ${task.status === 'completed' ? 'ok' : task.status === 'in_progress' ? 'warn' : 'danger'}">${escapeHtml(task.status)}</span>
-            </div>
-            <div class="muted">Room state: ${escapeHtml(task.effective_room_state || 'ready')}${task.scheduled_for ? ` · scheduled ${new Date(Number(task.scheduled_for) * 1000).toLocaleDateString()}` : ''}</div>
-            <div class="action-row">
-              <button class="button small primary" type="button" data-hk-task-id="${task.id}" data-hk-status="in_progress">Start</button>
-              <button class="button small secondary" type="button" data-hk-task-id="${task.id}" data-hk-status="waiting_inspection">Inspect</button>
-              <button class="button small" type="button" data-hk-task-id="${task.id}" data-hk-status="completed">Ready</button>
-            </div>
-          </article>
-        `).join('');
-        const departures = state.reservations.filter((item) => item.departure_today).map((item) => `${item.guest_name || item.id} -> ${item.check_out}`).join('\n');
-        els.housekeepingTurnover.textContent = departures || 'No departures on this board date.';
+        els.housekeepingTurnover.hidden = true;
+
+        els.housekeepingRoleBadge.textContent = `role: ${state.actorRole || 'staff'}`;
+        els.housekeepingRoleBadge.className = `tag ${(UI_ROLE_RANK[state.actorRole] || 0) >= 3 ? 'ok' : 'warn'}`;
+        els.housekeepingFlowNote.textContent = (UI_ROLE_RANK[state.actorRole] || 0) >= 3
+          ? 'Stayover refresh: refresh needed -> refreshing -> refreshed. Turnover clean: dirty -> being cleaned -> ready for inspection. Manager: ready for inspection -> inspected -> clean.'
+          : 'Stayover refresh: refresh needed -> refreshing -> refreshed. Turnover clean: dirty -> being cleaned -> ready for inspection. Manager approval is required for inspected -> clean.';
+
+        const typeMap = {};
+        state.roomTypes.forEach((roomType) => { typeMap[roomType.id] = roomType.code || roomType.name || roomType.id; });
+        const floors = {};
+        state.roomUnits.forEach((roomUnit) => {
+          const floorLabel = roomUnit.floor_label || '—';
+          if (!floors[floorLabel]) floors[floorLabel] = [];
+          floors[floorLabel].push(roomUnit);
+        });
+        Object.values(floors).forEach((units) => units.sort((left, right) => {
+          const leftType = typeMap[left.room_type_id] || '';
+          const rightType = typeMap[right.room_type_id] || '';
+          return leftType.localeCompare(rightType) || (left.room_number || '').localeCompare(right.room_number || '', undefined, { numeric: true });
+        }));
+        const sortedFloors = Object.keys(floors).sort((left, right) => {
+          const leftNumber = parseFloat(left);
+          const rightNumber = parseFloat(right);
+          return isNaN(leftNumber) || isNaN(rightNumber) ? right.localeCompare(left) : rightNumber - leftNumber;
+        });
+
+        els.housekeepingRoomList.innerHTML = sortedFloors.map((floor) => {
+          const cells = floors[floor].map((roomUnit) => {
+            const primary = rackPrimaryState(roomUnit);
+            const housekeepingTask = activeHousekeepingTaskForUnit(roomUnit.id);
+            const hkState = housekeepingStateForUnit(roomUnit);
+            const action = housekeepingActionForUnit(roomUnit, housekeepingTask, hkState);
+            const titleParts = [
+              `Room ${roomUnit.room_number}`,
+              `State: ${primary.label}`,
+              `HK: ${hkState.label}`,
+            ];
+            if (action?.flashLabel) titleParts.push(`Click to ${action.flashLabel.toLowerCase()}`);
+            if (action?.blockedReason) titleParts.push(action.blockedReason);
+            return `<button type="button" class="rack-cell ${primary.key} hk-cell ${action ? 'actionable' : (housekeepingTask ? 'actionable' : 'static')}" title="${escapeHtml(titleParts.join(' · '))}"
+              ${housekeepingTask ? `data-hk-task-id="${escapeHtml(housekeepingTask.id)}"` : ''}${action?.status ? ` data-hk-status="${escapeHtml(action.status)}"` : ''}${action?.roomState ? ` data-hk-room-state="${escapeHtml(action.roomState)}"` : ''}${action?.blockedReason ? ` data-hk-message="${escapeHtml(action.blockedReason)}"` : ''}>
+              <div class="rc-head"><div class="rc-num">${escapeHtml(roomUnit.room_number)}</div></div>
+              <div class="rc-primary">State: ${escapeHtml(primary.label)}</div>
+              <div class="rc-secondary">HK: ${escapeHtml(hkState.label)}</div>
+              ${action ? `<div class="hk-next">${escapeHtml(action.label)}</div>` : ''}
+              <div class="rc-strip ${hkState.stripKey}">${escapeHtml(hkState.label)}</div>
+            </button>`;
+          }).join('');
+          return `<div class="rack-floor-section">
+            <div class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
+            <div class="rack-grid">${cells}</div>
+          </div>`;
+        }).join('');
       }
 
       function activeHousekeepingTaskForUnit(unitId) {
         return state.housekeepingTasks.find((task) => String(task.room_unit_id) === String(unitId) && ['pending', 'in_progress', 'waiting_inspection'].includes(task.status)) || null;
+      }
+
+      function housekeepingStateFromTaskStatusLocal(status, taskKind = 'departure_clean') {
+        if (taskKind === 'stayover_refresh') {
+          if (status === 'pending') return 'refresh_needed';
+          if (status === 'in_progress') return 'refreshing';
+          if (status === 'completed') return 'refreshed';
+          return 'ready';
+        }
+        if (status === 'pending') return 'dirty';
+        if (status === 'in_progress') return 'cleaning';
+        if (status === 'waiting_inspection') return 'ready_for_inspection';
+        if (status === 'completed') return 'ready';
+        return 'ready';
+      }
+
+      function housekeepingStateMeta(value, fallbackStatus = '', taskKind = 'departure_clean') {
+        const normalized = String(value || housekeepingStateFromTaskStatusLocal(fallbackStatus, taskKind) || 'ready').trim().toLowerCase();
+        if (normalized === 'refresh_needed') return { key: 'refresh_needed', stripKey: 'refresh-needed', label: 'Refresh Needed' };
+        if (normalized === 'refreshing') return { key: 'refreshing', stripKey: 'refreshing', label: 'Refreshing' };
+        if (normalized === 'refreshed') return { key: 'clean', stripKey: 'clean', label: 'Refreshed' };
+        if (normalized === 'dirty') return { key: 'dirty', stripKey: 'dirty', label: 'Dirty' };
+        if (normalized === 'cleaning') return { key: 'cleaning', stripKey: 'cleaning', label: 'Being Cleaned' };
+        if (normalized === 'ready_for_inspection') return { key: 'ready_for_inspection', stripKey: 'ready-for-inspection', label: 'Ready for Inspection' };
+        if (normalized === 'inspected') return { key: 'inspected', stripKey: 'inspected', label: 'Inspected' };
+        return { key: 'clean', stripKey: 'clean', label: 'Clean' };
+      }
+
+      function housekeepingStateForUnit(unit) {
+        if (['maintenance', 'out_of_order'].includes(String(unit.operational_status))) {
+          return { key: 'blocked', stripKey: 'blocked', label: 'Blocked' };
+        }
+        const housekeepingTask = activeHousekeepingTaskForUnit(unit.id);
+        const activeReservation = rackReservationForUnit(unit);
+        if (housekeepingTask) {
+          return housekeepingStateMeta(housekeepingTask.effective_room_state, housekeepingTask.status, housekeepingTask.task_kind);
+        }
+        const roomState = state.roomStatesByUnit[String(unit.id)]?.new_state || '';
+        if (!activeReservation && roomState) return housekeepingStateMeta(roomState);
+        if (checkedOutReservationForUnit(unit)) return housekeepingStateMeta('dirty');
+        return housekeepingStateMeta('ready');
+      }
+
+      function housekeepingActionForUnit(unit, housekeepingTask, hkState) {
+        if (!housekeepingTask || ['maintenance', 'out_of_order'].includes(String(unit.operational_status))) return null;
+        if (housekeepingTask.task_kind === 'stayover_refresh') {
+          if (hkState.key === 'refresh_needed') {
+            return { status: 'in_progress', label: 'Tap -> Start Refresh', flashLabel: 'Refreshing' };
+          }
+          if (hkState.key === 'refreshing') {
+            return { status: 'completed', label: 'Tap -> Refreshed', flashLabel: 'Refreshed' };
+          }
+          return null;
+        }
+        if (hkState.key === 'dirty') {
+          return { status: 'in_progress', label: 'Tap -> Being Cleaned', flashLabel: 'Being Cleaned' };
+        }
+        if (hkState.key === 'cleaning') {
+          return { status: 'waiting_inspection', label: 'Tap -> Done', flashLabel: 'Done / Ready for Inspection' };
+        }
+        if ((UI_ROLE_RANK[state.actorRole] || 0) < 3) {
+          if (hkState.key === 'ready_for_inspection' || hkState.key === 'inspected') {
+            return { blockedReason: 'Manager approval required for this step.', label: 'Manager approval required' };
+          }
+          return null;
+        }
+        if (hkState.key === 'ready_for_inspection') {
+          return { roomState: 'inspected', label: 'Mgr -> Inspect', flashLabel: 'Inspected' };
+        }
+        if (hkState.key === 'inspected') {
+          return { roomState: 'ready', label: 'Mgr -> Clean', flashLabel: 'Clean' };
+        }
+        return null;
       }
 
       function renderMaintenance() {
@@ -1657,12 +2133,9 @@
           return { key: 'blocked', label: 'Blocked' };
         }
 
-        const housekeepingTask = activeHousekeepingTaskForUnit(unit.id);
-        if (housekeepingTask?.status === 'pending') return { key: 'dirty', label: 'Dirty' };
-        if (housekeepingTask?.status === 'in_progress') return { key: 'cleaning', label: 'Being Cleaned' };
-        if (housekeepingTask?.status === 'waiting_inspection') return { key: 'inspected', label: 'Inspected' };
-        if (checkedOutReservationForUnit(unit)) return { key: 'dirty', label: 'Dirty' };
-        return { key: 'clean', label: 'Clean' };
+        const hkState = housekeepingStateForUnit(unit);
+        if (hkState.key === 'blocked') return { key: 'blocked', label: hkState.label };
+        return { key: hkState.stripKey, label: hkState.label };
       }
 
       function rackFloorAnchorId(floorLabel) {
@@ -1739,14 +2212,20 @@
             const suffix = res && Number(res.rooms_requested || 0) > 1 ? `+${Number(res.rooms_requested) - 1}` : '';
             const hasPhoto = res && state.guestPhotos[res.id];
             const currentRate = escapeHtml(formatRackPrice(u, res));
+            // CHK-R107: use allocation-backed summary for arrival badge on vacant cells
+            const unitSummary = state.rackAvailabilitySummary[String(u.id)] || null;
             const badges = [
-              res?.status === 'confirmed' && res.arrival_today ? '<span class="rc-badge arrival">ARR</span>' : '',
+              (res?.status === 'confirmed' && res.arrival_today) || unitSummary?.arrival_today ? '<span class="rc-badge arrival">ARR</span>' : '',
               u.do_not_disturb ? '<span class="rc-flag dnd">DND</span>' : '',
               u.room_service_requested ? '<span class="rc-flag rs">RS</span>' : '',
             ].filter(Boolean).join('');
             const guestLine = first ? `${first}${suffix ? ` ${escapeHtml(suffix)}` : ''}` : '';
+            // Richer tooltip: include why_not_assignable when available
+            const tooltipDetail = unitSummary?.why_not_assignable
+              ? ` · ${unitSummary.why_not_assignable}`
+              : (res ? ` · ${res.guest_name || ''} · ${res.check_in} → ${res.check_out}` : '');
             return `<button type="button" class="rack-cell ${primary.key}" data-unit-id="${escapeHtml(u.id)}"
-              title="${escapeHtml(u.room_number)}${res ? ' · ' + escapeHtml(res.guest_name || '') + ' · ' + escapeHtml(res.check_in) + ' → ' + escapeHtml(res.check_out) : ''}">
+              title="${escapeHtml(u.room_number)}${escapeHtml(tooltipDetail)}">
               ${hasPhoto ? `<img src="${escapeHtml(state.guestPhotos[res.id])}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:11px;opacity:.18">` : ''}
               ${badges ? `<div class="rc-badges">${badges}</div>` : ''}
               <div class="rc-head"><div class="rc-num">${escapeHtml(u.room_number)}</div><div class="rc-type">${code}</div></div>
@@ -1763,8 +2242,485 @@
         }).join('');
       }
 
+      // ── Planning Calendar (CHK-R108) ────────────────────────────────────────
+      function compactPrice(amount, currency) {
+        if (amount == null || isNaN(Number(amount))) return '';
+        const cur = (currency || '').toUpperCase();
+        const n = Number(amount);
+        if (cur === 'VND') {
+          if (n >= 1_000_000) {
+            const whole = Math.floor(n / 1_000_000);
+            const dec = Math.round(((n / 1_000_000) - whole) * 10);
+            return dec > 0 ? `${whole}tr${dec}` : `${whole}tr`;
+          }
+          if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+          return String(Math.round(n));
+        }
+        if (cur === 'IDR') {
+          if (n >= 1_000_000) {
+            const whole = Math.floor(n / 1_000_000);
+            const dec = Math.round(((n / 1_000_000) - whole) * 10);
+            return dec > 0 ? `${whole}.${dec}jt` : `${whole}jt`;
+          }
+          if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+          return String(Math.round(n));
+        }
+        if (cur === 'KRW') {
+          if (n >= 100_000_000) { const v = n / 100_000_000; return `${v % 1 === 0 ? v : v.toFixed(1)}억`; }
+          if (n >= 10_000) { const v = n / 10_000; return `${v % 1 === 0 ? v : v.toFixed(1)}만`; }
+          return String(Math.round(n));
+        }
+        if (cur === 'JPY' || cur === 'CNY') {
+          if (n >= 10_000) { const v = n / 10_000; return `${v % 1 === 0 ? v : v.toFixed(1)}${cur === 'JPY' ? '万' : '万'}`; }
+          return String(Math.round(n));
+        }
+        if (n >= 1_000_000) { const v = n / 1_000_000; return `${v % 1 === 0 ? v : v.toFixed(1)}M`; }
+        if (n >= 1_000) { const v = n / 1_000; return `${v % 1 === 0 ? v : v.toFixed(1)}K`; }
+        return String(Math.round(n));
+      }
+
+      function computePlanSlotWidth() {
+        const wrap = document.getElementById('planning-cal-wrap');
+        if (!wrap) return;
+        const roomW = 72;
+        const available = Math.max(60, wrap.clientWidth - roomW - 4);
+        const days = state.planningDays || 14;
+        const slotW = Math.max(26, Math.min(140, Math.floor(available / days)));
+        wrap.style.setProperty('--plan-slot-w', slotW + 'px');
+        wrap.style.setProperty('--plan-room-w', roomW + 'px');
+        wrap.style.setProperty('--plan-days', String(days));
+        wrap.style.overflowX = (slotW * days + roomW) > wrap.clientWidth ? 'auto' : 'hidden';
+      }
+
+      function normalizePlanningReservationStatus(status) {
+        const raw = String(status || '').trim().toLowerCase();
+        if (raw === 'checked_in' || raw === 'checked-in' || raw === 'checkedin') return 'checked_in';
+        if (raw === 'draft' || raw === 'pending_payment' || raw === 'pending') return 'draft';
+        if (raw === 'reserved' || raw === 'confirmed' || raw === 'booked') return 'reserved';
+        return 'reserved';
+      }
+
+      function getPlanningReservationRoomId(reservation) {
+        return String(reservation?.room_unit_id || reservation?.assigned_room_unit_id || reservation?.room_id || '');
+      }
+
+      function getPlanningReservationId(reservation) {
+        return String(reservation?.reservation_id || reservation?.id || '');
+      }
+
+      function getPlanningReservations(rooms = state.planningGrid?.units || [], dateRange = state.planningGrid?.dates || []) {
+        if (Array.isArray(state.planningGrid?.reservations) && state.planningGrid.reservations.length) {
+          return state.planningGrid.reservations;
+        }
+        return normalizePlanningReservationsFromUnits(rooms, dateRange);
+      }
+
+      function getPlanningReservationPrice(reservation) {
+        const snapshot = reservation?.pricing_snapshot && typeof reservation.pricing_snapshot === 'object'
+          ? reservation.pricing_snapshot
+          : null;
+        return {
+          amount: snapshot?.nightly_amount ?? snapshot?.price_per_night ?? snapshot?.rate_amount ?? snapshot?.nightly_rate ?? reservation?.nightly_amount ?? null,
+          currency: snapshot?.currency || reservation?.currency || '',
+        };
+      }
+
+      function reservationOccupiesDate(reservation, date) {
+        const checkIn = String(reservation?.check_in || '').trim();
+        const checkOut = String(reservation?.check_out || '').trim();
+        if (!checkIn || !checkOut || !date) return false;
+        return date >= checkIn && date < checkOut;
+      }
+
+      function reservationArrivesOnDate(reservation, date) {
+        return String(reservation?.check_in || '').trim() === String(date || '').trim();
+      }
+
+      function reservationDepartsOnDate(reservation, date) {
+        return String(reservation?.check_out || '').trim() === String(date || '').trim();
+      }
+
+      function getPlanningCellReservations(roomId, date, reservations = getPlanningReservations()) {
+        const normalizedRoomId = String(roomId || '').trim();
+        if (!normalizedRoomId || !date) {
+          return { activeReservation: null, arrivingReservation: null, departingReservation: null, turnover: false };
+        }
+        let activeReservation = null;
+        let arrivingReservation = null;
+        let departingReservation = null;
+        for (const reservation of (reservations || [])) {
+          if (getPlanningReservationRoomId(reservation) !== normalizedRoomId) continue;
+          if (!activeReservation && reservationOccupiesDate(reservation, date)) activeReservation = reservation;
+          if (!arrivingReservation && reservationArrivesOnDate(reservation, date)) arrivingReservation = reservation;
+          if (!departingReservation && reservationDepartsOnDate(reservation, date)) departingReservation = reservation;
+          if (activeReservation && arrivingReservation && departingReservation) break;
+        }
+        const arrivingId = getPlanningReservationId(arrivingReservation);
+        const departingId = getPlanningReservationId(departingReservation);
+        return {
+          activeReservation,
+          arrivingReservation,
+          departingReservation,
+          turnover: Boolean(arrivingReservation && departingReservation && arrivingId && departingId && arrivingId !== departingId),
+        };
+      }
+
+      function getReservationForCell(roomId, date, reservations = getPlanningReservations()) {
+        return getPlanningCellReservations(roomId, date, reservations).activeReservation;
+      }
+
+      function buildPlanningReservationTooltip(reservation, prefix = '') {
+        if (!reservation) return '';
+        const normalizedStatus = normalizePlanningReservationStatus(reservation.status);
+        const pricing = getPlanningReservationPrice(reservation);
+        const parts = [];
+        if (prefix) parts.push(prefix);
+        parts.push(reservation.guest_name || '(no name)');
+        parts.push(planningBarLabel(normalizedStatus));
+        parts.push(`${reservation.check_in} → ${reservation.check_out}`);
+        if (pricing?.amount != null) {
+          parts.push(`${pricing.currency || ''} ${compactPrice(pricing.amount, pricing.currency)}/n`.trim());
+        }
+        return parts.join(' · ');
+      }
+
+      function rangesOverlap(startA, endA, startB, endB) {
+        return Boolean(startA && endA && startB && endB && startA < endB && endA > startB);
+      }
+
+      function getConflictingReservation(roomId, checkIn, checkOut, ignoreReservationId = null, reservations = getPlanningReservations()) {
+        const normalizedRoomId = String(roomId || '').trim();
+        const ignoredId = String(ignoreReservationId || '').trim();
+        if (!normalizedRoomId || !checkIn || !checkOut || checkOut <= checkIn) return null;
+        for (const reservation of (reservations || [])) {
+          const reservationId = getPlanningReservationId(reservation);
+          if (!reservationId || (ignoredId && reservationId === ignoredId)) continue;
+          if (getPlanningReservationRoomId(reservation) !== normalizedRoomId) continue;
+          if (rangesOverlap(checkIn, checkOut, String(reservation.check_in || '').trim(), String(reservation.check_out || '').trim())) {
+            return reservation;
+          }
+        }
+        return null;
+      }
+
+      function planningBarLabel(status) {
+        if (status === 'checked_in') return 'Checked In';
+        if (status === 'draft') return 'Draft';
+        return 'Reserved';
+      }
+
+      function resolvePlanningVacantPrice(unit, slot) {
+        const slotSnapshot = slot?.pricing_snapshot && typeof slot.pricing_snapshot === 'object' ? slot.pricing_snapshot : null;
+        const unitSnapshot = unit?.pricing_snapshot && typeof unit.pricing_snapshot === 'object' ? unit.pricing_snapshot : null;
+        const amount = slotSnapshot?.nightly_amount ?? unitSnapshot?.nightly_amount ?? null;
+        const currency = slotSnapshot?.currency ?? unitSnapshot?.currency ?? '';
+        if (amount != null && Number.isFinite(Number(amount))) return { amount: Number(amount), currency };
+        const roomRate = state.roomRates.find((rate) => String(rate.room_type_id) === String(unit.room_type_id) && rate.active);
+        if (!roomRate || !Number.isFinite(Number(roomRate.nightly_amount))) return null;
+        return { amount: Number(roomRate.nightly_amount), currency: String(roomRate.currency || 'VND') };
+      }
+
+      function normalizePlanningReservationsFromUnits(rooms, dateRange) {
+        const grouped = new Map();
+        for (const room of (rooms || [])) {
+          const roomId = String(room.room_unit_id || room.id || '');
+          if (!roomId) continue;
+          for (const slot of (room.slots || [])) {
+            if (!slot?.reservation_id || !slot?.date) continue;
+            const key = `${roomId}::${slot.reservation_id}`;
+            const slotEnd = addIsoDays(slot.date, 1);
+            if (!grouped.has(key)) {
+              grouped.set(key, {
+                id: slot.reservation_id,
+                reservation_id: slot.reservation_id,
+                room_unit_id: roomId,
+                guest_name: slot.guest_name || '',
+                check_in: slot.date,
+                check_out: slotEnd,
+                status: slot.reservation_status || slot.status || 'confirmed',
+                pricing_snapshot: {
+                  nightly_amount: slot.nightly_amount ?? null,
+                  currency: slot.currency || '',
+                },
+              });
+              continue;
+            }
+            const current = grouped.get(key);
+            if (slot.date < current.check_in) current.check_in = slot.date;
+            if (slotEnd > current.check_out) current.check_out = slotEnd;
+            if (!current.guest_name && slot.guest_name) current.guest_name = slot.guest_name;
+            if (!current.pricing_snapshot?.nightly_amount && slot.nightly_amount != null) {
+              current.pricing_snapshot = { nightly_amount: slot.nightly_amount, currency: slot.currency || '' };
+            }
+            if (!current.status && (slot.reservation_status || slot.status)) current.status = slot.reservation_status || slot.status;
+          }
+        }
+        return Array.from(grouped.values());
+      }
+
+      function updateCreateReservationValidation() {
+        const button = document.getElementById('btn-create-walkin');
+        const validationEl = document.getElementById('sh-walkin-validation');
+        const mode = state.sheetCreateMode;
+        if (!button || !validationEl) return { ok: true, message: '', conflict: null };
+
+        button.textContent = mode === 'reservation' ? 'Create Reservation' : 'Create Walk-in & Check In';
+
+        if (!state.sheetRoomUnit || !mode) {
+          button.disabled = true;
+          validationEl.hidden = true;
+          validationEl.textContent = '';
+          return { ok: false, message: 'Open a room first.', conflict: null };
+        }
+
+        const checkIn = document.getElementById('sf-walkin-ci').value;
+        const checkOut = document.getElementById('sf-walkin-co').value;
+        let message = '';
+        let conflict = null;
+
+        if (!checkIn || !checkOut || checkOut <= checkIn) {
+          message = 'Select a valid stay range.';
+        } else {
+          conflict = getConflictingReservation(state.sheetRoomUnit.id, checkIn, checkOut, null, getPlanningReservations());
+          if (conflict) message = 'Phòng đã được đặt';
+        }
+
+        button.disabled = Boolean(message);
+        validationEl.hidden = !message;
+        validationEl.textContent = message;
+        return { ok: !message, message, conflict };
+      }
+
+      function buildPlanningReservationBars(rooms, reservations, dateRange) {
+        const barsByRoom = new Map();
+        const roomIds = new Set((rooms || []).map((room) => String(room.room_unit_id || room.id || '')).filter(Boolean));
+        for (const roomId of roomIds) barsByRoom.set(roomId, []);
+        if (!Array.isArray(dateRange) || !dateRange.length) return barsByRoom;
+
+        const dateIndex = new Map(dateRange.map((date, index) => [date, index]));
+        const rangeStart = dateRange[0];
+        const rangeEndExclusive = addIsoDays(dateRange[dateRange.length - 1], 1);
+
+        for (const reservation of (reservations || [])) {
+          const roomId = getPlanningReservationRoomId(reservation);
+          if (!roomId || !roomIds.has(roomId)) continue;
+          const checkIn = String(reservation?.check_in || '').trim();
+          const checkOut = String(reservation?.check_out || '').trim();
+          if (!checkIn || !checkOut || checkOut <= rangeStart || checkIn >= rangeEndExclusive) continue;
+
+          const clippedStart = checkIn > rangeStart ? checkIn : rangeStart;
+          const clippedEnd = checkOut < rangeEndExclusive ? checkOut : rangeEndExclusive;
+          const startIndex = dateIndex.get(clippedStart);
+          const endIndex = clippedEnd === rangeEndExclusive ? dateRange.length : dateIndex.get(clippedEnd);
+          if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || endIndex <= startIndex) continue;
+
+          const normalizedStatus = normalizePlanningReservationStatus(reservation?.status);
+          const pricing = getPlanningReservationPrice(reservation);
+          barsByRoom.get(roomId).push({
+            reservation_id: getPlanningReservationId(reservation),
+            room_unit_id: roomId,
+            guest_name: String(reservation?.guest_name || '').trim(),
+            check_in: checkIn,
+            check_out: checkOut,
+            status: normalizedStatus,
+            status_label: planningBarLabel(normalizedStatus),
+            nightly_amount: pricing.amount,
+            currency: pricing.currency,
+            startIndex,
+            spanDays: endIndex - startIndex,
+            leftPct: (startIndex / dateRange.length) * 100,
+            widthPct: ((endIndex - startIndex) / dateRange.length) * 100,
+          });
+        }
+
+        for (const bars of barsByRoom.values()) {
+          bars.sort((a, b) => a.startIndex - b.startIndex || b.spanDays - a.spanDays);
+          const laneEnds = [];
+          for (const bar of bars) {
+            let lane = laneEnds.findIndex((laneEnd) => laneEnd <= bar.startIndex);
+            if (lane === -1) lane = laneEnds.length;
+            laneEnds[lane] = bar.startIndex + bar.spanDays;
+            bar.lane = lane;
+            bar.topPx = 4 + (lane * 20);
+          }
+          bars.laneCount = laneEnds.length || 0;
+        }
+
+        return barsByRoom;
+      }
+
+      function renderPlanningCalendar() {
+        computePlanSlotWidth();
+        const cal = document.getElementById('planning-cal');
+        const typeFilterEl = document.getElementById('plan-type-filter');
+        const floorFilterEl = document.getElementById('plan-floor-filter');
+        const grid = state.planningGrid;
+        if (!grid || !grid.units || !grid.dates) {
+          cal.innerHTML = '<div class="plan-empty">Load a property to view the planning calendar.</div>';
+          return;
+        }
+        const typeMap = {};
+        state.roomTypes.forEach((t) => { typeMap[t.id] = t.code || t.name || t.id; });
+        const today = new Date().toISOString().slice(0, 10);
+        const dowShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+        // Sync view buttons
+        document.querySelectorAll('.plan-view-btn').forEach((b) => {
+          b.classList.toggle('active', Number(b.getAttribute('data-plan-days')) === state.planningDays);
+        });
+
+        // Populate type filter
+        const savedType = typeFilterEl.value;
+        const typeIds = [...new Set(grid.units.map((u) => u.room_type_id).filter(Boolean))];
+        typeFilterEl.innerHTML = '<option value="all">All types</option>' +
+          typeIds.map((id) => `<option value="${escapeHtml(id)}"${savedType === id ? ' selected' : ''}>${escapeHtml(typeMap[id] || id)}</option>`).join('');
+        if (savedType && typeIds.includes(savedType)) typeFilterEl.value = savedType;
+
+        // Populate floor filter
+        const savedFloor = floorFilterEl.value;
+        const floorIds = [...new Set(grid.units.map((u) => u.floor_label || '—'))];
+        floorFilterEl.innerHTML = '<option value="all">All floors</option>' +
+          floorIds
+            .sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb; })
+            .map((fl) => `<option value="${escapeHtml(fl)}"${savedFloor === fl ? ' selected' : ''}>${escapeHtml(fl === '—' ? 'No floor' : 'Fl.' + fl)}</option>`).join('');
+        if (savedFloor && floorIds.includes(savedFloor)) floorFilterEl.value = savedFloor;
+
+        // Apply filters
+        const activeType = typeFilterEl.value;
+        const activeFloor = floorFilterEl.value;
+        let filteredUnits = grid.units;
+        if (activeType !== 'all') filteredUnits = filteredUnits.filter((u) => u.room_type_id === activeType);
+        if (activeFloor !== 'all') filteredUnits = filteredUnits.filter((u) => (u.floor_label || '—') === activeFloor);
+
+        if (!filteredUnits.length) {
+          cal.innerHTML = '<div class="plan-empty">No rooms match the current filters.</div>';
+          return;
+        }
+
+        // Header row
+        const headerDateCells = grid.dates.map((date) => {
+          const d = new Date(`${date}T00:00:00Z`);
+          const dayNum = d.getUTCDate();
+          const monShort = d.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+          const dow = dowShort[d.getUTCDay()];
+          const isToday = date === today ? ' today' : '';
+          const isWeekend = (d.getUTCDay() === 0 || d.getUTCDay() === 6) ? ' weekend' : '';
+          return `<div class="plan-date-cell${isToday}${isWeekend}"><div>${monShort}&nbsp;${dayNum}</div><div class="pd-dow">${dow}</div></div>`;
+        }).join('');
+
+        // Group units by floor (descending)
+        const floors = {};
+        filteredUnits.forEach((u) => {
+          const fl = u.floor_label || '—';
+          if (!floors[fl]) floors[fl] = [];
+          floors[fl].push(u);
+        });
+        const sortedFloors = Object.keys(floors).sort((a, b) => {
+          const na = parseFloat(a), nb = parseFloat(b);
+          return isNaN(na) || isNaN(nb) ? b.localeCompare(a) : nb - na;
+        });
+        const planningReservations = getPlanningReservations(filteredUnits, grid.dates);
+        const barsByRoom = buildPlanningReservationBars(filteredUnits, planningReservations, grid.dates);
+
+        const unitRows = sortedFloors.map((floor) => {
+          const divider = `<div class="plan-floor-divider"><div class="plan-floor-divider-cell">Fl.${escapeHtml(floor)}</div><div class="plan-floor-spacer"></div></div>`;
+          const rows = floors[floor].map((unit) => {
+            const typeCode = escapeHtml((typeMap[unit.room_type_id] || unit.room_type_id || '').slice(0, 6));
+            const roomCell = `<div class="plan-room-cell"><div class="pr-num">${escapeHtml(unit.room_number)}</div><div class="pr-type">${typeCode}</div></div>`;
+            const roomBars = barsByRoom.get(String(unit.room_unit_id)) || [];
+            const laneCount = roomBars.laneCount || (roomBars.length ? 1 : 0);
+            const rowHeight = Math.max(32, laneCount ? (8 + (laneCount * 20)) : 32);
+            const slotMap = new Map((unit.slots || []).map((slot) => [slot.date, slot]));
+            const slotCells = grid.dates.map((date) => {
+              const slot = slotMap.get(date) || { date, state: 'vacant' };
+              const cellReservations = getPlanningCellReservations(unit.room_unit_id, date, planningReservations);
+              const reservation = cellReservations.activeReservation;
+              const arrivingReservation = cellReservations.arrivingReservation;
+              const departingReservation = cellReservations.departingReservation;
+              const isTurnover = cellReservations.turnover;
+              const hasReservation = Boolean(reservation);
+              const reservationStatus = hasReservation ? normalizePlanningReservationStatus(reservation.status) : '';
+              const reservationId = hasReservation ? getPlanningReservationId(reservation) : '';
+              const reservationPricing = hasReservation ? getPlanningReservationPrice(reservation) : null;
+              const isVacant = !isTurnover && !hasReservation && slot.state === 'vacant';
+              const isMaint = !isTurnover && !hasReservation && slot.state === 'maintenance';
+              const isOOO = !isTurnover && !hasReservation && slot.state === 'out_of_order';
+              const clickable = !isTurnover && (hasReservation || isVacant);
+              const vacantPrice = isVacant ? resolvePlanningVacantPrice(unit, slot) : null;
+              let tooltip;
+              if (isTurnover) {
+                tooltip = `${buildPlanningReservationTooltip(departingReservation, 'Check-out')} ⇄ ${buildPlanningReservationTooltip(arrivingReservation, 'Check-in')}`;
+              } else if (hasReservation) {
+                tooltip = buildPlanningReservationTooltip(reservation);
+              } else if (isVacant) {
+                tooltip = vacantPrice
+                  ? `Room ${unit.room_number} — vacant · ${vacantPrice.currency} ${compactPrice(vacantPrice.amount, vacantPrice.currency)}/n — click to assign or walk-in`
+                  : `Room ${unit.room_number} — click to assign or walk-in`;
+              } else if (isMaint) {
+                tooltip = `Room ${unit.room_number} — Maintenance`;
+              } else if (isOOO) {
+                tooltip = `Room ${unit.room_number} — Out of Order`;
+              } else {
+                tooltip = slot.state;
+              }
+              const resIdAttr = hasReservation && reservationId ? ` data-plan-res-id="${escapeHtml(reservationId)}"` : '';
+              const dateAttr = clickable ? ` data-plan-date="${escapeHtml(slot.date)}"` : '';
+              const stateAttr = hasReservation ? reservationStatus : slot.state;
+              const unitAttr = clickable ? ` data-plan-unit-id="${escapeHtml(unit.room_unit_id)}" data-plan-state="${stateAttr}"${dateAttr}${resIdAttr}` : '';
+              const baseClass = isTurnover ? 'turnover' : (hasReservation ? `booked ${reservationStatus}` : slot.state);
+              let inner;
+              if (isTurnover) {
+                const departingStatus = normalizePlanningReservationStatus(departingReservation.status);
+                const arrivingStatus = normalizePlanningReservationStatus(arrivingReservation.status);
+                const departingId = getPlanningReservationId(departingReservation);
+                const arrivingId = getPlanningReservationId(arrivingReservation);
+                inner = `
+                  <button type="button" class="plan-turnover-hit departing ${departingStatus}" title="${escapeHtml(buildPlanningReservationTooltip(departingReservation, 'Check-out'))}" data-plan-unit-id="${escapeHtml(unit.room_unit_id)}" data-plan-state="${escapeHtml(departingStatus)}" data-plan-date="${escapeHtml(slot.date)}" data-plan-res-id="${escapeHtml(departingId)}">
+                    <span class="plan-turnover-tag departing">OUT</span>
+                  </button>
+                  <button type="button" class="plan-turnover-hit arriving ${arrivingStatus}" title="${escapeHtml(buildPlanningReservationTooltip(arrivingReservation, 'Check-in'))}" data-plan-unit-id="${escapeHtml(unit.room_unit_id)}" data-plan-state="${escapeHtml(arrivingStatus)}" data-plan-date="${escapeHtml(slot.date)}" data-plan-res-id="${escapeHtml(arrivingId)}">
+                    <span class="plan-turnover-tag arriving">IN</span>
+                  </button>`;
+              } else if (isVacant) {
+                inner = `<span class="ps-vacant-label">+</span>${vacantPrice ? `<span class="ps-vacant-price">${escapeHtml(vacantPrice.currency)} ${compactPrice(vacantPrice.amount, vacantPrice.currency)}/n</span>` : ''}`;
+              } else if (isMaint) {
+                inner = `<span class="ps-status-label">⚙ Maintenance</span>`;
+              } else if (isOOO) {
+                inner = `<span class="ps-status-label">✕ Out of Order</span>`;
+              } else {
+                inner = '';
+              }
+              return `<div class="plan-slot ${baseClass}${clickable ? ' clickable' : ''}" title="${escapeHtml(tooltip)}"${unitAttr}>${inner}</div>`;
+            }).join('');
+            const barMarkup = roomBars.map((bar) => {
+              const guestLabel = escapeHtml((bar.guest_name || bar.status_label).trim() || bar.status_label);
+              const priceLabel = bar.nightly_amount != null
+                ? `<span class="prb-price">${bar.currency ? escapeHtml(bar.currency) + '\u202f' : ''}${compactPrice(bar.nightly_amount, bar.currency)}/n</span>`
+                : '';
+              const tooltip = `${bar.guest_name || '(no name)'} · ${bar.status_label} · ${bar.check_in} → ${bar.check_out}${bar.nightly_amount != null ? ' · ' + (bar.currency || '') + ' ' + compactPrice(bar.nightly_amount, bar.currency) + '/n' : ''}`;
+              return `<div class="plan-res-bar ${bar.status}" style="left:${bar.leftPct}%;width:${bar.widthPct}%;top:${bar.topPx}px" title="${escapeHtml(tooltip)}" data-plan-unit-id="${escapeHtml(unit.room_unit_id)}" data-plan-res-id="${escapeHtml(bar.reservation_id)}" data-plan-status="${escapeHtml(bar.status)}"><span class="prb-name">${guestLabel}</span>${priceLabel}</div>`;
+            }).join('');
+            return `<div class="plan-unit-row">${roomCell}<div class="plan-row-body" style="--plan-row-h:${rowHeight}px"><div class="plan-slot-grid">${slotCells}</div><div class="plan-bar-layer">${barMarkup}</div></div></div>`;
+          }).join('');
+          return divider + rows;
+        }).join('');
+
+        cal.innerHTML = `<div class="plan-header-row"><div class="plan-header-room-cell">Room</div>${headerDateCells}</div>${unitRows}`;
+      }
+
+      async function loadPlanningGrid() {
+        if (!state.selectedPropertyId) { state.planningGrid = null; renderPlanningCalendar(); return; }
+        const payload = await api(
+          `/api/properties/${state.selectedPropertyId}/planning-grid?from_date=${encodeURIComponent(state.planningFromDate)}&days=${state.planningDays}`
+        );
+        state.planningGrid = payload;
+        renderPlanningCalendar();
+        updateCreateReservationValidation();
+      }
+
       // ── Guest Sheet ─────────────────────────────────────────────────────────
       function sheetStatusStyle(status) {
+        if (status === 'draft')       return 'background:#e2e8f033;color:#334155';
         if (status === 'checked_in')  return 'background:#22c55e33;color:#166534';
         if (status === 'confirmed')   return 'background:#818cf833;color:#4c1d95';
         if (status === 'checked_out') return 'background:#60a5fa33;color:#1e3a8a';
@@ -1844,7 +2800,7 @@
           </article>`).join('');
       }
 
-      async function openGuestSheet(unitId) {
+      async function openProfile(unitId, reservationId = null, initialTab = 'stay') {
         const unit = state.roomUnits.find(u => u.id === unitId);
         if (!unit) return;
         state.sheetRoomUnit = unit;
@@ -1853,11 +2809,11 @@
         state.roomAvailabilityMonth = new Date().toISOString().slice(0, 7);
         const overlay = document.getElementById('guest-overlay');
         const walkinBox = document.getElementById('sh-walkin-box');
-        let res = rackReservationForUnit(unit);
-        if (res) {
-          hydrateGuestPhotoCacheFromReservation(res);
+        let res = null;
+        const resLookupId = reservationId || rackReservationForUnit(unit)?.id || null;
+        if (resLookupId) {
           try {
-            const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`);
+            const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${resLookupId}`);
             state.sheetReservation = detail;
             res = detail.reservation;
             hydrateGuestPhotoCacheFromReservation(res);
@@ -1893,6 +2849,10 @@
         document.getElementById('sf-walkin-children').value = '0';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
+        state.sheetCreateMode = res ? null : 'walkin';
+        document.getElementById('btn-create-walkin').textContent = 'Create Walk-in & Check In';
+        document.getElementById('sh-walkin-validation').hidden = true;
+        document.getElementById('sh-walkin-validation').textContent = '';
         // Stay tab
         if (res) {
           const typeMap = {}; state.roomTypes.forEach(t => { typeMap[t.id] = t.name || t.code || t.id; });
@@ -1942,12 +2902,45 @@
         await refreshSheetFolio();
         renderSheetTimeline();
         document.getElementById('sh-raw').textContent = JSON.stringify(state.sheetReservation || { unit }, null, 2);
-        switchSheetTab('stay');
+        updateCreateReservationValidation();
+        switchSheetTab(initialTab);
         overlay.hidden = false;
+      }
+
+      async function openStayInfo(unitId, reservationId) {
+        if (!reservationId) return;
+        await openProfile(unitId, reservationId, 'stay');
+      }
+
+      async function createReservation(unitId, options = {}) {
+        const checkIn = String(options.checkIn || state.boardDate || new Date().toISOString().slice(0, 10)).trim();
+        const checkOut = String(options.checkOut || addIsoDays(checkIn, 1)).trim();
+        await openProfile(unitId, null, 'actions');
+        const unit = state.sheetRoomUnit;
+        if (!unit) return;
+        state.sheetCreateMode = 'reservation';
+        document.getElementById('sh-guest-name').textContent = 'New Reservation';
+        document.getElementById('sh-guest-sub').textContent = `Room ${unit.room_number} · ${checkIn} → ${checkOut}`;
+        const badge = document.getElementById('sh-badge');
+        badge.textContent = 'draft';
+        badge.setAttribute('style', sheetStatusStyle('draft'));
+        document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">Draft reservation. Complete the form below to create a new booking for this room.</div>';
+        document.getElementById('sf-walkin-ci').value = checkIn;
+        document.getElementById('sf-walkin-co').value = checkOut;
+        document.getElementById('sh-pricing').textContent = '';
+        document.getElementById('btn-create-walkin').textContent = 'Create Reservation';
+        updateCreateReservationValidation();
+        switchSheetTab('actions');
+        document.getElementById('sf-walkin-name').focus();
+      }
+
+      async function openGuestSheet(unitId, reservationId = null) {
+        await openProfile(unitId, reservationId, 'stay');
       }
 
       function closeGuestSheet() {
         document.getElementById('guest-overlay').hidden = true;
+        state.sheetCreateMode = null;
         state.sheetRoomUnit = null;
         state.sheetReservation = null;
       }
@@ -2000,6 +2993,12 @@
           state.reservations = [];
           state.roomUnits = [];
           state.addonServicePresets = [];
+          state.roomTypes = [];
+          state.roomRates = [];
+          state.rackAvailabilitySummary = {};
+          state.housekeepingTasks = [];
+          state.roomStatesByUnit = {};
+          state.actorRole = '';
           state.activeHolds = [];
           state.shiftHandover = null;
           state.currentReservation = null;
@@ -2012,6 +3011,8 @@
           renderShiftHandover();
           renderFolioAddonPresets();
           renderRack();
+          state.planningGrid = null;
+          renderPlanningCalendar();
           return;
         }
         const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
@@ -2033,6 +3034,8 @@
         state.roomRates = roomRatesPayload.room_rates || [];
         state.rackAvailabilitySummary = Object.fromEntries((rackSummaryPayload.summary || []).map((entry) => [String(entry.room_unit_id), entry]));
         state.housekeepingTasks = housekeepingPayload.housekeeping_tasks || [];
+        state.roomStatesByUnit = Object.fromEntries((housekeepingPayload.room_states || []).map((entry) => [String(entry.room_unit_id), entry]));
+        state.actorRole = String(housekeepingPayload.actor_role || '').trim();
         state.activeHolds = holdsPayload.holds || [];
         state.shiftHandover = shiftHandoverPayload.shift_handover || null;
         for (const reservation of state.reservations) hydrateGuestPhotoCacheFromReservation(reservation);
@@ -2056,6 +3059,8 @@
         renderShiftHandover();
         renderFolioAddonPresets();
         renderRack();
+        // CHK-R108: load planning grid in parallel but non-blocking
+        loadPlanningGrid().catch(() => {});
       }
 
       async function loadReservation(reservationId) {
@@ -2292,12 +3297,22 @@
         const button = event.target.closest('[data-hk-task-id]');
         if (!button || !state.selectedPropertyId) return;
         try {
+          const nextStatus = button.getAttribute('data-hk-status');
+          const nextRoomState = button.getAttribute('data-hk-room-state');
+          const message = button.getAttribute('data-hk-message');
+          if (!nextStatus && !nextRoomState) {
+            if (message) return setFlash(message, 'err');
+            return;
+          }
           await api(`/api/properties/${state.selectedPropertyId}/housekeeping-tasks/${button.getAttribute('data-hk-task-id')}`, {
             method: 'PATCH',
-            body: JSON.stringify({ status: button.getAttribute('data-hk-status') }),
+            body: JSON.stringify({
+              ...(nextStatus ? { status: nextStatus } : {}),
+              ...(nextRoomState ? { room_state: nextRoomState } : {}),
+            }),
           });
           await loadWorkspace();
-          setFlash(`Housekeeping task moved to ${button.getAttribute('data-hk-status')}.`);
+          setFlash(`Housekeeping updated to ${nextRoomState || nextStatus}.`);
         } catch (error) {
           setFlash(error.message, 'err');
         }
@@ -2401,13 +3416,77 @@
       }
 
       applyActiveTab();
+      renderOpsClock();
+      window.setInterval(renderOpsClock, 1000);
       restoreTenant();
+
+      // ── Planning Calendar events ──────────────────────────────────────────────
+      (() => {
+        const planFromInput = document.getElementById('plan-from-date');
+        planFromInput.value = state.planningFromDate;
+
+        planFromInput.addEventListener('change', async () => {
+          const v = planFromInput.value.trim();
+          if (v) { state.planningFromDate = v; await loadPlanningGrid().catch((err) => setFlash(err.message, 'err')); }
+        });
+
+        // W / 2W / 3W / 4W view buttons
+        document.getElementById('plan-view-btns').addEventListener('click', async (e) => {
+          const btn = e.target.closest('.plan-view-btn');
+          if (!btn) return;
+          const days = Number(btn.getAttribute('data-plan-days'));
+          if (!days || days === state.planningDays) return;
+          state.planningDays = days;
+          document.querySelectorAll('.plan-view-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          await loadPlanningGrid().catch((err) => setFlash(err.message, 'err'));
+        });
+
+        document.getElementById('btn-refresh-planning').addEventListener('click', async () => {
+          await loadPlanningGrid().catch((err) => setFlash(err.message, 'err'));
+        });
+        document.getElementById('plan-type-filter').addEventListener('change', () => renderPlanningCalendar());
+        document.getElementById('plan-floor-filter').addEventListener('change', () => renderPlanningCalendar());
+
+        // Click reservation → open stay info; click vacant cell → open create-reservation form
+        document.getElementById('planning-cal').addEventListener('click', async (e) => {
+          const slotEl = e.target.closest('[data-plan-unit-id]');
+          if (!slotEl) return;
+          const unitId = slotEl.getAttribute('data-plan-unit-id');
+          if (!unitId || !state.selectedPropertyId) return;
+
+          e.preventDefault();
+          e.stopPropagation();
+
+          const resId = slotEl.getAttribute('data-plan-res-id') || null;
+          const stateKind = slotEl.getAttribute('data-plan-state') || '';
+          const planDate = slotEl.getAttribute('data-plan-date') || '';
+
+          try {
+            if (resId) {
+              await openStayInfo(unitId, resId);
+              return;
+            }
+            if (stateKind === 'vacant') {
+              await createReservation(unitId, {
+                checkIn: planDate || undefined,
+                checkOut: planDate ? addIsoDays(planDate, 1) : undefined,
+              });
+            }
+          }
+          catch (err) { setFlash(err.message, 'err'); }
+        });
+
+        // Dynamic slot width on container resize
+        if (window.ResizeObserver) {
+          new ResizeObserver(() => computePlanSlotWidth()).observe(document.getElementById('planning-cal-wrap'));
+        }
+      })();
 
       // ── Room Rack events ────────────────────────────────────────────────────
       document.getElementById('rack-grid-container').addEventListener('click', async (e) => {
         const cell = e.target.closest('[data-unit-id]');
         if (!cell || !state.selectedPropertyId) return;
-        try { await openGuestSheet(cell.getAttribute('data-unit-id')); }
+        try { await openProfile(cell.getAttribute('data-unit-id'), null, 'stay'); }
         catch (err) { setFlash(err.message, 'err'); }
       });
 
@@ -2481,6 +3560,9 @@
       });
       document.getElementById('btn-save-requests').addEventListener('click', () => {
         setFlash('Notes saved in session.');
+      });
+      ['sf-walkin-ci', 'sf-walkin-co'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', () => updateCreateReservationValidation());
       });
 
       // Add preset service
@@ -2642,6 +3724,8 @@
 
       document.getElementById('btn-create-walkin').addEventListener('click', async () => {
         if (!state.sheetRoomUnit || !state.selectedPropertyId) return setFlash('Open a room cell first.', 'err');
+        const validation = updateCreateReservationValidation();
+        if (!validation.ok) return setFlash(validation.message || 'Phòng đã được đặt', 'err');
         const guestName = document.getElementById('sf-walkin-name').value.trim();
         const guestPhone = document.getElementById('sf-walkin-phone').value.trim();
         const guestEmail = document.getElementById('sf-walkin-email').value.trim();
@@ -2666,6 +3750,17 @@
               source: 'manual_frontdesk',
             }),
           });
+          if (state.sheetCreateMode === 'reservation') {
+            await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ assigned_room_unit_id: state.sheetRoomUnit.id }),
+            });
+            await loadWorkspace();
+            await openStayInfo(state.sheetRoomUnit.id, created.reservation.id);
+            switchSheetTab('stay');
+            setFlash('Reservation created.');
+            return;
+          }
           await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}/check-in`, {
             method: 'POST',
             body: JSON.stringify({ assigned_room_unit_id: state.sheetRoomUnit.id }),

@@ -81,6 +81,31 @@ function formatDateUtc(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateParts(parts) {
+  return `${String(parts.year).padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+function getTimeZoneDateTimeParts(timestamp = new Date(), timeZone = 'Asia/Ho_Chi_Minh') {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parseInt(parts.find((part) => part.type === type)?.value ?? '0', 10);
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+  };
+}
+
 function addDays(date, days) {
   const next = new Date(date.getTime());
   next.setUTCDate(next.getUTCDate() + days);
@@ -298,6 +323,8 @@ const PROPERTY_STATUSES = new Set(['draft', 'active', 'inactive']);
 const PROPERTY_UPGRADE_MODES = new Set(['off', 'suggest_only', 'auto_if_penalty_better']);
 const ROOM_UNIT_OPERATIONAL_STATUSES = new Set(['ready', 'maintenance', 'out_of_order']);
 const HOUSEKEEPING_TASK_STATUSES = new Set(['pending', 'in_progress', 'waiting_inspection', 'completed', 'cancelled']);
+const HOUSEKEEPING_ROOM_STATES = new Set(['dirty', 'cleaning', 'ready_for_inspection', 'inspected', 'ready']);
+const HOUSEKEEPING_TASK_KINDS = new Set(['departure_clean', 'stayover_refresh']);
 const HOUSEKEEPING_TASK_PRIORITIES = new Set(['arrival_today_high', 'arrival_today_normal', 'departure_clean', 'routine', 'blocked_maintenance']);
 const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
@@ -1425,6 +1452,7 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
   try {
     const property = await loadPropertyById(env, tenantId, propertyId);
     if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
     const roomUnitsResult = await env.DB
       .prepare(
         `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status,
@@ -1436,47 +1464,249 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
       .all();
     const roomUnits = (roomUnitsResult.results || []).map(mapRoomUnitRow);
     const rangeEndExclusive = formatDateUtc(addDays(parseDateUtc(fromDate), lookaheadDays));
-    const reservationsResult = await env.DB
+
+    // CHK-R107: Use reservation_allocations as the source of truth so multi-room
+    // and split-stay reservations (where assigned_room_unit_id may be null) are
+    // correctly reflected in the rack's forward-looking availability signals.
+    const allocResult = await env.DB
       .prepare(
-        `SELECT id, guest_name, check_in, check_out, assigned_room_unit_id, status
-           FROM property_reservations
-          WHERE tenant_id = ?
-            AND property_id = ?
-            AND assigned_room_unit_id IS NOT NULL
-            AND status IN ('confirmed', 'checked_in')
-            AND check_out > ?
-            AND check_in < ?
-          ORDER BY check_in ASC, created_at ASC`
+        `SELECT ra.room_unit_id, ra.reservation_id,
+                pr.guest_name, pr.check_in, pr.check_out, pr.status,
+                MIN(ra.stay_date) AS first_alloc_date,
+                MAX(ra.stay_date) AS last_alloc_date
+           FROM reservation_allocations ra
+           JOIN property_reservations pr
+             ON pr.id = ra.reservation_id
+            AND pr.tenant_id = ra.tenant_id
+            AND pr.property_id = ra.property_id
+          WHERE ra.tenant_id = ?
+            AND ra.property_id = ?
+            AND ra.allocation_status = 'locked'
+            AND pr.status IN ('confirmed', 'checked_in')
+            AND ra.stay_date >= ?
+            AND ra.stay_date < ?
+          GROUP BY ra.room_unit_id, ra.reservation_id, pr.guest_name, pr.check_in, pr.check_out, pr.status
+          ORDER BY ra.room_unit_id ASC, MIN(ra.stay_date) ASC`
       )
       .bind(tenantId, propertyId, fromDate, rangeEndExclusive)
       .all();
+
+    // Build per-unit segment list (ordered by first_alloc_date ascending)
     const byUnit = new Map();
-    for (const reservation of (reservationsResult.results || [])) {
-      const unitId = String(reservation.assigned_room_unit_id || '').trim();
+    for (const row of (allocResult.results || [])) {
+      const unitId = String(row.room_unit_id || '').trim();
       if (!unitId) continue;
       if (!byUnit.has(unitId)) byUnit.set(unitId, []);
-      byUnit.get(unitId).push(reservation);
+      byUnit.get(unitId).push(row);
     }
 
     const summary = roomUnits.map((roomUnit) => {
-      const rows = byUnit.get(String(roomUnit.id)) || [];
-      const current = rows.find((entry) => entry.check_in <= fromDate && entry.check_out > fromDate) || null;
-      const nextReservation = rows.find((entry) => entry.check_in > fromDate) || null;
-      const nights = current ? 0 : nextReservation ? enumerateStayDates(fromDate, nextReservation.check_in).length : lookaheadDays;
+      const segments = byUnit.get(String(roomUnit.id)) || [];
+
+      // Current = a segment whose allocated nights include fromDate
+      // (first_alloc_date <= fromDate AND last_alloc_date >= fromDate)
+      const current = segments.find((s) => s.first_alloc_date <= fromDate && s.last_alloc_date >= fromDate) || null;
+      // Next = first segment that starts strictly after fromDate
+      const next = segments.find((s) => s.first_alloc_date > fromDate) || null;
+
+      // Open nights = free nights between now and the next blocked segment
+      const openFrom = current ? current.check_out : fromDate;
+      const openEnd = next ? next.first_alloc_date : rangeEndExclusive;
+      const openNights = Math.max(0, enumerateStayDates(openFrom, openEnd).length);
+
+      // Arrival/departure signals (relative to fromDate)
+      const arrivalToday = !current && next?.first_alloc_date === fromDate;
+      const departureToday = current?.check_out === fromDate;
+
+      // Human-readable explanation for why a room cannot be freely assigned
+      let whyNotAssignable = null;
+      if (['maintenance', 'out_of_order'].includes(roomUnit.operational_status)) {
+        whyNotAssignable = roomUnit.operational_status === 'out_of_order' ? 'Out of order' : 'Under maintenance';
+      } else if (current) {
+        whyNotAssignable = departureToday
+          ? `Departing today · ${current.guest_name || 'Guest'}`
+          : `Occupied until ${current.check_out} · ${current.guest_name || 'Guest'}`;
+      } else if (next) {
+        whyNotAssignable = arrivalToday
+          ? `Arriving today · ${next.guest_name || 'Guest'}`
+          : `${openNights} night${openNights !== 1 ? 's' : ''} free · Next: ${next.guest_name || 'Reservation'} arrives ${next.first_alloc_date}`;
+      }
+
       return {
         room_unit_id: roomUnit.id,
-        current_reservation_id: current?.id || null,
-        next_reservation_id: nextReservation?.id || null,
-        next_reservation_start: nextReservation?.check_in || null,
-        next_reservation_guest_name: nextReservation?.guest_name || null,
-        open_nights: nights,
-        fully_open_within_window: !nextReservation,
+        current_reservation_id: current?.reservation_id || null,
+        current_guest_name: current?.guest_name || null,
+        current_check_out: current?.check_out || null,
+        departure_today: departureToday || false,
+        next_reservation_id: next?.reservation_id || null,
+        next_reservation_start: next?.first_alloc_date || null,
+        next_reservation_guest_name: next?.guest_name || null,
+        arrival_today: arrivalToday || false,
+        open_nights: openNights,
+        fully_open_within_window: !current && !next,
+        why_not_assignable: whyNotAssignable,
       };
     });
 
     return jsonResponse({ ok: true, from_date: fromDate, lookahead_days: lookaheadDays, summary });
   } catch (error) {
     console.error('[ROOM_RACK_SUMMARY_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+// CHK-R108: Per-unit per-date planning grid backed by reservation_allocations.
+// Returns a dense slot matrix so the frontend can render a multi-room Gantt calendar.
+export async function handleGetPropertyPlanningGrid(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const fromDate = String(url.searchParams.get('from_date') || formatDateUtc(new Date())).trim();
+  const days = Math.min(60, Math.max(7, Number(url.searchParams.get('days') || 21)));
+  if (!isIsoDate(fromDate)) return jsonResponse({ error: 'from_date must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const roomUnitsResult = await env.DB
+      .prepare(
+        `SELECT id, room_type_id, room_number, floor_label, sort_order, operational_status
+           FROM room_units
+          WHERE tenant_id = ? AND property_id = ? AND active = 1
+          ORDER BY floor_label ASC, sort_order ASC, room_number ASC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+    const roomUnits = roomUnitsResult.results || [];
+
+    const toDate = formatDateUtc(addDays(parseDateUtc(fromDate), days));
+    const dates = enumerateStayDates(fromDate, toDate);
+
+    const allocResult = await env.DB
+      .prepare(
+        `SELECT ra.room_unit_id, ra.reservation_id, ra.stay_date,
+                pr.guest_name, pr.check_in, pr.check_out, pr.status,
+                pr.pricing_snapshot
+           FROM reservation_allocations ra
+           JOIN property_reservations pr
+             ON pr.id = ra.reservation_id
+            AND pr.tenant_id = ra.tenant_id
+            AND pr.property_id = ra.property_id
+          WHERE ra.tenant_id = ?
+            AND ra.property_id = ?
+            AND ra.allocation_status = 'locked'
+            AND pr.status IN ('pending_payment', 'confirmed', 'checked_in')
+            AND ra.stay_date >= ?
+            AND ra.stay_date < ?
+          ORDER BY ra.stay_date ASC, ra.room_unit_id ASC`
+      )
+      .bind(tenantId, propertyId, fromDate, toDate)
+      .all();
+
+    const assignedReservationsResult = await env.DB
+      .prepare(
+        `SELECT id AS reservation_id, assigned_room_unit_id AS room_unit_id,
+                guest_name, check_in, check_out, status, pricing_snapshot
+           FROM property_reservations
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND assigned_room_unit_id IS NOT NULL
+            AND status IN ('pending_payment', 'confirmed', 'checked_in')
+            AND check_in < ?
+            AND check_out >= ?
+          ORDER BY check_in ASC, assigned_room_unit_id ASC`
+      )
+      .bind(tenantId, propertyId, toDate, fromDate)
+      .all();
+
+    // Build occupancy map: `${room_unit_id}::${stay_date}` → slot info
+    const occupancyMap = new Map();
+    const reservationMap = new Map();
+
+    const upsertReservation = (row, roomUnitId, parsedSnapshot) => {
+      const normalizedRoomUnitId = String(roomUnitId || '').trim();
+      const normalizedReservationId = String(row?.reservation_id || '').trim();
+      if (!normalizedRoomUnitId || !normalizedReservationId) return;
+      const key = `${normalizedRoomUnitId}::${normalizedReservationId}`;
+      const nextRecord = {
+        reservation_id: normalizedReservationId,
+        id: normalizedReservationId,
+        room_unit_id: normalizedRoomUnitId,
+        guest_name: row?.guest_name || '',
+        check_in: row?.check_in || '',
+        check_out: row?.check_out || '',
+        status: row?.status || 'confirmed',
+        pricing_snapshot: parsedSnapshot || null,
+      };
+      if (!reservationMap.has(key)) {
+        reservationMap.set(key, nextRecord);
+        return;
+      }
+      const current = reservationMap.get(key);
+      if (!current.check_in || (nextRecord.check_in && nextRecord.check_in < current.check_in)) current.check_in = nextRecord.check_in;
+      if (!current.check_out || (nextRecord.check_out && nextRecord.check_out > current.check_out)) current.check_out = nextRecord.check_out;
+      if (!current.guest_name && nextRecord.guest_name) current.guest_name = nextRecord.guest_name;
+      if ((!current.pricing_snapshot || current.pricing_snapshot === null) && nextRecord.pricing_snapshot) current.pricing_snapshot = nextRecord.pricing_snapshot;
+      if (!current.status && nextRecord.status) current.status = nextRecord.status;
+    };
+
+    for (const row of (allocResult.results || [])) {
+      const key = `${row.room_unit_id}::${row.stay_date}`;
+      const nextDay = formatDateUtc(addDays(parseDateUtc(row.stay_date), 1));
+      const ps = row.pricing_snapshot ? parseJsonSafe(row.pricing_snapshot) : null;
+      let slotState = 'occupied';
+      if (row.check_in === row.stay_date && nextDay === row.check_out) {
+        slotState = 'same_day'; // single-night stay (arrives and departs same transition)
+      } else if (row.check_in === row.stay_date) {
+        slotState = 'arriving';
+      } else if (nextDay === row.check_out) {
+        slotState = 'departing';
+      }
+      occupancyMap.set(key, {
+        state: slotState,
+        reservation_id: row.reservation_id,
+        reservation_status: row.status,
+        guest_name: row.guest_name,
+        check_in: row.check_in,
+        check_out: row.check_out,
+        nightly_amount: ps?.nightly_amount ?? ps?.price_per_night ?? ps?.rate_amount ?? ps?.nightly_rate ?? null,
+        currency: ps?.currency ?? null,
+      });
+      upsertReservation(row, row.room_unit_id, ps);
+    }
+
+    for (const row of (assignedReservationsResult.results || [])) {
+      const ps = row.pricing_snapshot ? parseJsonSafe(row.pricing_snapshot) : null;
+      upsertReservation(row, row.room_unit_id, ps);
+    }
+
+    const units = roomUnits.map((unit) => {
+      const slots = dates.map((date) => {
+        if (unit.operational_status === 'out_of_order') return { date, state: 'out_of_order' };
+        if (unit.operational_status === 'maintenance') return { date, state: 'maintenance' };
+        const slot = occupancyMap.get(`${unit.id}::${date}`);
+        if (slot) return { date, ...slot };
+        return { date, state: 'vacant' };
+      });
+      return {
+        room_unit_id: unit.id,
+        room_number: unit.room_number,
+        floor_label: unit.floor_label,
+        room_type_id: unit.room_type_id,
+        operational_status: unit.operational_status,
+        slots,
+      };
+    });
+
+    return jsonResponse({ ok: true, from_date: fromDate, days, dates, units, reservations: Array.from(reservationMap.values()) });
+  } catch (error) {
+    console.error('[PROPERTY_PLANNING_GRID_GET]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
@@ -3684,7 +3914,8 @@ async function recordRoomStateEvent(env, tenantId, propertyId, roomUnitId, newSt
   return { previousState, newState, created_at: now };
 }
 
-async function determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, turnoverDate, reservationId) {
+async function determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, turnoverDate, reservationId, taskKind = 'departure_clean') {
+  if (taskKind === 'stayover_refresh') return 'routine';
   const sameDayArrival = await env.DB
     .prepare(
       `SELECT id
@@ -3702,50 +3933,109 @@ async function determineHousekeepingPriority(env, tenantId, propertyId, roomUnit
   return sameDayArrival ? 'arrival_today_high' : 'departure_clean';
 }
 
-async function ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, roomUnitId, reservationId, turnoverDate, actorUserId = null) {
-  if (!roomUnitId) return null;
+async function ensureHousekeepingTask(env, tenantId, propertyId, options) {
+  const roomUnitId = String(options?.roomUnitId || '').trim();
+  const reservationId = String(options?.reservationId || '').trim();
+  const taskKind = String(options?.taskKind || 'departure_clean').trim();
+  const serviceDate = String(options?.serviceDate || '').trim();
+  if (!roomUnitId || !reservationId || !serviceDate || !HOUSEKEEPING_TASK_KINDS.has(taskKind)) {
+    return { task: null, created: false };
+  }
+
   const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
-  if (!roomUnit || ['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status))) return null;
+  if (!roomUnit || ['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status))) {
+    return { task: null, created: false };
+  }
 
   const existing = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, task_kind, service_date, priority, status, scheduled_for,
               started_at, completed_at, assigned_user_id, note, created_at, updated_at
          FROM housekeeping_tasks
         WHERE tenant_id = ?
           AND property_id = ?
           AND room_unit_id = ?
           AND reservation_id = ?
-          AND status IN ('pending', 'in_progress', 'waiting_inspection')
+          AND task_kind = ?
+          AND service_date = ?
         ORDER BY created_at DESC
         LIMIT 1`
     )
-    .bind(tenantId, propertyId, roomUnitId, reservationId || null)
+    .bind(tenantId, propertyId, roomUnitId, reservationId, taskKind, serviceDate)
     .first();
-  if (existing) return existing;
+  if (existing) return { task: existing, created: false };
 
-  const priority = await determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, turnoverDate, reservationId);
+  const priority = await determineHousekeepingPriority(env, tenantId, propertyId, roomUnitId, serviceDate, reservationId, taskKind);
   const now = currentUnixSeconds();
-  const scheduledFor = Math.floor(parseDateUtc(turnoverDate).getTime() / 1000);
+  const scheduledFor = Math.floor(parseDateUtc(serviceDate).getTime() / 1000);
   const taskId = nanoid();
   await env.DB
     .prepare(
       `INSERT INTO housekeeping_tasks
-        (id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+        (id, tenant_id, property_id, room_unit_id, reservation_id, task_kind, service_date, priority, status, scheduled_for,
          started_at, completed_at, assigned_user_id, note, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NULL, NULL, NULL, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, NULL, NULL, ?, ?, ?)`
     )
-    .bind(taskId, tenantId, propertyId, roomUnitId, reservationId || null, priority, scheduledFor, `Auto-created from checkout for ${turnoverDate}.`, now, now)
+    .bind(taskId, tenantId, propertyId, roomUnitId, reservationId, taskKind, serviceDate, priority, scheduledFor, options?.note || null, now, now)
     .run();
-  return env.DB
+  const task = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for,
+      `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, task_kind, service_date, priority, status, scheduled_for,
               started_at, completed_at, assigned_user_id, note, created_at, updated_at
          FROM housekeeping_tasks
         WHERE id = ? AND tenant_id = ? AND property_id = ?`
     )
     .bind(taskId, tenantId, propertyId)
     .first();
+  return { task, created: true };
+}
+
+async function ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, roomUnitId, reservationId, turnoverDate, actorUserId = null) {
+  const result = await ensureHousekeepingTask(env, tenantId, propertyId, {
+    roomUnitId,
+    reservationId,
+    taskKind: 'departure_clean',
+    serviceDate: turnoverDate,
+    note: `Auto-created from checkout for ${turnoverDate}.`,
+    actorUserId,
+  });
+  return result.task;
+}
+
+async function ensureStayoverRefreshTasksForProperty(env, tenantId, propertyId, serviceDate) {
+  const stayovers = await env.DB
+    .prepare(
+      `SELECT id, assigned_room_unit_id
+         FROM property_reservations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND status = 'checked_in'
+          AND assigned_room_unit_id IS NOT NULL
+          AND check_in < ?
+          AND check_out > ?`
+    )
+    .bind(tenantId, propertyId, serviceDate, serviceDate)
+    .all();
+
+  let createdCount = 0;
+  for (const reservation of (stayovers.results || [])) {
+    const result = await ensureHousekeepingTask(env, tenantId, propertyId, {
+      roomUnitId: String(reservation.assigned_room_unit_id),
+      reservationId: String(reservation.id),
+      taskKind: 'stayover_refresh',
+      serviceDate,
+      note: `Auto-created stayover refresh for ${serviceDate}.`,
+    });
+    if (result.created) createdCount += 1;
+  }
+  return createdCount;
+}
+
+async function isPropertyLocalToday(env, tenantId, propertyId, boardDate, now = new Date()) {
+  const property = await loadPropertyById(env, tenantId, propertyId);
+  if (!property) return false;
+  const timeZone = String(property.timezone || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
+  return formatDateParts(getTimeZoneDateTimeParts(now, timeZone)) === boardDate;
 }
 
 async function syncHousekeepingTasksForProperty(env, tenantId, propertyId, boardDate) {
@@ -3765,6 +4055,32 @@ async function syncHousekeepingTasksForProperty(env, tenantId, propertyId, board
     if (!reservation.assigned_room_unit_id) continue;
     await ensureHousekeepingTaskForTurnover(env, tenantId, propertyId, String(reservation.assigned_room_unit_id), String(reservation.id), boardDate, null);
   }
+
+  if (await isPropertyLocalToday(env, tenantId, propertyId, boardDate)) {
+    await ensureStayoverRefreshTasksForProperty(env, tenantId, propertyId, boardDate);
+  }
+}
+
+export async function runScheduledHousekeepingAutomation(env, now = new Date()) {
+  const propertiesResult = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, timezone
+         FROM properties
+        WHERE status = 'active'`
+    )
+    .all();
+
+  let propertyCount = 0;
+  let createdTaskCount = 0;
+  for (const property of (propertiesResult.results || [])) {
+    const timeZone = String(property.timezone || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
+    const localParts = getTimeZoneDateTimeParts(now, timeZone);
+    if (localParts.hour !== 9 || localParts.minute >= 15) continue;
+    createdTaskCount += await ensureStayoverRefreshTasksForProperty(env, String(property.tenant_id), String(property.id), formatDateParts(localParts));
+    propertyCount += 1;
+  }
+
+  return { ok: true, property_count: propertyCount, created_task_count: createdTaskCount };
 }
 
 async function loadHousekeepingTasks(env, tenantId, propertyId, options = {}) {
@@ -3772,7 +4088,7 @@ async function loadHousekeepingTasks(env, tenantId, propertyId, options = {}) {
   const placeholders = statuses.map(() => '?').join(', ');
   const result = await env.DB
     .prepare(
-      `SELECT ht.id, ht.tenant_id, ht.property_id, ht.room_unit_id, ht.reservation_id, ht.priority, ht.status, ht.scheduled_for,
+      `SELECT ht.id, ht.tenant_id, ht.property_id, ht.room_unit_id, ht.reservation_id, ht.task_kind, ht.service_date, ht.priority, ht.status, ht.scheduled_for,
               ht.started_at, ht.completed_at, ht.assigned_user_id, ht.note, ht.created_at, ht.updated_at,
               ru.room_number, ru.floor_label, ru.room_type_id, ru.operational_status,
               pr.guest_name, pr.check_in, pr.check_out, pr.status AS reservation_status
@@ -3798,10 +4114,11 @@ async function loadHousekeepingTasks(env, tenantId, propertyId, options = {}) {
 function validateHousekeepingTaskPatchRequest(body) {
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
-  const allowed = new Set(['status', 'assigned_user_id', 'note']);
+  const allowed = new Set(['status', 'assigned_user_id', 'note', 'room_state']);
   const unknown = keys.filter((key) => !allowed.has(key));
   if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
   const updates = {};
+  let roomState = null;
   if ('status' in body) {
     const status = String(body.status || '').trim();
     if (!HOUSEKEEPING_TASK_STATUSES.has(status)) return { error: 'status is invalid.' };
@@ -3809,15 +4126,43 @@ function validateHousekeepingTaskPatchRequest(body) {
   }
   if ('assigned_user_id' in body) updates.assigned_user_id = body.assigned_user_id ? String(body.assigned_user_id).trim() : null;
   if ('note' in body) updates.note = body.note ? String(body.note).trim() : null;
-  return { updates };
+  if ('room_state' in body) {
+    roomState = String(body.room_state || '').trim();
+    if (!HOUSEKEEPING_ROOM_STATES.has(roomState)) return { error: 'room_state is invalid.' };
+  }
+  return { updates, roomState };
 }
 
-function housekeepingStateFromTaskStatus(status) {
+function housekeepingStateFromTaskStatus(status, taskKind = 'departure_clean') {
+  if (taskKind === 'stayover_refresh') {
+    if (status === 'pending') return 'refresh_needed';
+    if (status === 'in_progress') return 'refreshing';
+    if (status === 'completed') return 'refreshed';
+    return null;
+  }
   if (status === 'pending') return 'dirty';
   if (status === 'in_progress') return 'cleaning';
-  if (status === 'waiting_inspection') return 'inspected';
+  if (status === 'waiting_inspection') return 'ready_for_inspection';
   if (status === 'completed') return 'ready';
   return null;
+}
+
+function resolveEffectiveHousekeepingRoomState(taskKind, taskStatus, latestRoomState) {
+  const statusState = housekeepingStateFromTaskStatus(taskStatus, taskKind);
+  const persistedState = String(latestRoomState || '').trim() || null;
+
+  if (taskKind === 'stayover_refresh') return statusState || 'ready';
+
+  if (taskStatus === 'pending' || taskStatus === 'in_progress') {
+    return statusState || persistedState || 'ready';
+  }
+
+  if (taskStatus === 'waiting_inspection') {
+    if (persistedState === 'inspected' || persistedState === 'ready') return persistedState;
+    return 'ready_for_inspection';
+  }
+
+  return persistedState || statusState || 'ready';
 }
 
 async function resolveReservationNightlyRate(env, tenantId, propertyId, reservation, stayDate) {
@@ -4222,14 +4567,27 @@ export async function handleListHousekeepingTasks(request, env, params) {
   try {
     await syncHousekeepingTasksForProperty(env, tenantId, propertyId, boardDate);
     const tasks = await loadHousekeepingTasks(env, tenantId, propertyId);
-    const roomStateMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, tasks.map((task) => task.room_unit_id));
+    const roomUnitsResult = await env.DB
+      .prepare(
+        `SELECT id
+           FROM room_units
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND active = 1`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+    const roomUnitIds = (roomUnitsResult.results || []).map((roomUnit) => roomUnit.id);
+    const roomStateMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, roomUnitIds);
     return jsonResponse({
       ok: true,
       property_id: propertyId,
       board_date: boardDate,
+      actor_role: actor.session.role,
+      room_states: Array.from(roomStateMap.values()),
       housekeeping_tasks: tasks.map((task) => ({
         ...task,
-        effective_room_state: roomStateMap.get(String(task.room_unit_id))?.new_state || housekeepingStateFromTaskStatus(task.status) || 'ready',
+        effective_room_state: resolveEffectiveHousekeepingRoomState(task.task_kind, task.status, roomStateMap.get(String(task.room_unit_id))?.new_state),
       })),
     });
   } catch (error) {
@@ -4270,12 +4628,15 @@ export async function handleUpdateHousekeepingTask(request, env, params) {
   try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
   const parsed = validateHousekeepingTaskPatchRequest(body);
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+  if (parsed.roomState && (PROPERTY_ROLE_RANK[actor.session.role] ?? 0) < 3) {
+    return jsonResponse({ error: 'Manager or owner access required.' }, 403);
+  }
 
   try {
     const existing = await env.DB
       .prepare(
-        `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for, started_at, completed_at,
-                assigned_user_id, note, created_at, updated_at
+        `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, task_kind, service_date, priority, status, scheduled_for,
+                started_at, completed_at, assigned_user_id, note, created_at, updated_at
            FROM housekeeping_tasks
           WHERE id = ? AND tenant_id = ? AND property_id = ?`
       )
@@ -4283,35 +4644,57 @@ export async function handleUpdateHousekeepingTask(request, env, params) {
       .first();
     if (!existing) return jsonResponse({ error: 'Housekeeping task not found.' }, 404);
 
+    const latestRoomStateMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, [existing.room_unit_id]);
+    const currentEffectiveRoomState = resolveEffectiveHousekeepingRoomState(existing.task_kind, existing.status, latestRoomStateMap.get(String(existing.room_unit_id))?.new_state);
+    if (parsed.roomState === 'inspected' && currentEffectiveRoomState !== 'ready_for_inspection') {
+      return jsonResponse({ error: 'Room must be ready for inspection before it can be inspected.' }, 409);
+    }
+    if (parsed.roomState === 'ready' && currentEffectiveRoomState !== 'inspected') {
+      return jsonResponse({ error: 'Room must be inspected before it can be marked clean.' }, 409);
+    }
+
     const updates = { ...parsed.updates };
     const now = currentUnixSeconds();
     if (updates.status === 'in_progress') updates.started_at = existing.started_at || now;
     if (updates.status === 'completed') updates.completed_at = now;
     if (updates.status === 'cancelled') updates.completed_at = existing.completed_at || null;
-    const { sql, values } = buildDynamicUpdateSql('housekeeping_tasks', updates);
-    await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, taskId, tenantId, propertyId).run();
-
-    if (updates.status) {
-      const state = housekeepingStateFromTaskStatus(updates.status);
-      if (state) {
-        await recordRoomStateEvent(env, tenantId, propertyId, existing.room_unit_id, state, {
-          reservationId: existing.reservation_id,
-          note: updates.note || existing.note || null,
-          changedBy: request.headers.get('X-User-ID')?.trim() || null,
-        });
-      }
+    if (parsed.roomState === 'ready' && !updates.status) {
+      updates.status = 'completed';
+      updates.completed_at = now;
+    }
+    if (Object.keys(updates).length) {
+      const { sql, values } = buildDynamicUpdateSql('housekeeping_tasks', updates);
+      await env.DB.prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`).bind(...values, now, taskId, tenantId, propertyId).run();
     }
 
-    const updated = await env.DB
-      .prepare(
-        `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, priority, status, scheduled_for, started_at, completed_at,
-                assigned_user_id, note, created_at, updated_at
-           FROM housekeeping_tasks
-          WHERE id = ? AND tenant_id = ? AND property_id = ?`
-      )
-      .bind(taskId, tenantId, propertyId)
-      .first();
-    return jsonResponse({ ok: true, housekeeping_task: updated });
+    const nextRoomState = parsed.roomState || (updates.status ? housekeepingStateFromTaskStatus(updates.status, existing.task_kind) : null);
+    if (nextRoomState && nextRoomState !== 'ready_for_inspection' && existing.task_kind !== 'stayover_refresh') {
+      await recordRoomStateEvent(env, tenantId, propertyId, existing.room_unit_id, nextRoomState, {
+        reservationId: existing.reservation_id,
+        note: updates.note || existing.note || null,
+        changedBy: request.headers.get('X-User-ID')?.trim() || null,
+      });
+    }
+
+    const updated = Object.keys(updates).length
+      ? await env.DB
+        .prepare(
+          `SELECT id, tenant_id, property_id, room_unit_id, reservation_id, task_kind, service_date, priority, status, scheduled_for,
+                  started_at, completed_at, assigned_user_id, note, created_at, updated_at
+             FROM housekeeping_tasks
+            WHERE id = ? AND tenant_id = ? AND property_id = ?`
+        )
+        .bind(taskId, tenantId, propertyId)
+        .first()
+      : existing;
+    const refreshedRoomStateMap = await loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, [existing.room_unit_id]);
+    return jsonResponse({
+      ok: true,
+      housekeeping_task: {
+        ...updated,
+        effective_room_state: resolveEffectiveHousekeepingRoomState(updated.task_kind, updated.status, refreshedRoomStateMap.get(String(existing.room_unit_id))?.new_state || nextRoomState),
+      },
+    });
   } catch (error) {
     console.error('[PROPERTY_HOUSEKEEPING_UPDATE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);

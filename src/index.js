@@ -50,6 +50,7 @@ import {
   handleUpdateRoomUnitFlags,
   handleGetRoomUnitAvailabilityCalendar,
   handleGetPropertyRoomRackSummary,
+  handleGetPropertyPlanningGrid,
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
@@ -95,6 +96,7 @@ import {
   handleEarlyCheckOutPropertyReservation,
   handleNoShowPropertyReservation,
   handleUndoPropertyReservationStatus,
+  runScheduledHousekeepingAutomation,
   runPropertyNightAuditForDate,
 } from './routes/properties.js';
 import registerPricingRoutes, { 
@@ -745,6 +747,11 @@ const patterns = [
   },
   {
     method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/planning-grid' }),
+    handler: (req, env, match) => handleGetPropertyPlanningGrid(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
     handler: (req, env, match) => handleListRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
   },
@@ -1207,6 +1214,7 @@ export default {
     ctx.waitUntil(purgeExpiredOrders(env));
     ctx.waitUntil(runTrialMaintenance(env));
     ctx.waitUntil(runTodoReminders(env));
+    ctx.waitUntil(runScheduledHousekeepingAutomation(env));
     // Only run daily digest on the 8am cron, not the 15-min tick
     if (event.cron === '0 8 * * *') {
       ctx.waitUntil(runPropertyNightAuditForDate(env, new Date(Date.now() - 86400000).toISOString().slice(0, 10)));
