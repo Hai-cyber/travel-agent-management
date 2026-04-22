@@ -38,6 +38,8 @@ import {
   handleListProperties,
   handleCreateProperty,
   handleUpdateProperty,
+  handleGetPropertyShiftHandover,
+  handleUpdatePropertyShiftHandover,
   handleListRoomTypes,
   handleCreateRoomType,
   handleUpdateRoomType,
@@ -45,6 +47,7 @@ import {
   handleCreateRoomUnit,
   handleBulkCreateRoomUnits,
   handleUpdateRoomUnit,
+  handleUpdateRoomUnitFlags,
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
@@ -68,10 +71,21 @@ import {
   handleQuotePropertyRoomRate,
   handleCheckPropertyAvailability,
   handleCreatePropertyAvailabilityHold,
+  handleListPropertyAvailabilityHolds,
   handleReleasePropertyAvailabilityHold,
   handleCreatePropertyReservation,
   handleListPropertyReservations,
   handleGetPropertyReservation,
+  handleUploadReservationGuestPhoto,
+  handleGetReservationGuestPhoto,
+  handleGetPropertyReservationFolio,
+  handleCreatePropertyReservationFolioLine,
+  handleCreatePropertyReservationFolioPayment,
+  handleRunPropertyNightAudit,
+  handleListHousekeepingTasks,
+  handleSyncHousekeepingTasks,
+  handleUpdateHousekeepingTask,
+  handleUpdatePropertyReservationAssignment,
   handleCancelPropertyReservation,
   handleRebookPropertyReservation,
   handleCheckInPropertyReservation,
@@ -79,6 +93,7 @@ import {
   handleEarlyCheckOutPropertyReservation,
   handleNoShowPropertyReservation,
   handleUndoPropertyReservationStatus,
+  runPropertyNightAuditForDate,
 } from './routes/properties.js';
 import registerPricingRoutes, { 
   handleCreatePricing, 
@@ -167,6 +182,43 @@ app.use('*', async (c, next) => {
   }
 });
 
+const API_TIMING_PATH_PREFIXES = [
+  '/api/dashboard/bootstrap',
+  '/api/tenants/settings',
+  '/api/tenants/review-status',
+  '/api/bookings/orders',
+  '/api/billing/status',
+  '/api/universal/site/config',
+  '/api/tours',
+  '/api/tenant/publish-readiness',
+];
+
+app.use('/api/*', async (c, next) => {
+  const pathname = new URL(c.req.url).pathname;
+  const shouldTrace = API_TIMING_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (!shouldTrace) {
+    await next();
+    return;
+  }
+
+  const startedAt = performance.now();
+  await next();
+  const totalMs = performance.now() - startedAt;
+  const tenantMs = Number(c.get('perfTenantMs') || 0);
+  const authMs = Number(c.get('perfAuthMs') || 0);
+  const routeMs = Math.max(0, totalMs - tenantMs - authMs);
+  const entries = [];
+  if (tenantMs > 0) entries.push(`tenant;dur=${tenantMs.toFixed(1)}`);
+  if (authMs > 0) entries.push(`auth;dur=${authMs.toFixed(1)}`);
+  entries.push(`route;dur=${routeMs.toFixed(1)}`);
+  entries.push(`total;dur=${totalMs.toFixed(1)}`);
+  const headers = new Headers(c.res.headers);
+  const existing = headers.get('Server-Timing');
+  headers.set('Server-Timing', existing ? `${existing}, ${entries.join(', ')}` : entries.join(', '));
+  c.res = new Response(c.res.body, { status: c.res.status, headers });
+  console.info(`[REQ_TIMING] path=${pathname} status=${c.res.status} total_ms=${totalMs.toFixed(1)} tenant_ms=${tenantMs.toFixed(1)} auth_ms=${authMs.toFixed(1)} route_ms=${routeMs.toFixed(1)}`);
+});
+
 // ── Tenant-context middleware ──────────────────────────────────────────────────
 // Chạy trước mọi Hono route. Đọc X-Tenant-ID → truy vấn tenants → lưu config
 // vào c.set('tenantConfig') và c.set('formatter').
@@ -174,6 +226,7 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   const tenantId = c.req.header('X-Tenant-ID')?.trim();
   if (tenantId) {
+    const tenantStartedAt = performance.now();
     const tenant = await c.env.DB
       .prepare(
         `SELECT t.default_locale, t.base_currency,
@@ -234,6 +287,7 @@ app.use('*', async (c, next) => {
         t: (key, vars) => translate(key, uiLang, vars),
       });
     }
+    c.set('perfTenantMs', performance.now() - tenantStartedAt);
   }
   await next();
 });
@@ -261,6 +315,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/suppliers',
   '/api/calendar',
   '/api/bookingcal',
+  '/api/dashboard',
 ];
 
 app.use('/api/*', async (c, next) => {
@@ -279,7 +334,9 @@ app.use('/api/*', async (c, next) => {
     return c.json({ error: 'Authentication required.' }, 401);
   }
 
+  const authStartedAt = performance.now();
   const session = await getAuthSession(c.env.DB, token);
+  c.set('perfAuthMs', performance.now() - authStartedAt);
   if (!session) {
     clearAuthSessionCookie(c);
     return c.json({ error: 'Session expired. Please log in again.' }, 401);
@@ -610,6 +667,16 @@ const patterns = [
     handler: (req, env, match) => handleUpdateProperty(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/shift-handover' }),
+    handler: (req, env, match) => handleGetPropertyShiftHandover(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/shift-handover' }),
+    handler: (req, env, match) => handleUpdatePropertyShiftHandover(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
     method: 'DELETE',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId' }),
     handler: (req, env, match) => handleDeleteProperty(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -653,6 +720,11 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId' }),
     handler: (req, env, match) => handleUpdateRoomUnit(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-units/:roomUnitId/flags' }),
+    handler: (req, env, match) => handleUpdateRoomUnitFlags(req, env, { propertyId: match.pathname.groups.propertyId, roomUnitId: match.pathname.groups.roomUnitId })
   },
   {
     method: 'DELETE',
@@ -755,6 +827,11 @@ const patterns = [
     handler: (req, env, match) => handleCheckPropertyAvailability(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability/holds' }),
+    handler: (req, env, match) => handleListPropertyAvailabilityHolds(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/availability/hold' }),
     handler: (req, env, match) => handleCreatePropertyAvailabilityHold(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -778,6 +855,56 @@ const patterns = [
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId' }),
     handler: (req, env, match) => handleGetPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/guest-photo' }),
+    handler: (req, env, match) => handleGetReservationGuestPhoto(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/guest-photo' }),
+    handler: (req, env, match) => handleUploadReservationGuestPhoto(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId' }),
+    handler: (req, env, match) => handleUpdatePropertyReservationAssignment(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/folio' }),
+    handler: (req, env, match) => handleGetPropertyReservationFolio(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/folio/lines' }),
+    handler: (req, env, match) => handleCreatePropertyReservationFolioLine(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/folio/payments' }),
+    handler: (req, env, match) => handleCreatePropertyReservationFolioPayment(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/folios/night-audit' }),
+    handler: (req, env, match) => handleRunPropertyNightAudit(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/housekeeping-tasks' }),
+    handler: (req, env, match) => handleListHousekeepingTasks(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/housekeeping-tasks/sync' }),
+    handler: (req, env, match) => handleSyncHousekeepingTasks(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/housekeeping-tasks/:taskId' }),
+    handler: (req, env, match) => handleUpdateHousekeepingTask(req, env, { propertyId: match.pathname.groups.propertyId, taskId: match.pathname.groups.taskId })
   },
   {
     method: 'POST',
@@ -1070,6 +1197,7 @@ export default {
     ctx.waitUntil(runTodoReminders(env));
     // Only run daily digest on the 8am cron, not the 15-min tick
     if (event.cron === '0 8 * * *') {
+      ctx.waitUntil(runPropertyNightAuditForDate(env, new Date(Date.now() - 86400000).toISOString().slice(0, 10)));
       ctx.waitUntil(runOpsDailyDigest(env));
     }
   },

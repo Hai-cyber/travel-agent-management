@@ -93,6 +93,287 @@ function resolveTenantCatalogLocale(headerValue, tenantSettings = {}) {
   return resolveLocaleFromAcceptLanguage(marketSkinLocale || tenantLocale || 'en');
 }
 
+const TENANT_SETTINGS_SELECT = `SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency,
+  pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status,
+  terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json,
+  payment_methods, product_tier_key, default_locale, base_currency, primary_market, market_skin_key,
+  total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json,
+  trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled,
+  site_published_at, published_template_id
+ FROM tenants
+ WHERE id = ?`;
+
+const DASHBOARD_BOOTSTRAP_TENANT_SELECT = `SELECT t.id, t.name, t.email, t.created_at, t.exchange_rate,
+  t.target_currency, t.booking_currency, t.pricing_policy, t.infant_policy_text, t.pricing_notes_text,
+  t.custom_domain, t.subdomain, t.subscription_status, t.terms_accepted, t.terms_accepted_at,
+  t.stripe_customer_id, t.onboarding_step, t.payment_config_json, t.payment_methods, t.product_tier_key,
+  t.default_locale, t.base_currency, t.primary_market, t.market_skin_key, t.total_revenue_tracked,
+  t.commission_threshold, t.trust_status, t.trust_score, t.trust_reasons_json, t.trust_reviewed_at,
+  t.trust_reviewed_by, t.custom_domain_verified_at, t.public_indexing_enabled, t.site_published_at,
+  t.published_template_id, t.site_config, t.template_id, us.variant_key
+ FROM tenants t
+ LEFT JOIN tenant_universal_sites us ON us.tenant_id = t.id
+ WHERE t.id = ?`;
+
+function normalizeTenantSettingsRecord(settings) {
+  if (!settings) return null;
+
+  const normalized = { ...settings };
+  if (normalized.payment_config_json) {
+    try { normalized.payment_config_json = JSON.parse(normalized.payment_config_json); }
+    catch { /* keep malformed raw value */ }
+  }
+  if (normalized.payment_methods) {
+    try { normalized.payment_methods = JSON.parse(normalized.payment_methods); }
+    catch { normalized.payment_methods = []; }
+  }
+  return normalized;
+}
+
+function buildTenantSettingsPayload(env, headerValue, settings) {
+  const lang = resolveTenantCatalogLocale(headerValue, settings);
+  return {
+    ok: true,
+    settings,
+    catalogs: {
+      locales: getSupportedLocales(),
+      currencies: getTenantCurrencyCatalog(),
+      market_skins: getMarketSkinCatalog(lang),
+    },
+    subdomain_policy: buildSubdomainPolicy(env),
+    trust_state: buildTenantTrustState(settings),
+  };
+}
+
+function countEnabledContactChannels(contactConfig) {
+  const channels = contactConfig?.channels && typeof contactConfig.channels === 'object'
+    ? Object.values(contactConfig.channels)
+    : [];
+  return channels.filter((entry) => entry?.enabled && entry?.value).length;
+}
+
+function getPrimaryPageBodyFromBlocks(blocks) {
+  const list = Array.isArray(blocks) ? blocks : Object.values(blocks || {});
+  const target = list.find((block) => ['rich_text', 'legal', 'contact'].includes(block?.type));
+  return String(target?.content?.body || '').trim();
+}
+
+async function buildDashboardLaunchSummary(db, tenant) {
+  const pageKeys = ['home', 'terms', 'privacy', 'contact-us', 'contact'];
+  const [siteRow, pagesResult, menuCountRow, contactsRow, toursRow, destinationsRow, hotelsRow] = await Promise.all([
+    db.prepare('SELECT variant_key, site_name FROM tenant_universal_sites WHERE tenant_id = ? LIMIT 1').bind(tenant.id).first(),
+    db.prepare(
+      `SELECT page_key, blocks_json
+         FROM tenant_universal_pages
+        WHERE tenant_id = ? AND page_key IN (?, ?, ?, ?, ?)`
+    ).bind(tenant.id, ...pageKeys).all(),
+    db.prepare('SELECT COUNT(*) AS visible_menu_count FROM tenant_universal_menu_items WHERE tenant_id = ? AND visible = 1').bind(tenant.id).first(),
+    db.prepare('SELECT channels_json FROM tenant_universal_contacts WHERE tenant_id = ?').bind(tenant.id).first(),
+    db.prepare(
+      `SELECT COUNT(*) AS tours_count,
+              COALESCE(SUM(CASE WHEN status = 'published' OR published_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS published_tours_count
+         FROM tours
+        WHERE tenant_id = ?`
+    ).bind(tenant.id).first(),
+    db.prepare("SELECT COUNT(*) AS destination_count FROM tenant_destinations WHERE tenant_id = ? AND (status = 'active' OR show_on_home = 1)").bind(tenant.id).first(),
+    db.prepare('SELECT COUNT(*) AS accommodation_count FROM tenant_universal_hotels WHERE tenant_id = ?').bind(tenant.id).first(),
+  ]);
+
+  const siteConfig = safeParseJson(tenant.site_config, {}) || {};
+  const pageRows = Array.isArray(pagesResult?.results) ? pagesResult.results : [];
+  const homePage = pageRows.find((row) => row?.page_key === 'home') || null;
+  const homeBlocks = safeParseJson(homePage?.blocks_json, []);
+  const galleryBlock = Array.isArray(homeBlocks) ? homeBlocks.find((block) => block?.type === 'gallery') : null;
+  const galleryImages = Array.isArray(galleryBlock?.content?.images) ? galleryBlock.content.images : [];
+  const contacts = safeParseJson(contactsRow?.channels_json, {}) || {};
+  const menuCount = Number(menuCountRow?.visible_menu_count || 0);
+  const contactCount = countEnabledContactChannels(contacts);
+  const contactFormEnabled = contacts?.contactForm?.enabled === true;
+  const currentTheme = typeof siteConfig.current_theme === 'string' ? siteConfig.current_theme.trim() : '';
+  const selectedVariantKey = String(siteRow?.variant_key || '').trim();
+  const toursCount = Number(toursRow?.tours_count || 0);
+  const publishedToursCount = Number(toursRow?.published_tours_count || 0);
+  const destinationCount = Number(destinationsRow?.destination_count || 0);
+  const accommodationsCount = Number(hotelsRow?.accommodation_count || 0);
+  const hasWebsiteBase = Boolean(String(tenant.template_id || '').trim())
+    || Boolean(siteRow?.site_name)
+    || Boolean(siteConfig?.brand?.name)
+    || Boolean(siteConfig?.content?.hero_title)
+    || Boolean(Array.isArray(homeBlocks) && homeBlocks.length)
+    || Boolean(menuCount > 0);
+  const hasSystemSettings = Boolean(contactCount)
+    || Boolean(contactFormEnabled)
+    || pageRows.some((row) => getPrimaryPageBodyFromBlocks(safeParseJson(row?.blocks_json, [])));
+
+  return {
+    has_theme: Boolean(selectedVariantKey),
+    selected_variant_key: selectedVariantKey,
+    selected_skin: currentTheme,
+    has_website_base: hasWebsiteBase,
+    tours_count: toursCount,
+    published_tours_count: publishedToursCount,
+    destination_count: destinationCount,
+    accommodations_count: accommodationsCount,
+    gallery_count: galleryImages.length,
+    contact_count: contactCount,
+    has_system_settings: hasSystemSettings,
+    visible_menu_count: menuCount,
+  };
+}
+
+function buildDashboardPublishReadiness(tenant, launchSummary) {
+  const paymentMethods = parseTenantPaymentMethods(tenant.payment_methods);
+  const hasTemplate = Boolean((tenant.template_id && String(tenant.template_id).trim()) || (tenant.variant_key && String(tenant.variant_key).trim()));
+  const activeDesignKey = String(tenant.variant_key || tenant.template_id || '').trim();
+  const hasTour = Number(launchSummary?.tours_count || 0) > 0;
+  const domainValue = String(tenant.subdomain || tenant.custom_domain || '').trim();
+  const hasDomain = Boolean(domainValue);
+  const hasTerms = tenant.terms_accepted === 1 || tenant.terms_accepted === true;
+  const trustPolicy = buildTenantTrustPolicy(tenant);
+  const commercialPolicy = buildTenantCommercialPolicy(tenant, {
+    paymentMethods,
+    hostType: tenant.custom_domain ? 'custom_domain' : (tenant.subdomain ? 'platform_subdomain' : 'unknown'),
+  });
+
+  const data = {
+    TEMPLATE: {
+      pass: hasTemplate,
+      label: 'Template da chon',
+      detail: hasTemplate
+        ? `Website skin hiện tại: ${activeDesignKey}`
+        : 'Chưa chọn website skin. Mở Website Design và chọn một skin/sample trước khi xuất bản.',
+      action_url: hasTemplate ? null : '/universal-admin.html?panel=system&onboarding=skin',
+      value: activeDesignKey || null,
+    },
+    CONTENT: {
+      pass: hasTour,
+      label: 'Da tao it nhat 1 Tour',
+      detail: hasTour
+        ? `Có ${Number(launchSummary?.tours_count || 0)} tour trong hệ thống.`
+        : 'Chưa có tour nào. Tạo ít nhất 1 tour trước khi xuất bản.',
+      action_url: hasTour ? null : '/dashboard.html#tours',
+      value: Number(launchSummary?.tours_count || 0),
+    },
+    DOMAIN: {
+      pass: hasDomain,
+      label: 'Ten mien da cau hinh',
+      detail: hasDomain
+        ? `Domain: ${domainValue}`
+        : 'Chưa đặt subdomain hoặc custom_domain. Gọi PATCH /api/tenants/settings với { subdomain: "ten-cong-ty" }.',
+      action_url: hasDomain ? null : '/dashboard.html#domain',
+      value: domainValue || null,
+    },
+    TERMS: {
+      pass: hasTerms,
+      label: 'Da dong y Dieu khoan dich vu',
+      detail: hasTerms
+        ? 'T&C đã được chấp nhận.'
+        : 'Chưa đồng ý T&C. Gọi POST /api/tenant/accept-terms để xác nhận.',
+      action_url: hasTerms ? null : '/dashboard.html#terms',
+      value: hasTerms,
+    },
+    TRUST: {
+      pass: trustPolicy.allow_publish,
+      label: 'Trust ladder cho phep public exposure',
+      detail: trustPolicy.allow_publish
+        ? `Trust status: ${tenant.trust_status || 'PREVIEW_ONLY'}`
+        : `Trust status hiện tại: ${tenant.trust_status || 'PREVIEW_ONLY'}. Tenant cần qua review trước khi public publish.`,
+      action_url: trustPolicy.allow_publish ? null : '/dashboard.html#launch',
+      value: tenant.trust_status || 'PREVIEW_ONLY',
+    },
+    COMMERCIAL: {
+      pass: commercialPolicy.commercial_activation_enabled,
+      label: 'Commercial activation',
+      detail: commercialPolicy.commercial_activation_enabled
+        ? 'Custom domain da verify va it nhat 1 payment method da bat. Tenant co the kinh doanh tren domain rieng.'
+        : commercialPolicy.message,
+      action_url: commercialPolicy.commercial_activation_enabled ? null : '/dashboard.html#domain',
+      value: {
+        electronic_gateway_enabled: commercialPolicy.electronic_gateway_configured,
+        any_payment_method_enabled: commercialPolicy.any_payment_method_enabled,
+        custom_domain_verified: commercialPolicy.custom_domain_verified,
+      },
+    },
+  };
+
+  const requiredKeys = ['TEMPLATE', 'CONTENT', 'DOMAIN', 'TERMS', 'TRUST'];
+  return {
+    ok: true,
+    ready_to_publish: requiredKeys.every((key) => data[key]?.pass === true),
+    missing: requiredKeys.filter((key) => data[key]?.pass !== true),
+    data,
+    commercial_policy: commercialPolicy,
+  };
+}
+
+function buildDashboardBillingSummary(settings) {
+  const trialDaysTotal = 180;
+  const createdAt = Number(settings?.created_at || 0);
+  const nowS = Math.floor(Date.now() / 1000);
+  const trialEndsAt = createdAt > 0 ? createdAt + trialDaysTotal * 86400 : 0;
+  return {
+    ok: true,
+    subscription_status: settings?.subscription_status || 'TRIAL',
+    stripe_customer_id: settings?.stripe_customer_id || null,
+    trial_info: {
+      trial_days_total: trialDaysTotal,
+      trial_ends_at: trialEndsAt,
+      trial_days_left: trialEndsAt > 0 ? Math.max(0, Math.ceil((trialEndsAt - nowS) / 86400)) : trialDaysTotal,
+      trial_expired: settings?.subscription_status === 'TRIAL' && trialEndsAt > 0 && nowS > trialEndsAt,
+    },
+    addons: {
+      extra_property_slots: 0,
+      extra_staff_slots: 0,
+      pricing: { property_slot_eur: 4.99, staff_slot_eur: 1.00 },
+      addon_url_hint: '/api/billing/addon',
+    },
+    checkout_url_hint: '/api/billing/checkout',
+  };
+}
+
+async function handleDashboardBootstrap(c) {
+  const startedAt = performance.now();
+  const session = typeof c.get === 'function' ? c.get('authSession') : null;
+  if (!session?.tenant_id) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+
+  try {
+    const tenantStartedAt = performance.now();
+    const settings = normalizeTenantSettingsRecord(await c.env.DB
+      .prepare(DASHBOARD_BOOTSTRAP_TENANT_SELECT)
+      .bind(session.tenant_id)
+      .first());
+    const tenantMs = performance.now() - tenantStartedAt;
+    if (!settings) return c.json({ error: 'Tenant not found.' }, 404);
+
+    const launchStartedAt = performance.now();
+    const launchSummary = await buildDashboardLaunchSummary(c.env.DB, settings);
+    const launchMs = performance.now() - launchStartedAt;
+    const payload = buildTenantSettingsPayload(c.env, c.req.header('Accept-Language'), settings);
+    payload.session = {
+      user_id: session.user_id,
+      email: session.email,
+      tenant_id: session.tenant_id,
+      tenant_name: session.tenant_name,
+      role: session.role,
+      expires_at: session.expires_at,
+    };
+    payload.launch_summary = launchSummary;
+    payload.publish_readiness = buildDashboardPublishReadiness(settings, launchSummary);
+    payload.billing_summary = buildDashboardBillingSummary(settings);
+    payload.review_status = null;
+
+    const totalMs = performance.now() - startedAt;
+    c.header('Server-Timing', `bootstrap-tenant;dur=${tenantMs.toFixed(1)}, bootstrap-launch;dur=${launchMs.toFixed(1)}, bootstrap-total;dur=${totalMs.toFixed(1)}`);
+    console.info(`[DASHBOARD_BOOTSTRAP] tenant=${session.tenant_id} total_ms=${totalMs.toFixed(1)} tenant_ms=${tenantMs.toFixed(1)} launch_ms=${launchMs.toFixed(1)}`);
+    return c.json(payload);
+  } catch (error) {
+    console.error('[DASHBOARD_BOOTSTRAP_ERROR]', error);
+    return c.json({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
 /**
  * Sanitise a navigation link URL supplied by a tenant admin.
  * Accepts:
@@ -814,33 +1095,15 @@ tenants.get('/settings', async (c) => {
   }
 
   try {
-    const settings = await c.env.DB
-      .prepare('SELECT id, name, email, created_at, exchange_rate, target_currency, booking_currency, pricing_policy, infant_policy_text, pricing_notes_text, custom_domain, subdomain, subscription_status, terms_accepted, terms_accepted_at, stripe_customer_id, onboarding_step, payment_config_json, payment_methods, product_tier_key, default_locale, base_currency, primary_market, market_skin_key, total_revenue_tracked, commission_threshold, trust_status, trust_score, trust_reasons_json, trust_reviewed_at, trust_reviewed_by, custom_domain_verified_at, public_indexing_enabled, site_published_at, published_template_id FROM tenants WHERE id = ?')
+    const settings = normalizeTenantSettingsRecord(await c.env.DB
+      .prepare(TENANT_SETTINGS_SELECT)
       .bind(tenantId)
-      .first();
+      .first());
 
     if (!settings) {
       return c.json({ error: 'Tenant not found.' }, 404);
     }
-
-    // Parse JSON columns back to objects for the API response
-    if (settings.payment_config_json) {
-      try { settings.payment_config_json = JSON.parse(settings.payment_config_json); }
-      catch { /* leave as string if malformed */ }
-    }
-    if (settings.payment_methods) {
-      try { settings.payment_methods = JSON.parse(settings.payment_methods); }
-      catch { settings.payment_methods = []; }
-    }
-
-    const lang = resolveTenantCatalogLocale(c.req.header('Accept-Language'), settings);
-    return c.json({
-      ok: true,
-      settings,
-      catalogs: { locales: getSupportedLocales(), currencies: getTenantCurrencyCatalog(), market_skins: getMarketSkinCatalog(lang) },
-      subdomain_policy: buildSubdomainPolicy(c.env),
-      trust_state: buildTenantTrustState(settings),
-    });
+    return c.json(buildTenantSettingsPayload(c.env, c.req.header('Accept-Language'), settings));
   } catch (err) {
     console.error('[TENANT_SETTINGS_ERROR]', err);
     return c.json({ error: 'Internal server error. Please try again later.' }, 500);
@@ -3384,6 +3647,7 @@ tenants.post('/calendar-secret', async (c) => {
 
 export default function registerTenantRoutes(app) {
   app.route('/api/tenants', tenants);
+  app.get('/api/dashboard/bootstrap', handleDashboardBootstrap);
   // Public config endpoint — registered separately to keep URL path clean.
   app.route('/api/tenant', publicConfig);
   // Legacy compatibility for the public signup page. Unlike the editor-facing

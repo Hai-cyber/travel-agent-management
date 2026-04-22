@@ -1425,21 +1425,25 @@ window.addEventListener('dashboard:langchange', () => {
     syncSubdomainPolicyUi();
   }
 
-  const sessionPayload = await fetch('/api/auth/session').then((res) => res.json()).catch(() => null);
-  if (!sessionPayload?.authenticated || !sessionPayload?.session?.tenant_id) {
-    localStorage.removeItem('tam_tenant_id');
-    location.replace(LOGIN_PAGE);
-    return;
-  }
-
   const launchFlow = {
     welcome: params.get('welcome') === '1',
     step: String(params.get('step') || '').trim().toLowerCase(),
     applied: false,
   };
-  const tenantId = sessionPayload.session.tenant_id;
-  const tenantName = sessionPayload.session.tenant_name || '';
-  const onboardingState = { settings: null, catalogs: null, subdomainPolicy: null, publicConfig: null, universalBundle: null, tours: [], publishReadiness: null, reviewStatus: null };
+  let tenantId = '';
+  let tenantName = '';
+  const onboardingState = {
+    settings: null,
+    catalogs: null,
+    subdomainPolicy: null,
+    publicConfig: null,
+    universalBundle: null,
+    tours: [],
+    launchSummary: null,
+    publishReadiness: null,
+    reviewStatus: null,
+    billingSummary: null,
+  };
 
   function getSubdomainPolicy() {
     return onboardingState.subdomainPolicy || {};
@@ -1637,33 +1641,37 @@ window.addEventListener('dashboard:langchange', () => {
     document.querySelectorAll('[data-stat-value]').forEach((element) => formatDashboardStatValue(element));
   }
 
-  localStorage.setItem('tam_tenant_id', tenantId);
   if (params.toString()) {
     history.replaceState({}, '', '/dashboard.html');
   }
 
-  document.getElementById('btn-tour-config').href      = withTenant('tour-config.html');
-  document.getElementById('btn-universal-admin').href  = withTenant('universal-admin.html');
-  document.getElementById('btn-payment-settings').href = `#payments`;
+  function initializeTenantLinks() {
+    if (!tenantId) return;
+    localStorage.setItem('tam_tenant_id', tenantId);
+    document.getElementById('btn-tour-config').href      = withTenant('tour-config.html');
+    document.getElementById('btn-universal-admin').href  = withTenant('universal-admin.html');
+    document.getElementById('btn-payment-settings').href = '#billing';
 
-  const sidebarTours   = document.getElementById('sidebar-tours');
-  const sidebarDestinations = document.getElementById('sidebar-destinations');
-  const sidebarAccommodations = document.getElementById('sidebar-accommodations');
-  const sidebarGallery = document.getElementById('sidebar-gallery');
-  const sidebarProperties = document.getElementById('sidebar-properties');
-  const sidebarUniversal = document.getElementById('sidebar-universal-admin');
-  const sidebarSystemSettings = document.getElementById('sidebar-system-settings');
-  const sidebarPayment = document.getElementById('sidebar-payments');
-  if (sidebarTours) sidebarTours.href = withTenant('tour-config.html');
-  if (sidebarDestinations) sidebarDestinations.href = withTenant('product-modules.html?mode=destinations');
-  if (sidebarAccommodations) sidebarAccommodations.href = withTenant('product-modules.html?mode=hotels#hotel');
-  if (sidebarGallery) sidebarGallery.href = withTenant('product-modules.html?mode=gallery');
-  if (sidebarProperties) sidebarProperties.href = withTenant('properties-engine.html?tier=hotel_operator_pro');
-  const sidebarReports = document.getElementById('sidebar-reports');
-  if (sidebarReports) sidebarReports.href = withTenant('reports.html');
-  if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
-  if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
-  if (sidebarPayment) sidebarPayment.href = `#payments`;
+    const sidebarTours   = document.getElementById('sidebar-tours');
+    const sidebarDestinations = document.getElementById('sidebar-destinations');
+    const sidebarAccommodations = document.getElementById('sidebar-accommodations');
+    const sidebarGallery = document.getElementById('sidebar-gallery');
+    const sidebarProperties = document.getElementById('sidebar-properties');
+    const sidebarUniversal = document.getElementById('sidebar-universal-admin');
+    const sidebarSystemSettings = document.getElementById('sidebar-system-settings');
+    const sidebarPayment = document.getElementById('sidebar-payments');
+    const sidebarReports = document.getElementById('sidebar-reports');
+
+    if (sidebarTours) sidebarTours.href = withTenant('tour-config.html');
+    if (sidebarDestinations) sidebarDestinations.href = withTenant('product-modules.html?mode=destinations');
+    if (sidebarAccommodations) sidebarAccommodations.href = withTenant('product-modules.html?mode=hotels#hotel');
+    if (sidebarGallery) sidebarGallery.href = withTenant('product-modules.html?mode=gallery');
+    if (sidebarProperties) sidebarProperties.href = withTenant('properties-engine.html?tier=hotel_operator_pro');
+    if (sidebarReports) sidebarReports.href = withTenant('reports.html');
+    if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
+    if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
+    if (sidebarPayment) sidebarPayment.href = '#billing';
+  }
 
   function getSuggestedSubdomain() {
     const desired = slugifySubdomain(onboardingState.settings?.name || tenantName || 'travel-brand');
@@ -1777,36 +1785,37 @@ window.addEventListener('dashboard:langchange', () => {
 
   function renderLaunchGuide() {
     const settings = onboardingState.settings || {};
+    const launchSummary = onboardingState.launchSummary || null;
     const publicConfig = onboardingState.publicConfig?.config || {};
     const universalBundle = onboardingState.universalBundle || {};
     const runtime = universalBundle.tour_runtime || {};
     const pages = Array.isArray(universalBundle.pages) ? universalBundle.pages : [];
     const hasSubdomain = Boolean((settings.subdomain || settings.custom_domain || '').trim());
-    const selectedVariantKey = String(universalBundle.site?.variant_key || '').trim();
-    const selectedSkin = String(settings.current_theme || publicConfig.current_theme || universalBundle.site?.current_theme || '').trim();
-    const hasTheme = Boolean(selectedVariantKey);
+    const selectedVariantKey = String(launchSummary?.selected_variant_key || universalBundle.site?.variant_key || '').trim();
+    const selectedSkin = String(settings.current_theme || launchSummary?.selected_skin || publicConfig.current_theme || universalBundle.site?.current_theme || '').trim();
+    const hasTheme = launchSummary ? Boolean(launchSummary.has_theme) : Boolean(selectedVariantKey);
     const homePage = findPage(pages, 'home');
     const menuItems = Array.isArray(universalBundle.menu) ? universalBundle.menu : (Array.isArray(universalBundle.menu?.items) ? universalBundle.menu.items : []);
-    const hasWebsiteBase = Boolean((publicConfig.template_id || '').trim())
+    const hasWebsiteBase = launchSummary ? Boolean(launchSummary.has_website_base) : Boolean((publicConfig.template_id || '').trim())
       || Boolean(universalBundle.site?.site_name)
       || Boolean(publicConfig.brand?.name)
       || Boolean(publicConfig.content?.hero_title)
       || Boolean(Array.isArray(homePage?.blocks) && homePage.blocks.length)
       || Boolean(menuItems.length);
     const tours = Array.isArray(onboardingState.tours) ? onboardingState.tours : [];
-    const toursCount = tours.length || (Array.isArray(runtime.featured_tours) ? runtime.featured_tours.length : 0);
-    const publishedToursCount = tours.filter((t) => t.status === 'published' || Boolean(t.published_at)).length;
-    const destinationCount = toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0;
-    const accommodationsCount = Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0;
+    const toursCount = launchSummary ? Number(launchSummary.tours_count || 0) : (tours.length || (Array.isArray(runtime.featured_tours) ? runtime.featured_tours.length : 0));
+    const publishedToursCount = launchSummary ? Number(launchSummary.published_tours_count || 0) : tours.filter((t) => t.status === 'published' || Boolean(t.published_at)).length;
+    const destinationCount = launchSummary ? Number(launchSummary.destination_count || 0) : (toursCount ? (Array.isArray(runtime.destination_listing) ? runtime.destination_listing.length : 0) : 0);
+    const accommodationsCount = launchSummary ? Number(launchSummary.accommodations_count || 0) : (Array.isArray(universalBundle.hotels) ? universalBundle.hotels.length : 0);
     const featuredCollectionImages = Array.isArray(runtime.featured_collection?.gallery_images) ? runtime.featured_collection.gallery_images : [];
     const homeGalleryBlock = Array.isArray(homePage?.blocks)
       ? homePage.blocks.find((block) => block?.type === 'gallery')
       : null;
-    const galleryCount = toursCount
+    const galleryCount = launchSummary ? Number(launchSummary.gallery_count || 0) : (toursCount
       ? (featuredCollectionImages.length || (Array.isArray(homeGalleryBlock?.content?.images) ? homeGalleryBlock.content.images.length : 0))
-      : 0;
-    const contactCount = countEnabledContacts(universalBundle.contacts);
-    const hasSystemSettings = Boolean(contactCount)
+      : 0);
+    const contactCount = launchSummary ? Number(launchSummary.contact_count || 0) : countEnabledContacts(universalBundle.contacts);
+    const hasSystemSettings = launchSummary ? Boolean(launchSummary.has_system_settings) : Boolean(contactCount)
       || Boolean(universalBundle.contacts?.contactForm?.enabled)
       || Boolean(getPrimaryPageBody(findPage(pages, 'terms')))
       || Boolean(getPrimaryPageBody(findPage(pages, 'privacy')))
@@ -2033,38 +2042,54 @@ window.addEventListener('dashboard:langchange', () => {
   }
 
   async function loadLaunchData() {
-    const [publicConfigResult, universalBundleResult, toursResult, publishReadinessResult, reviewStatusResult] = await Promise.allSettled([
-      fetch('/api/tenant/config', { headers: buildTenantHeaders() }),
-      fetch('/api/universal/site/config', { headers: buildTenantHeaders() }),
-      fetch('/api/tours', { headers: buildTenantHeaders() }),
-      fetch('/api/tenant/publish-readiness', { headers: buildTenantHeaders() }),
-      fetch('/api/tenants/review-status', { headers: buildTenantHeaders() }),
-    ]);
+    const response = await fetch('/api/dashboard/bootstrap', {
+      headers: { 'Accept-Language': getTenantLocalePreference() },
+      credentials: 'include',
+    });
+    const payload = await response.json().catch(() => null);
 
-    if (publicConfigResult.status === 'fulfilled') {
-      const payload = await publicConfigResult.value.json().catch(() => null);
-      if (publicConfigResult.value.ok && payload?.ok) onboardingState.publicConfig = payload;
+    if (response.ok && payload?.ok) {
+      tenantId = payload.session?.tenant_id || tenantId;
+      tenantName = payload.session?.tenant_name || tenantName;
+      onboardingState.settings = payload.settings || onboardingState.settings;
+      onboardingState.catalogs = payload.catalogs || onboardingState.catalogs;
+      onboardingState.subdomainPolicy = payload.subdomain_policy || onboardingState.subdomainPolicy;
+      onboardingState.launchSummary = payload.launch_summary || onboardingState.launchSummary;
+      onboardingState.publishReadiness = payload.publish_readiness || onboardingState.publishReadiness;
+      onboardingState.billingSummary = payload.billing_summary || onboardingState.billingSummary;
+      initializeTenantLinks();
     }
 
-    if (universalBundleResult.status === 'fulfilled') {
-      const payload = await universalBundleResult.value.json().catch(() => null);
-      if (universalBundleResult.value.ok && payload?.ok) onboardingState.universalBundle = payload;
-    }
+    return { response, payload };
+  }
 
-    if (toursResult.status === 'fulfilled') {
-      const payload = await toursResult.value.json().catch(() => null);
-      if (toursResult.value.ok && payload?.ok && Array.isArray(payload.tours)) onboardingState.tours = payload.tours;
-    }
+  let reviewStatusRequest = null;
 
-    if (publishReadinessResult.status === 'fulfilled') {
-      const payload = await publishReadinessResult.value.json().catch(() => null);
-      if (publishReadinessResult.value.ok && payload) onboardingState.publishReadiness = payload;
+  async function loadReviewStatusLazy(force = false) {
+    if (!tenantId) return null;
+    if (onboardingState.reviewStatus && !force) {
+      renderReviewStatusPanel();
+      return onboardingState.reviewStatus;
     }
+    if (reviewStatusRequest) return reviewStatusRequest;
 
-    if (reviewStatusResult.status === 'fulfilled') {
-      const payload = await reviewStatusResult.value.json().catch(() => null);
-      if (reviewStatusResult.value.ok && payload?.ok) onboardingState.reviewStatus = payload;
-    }
+    reviewStatusRequest = (async () => {
+      try {
+        const response = await fetch('/api/tenants/review-status', { headers: buildTenantHeaders() });
+        const payload = await response.json().catch(() => null);
+        onboardingState.reviewStatus = response.ok && payload?.ok ? payload : null;
+        renderReviewStatusPanel();
+        return onboardingState.reviewStatus;
+      } catch {
+        onboardingState.reviewStatus = null;
+        renderReviewStatusPanel();
+        return null;
+      } finally {
+        reviewStatusRequest = null;
+      }
+    })();
+
+    return reviewStatusRequest;
   }
 
   async function fetchTenantSettings() {
@@ -2542,8 +2567,7 @@ window.addEventListener('dashboard:langchange', () => {
   }
 
   try {
-    await loadLaunchData();
-    const { response: res, payload: initialPayload } = await fetchTenantSettings();
+    const { response: res, payload: initialPayload } = await loadLaunchData();
 
     if (!res.ok) {
       if (res.status === 401 || res.status === 403 || res.status === 404) {
@@ -2552,17 +2576,15 @@ window.addEventListener('dashboard:langchange', () => {
         return;
       }
     } else {
-      onboardingState.settings = initialPayload?.settings || {};
-      onboardingState.catalogs = initialPayload?.catalogs || null;
-      onboardingState.subdomainPolicy = initialPayload?.subdomain_policy || null;
+      onboardingState.settings = initialPayload?.settings || onboardingState.settings || {};
+      onboardingState.catalogs = initialPayload?.catalogs || onboardingState.catalogs || null;
+      onboardingState.subdomainPolicy = initialPayload?.subdomain_policy || onboardingState.subdomainPolicy || null;
+      onboardingState.launchSummary = initialPayload?.launch_summary || onboardingState.launchSummary;
+      onboardingState.publishReadiness = initialPayload?.publish_readiness || onboardingState.publishReadiness;
+      onboardingState.billingSummary = initialPayload?.billing_summary || onboardingState.billingSummary;
+      initializeTenantLinks();
 
       await i18n.setLang(getTenantLocalePreference(), { persist: false });
-      const localized = await fetchTenantSettings();
-      if (localized.payload?.ok) {
-        onboardingState.settings = localized.payload.settings || onboardingState.settings;
-        onboardingState.catalogs = localized.payload.catalogs || onboardingState.catalogs;
-        onboardingState.subdomainPolicy = localized.payload.subdomain_policy || onboardingState.subdomainPolicy;
-      }
 
       const nameEl = document.getElementById('tenant-name-display');
       if (nameEl && onboardingState.settings.name) nameEl.textContent = onboardingState.settings.name;
@@ -2573,27 +2595,11 @@ window.addEventListener('dashboard:langchange', () => {
       renderDashboardStats();
       loadCustomDomainStatus();
       loadOrders(); // ← live bookings
+      setTimeout(() => { void loadReviewStatusLazy(); }, 0);
 
-      let daysLeft = null;
-      let hasStripeSubscription = false;
-      let billingStatusForBanner = null;
-      try {
-        const billingRes = await fetch('/api/billing/status', {
-          headers: buildTenantHeaders()
-        });
-        if (billingRes.ok) {
-          const billing = await billingRes.json().catch(() => null);
-          if (billing?.ok && billing?.trial_info) {
-            daysLeft = Number(billing.trial_info.trial_days_left);
-          }
-          if (billing?.ok && billing?.stripe_customer_id) {
-            hasStripeSubscription = true;
-          }
-          if (billing?.ok) {
-            billingStatusForBanner = billing.subscription_status;
-          }
-        }
-      } catch (_) {}
+      let daysLeft = Number(onboardingState.billingSummary?.trial_info?.trial_days_left || NaN);
+      const hasStripeSubscription = Boolean(onboardingState.billingSummary?.stripe_customer_id);
+      const billingStatusForBanner = onboardingState.billingSummary?.subscription_status || null;
 
       // Show trial banner if: (a) explicitly TRIAL status, OR (b) no real Stripe payment yet
       const isTrialState = onboardingState.settings.subscription_status === 'TRIAL' || !hasStripeSubscription;
@@ -2735,7 +2741,7 @@ window.addEventListener('dashboard:langchange', () => {
           <div class="wizard-step-title">Build your site <span class="step-status ${step1Done ? 'done' : 'next'}">${step1Done ? 'Done' : 'Start here'}</span></div>
           <p class="wizard-step-desc">Use the Visual Editor to design your tour pages, add photos, and configure your brand.</p>
           <div class="wizard-step-action">
-            <a href="universal-admin.html" class="button small">Open Website Editor</a>
+            <a href="${escapeHtml(withTenant('universal-admin.html'))}" class="button small">Open Website Editor</a>
           </div>
         </div>
       </div>`;
@@ -2749,13 +2755,13 @@ window.addEventListener('dashboard:langchange', () => {
     } else if (hasCustomDomain && !domainVerified) {
       step2Status = 'next'; step2Icon = '2';
       step2Desc = `Domain <strong>${escapeHtml(settings.custom_domain)}</strong> is set but not yet verified. Add the DNS records shown in Settings → Custom Domain, then click Check DNS.`;
-      step2Action = `<a href="#" id="wizard-btn-check-dns" class="button small">Check DNS</a>`;
+      step2Action = `<button type="button" id="wizard-btn-check-dns" class="button small">Check DNS</button>`;
     } else {
       step2Status = step1Done ? 'next' : 'later'; step2Icon = '2';
       step2Desc = 'Connect your own domain (BYOD) or register a new one through the platform — your store will go live on that domain.';
       step2Action = `
-        <a href="#" id="wizard-btn-byod" class="button small">Connect my domain</a>
-        <a href="#" id="wizard-btn-register-domain" class="button alt small" title="Register a new domain — CF cost + 30% platform fee">Register new domain ✨</a>`;
+        <button type="button" id="wizard-btn-byod" class="button small">Connect my domain</button>
+        <button type="button" id="wizard-btn-register-domain" class="button alt small" title="Register a new domain — CF cost + 30% platform fee">Register new domain ✨</button>`;
     }
     const step2 = `
       <div class="wizard-step">
@@ -2819,12 +2825,12 @@ window.addEventListener('dashboard:langchange', () => {
     let step4Desc, step4Action;
     if (hasElectronic) {
       step4Desc = `${connectedGateway?.label || 'Electronic gateway'} is connected. Customers can pay online. Bookings are trackable and commissionable.`;
-      step4Action = `<a href="#" id="wizard-btn-manage-payments" class="button alt small">Manage Payments</a>`;
+      step4Action = `<button type="button" id="wizard-btn-manage-payments" class="button alt small">Manage Payments</button>`;
     } else {
       step4Desc = step4Ready
         ? 'Connect at least one electronic payment gateway to unlock bookings. Bank transfer can be added as a supplementary option after.'
         : 'Available after your domain is connected and terms are accepted.';
-      step4Action = step4Ready ? `<a href="#" id="wizard-btn-manage-payments" class="button small">Set up Payment Gateway</a>` : '';
+      step4Action = step4Ready ? `<button type="button" id="wizard-btn-manage-payments" class="button small">Set up Payment Gateway</button>` : '';
     }
     const step4 = `
       <div class="wizard-step">
@@ -3010,6 +3016,18 @@ window.addEventListener('dashboard:langchange', () => {
 
   // ── Billing pane ──────────────────────────────────────────────────────────
   document.getElementById('sidebar-billing')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showPane('billing');
+    loadBillingPane();
+  });
+
+  document.getElementById('sidebar-payments')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showPane('billing');
+    loadBillingPane();
+  });
+
+  document.getElementById('btn-payment-settings')?.addEventListener('click', (e) => {
     e.preventDefault();
     showPane('billing');
     loadBillingPane();
