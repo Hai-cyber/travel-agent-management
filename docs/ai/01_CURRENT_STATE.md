@@ -225,6 +225,8 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/properties/:propertyId/shift-handover` — authenticated current handover note read for one property; returns the latest free-text note plus updater identity and timestamp for shift turnover
 - `PATCH /api/properties/:propertyId/shift-handover` — authenticated current handover note write for one property; updates the live outgoing-shift note without reopening generic property configuration patch scope
 - `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags` — authenticated staff-scoped room overlay patch; updates `do_not_disturb` and `room_service_requested` without broad room-configuration permissions
+- `GET /api/properties/:propertyId/room-units/:roomUnitId/availability-calendar` — authenticated per-room month-view availability read; returns one room unit's reserved/available day map for the current staff sidebar confidence view
+- `GET /api/properties/:propertyId/room-rack-summary` — authenticated rack-summary read; returns per-room next-open-night and next-reservation summary used by the staff rack confidence hints
 - `PATCH /api/properties/:propertyId/reservations/:reservationId` — authenticated property room-assignment patch for single-room stays; persists `assigned_room_unit_id`, rewires the current stay-plan segment and room-night allocations to that room unit, and removes same-type rack ambiguity
 - `GET /api/properties/:propertyId/reservations/:reservationId/folio` — returns or lazily opens the default folio for one reservation, including posted lines and a live summary (`charge_total`, `payment_total`, `balance_due`, `status`)
 - `POST /api/properties/:propertyId/reservations/:reservationId/folio/lines` — posts manual front-desk folio charge rows (`service_charge` or `fee`) onto the reservation folio
@@ -282,6 +284,7 @@ Property builder scope note:
 - `public/property-staff.html` now also persists guest photos through the Worker runtime instead of session-only memory. Uploading a guest image stores it in R2 and returns a reservation-backed `guest_photo_url`, which the rack and guest sheet reuse after reload.
 - Property reservation detail and board payloads now expose `allocated_room_unit_ids` / `allocated_room_numbers`, so the Room Rack can place one multi-room reservation across multiple occupied units instead of collapsing everything to a single assigned room lane.
 - `public/properties-engine.html` now exposes `early_arrival_fee` and `late_checkout_fee` on addon presets so the tenant can configure operational fee amounts without editing raw JSON.
+- `public/property-staff.html` now also uses a more explicit operational rack language: `Open Now`, `Reserved`, `Occupied`, `Departing Today`, and `Checked-out` as the primary room states, housekeeping remains a separate legend/strip, available-style rooms can show `n nights`, and clicking a room opens a month-view room availability sidebar with reserved vs available day coloring for assignment confidence.
 - `public/templates/default.html` — tour page template with all placeholders
 - `public/booking-widget.js` — full booking flow widget (CHK-R16)
 - `public/widget.js` — lightweight embed widget (CHK-R19)

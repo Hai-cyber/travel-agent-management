@@ -43,6 +43,14 @@ Status legend:
 | CHK-R103 | Night audit + housekeeping task engine baseline | done | Implemented `NEXT-P04` and `NEXT-P05`. Added `POST /api/properties/:propertyId/folios/night-audit` so managers can post nightly `room_charge` rows to folios using the live property pricing engine, with idempotence enforced by `note = night_audit:YYYY-MM-DD`. Added cron integration in `src/index.js` so the daily `0 8 * * *` tick runs night audit for the previous date. Added housekeeping runtime in `src/routes/properties.js`: `GET /api/properties/:propertyId/housekeeping-tasks`, `POST .../housekeeping-tasks/sync`, and `PATCH .../housekeeping-tasks/:taskId`. Checkout and early-check-out now auto-record a `dirty` room-state event and auto-create a `departure_clean` housekeeping task for the assigned room. `public/property-staff.html` now renders live housekeeping tasks and lets staff progress them through `Start`, `Inspect`, and `Ready`, while Rack cells can show `dirty`, `cleaning`, and `inspected` from task state. | 2026-04-21 | Verified locally on port 8803. Manual night audit for `2026-07-10` posted exactly one `room_charge` line on first run and `0` on the second run, proving idempotence. The folio then showed one persisted `room_charge` line for `90 USD`. After checkout on `2026-07-12`, `GET /api/properties/:propertyId/housekeeping-tasks?board_date=2026-07-12` returned one auto-created task for room `501` with `priority = departure_clean`, `status = pending`, and `effective_room_state = dirty`; PATCH moved the same task to `in_progress` and then `completed`. |
 | CHK-R104 | Active holds board + operational fee presets | done | Implemented `NEXT-P07` and `NEXT-P08`. Added `GET /api/properties/:propertyId/availability/holds` so Guest Support can list active holds with room-type labels and expiry times before releasing them. Added migration `0086_property_addon_fee_fields.sql`, exposing first-class `early_arrival_fee` and `late_checkout_fee` on `property_addon_service_presets`, and extended addon preset create/list/update/seed runtime accordingly. Seed defaults now include `EARLY-ARRIVAL`, and `LATE-CHECKOUT` now carries a dedicated `late_checkout_fee`. `public/property-staff.html` now renders active holds with one-click release and adds `Post Early Arrival Fee` / `Post Late Checkout Fee` actions that post those configured amounts into the reservation folio. `public/properties-engine.html` now exposes both fee fields in the addon preset form/list. | 2026-04-22 | Verified locally on port 8804. `GET /api/properties/:propertyId/availability/holds` returned one active `manual_hold` for room type `SUP`, `POST /api/properties/:propertyId/availability/hold/:holdId/release` changed it to `released`, and a follow-up `GET` returned an empty hold list. `GET /api/properties/:propertyId/addon-service-presets` after seeding defaults returned `EARLY-ARRIVAL` with `early_arrival_fee = 20` and `LATE-CHECKOUT` with `late_checkout_fee = 20`. Served HTML also contained `support-hold-list`, `Post Early Arrival Fee`, `Post Late Checkout Fee`, and the new addon preset fee inputs. |
 
+## Planned next checkpoints
+
+| Checkpoint | Title | Status | Priority group | Notes |
+|---|---|---|---|---|
+| CHK-R107 | Rack confidence layer + allocation-backed room availability truth | not_started | critical | Replace the current room-unit month calendar truth from `assigned_room_unit_id` with `reservation_allocations` / selected stay-plan truth so split-stay and multi-room reservations remain trustworthy. Extend the rack sidebar to explain `why not assignable`, expected arrival/departure timing, and clearer assignment confidence signals instead of relying on status color alone. |
+| CHK-R108 | Multi-room planning calendar view | not_started | important | Add a dedicated front-desk calendar tab for planning several rooms at once instead of only one room-unit sidebar at a time. The surface should let staff compare multiple lanes, upcoming arrivals/departures, and assignment windows without opening each room individually. |
+| CHK-R109 | Staff desk persistence polish | not_started | completeness | Persist sidebar collapsed state and similar staff-desk operator preferences in browser storage so the rack reopens in the last known operational layout instead of resetting each session. |
+
 ## Property runtime that now exists
 
 - Shared/property migrations `0057`–`0070` now cover:
@@ -77,7 +85,9 @@ Status legend:
   - `POST /api/properties/:propertyId/room-units`
   - `POST /api/properties/:propertyId/room-units/bulk-create`
   - `PATCH /api/properties/:propertyId/room-units/:roomUnitId`
+  - `GET /api/properties/:propertyId/room-units/:roomUnitId/availability-calendar`
   - `DELETE /api/properties/:propertyId/room-units/:roomUnitId`
+  - `GET /api/properties/:propertyId/room-rack-summary`
   - `GET /api/properties/:propertyId/room-rates`
   - `POST /api/properties/:propertyId/room-rates`
   - `PATCH /api/properties/:propertyId/room-rates/:roomRateId`
@@ -131,6 +141,7 @@ Status legend:
 - no separate admin/manual confirm route yet
 - no guest/public hotel booking UI yet
 - room-type-level hold granularity only
+- room-unit month availability in the staff desk currently reads `assigned_room_unit_id` truth, not full `reservation_allocations` truth yet; this is good enough for single-room operations but still needs an allocation-backed follow-up for split-stay and multi-room confidence
 - no admin/manual confirm route yet, no actor-aware authorization model beyond the current tenant-admin gate, and no richer post-stay settlement flow tied to folios yet
 
 ## Recommended next sprint (PMS gap analysis — 2026-04-21)
@@ -149,6 +160,8 @@ Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for 
 
 | ID | Title | Notes |
 |---|---|---|
+| NEXT-P13 | **Allocation-backed room calendar truth** | Rebuild room-unit availability calendar and rack confidence math on top of `reservation_allocations` / selected stay-plan segments rather than `assigned_room_unit_id` shortcuts. This is the next hardening step before the rack can be trusted for split-stay and multi-room planning. |
+| NEXT-P14 | **Assignment confidence layer** | Add `why not assignable`, expected arrival/departure timing, and explicit confidence text to the room sidebar so staff can see why a room is blocked or safe without inferring from colors alone. |
 
 ### 🟠 Important — affects daily ops
 
@@ -160,6 +173,7 @@ Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for 
 | ID | Title | Notes |
 |---|---|---|
 | NEXT-P06 | **Auto-dirty on checkout** | Covered by `CHK-R103` through `room_state_events` + auto-created housekeeping tasks rather than mutating `room_units.operational_status`. Follow-up only if the product later needs a persisted room-unit column mirror in addition to operational task/state history. |
+| NEXT-P15 | **Multi-room planning calendar view** | Add a separate front-desk tab for comparing multiple room-unit lanes and assignment windows at once. This should sit above the one-room sidebar confidence view, not replace it. |
 
 | CHK-R105 | Guest photo persistence + multi-room rack baseline | done | Implemented `NEXT-P09` and `NEXT-P10`. Added migration `0087_property_reservation_guest_photos.sql`, plus `GET /api/properties/:propertyId/reservations/:reservationId/guest-photo` and `POST .../guest-photo` so the property staff desk can persist one primary guest photo per reservation in Worker-managed R2 storage using the existing `BOOKING_PROOFS` binding. Reservation payloads now expose `guest_photo_key`, `guest_photo_uploaded_at`, and `guest_photo_url`. For multi-room stays, contiguous availability plans now generate one concrete stay-plan segment per allocated room unit instead of collapsing to one room, reservation detail now returns `allocated_room_unit_ids` / `allocated_room_numbers`, and the board list exposes the same fields so `public/property-staff.html` can render one multi-room reservation across every occupied rack cell. The guest sheet now uploads photos through runtime, hydrates photo URLs from reservation payloads, and disables room-assignment edits for `rooms_requested > 1` because the assignment patch remains a single-room-only operation. | 2026-04-22 | Verified locally on port 8805. Creating a reservation with `rooms_requested = 2` returned a selected stay plan with two concrete room-unit segments (`801`, `802`), detail payload returned `allocated_room_unit_ids = [..2 ids..]` and `allocated_room_numbers = ['801','802']`, and board list exposed the same allocation arrays. Uploading a tiny GIF to `POST /api/properties/:propertyId/reservations/:reservationId/guest-photo` returned a persisted `guest_photo_key` plus `guest_photo_url`, and a follow-up authenticated `GET` on the photo route returned `200 OK` with `Content-Type: image/gif`. |
 | CHK-R106 | Shift handover notes + room service overlays | done | Implemented `NEXT-P11` and `NEXT-P12`. Added migration `0088_property_shift_handover_room_flags.sql`, persisting `shift_handover_note` / updater metadata on `properties` and `do_not_disturb` / `room_service_requested` on `room_units`. Added `GET/PATCH /api/properties/:propertyId/shift-handover` for current shift-turnover notes and a staff-scoped `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags` route limited to DND and room-service overlay fields. `public/property-staff.html` now shows a Shift Handover card in Support, saves/clears the live note, renders `DND` / `RS` chips on rack cells, and lets staff toggle those flags from the guest sheet for the clicked room unit. | 2026-04-22 | Verified locally on port 8806. `PATCH /api/properties/:propertyId/shift-handover` persisted a night-shift note and `GET` returned the same note plus updater email/timestamp. `PATCH /api/properties/:propertyId/room-units/:roomUnitId/flags` first set `do_not_disturb = true`, then set `room_service_requested = true`; the follow-up `GET /api/properties/:propertyId/room-units` returned both flags as `true`. Served `property-staff` HTML also contained `shift-handover-note`, `btn-save-shift-handover`, `btn-toggle-dnd`, `btn-toggle-room-service`, and rack overlay chip markup. |
@@ -177,9 +191,9 @@ Priority order based on gap analysis against Mews / Cloudbeds / Opera Cloud for 
 
 ## Recommended next property slices
 
+- harden room assignment confidence on top of `reservation_allocations` so room calendars and rack hints stop depending on `assigned_room_unit_id` shortcuts
+- add a clearer assignment-confidence layer in the staff sidebar: why not assignable, arrival/departure time, and the next expected room transition
+- add a true multi-room calendar planning tab for front desk once single-room confidence view is allocation-backed
 - expand pricing v2 from seasons + per-room guest assignment pricing into richer rate plans, calendar overrides, and package/rule layers only after the current season model stays stable
 - connect addon presets to actual folio posting, cashier posting rules, and public/agent upsell surfaces while preserving the onsite-only policy and the airport-pickup-only pre-arrival exception
-- add real housekeeping task state, maintenance work orders, and folio/POS runtime behind the new staff-facing property operations shell
 - add richer lifecycle event browsing/filtering in the UI instead of raw JSON payload inspection
-- add room-state and housekeeping operational routes on top of migrations `0066`–`0068`
-- connect folio header/line runtime on top of migrations `0069`–`0070`
