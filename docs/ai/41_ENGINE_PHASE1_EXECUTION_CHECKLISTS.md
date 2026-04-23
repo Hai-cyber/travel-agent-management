@@ -22,6 +22,9 @@ These are the two practical tracks that can move in parallel without creating ar
 - `properties`
 - `room_types`
 - `room_units`
+- `property_reservations`
+- `reservation_stay_plans`
+- `reservation_allocations`
 - night-based availability calculation
 - contiguous-first stay-plan search
 - split-stay and upgrade-preserve ranking
@@ -113,3 +116,4 @@ This is the lowest-risk parallel path.
 - `36_PROPERTY_ENGINE_IMPLEMENTATION_ROADMAP.md`
 - `39_SHARED_KERNEL_BETWEEN_TOUR_AND_PROPERTY.md`
 - `40_SHARED_KERNEL_SCHEMA_DRAFT.md`
+- `43_PROPERTY_PHASE1_SCHEMA_DRAFT.md`
