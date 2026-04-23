@@ -179,19 +179,32 @@ function countHoldsByNight(holdRows, stayDates) {
   return holdCounts;
 }
 
-function countAllotmentsByNight(allotmentRows, stayDates, todayIso = formatDateUtc(new Date())) {
+function effectiveAllotmentRoomsBlocked(row, options = {}) {
+  const blockedRooms = Number(row?.rooms_blocked || 0);
+  const consumeAllotmentId = options.consumeAllotmentId ? String(options.consumeAllotmentId).trim() : null;
+  const consumeAllotmentRooms = Math.max(0, Number(options.consumeAllotmentRooms || 0));
+  if (consumeAllotmentId && String(row?.id || '') === consumeAllotmentId) {
+    return Math.max(blockedRooms - consumeAllotmentRooms, 0);
+  }
+  return blockedRooms;
+}
+
+function countAllotmentsByNight(allotmentRows, stayDates, options = {}) {
+  const todayIso = options.todayIso || formatDateUtc(new Date());
   const allotmentCounts = new Map();
   const dateSet = new Set(stayDates);
 
   for (const row of allotmentRows || []) {
     if (String(row.status || 'active') !== 'active') continue;
     if (row.release_date && String(row.release_date) < todayIso) continue;
+    const effectiveRoomsBlocked = effectiveAllotmentRoomsBlocked(row, options);
+    if (effectiveRoomsBlocked < 1) continue;
     const roomTypeId = String(row.room_type_id);
     const perNight = getOrCreateMap(allotmentCounts, roomTypeId);
     const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
     for (const stayDate of allotmentDates) {
       if (!dateSet.has(stayDate)) continue;
-      perNight.set(stayDate, (perNight.get(stayDate) || 0) + Number(row.rooms_blocked || 0));
+      perNight.set(stayDate, (perNight.get(stayDate) || 0) + effectiveRoomsBlocked);
     }
   }
 
@@ -228,9 +241,19 @@ function hasContiguousCapacity(nightlyRemaining, roomsRequested) {
   return (nightlyRemaining || []).every((row) => row.remaining >= roomsRequested);
 }
 
-function findContiguousUnits(roomUnits, occupiedDatesByUnit, stayDates, roomsRequested) {
+function prioritizeRoomUnits(roomUnits, preferredRoomUnitId = null) {
+  if (!preferredRoomUnitId) return roomUnits || [];
+  const preferredId = String(preferredRoomUnitId);
+  return [...(roomUnits || [])].sort((left, right) => {
+    const leftPreferred = String(left?.id || '') === preferredId ? 1 : 0;
+    const rightPreferred = String(right?.id || '') === preferredId ? 1 : 0;
+    return rightPreferred - leftPreferred;
+  });
+}
+
+function findContiguousUnits(roomUnits, occupiedDatesByUnit, stayDates, roomsRequested, preferredRoomUnitId = null) {
   const candidates = [];
-  for (const roomUnit of roomUnits || []) {
+  for (const roomUnit of prioritizeRoomUnits(roomUnits, preferredRoomUnitId)) {
     const occupiedDates = occupiedDatesByUnit.get(String(roomUnit.id)) || new Set();
     const freeAllNights = stayDates.every((stayDate) => !occupiedDates.has(stayDate));
     if (freeAllNights) candidates.push(roomUnit);
@@ -267,6 +290,8 @@ function buildSameTypeSplitSegments(roomUnits, occupiedDatesByUnit, stayDates, r
       currentSegment = {
         room_type_id: roomTypeId,
         room_unit_id: String(chosen.id),
+        room_number: chosen.room_number || null,
+        floor_label: chosen.floor_label || null,
         check_in: stayDate,
         check_out: nextDate || formatDateUtc(addDays(parseDateUtc(stayDate), 1)),
       };
@@ -350,6 +375,9 @@ const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'h
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
 const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
 const PROPERTY_ALLOTMENT_STATUSES = new Set(['active', 'released', 'expired']);
+const PROPERTY_PRICING_PROFILE_VISIBILITIES = new Set(['planner_only']);
+const PROPERTY_PRICING_PROFILE_MODES = new Set(['fixed_nightly_amount', 'delta_amount', 'delta_percent']);
+const PROPERTY_WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const AIRPORT_PICKUP_ADDON_CODES = new Set(['AIRPORT-PICKUP', 'AIRPORT-ARRIVAL']);
 
 const DEFAULT_PROPERTY_ADDON_PRESETS = {
@@ -445,6 +473,11 @@ function normalizeBooleanInteger(value, fallback = 0) {
 
 function normalizeInteger(value, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback;
+  return Number(value);
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
   return Number(value);
 }
 
@@ -545,6 +578,31 @@ function mapRoomRateRow(row) {
   };
 }
 
+function mapPropertyPricingProfileRow(row) {
+  return {
+    ...row,
+    active: Boolean(row.active),
+    scope: row.room_type_id ? 'room_type' : 'property',
+    fixed_nightly_amount: row.fixed_nightly_amount == null ? null : Number(row.fixed_nightly_amount),
+    delta_amount: row.delta_amount == null ? null : Number(row.delta_amount),
+    delta_percent: row.delta_percent == null ? null : Number(row.delta_percent),
+  };
+}
+
+function mapPropertyWeekdayPricingRuleRow(row) {
+  const dayOfWeek = Number(row.day_of_week);
+  return {
+    ...row,
+    day_of_week: dayOfWeek,
+    day_name: PROPERTY_WEEKDAY_NAMES[dayOfWeek] || `Day ${dayOfWeek}`,
+    active: Boolean(row.active),
+    scope: row.room_type_id ? 'room_type' : 'property',
+    fixed_nightly_amount: row.fixed_nightly_amount == null ? null : Number(row.fixed_nightly_amount),
+    delta_amount: row.delta_amount == null ? null : Number(row.delta_amount),
+    delta_percent: row.delta_percent == null ? null : Number(row.delta_percent),
+  };
+}
+
 function mapRateSeasonRow(row) {
   return {
     ...row,
@@ -586,6 +644,8 @@ function buildSegmentsForContiguousUnits(roomTypeId, checkIn, checkOut, contiguo
     return Array.from({ length: roomsRequested }, (_, index) => ({
       room_type_id: roomTypeId,
       room_unit_id: contiguousUnits[index]?.id ? String(contiguousUnits[index].id) : null,
+      room_number: contiguousUnits[index]?.room_number || null,
+      floor_label: contiguousUnits[index]?.floor_label || null,
       check_in: checkIn,
       check_out: checkOut,
     }));
@@ -593,6 +653,8 @@ function buildSegmentsForContiguousUnits(roomTypeId, checkIn, checkOut, contiguo
   return contiguousUnits.slice(0, roomsRequested).map((roomUnit) => ({
     room_type_id: roomTypeId,
     room_unit_id: String(roomUnit.id),
+    room_number: roomUnit.room_number || null,
+    floor_label: roomUnit.floor_label || null,
     check_in: checkIn,
     check_out: checkOut,
   }));
@@ -1276,6 +1338,146 @@ function validateSeasonRoomRatePatchRequest(body) {
   return { updates };
 }
 
+function validatePropertyPricingProfileConfiguration(pricingMode, values) {
+  const fixedNightlyAmount = values?.fixedNightlyAmount ?? null;
+  const deltaAmount = values?.deltaAmount ?? null;
+  const deltaPercent = values?.deltaPercent ?? null;
+
+  if (!PROPERTY_PRICING_PROFILE_MODES.has(pricingMode)) {
+    return { error: 'pricing_mode is invalid.' };
+  }
+
+  if (pricingMode === 'fixed_nightly_amount') {
+    if (!Number.isFinite(fixedNightlyAmount) || fixedNightlyAmount < 0) {
+      return { error: 'fixed_nightly_amount must be a number greater than or equal to 0 when pricing_mode is fixed_nightly_amount.' };
+    }
+    return { fixedNightlyAmount, deltaAmount: null, deltaPercent: null };
+  }
+
+  if (pricingMode === 'delta_amount') {
+    if (!Number.isFinite(deltaAmount)) {
+      return { error: 'delta_amount must be a number when pricing_mode is delta_amount.' };
+    }
+    return { fixedNightlyAmount: null, deltaAmount, deltaPercent: null };
+  }
+
+  if (!Number.isFinite(deltaPercent) || deltaPercent <= -100) {
+    return { error: 'delta_percent must be a number greater than -100 when pricing_mode is delta_percent.' };
+  }
+  return { fixedNightlyAmount: null, deltaAmount: null, deltaPercent };
+}
+
+function validatePropertyPricingProfileCreateRequest(body, propertyId) {
+  const property = String(propertyId || '').trim();
+  const roomTypeId = body?.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  const code = String(body?.code || '').trim().toUpperCase();
+  const name = String(body?.name || '').trim();
+  const visibility = String(body?.visibility || 'planner_only').trim();
+  const pricingMode = String(body?.pricing_mode || 'fixed_nightly_amount').trim();
+  const fixedNightlyAmount = normalizeOptionalNumber(body?.fixed_nightly_amount);
+  const deltaAmount = normalizeOptionalNumber(body?.delta_amount);
+  const deltaPercent = normalizeOptionalNumber(body?.delta_percent);
+  const notes = body?.notes == null ? null : (String(body.notes).trim() || null);
+
+  if (!property) return { error: 'propertyId is required.' };
+  if (!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(code)) {
+    return { error: 'code must be 1-40 characters using only A-Z, 0-9, underscore, or hyphen.' };
+  }
+  if (!name) return { error: 'name is required.' };
+  if (!PROPERTY_PRICING_PROFILE_VISIBILITIES.has(visibility)) return { error: 'visibility is invalid.' };
+
+  const normalizedConfig = validatePropertyPricingProfileConfiguration(pricingMode, {
+    fixedNightlyAmount,
+    deltaAmount,
+    deltaPercent,
+  });
+  if (normalizedConfig.error) return normalizedConfig;
+
+  return {
+    propertyId: property,
+    roomTypeId,
+    code,
+    name,
+    visibility,
+    pricingMode,
+    fixedNightlyAmount: normalizedConfig.fixedNightlyAmount,
+    deltaAmount: normalizedConfig.deltaAmount,
+    deltaPercent: normalizedConfig.deltaPercent,
+    notes,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validatePropertyPricingProfilePatchRequest(body) {
+  const allowed = new Set([
+    'room_type_id',
+    'code',
+    'name',
+    'visibility',
+    'pricing_mode',
+    'fixed_nightly_amount',
+    'delta_amount',
+    'delta_percent',
+    'notes',
+    'active',
+  ]);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('room_type_id' in body) {
+    updates.room_type_id = body.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  }
+  if ('code' in body) {
+    const value = String(body.code || '').trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(value)) {
+      return { error: 'code must be 1-40 characters using only A-Z, 0-9, underscore, or hyphen.' };
+    }
+    updates.code = value;
+  }
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('visibility' in body) {
+    const value = String(body.visibility || '').trim();
+    if (!PROPERTY_PRICING_PROFILE_VISIBILITIES.has(value)) return { error: 'visibility is invalid.' };
+    updates.visibility = value;
+  }
+  if ('pricing_mode' in body) {
+    const value = String(body.pricing_mode || '').trim();
+    if (!PROPERTY_PRICING_PROFILE_MODES.has(value)) return { error: 'pricing_mode is invalid.' };
+    updates.pricing_mode = value;
+  }
+  if ('fixed_nightly_amount' in body) {
+    const value = normalizeOptionalNumber(body.fixed_nightly_amount);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      return { error: 'fixed_nightly_amount must be a number greater than or equal to 0.' };
+    }
+    updates.fixed_nightly_amount = value;
+  }
+  if ('delta_amount' in body) {
+    const value = normalizeOptionalNumber(body.delta_amount);
+    if (value !== null && !Number.isFinite(value)) return { error: 'delta_amount must be a number when provided.' };
+    updates.delta_amount = value;
+  }
+  if ('delta_percent' in body) {
+    const value = normalizeOptionalNumber(body.delta_percent);
+    if (value !== null && (!Number.isFinite(value) || value <= -100)) {
+      return { error: 'delta_percent must be a number greater than -100 when provided.' };
+    }
+    updates.delta_percent = value;
+  }
+  if ('notes' in body) {
+    updates.notes = body.notes == null ? null : (String(body.notes).trim() || null);
+  }
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
+}
+
 function validateRateQuoteRequest(body, propertyId) {
   const property = String(propertyId || '').trim();
   const roomTypeId = String(body?.room_type_id || '').trim();
@@ -1284,6 +1486,7 @@ function validateRateQuoteRequest(body, propertyId) {
   const adults = Number(body?.adults ?? 2);
   const children = Number(body?.children ?? 0);
   const roomsRequested = Number(body?.rooms_requested ?? 1);
+  const pricingProfileId = body?.pricing_profile_id ? String(body.pricing_profile_id).trim() : null;
   let roomGuestAssignments = null;
 
   if (!property) return { error: 'propertyId is required.' };
@@ -1337,7 +1540,107 @@ function validateRateQuoteRequest(body, propertyId) {
     }
   }
 
-  return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested, roomGuestAssignments };
+  return { propertyId: property, roomTypeId, checkIn, checkOut, adults, children, roomsRequested, roomGuestAssignments, pricingProfileId };
+}
+
+function validatePropertyWeekdayPricingRuleCreateRequest(body, propertyId) {
+  const property = String(propertyId || '').trim();
+  const roomTypeId = body?.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  const dayOfWeek = Number(body?.day_of_week);
+  const name = String(body?.name || '').trim();
+  const pricingMode = String(body?.pricing_mode || 'fixed_nightly_amount').trim();
+  const fixedNightlyAmount = normalizeOptionalNumber(body?.fixed_nightly_amount);
+  const deltaAmount = normalizeOptionalNumber(body?.delta_amount);
+  const deltaPercent = normalizeOptionalNumber(body?.delta_percent);
+  const notes = body?.notes == null ? null : (String(body.notes).trim() || null);
+
+  if (!property) return { error: 'propertyId is required.' };
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+    return { error: 'day_of_week must be an integer between 0 (Sunday) and 6 (Saturday).' };
+  }
+  if (!name) return { error: 'name is required.' };
+
+  const normalizedConfig = validatePropertyPricingProfileConfiguration(pricingMode, {
+    fixedNightlyAmount,
+    deltaAmount,
+    deltaPercent,
+  });
+  if (normalizedConfig.error) return normalizedConfig;
+
+  return {
+    propertyId: property,
+    roomTypeId,
+    dayOfWeek,
+    name,
+    pricingMode,
+    fixedNightlyAmount: normalizedConfig.fixedNightlyAmount,
+    deltaAmount: normalizedConfig.deltaAmount,
+    deltaPercent: normalizedConfig.deltaPercent,
+    notes,
+    active: normalizeBooleanInteger(body?.active, 1),
+  };
+}
+
+function validatePropertyWeekdayPricingRulePatchRequest(body) {
+  const allowed = new Set([
+    'room_type_id',
+    'day_of_week',
+    'name',
+    'pricing_mode',
+    'fixed_nightly_amount',
+    'delta_amount',
+    'delta_percent',
+    'notes',
+    'active',
+  ]);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('room_type_id' in body) {
+    updates.room_type_id = body.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  }
+  if ('day_of_week' in body) {
+    const value = Number(body.day_of_week);
+    if (!Number.isInteger(value) || value < 0 || value > 6) {
+      return { error: 'day_of_week must be an integer between 0 (Sunday) and 6 (Saturday).' };
+    }
+    updates.day_of_week = value;
+  }
+  if ('name' in body) {
+    const value = String(body.name || '').trim();
+    if (!value) return { error: 'name cannot be empty.' };
+    updates.name = value;
+  }
+  if ('pricing_mode' in body) {
+    const value = String(body.pricing_mode || '').trim();
+    if (!PROPERTY_PRICING_PROFILE_MODES.has(value)) return { error: 'pricing_mode is invalid.' };
+    updates.pricing_mode = value;
+  }
+  if ('fixed_nightly_amount' in body) {
+    const value = normalizeOptionalNumber(body.fixed_nightly_amount);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      return { error: 'fixed_nightly_amount must be a number greater than or equal to 0.' };
+    }
+    updates.fixed_nightly_amount = value;
+  }
+  if ('delta_amount' in body) {
+    const value = normalizeOptionalNumber(body.delta_amount);
+    if (value !== null && !Number.isFinite(value)) return { error: 'delta_amount must be a number when provided.' };
+    updates.delta_amount = value;
+  }
+  if ('delta_percent' in body) {
+    const value = normalizeOptionalNumber(body.delta_percent);
+    if (value !== null && (!Number.isFinite(value) || value <= -100)) {
+      return { error: 'delta_percent must be a number greater than -100 when provided.' };
+    }
+    updates.delta_percent = value;
+  }
+  if ('notes' in body) updates.notes = body.notes == null ? null : (String(body.notes).trim() || null);
+  if ('active' in body) updates.active = normalizeBooleanInteger(body.active);
+  return { updates };
 }
 
 function validateEarlyCheckoutRequest(body, reservation) {
@@ -1357,6 +1660,8 @@ function validateAvailabilityRequest(body, propertyId) {
   const checkOut = String(body?.check_out || '').trim();
   const roomTypeId = String(body?.room_type_id || '').trim();
   const roomsRequested = Number(body?.rooms_requested || 1);
+  const preferredRoomUnitId = body?.preferred_room_unit_id ? String(body.preferred_room_unit_id).trim() : null;
+  const allotmentId = body?.allotment_id ? String(body.allotment_id).trim() : null;
   const normalizedPropertyId = String(propertyId || '').trim();
 
   if (!normalizedPropertyId || !roomTypeId || !isIsoDate(checkIn) || !isIsoDate(checkOut)) {
@@ -1375,6 +1680,8 @@ function validateAvailabilityRequest(body, propertyId) {
     checkIn,
     checkOut,
     roomsRequested,
+    preferredRoomUnitId,
+    allotmentId,
   };
 }
 
@@ -2065,6 +2372,38 @@ async function loadRoomRateById(env, tenantId, propertyId, roomRateId) {
   return row ? mapRoomRateRow(row) : null;
 }
 
+async function loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT ppp.id, ppp.tenant_id, ppp.property_id, ppp.room_type_id, ppp.code, ppp.name,
+              ppp.visibility, ppp.pricing_mode, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
+              ppp.notes, ppp.active, ppp.created_by, ppp.updated_by, ppp.created_at, ppp.updated_at,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_pricing_profiles ppp
+         LEFT JOIN room_types rt ON rt.id = ppp.room_type_id AND rt.tenant_id = ppp.tenant_id AND rt.property_id = ppp.property_id
+        WHERE ppp.id = ? AND ppp.tenant_id = ? AND ppp.property_id = ?`
+    )
+    .bind(pricingProfileId, tenantId, propertyId)
+    .first();
+  return row ? mapPropertyPricingProfileRow(row) : null;
+}
+
+async function loadPropertyWeekdayPricingRuleById(env, tenantId, propertyId, weekdayPricingRuleId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
+              pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
+              pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_weekday_pricing_rules pwr
+         LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
+        WHERE pwr.id = ? AND pwr.tenant_id = ? AND pwr.property_id = ?`
+    )
+    .bind(weekdayPricingRuleId, tenantId, propertyId)
+    .first();
+  return row ? mapPropertyWeekdayPricingRuleRow(row) : null;
+}
+
 async function loadRateSeasonById(env, tenantId, propertyId, seasonId) {
   const row = await env.DB
     .prepare(
@@ -2125,6 +2464,89 @@ function resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, ba
   return null;
 }
 
+function weekdayIndexForIsoDate(stayDate) {
+  return parseDateUtc(stayDate).getUTCDay();
+}
+
+function selectApplicablePropertyWeekdayPricingRule(weekdayRules, roomTypeId, stayDate) {
+  const dayOfWeek = weekdayIndexForIsoDate(stayDate);
+  const normalizedRoomTypeId = String(roomTypeId || '').trim();
+  const exactRule = (weekdayRules || []).find((rule) => Number(rule.day_of_week) === dayOfWeek && String(rule.room_type_id || '').trim() === normalizedRoomTypeId);
+  if (exactRule) return exactRule;
+  return (weekdayRules || []).find((rule) => Number(rule.day_of_week) === dayOfWeek && !rule.room_type_id) || null;
+}
+
+function applyPropertyWeekdayPricingRuleToResolvedRate(resolvedRate, weekdayRule, stayDate) {
+  if (!resolvedRate || !weekdayRule || !weekdayRule.active) return resolvedRate;
+
+  const baseNightlyAmount = Number(resolvedRate.nightly_amount || 0);
+  let adjustedNightlyAmount = baseNightlyAmount;
+  let adjustmentPercent = null;
+
+  if (weekdayRule.pricing_mode === 'fixed_nightly_amount') {
+    adjustedNightlyAmount = Number(weekdayRule.fixed_nightly_amount || 0);
+  } else if (weekdayRule.pricing_mode === 'delta_amount') {
+    adjustedNightlyAmount = baseNightlyAmount + Number(weekdayRule.delta_amount || 0);
+  } else if (weekdayRule.pricing_mode === 'delta_percent') {
+    adjustmentPercent = Number(weekdayRule.delta_percent || 0);
+    adjustedNightlyAmount = baseNightlyAmount * (1 + (adjustmentPercent / 100));
+  }
+
+  adjustedNightlyAmount = Number(Math.max(0, adjustedNightlyAmount).toFixed(2));
+  const adjustmentAmount = Number((adjustedNightlyAmount - baseNightlyAmount).toFixed(2));
+  const dayOfWeek = weekdayIndexForIsoDate(stayDate);
+
+  return {
+    ...resolvedRate,
+    nightly_amount: adjustedNightlyAmount,
+    weekday_pricing_rule_applied: true,
+    weekday_pricing_rule_id: weekdayRule.id,
+    weekday_pricing_rule_name: weekdayRule.name,
+    weekday_pricing_rule_day_of_week: dayOfWeek,
+    weekday_pricing_rule_day_name: PROPERTY_WEEKDAY_NAMES[dayOfWeek] || `Day ${dayOfWeek}`,
+    weekday_pricing_rule_mode: weekdayRule.pricing_mode,
+    weekday_pricing_rule_scope: weekdayRule.scope,
+    weekday_pricing_rule_room_type_id: weekdayRule.room_type_id || null,
+    weekday_pricing_rule_adjustment_amount: adjustmentAmount,
+    weekday_pricing_rule_adjustment_percent: adjustmentPercent,
+  };
+}
+
+function applyPropertyPricingProfileToResolvedRate(resolvedRate, pricingProfile) {
+  if (!resolvedRate || !pricingProfile || !pricingProfile.active) return resolvedRate;
+
+  const baseNightlyAmount = Number(resolvedRate.nightly_amount || 0);
+  let adjustedNightlyAmount = baseNightlyAmount;
+  let adjustmentPercent = null;
+
+  if (pricingProfile.pricing_mode === 'fixed_nightly_amount') {
+    adjustedNightlyAmount = Number(pricingProfile.fixed_nightly_amount || 0);
+  } else if (pricingProfile.pricing_mode === 'delta_amount') {
+    adjustedNightlyAmount = baseNightlyAmount + Number(pricingProfile.delta_amount || 0);
+  } else if (pricingProfile.pricing_mode === 'delta_percent') {
+    adjustmentPercent = Number(pricingProfile.delta_percent || 0);
+    adjustedNightlyAmount = baseNightlyAmount * (1 + (adjustmentPercent / 100));
+  }
+
+  adjustedNightlyAmount = Number(Math.max(0, adjustedNightlyAmount).toFixed(2));
+  const adjustmentAmount = Number((adjustedNightlyAmount - baseNightlyAmount).toFixed(2));
+
+  return {
+    ...resolvedRate,
+    nightly_amount: adjustedNightlyAmount,
+    pricing_profile_applied: true,
+    pricing_profile_id: pricingProfile.id,
+    pricing_profile_code: pricingProfile.code,
+    pricing_profile_name: pricingProfile.name,
+    pricing_profile_visibility: pricingProfile.visibility,
+    pricing_profile_mode: pricingProfile.pricing_mode,
+    pricing_profile_scope: pricingProfile.scope,
+    pricing_profile_room_type_id: pricingProfile.room_type_id || null,
+    pricing_profile_adjustment_amount: adjustmentAmount,
+    pricing_profile_adjustment_percent: adjustmentPercent,
+  };
+}
+
 function calculateOccupancyAdjustment(resolvedRate, adults, children, roomsRequested = 1) {
   if (!resolvedRate) {
     return {
@@ -2171,6 +2593,335 @@ function calculatePerRoomOccupancyAdjustments(resolvedRate, roomGuestAssignments
       nightly_total: Number(resolvedRate.nightly_amount) + Number(adjustment.adjustment_amount || 0),
     };
   });
+}
+
+function parseReservationPricingSnapshotValue(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  return parseJsonSafe(value);
+}
+
+function extractPricingProfileIdFromPricingSnapshot(value) {
+  const snapshot = parseReservationPricingSnapshotValue(value);
+  const pricingProfileId = snapshot?.pricing_profile_id ?? snapshot?.pricing_profile?.id ?? null;
+  return pricingProfileId ? String(pricingProfileId).trim() : null;
+}
+
+function mapPricingProfileQuoteSummary(pricingProfile) {
+  if (!pricingProfile) return null;
+  return {
+    id: pricingProfile.id,
+    code: pricingProfile.code,
+    name: pricingProfile.name,
+    room_type_id: pricingProfile.room_type_id,
+    pricing_mode: pricingProfile.pricing_mode,
+    fixed_nightly_amount: pricingProfile.fixed_nightly_amount,
+    delta_amount: pricingProfile.delta_amount,
+    delta_percent: pricingProfile.delta_percent,
+  };
+}
+
+async function resolvePropertyRateQuote(env, tenantId, propertyId, parsed) {
+  const property = await loadPropertyById(env, tenantId, propertyId);
+  if (!property) return { error: { payload: { error: 'Property not found.' }, status: 404 } };
+
+  const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+  if (!roomType) return { error: { payload: { error: 'Room type not found.' }, status: 404 } };
+
+  const totalGuests = Number(parsed.adults || 0) + Number(parsed.children || 0);
+  const maxGuests = Number(roomType.max_occupancy || 0) * Number(parsed.roomsRequested || 1);
+  if (maxGuests > 0 && totalGuests > maxGuests) {
+    return {
+      error: {
+        payload: { error: `Guest mix exceeds the configured max occupancy for ${parsed.roomsRequested} room(s).` },
+        status: 409,
+      },
+    };
+  }
+
+  const [baseRateRow, seasonsResult, seasonRatesResult, weekdayRulesResult, pricingProfile] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
+         FROM property_room_rates
+        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1`
+    ).bind(tenantId, propertyId, parsed.roomTypeId).first(),
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
+         FROM property_rate_seasons
+        WHERE tenant_id = ? AND property_id = ? AND active = 1
+        ORDER BY sort_order ASC, start_date ASC, created_at ASC`
+    ).bind(tenantId, propertyId).all(),
+    env.DB.prepare(
+      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
+              included_adults, included_children, extra_adult_amount, extra_child_amount,
+              active, created_at, updated_at
+         FROM property_room_rate_season_prices
+        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
+    ).bind(tenantId, propertyId, parsed.roomTypeId).all(),
+    env.DB.prepare(
+      `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
+              pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
+              pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_weekday_pricing_rules pwr
+         LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
+        WHERE pwr.tenant_id = ?
+          AND pwr.property_id = ?
+          AND pwr.active = 1
+          AND (pwr.room_type_id IS NULL OR pwr.room_type_id = ?)
+        ORDER BY CASE WHEN pwr.room_type_id = ? THEN 0 ELSE 1 END ASC, pwr.day_of_week ASC, pwr.created_at ASC`
+    ).bind(tenantId, propertyId, parsed.roomTypeId, parsed.roomTypeId).all(),
+    parsed.pricingProfileId
+      ? loadPropertyPricingProfileById(env, tenantId, propertyId, parsed.pricingProfileId)
+      : Promise.resolve(null),
+  ]);
+
+  if (parsed.pricingProfileId) {
+    if (!pricingProfile) return { error: { payload: { error: 'Pricing profile not found.' }, status: 404 } };
+    if (!pricingProfile.active) return { error: { payload: { error: 'Pricing profile is inactive.' }, status: 409 } };
+    if (pricingProfile.room_type_id && String(pricingProfile.room_type_id) !== parsed.roomTypeId) {
+      return {
+        error: {
+          payload: { error: 'Pricing profile does not apply to the selected room type.' },
+          status: 409,
+        },
+      };
+    }
+  }
+
+  const stayDates = enumerateStayDates(parsed.checkIn, parsed.checkOut);
+  const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
+  const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
+  const weekdayRules = (weekdayRulesResult.results || []).map(mapPropertyWeekdayPricingRuleRow);
+  const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
+
+  const nightlyBreakdown = stayDates.map((stayDate) => {
+    const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
+    const weekdayRule = selectApplicablePropertyWeekdayPricingRule(weekdayRules, parsed.roomTypeId, stayDate);
+    const weekdayAdjustedRate = applyPropertyWeekdayPricingRuleToResolvedRate(resolved, weekdayRule, stayDate);
+    const quotedRate = applyPropertyPricingProfileToResolvedRate(weekdayAdjustedRate, pricingProfile);
+    const perRoomAssignments = calculatePerRoomOccupancyAdjustments(quotedRate, parsed.roomGuestAssignments);
+    const occupancyAdjustment = perRoomAssignments
+      ? {
+          included_adults_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_adults_total || 0), 0),
+          included_children_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_children_total || 0), 0),
+          extra_adults: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_adults || 0), 0),
+          extra_children: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_children || 0), 0),
+          extra_adult_amount: Number(quotedRate?.extra_adult_amount || 0),
+          extra_child_amount: Number(quotedRate?.extra_child_amount || 0),
+          adjustment_amount: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.adjustment_amount || 0), 0),
+        }
+      : calculateOccupancyAdjustment(quotedRate, parsed.adults, parsed.children, parsed.roomsRequested);
+    const nightlyBaseTotal = perRoomAssignments
+      ? perRoomAssignments.reduce((sum, item) => sum + Number(item.nightly_base_total || 0), 0)
+      : (quotedRate ? Number(quotedRate.nightly_amount) * parsed.roomsRequested : null);
+    return {
+      stay_date: stayDate,
+      source: quotedRate?.source || 'missing_rate',
+      season_id: quotedRate?.season_id || null,
+      season_name: quotedRate?.season_name || null,
+      currency: quotedRate?.currency || baseRate?.currency || property.currency,
+      base_nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
+      weekday_nightly_amount: weekdayAdjustedRate ? Number(weekdayAdjustedRate.nightly_amount) : null,
+      nightly_amount: quotedRate ? Number(quotedRate.nightly_amount) : null,
+      rooms_requested: parsed.roomsRequested,
+      nightly_base_total: nightlyBaseTotal,
+      included_adults: quotedRate ? Number(quotedRate.included_adults) : null,
+      included_children: quotedRate ? Number(quotedRate.included_children) : null,
+      room_guest_assignments: perRoomAssignments,
+      weekday_adjustment: quotedRate?.weekday_pricing_rule_applied
+        ? {
+            id: quotedRate.weekday_pricing_rule_id,
+            name: quotedRate.weekday_pricing_rule_name,
+            day_of_week: quotedRate.weekday_pricing_rule_day_of_week,
+            day_name: quotedRate.weekday_pricing_rule_day_name,
+            pricing_mode: quotedRate.weekday_pricing_rule_mode,
+            adjustment_amount: quotedRate.weekday_pricing_rule_adjustment_amount,
+            adjustment_percent: quotedRate.weekday_pricing_rule_adjustment_percent,
+          }
+        : null,
+      pricing_profile: quotedRate?.pricing_profile_applied
+        ? {
+            id: quotedRate.pricing_profile_id,
+            code: quotedRate.pricing_profile_code,
+            name: quotedRate.pricing_profile_name,
+            pricing_mode: quotedRate.pricing_profile_mode,
+            adjustment_amount: quotedRate.pricing_profile_adjustment_amount,
+            adjustment_percent: quotedRate.pricing_profile_adjustment_percent,
+          }
+        : null,
+      occupancy_adjustment: quotedRate ? occupancyAdjustment : null,
+      nightly_total: quotedRate ? nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0) : null,
+    };
+  });
+
+  const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
+  const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
+  const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
+  const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
+  const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
+
+  return {
+    pricingProfile,
+    nightlyBreakdown,
+    missingDates,
+    totalBaseAmount,
+    totalOccupancyAdjustment,
+    totalAmount,
+    currency,
+    sourceSummary: {
+      has_base_rate: Boolean(baseRate),
+      active_seasons: activeSeasons.length,
+      active_season_rates: seasonRatesByKey.size,
+      weekday_rules_loaded: weekdayRules.length,
+      weekday_pricing_applied: nightlyBreakdown.some((row) => row.weekday_adjustment),
+      pricing_profile_applied: Boolean(pricingProfile),
+    },
+  };
+}
+
+function buildResolvedRateQuotePayload(propertyId, parsed, quote) {
+  return {
+    ok: true,
+    property_id: propertyId,
+    room_type_id: parsed.roomTypeId,
+    request: {
+      check_in: parsed.checkIn,
+      check_out: parsed.checkOut,
+      adults: parsed.adults,
+      children: parsed.children,
+      rooms_requested: parsed.roomsRequested,
+      room_guest_assignments: parsed.roomGuestAssignments,
+      pricing_profile_id: parsed.pricingProfileId,
+    },
+    pricing: {
+      currency: quote.currency,
+      pricing_profile: mapPricingProfileQuoteSummary(quote.pricingProfile),
+      nightly_breakdown: quote.nightlyBreakdown,
+      missing_rate_dates: quote.missingDates,
+      total_base_amount: quote.totalBaseAmount,
+      total_occupancy_adjustment: quote.totalOccupancyAdjustment,
+      total_amount: quote.totalAmount,
+      source_summary: quote.sourceSummary,
+    },
+  };
+}
+
+function buildReservationPricingSnapshot(quote, reservationInput, frozenAt, fallbackSnapshot = null) {
+  const parsedFallback = fallbackSnapshot && typeof fallbackSnapshot === 'object' ? { ...fallbackSnapshot } : {};
+  const nightlyTotals = quote.nightlyBreakdown
+    .map((row) => Number(row.nightly_total))
+    .filter((amount) => Number.isFinite(amount));
+  const averageNightlyAmount = nightlyTotals.length
+    ? Number((nightlyTotals.reduce((sum, amount) => sum + amount, 0) / nightlyTotals.length).toFixed(2))
+    : null;
+  const fallbackTotalAmount = Number.isFinite(Number(parsedFallback.total_amount))
+    ? Number(parsedFallback.total_amount)
+    : (Number.isFinite(Number(parsedFallback.total)) ? Number(parsedFallback.total) : null);
+  const pricingProfileSummary = mapPricingProfileQuoteSummary(quote.pricingProfile) || parsedFallback.pricing_profile || null;
+  const pricingProfileId = quote.pricingProfile?.id
+    || parsedFallback.pricing_profile_id
+    || parsedFallback.pricing_profile?.id
+    || null;
+  const snapshotBase = {
+    ...parsedFallback,
+    version: 'reservation_pricing_snapshot_v1',
+    frozen_at: frozenAt,
+    check_in: reservationInput.checkIn,
+    check_out: reservationInput.checkOut,
+    room_type_id: reservationInput.roomTypeId,
+    adults: reservationInput.adults,
+    children: reservationInput.children,
+    rooms_requested: reservationInput.roomsRequested,
+    request: {
+      check_in: reservationInput.checkIn,
+      check_out: reservationInput.checkOut,
+      adults: reservationInput.adults,
+      children: reservationInput.children,
+      rooms_requested: reservationInput.roomsRequested,
+      pricing_profile_id: reservationInput.pricingProfileId || null,
+    },
+    pricing_profile_id: pricingProfileId ? String(pricingProfileId) : null,
+    pricing_profile: pricingProfileSummary,
+    source_summary: quote.sourceSummary,
+    missing_rate_dates: quote.missingDates,
+  };
+
+  if (quote.missingDates.length) {
+    return {
+      ...snapshotBase,
+      snapshot_capture_status: 'legacy_fallback',
+      currency: parsedFallback.currency || quote.currency || null,
+      total: fallbackTotalAmount,
+      total_amount: fallbackTotalAmount,
+      nightly_amount: Number.isFinite(Number(parsedFallback.nightly_amount))
+        ? Number(parsedFallback.nightly_amount)
+        : averageNightlyAmount,
+      nightly_breakdown: Array.isArray(parsedFallback.nightly_breakdown) ? parsedFallback.nightly_breakdown : [],
+    };
+  }
+
+  return {
+    ...snapshotBase,
+    snapshot_capture_status: 'frozen_quote',
+    currency: quote.currency,
+    total: quote.totalAmount,
+    total_amount: quote.totalAmount,
+    total_base_amount: quote.totalBaseAmount,
+    total_occupancy_adjustment: quote.totalOccupancyAdjustment,
+    nightly_amount: averageNightlyAmount,
+    nightly_breakdown: quote.nightlyBreakdown,
+  };
+}
+
+async function resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, reservationInput, options = {}) {
+  const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, {
+    roomTypeId: reservationInput.roomTypeId,
+    checkIn: reservationInput.checkIn,
+    checkOut: reservationInput.checkOut,
+    adults: reservationInput.adults,
+    children: reservationInput.children,
+    roomsRequested: reservationInput.roomsRequested,
+    roomGuestAssignments: reservationInput.roomGuestAssignments || null,
+    pricingProfileId: reservationInput.pricingProfileId || null,
+  });
+  if (quote.error) return { error: quote.error };
+
+  return {
+    snapshot: buildReservationPricingSnapshot(
+      quote,
+      reservationInput,
+      Number(options.frozenAt || currentUnixSeconds()),
+      parseReservationPricingSnapshotValue(options.fallbackSnapshot || null),
+    ),
+  };
+}
+
+function resolveSnapshotNightlyRate(snapshotValue, stayDate) {
+  const snapshot = parseReservationPricingSnapshotValue(snapshotValue);
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const nightly = Array.isArray(snapshot.nightly_breakdown)
+    ? snapshot.nightly_breakdown.find((row) => String(row?.stay_date || '') === String(stayDate || '').trim())
+    : null;
+  if (!nightly) return null;
+
+  const unitAmount = Number(nightly.nightly_amount);
+  const totalAmount = Number(nightly.nightly_total);
+  if (!Number.isFinite(unitAmount) || !Number.isFinite(totalAmount)) return null;
+
+  return {
+    currency: nightly.currency || snapshot.currency || null,
+    unit_amount: unitAmount,
+    total_amount: totalAmount,
+    adjustment_amount: Number(nightly.occupancy_adjustment?.adjustment_amount || 0),
+    source: nightly.source || 'pricing_snapshot',
+    season_name: nightly.season_name || null,
+    from_snapshot: true,
+  };
 }
 
 async function recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
@@ -2674,6 +3425,321 @@ export async function handleUpdatePropertyShiftHandover(request, env, params) {
     return jsonResponse({ ok: true, shift_handover: await loadPropertyShiftHandover(env, tenantId, propertyId) });
   } catch (error) {
     console.error('[PROPERTY_SHIFT_HANDOVER_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyPricingProfiles(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT ppp.id, ppp.tenant_id, ppp.property_id, ppp.room_type_id, ppp.code, ppp.name,
+                ppp.visibility, ppp.pricing_mode, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
+                ppp.notes, ppp.active, ppp.created_by, ppp.updated_by, ppp.created_at, ppp.updated_at,
+                rt.code AS room_type_code, rt.name AS room_type_name
+           FROM property_pricing_profiles ppp
+           LEFT JOIN room_types rt ON rt.id = ppp.room_type_id AND rt.tenant_id = ppp.tenant_id AND rt.property_id = ppp.property_id
+          WHERE ppp.tenant_id = ? AND ppp.property_id = ?
+          ORDER BY ppp.active DESC, ppp.created_at DESC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, pricing_profiles: (result.results || []).map(mapPropertyPricingProfileRow) });
+  } catch (error) {
+    console.error('[PROPERTY_PRICING_PROFILE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyPricingProfile(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyPricingProfileCreateRequest(body, propertyId);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    if (parsed.roomTypeId) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+      if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    }
+
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    const actorId = actor.session.user_id || null;
+    await env.DB
+      .prepare(
+        `INSERT INTO property_pricing_profiles
+          (id, tenant_id, property_id, room_type_id, code, name, visibility, pricing_mode,
+           fixed_nightly_amount, delta_amount, delta_percent, notes, active, created_by, updated_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        tenantId,
+        propertyId,
+        parsed.roomTypeId,
+        parsed.code,
+        parsed.name,
+        parsed.visibility,
+        parsed.pricingMode,
+        parsed.fixedNightlyAmount,
+        parsed.deltaAmount,
+        parsed.deltaPercent,
+        parsed.notes,
+        parsed.active,
+        actorId,
+        actorId,
+        now,
+        now
+      )
+      .run();
+
+    return jsonResponse({ ok: true, pricing_profile: await loadPropertyPricingProfileById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_PRICING_PROFILE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyPricingProfile(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const pricingProfileId = String(params?.pricingProfileId || '').trim();
+
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyPricingProfilePatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId);
+    if (!existing) return jsonResponse({ error: 'Pricing profile not found.' }, 404);
+
+    const nextRoomTypeId = Object.prototype.hasOwnProperty.call(parsed.updates, 'room_type_id')
+      ? parsed.updates.room_type_id
+      : existing.room_type_id;
+    if (nextRoomTypeId) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, nextRoomTypeId);
+      if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    }
+
+    const normalizedConfig = validatePropertyPricingProfileConfiguration(
+      parsed.updates.pricing_mode || existing.pricing_mode,
+      {
+        fixedNightlyAmount: Object.prototype.hasOwnProperty.call(parsed.updates, 'fixed_nightly_amount')
+          ? parsed.updates.fixed_nightly_amount
+          : existing.fixed_nightly_amount,
+        deltaAmount: Object.prototype.hasOwnProperty.call(parsed.updates, 'delta_amount')
+          ? parsed.updates.delta_amount
+          : existing.delta_amount,
+        deltaPercent: Object.prototype.hasOwnProperty.call(parsed.updates, 'delta_percent')
+          ? parsed.updates.delta_percent
+          : existing.delta_percent,
+      }
+    );
+    if (normalizedConfig.error) return jsonResponse({ error: normalizedConfig.error }, 400);
+
+    const updates = {
+      ...parsed.updates,
+      fixed_nightly_amount: normalizedConfig.fixedNightlyAmount,
+      delta_amount: normalizedConfig.deltaAmount,
+      delta_percent: normalizedConfig.deltaPercent,
+      updated_by: actor.session.user_id || null,
+    };
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_pricing_profiles', updates);
+    await env.DB
+      .prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(...values, now, pricingProfileId, tenantId, propertyId)
+      .run();
+    return jsonResponse({ ok: true, pricing_profile: await loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_PRICING_PROFILE_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyWeekdayPricingRules(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+
+    const result = await env.DB
+      .prepare(
+        `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
+                pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
+                pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
+                rt.code AS room_type_code, rt.name AS room_type_name
+           FROM property_weekday_pricing_rules pwr
+           LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
+          WHERE pwr.tenant_id = ? AND pwr.property_id = ?
+          ORDER BY pwr.active DESC, pwr.day_of_week ASC, CASE WHEN pwr.room_type_id IS NULL THEN 1 ELSE 0 END ASC, pwr.created_at DESC`
+      )
+      .bind(tenantId, propertyId)
+      .all();
+
+    return jsonResponse({ ok: true, weekday_pricing_rules: (result.results || []).map(mapPropertyWeekdayPricingRuleRow) });
+  } catch (error) {
+    console.error('[PROPERTY_WEEKDAY_PRICING_RULE_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyWeekdayPricingRule(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyWeekdayPricingRuleCreateRequest(body, propertyId);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    if (parsed.roomTypeId) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+      if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    }
+
+    const id = nanoid();
+    const now = currentUnixSeconds();
+    const actorId = actor.session.user_id || null;
+    await env.DB
+      .prepare(
+        `INSERT INTO property_weekday_pricing_rules
+          (id, tenant_id, property_id, room_type_id, day_of_week, name, pricing_mode,
+           fixed_nightly_amount, delta_amount, delta_percent, notes, active, created_by, updated_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        tenantId,
+        propertyId,
+        parsed.roomTypeId,
+        parsed.dayOfWeek,
+        parsed.name,
+        parsed.pricingMode,
+        parsed.fixedNightlyAmount,
+        parsed.deltaAmount,
+        parsed.deltaPercent,
+        parsed.notes,
+        parsed.active,
+        actorId,
+        actorId,
+        now,
+        now
+      )
+      .run();
+
+    return jsonResponse({ ok: true, weekday_pricing_rule: await loadPropertyWeekdayPricingRuleById(env, tenantId, propertyId, id) }, 201);
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_WEEKDAY_PRICING_RULE_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyWeekdayPricingRule(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const weekdayPricingRuleId = String(params?.weekdayPricingRuleId || '').trim();
+
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyWeekdayPricingRulePatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyWeekdayPricingRuleById(env, tenantId, propertyId, weekdayPricingRuleId);
+    if (!existing) return jsonResponse({ error: 'Weekday pricing rule not found.' }, 404);
+
+    const nextRoomTypeId = Object.prototype.hasOwnProperty.call(parsed.updates, 'room_type_id')
+      ? parsed.updates.room_type_id
+      : existing.room_type_id;
+    if (nextRoomTypeId) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, nextRoomTypeId);
+      if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
+    }
+
+    const normalizedConfig = validatePropertyPricingProfileConfiguration(
+      parsed.updates.pricing_mode || existing.pricing_mode,
+      {
+        fixedNightlyAmount: Object.prototype.hasOwnProperty.call(parsed.updates, 'fixed_nightly_amount')
+          ? parsed.updates.fixed_nightly_amount
+          : existing.fixed_nightly_amount,
+        deltaAmount: Object.prototype.hasOwnProperty.call(parsed.updates, 'delta_amount')
+          ? parsed.updates.delta_amount
+          : existing.delta_amount,
+        deltaPercent: Object.prototype.hasOwnProperty.call(parsed.updates, 'delta_percent')
+          ? parsed.updates.delta_percent
+          : existing.delta_percent,
+      }
+    );
+    if (normalizedConfig.error) return jsonResponse({ error: normalizedConfig.error }, 400);
+
+    const updates = {
+      ...parsed.updates,
+      fixed_nightly_amount: normalizedConfig.fixedNightlyAmount,
+      delta_amount: normalizedConfig.deltaAmount,
+      delta_percent: normalizedConfig.deltaPercent,
+      updated_by: actor.session.user_id || null,
+    };
+    const now = currentUnixSeconds();
+    const { sql, values } = buildDynamicUpdateSql('property_weekday_pricing_rules', updates);
+    await env.DB
+      .prepare(`${sql} WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(...values, now, weekdayPricingRuleId, tenantId, propertyId)
+      .run();
+    return jsonResponse({ ok: true, weekday_pricing_rule: await loadPropertyWeekdayPricingRuleById(env, tenantId, propertyId, weekdayPricingRuleId) });
+  } catch (error) {
+    const mapped = mapBuilderSqlError(error);
+    if (mapped) return jsonResponse(mapped.payload, mapped.status);
+    console.error('[PROPERTY_WEEKDAY_PRICING_RULE_UPDATE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
@@ -3204,112 +4270,9 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
   try {
-    const property = await loadPropertyById(env, tenantId, propertyId);
-    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
-    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
-    if (!roomType) return jsonResponse({ error: 'Room type not found.' }, 404);
-    const totalGuests = parsed.adults + parsed.children;
-    const maxGuests = Number(roomType.max_occupancy || 0) * parsed.roomsRequested;
-    if (maxGuests > 0 && totalGuests > maxGuests) {
-      return jsonResponse({ error: `Guest mix exceeds the configured max occupancy for ${parsed.roomsRequested} room(s).` }, 409);
-    }
-
-    const [baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
-      env.DB.prepare(
-        `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
-                included_adults, included_children, extra_adult_amount, extra_child_amount,
-                active, created_at, updated_at
-           FROM property_room_rates
-          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
-          ORDER BY updated_at DESC, created_at DESC
-          LIMIT 1`
-      ).bind(tenantId, propertyId, parsed.roomTypeId).first(),
-      env.DB.prepare(
-        `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
-           FROM property_rate_seasons
-          WHERE tenant_id = ? AND property_id = ? AND active = 1
-          ORDER BY sort_order ASC, start_date ASC, created_at ASC`
-      ).bind(tenantId, propertyId).all(),
-      env.DB.prepare(
-        `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
-          included_adults, included_children, extra_adult_amount, extra_child_amount,
-          active, created_at, updated_at
-           FROM property_room_rate_season_prices
-          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
-      ).bind(tenantId, propertyId, parsed.roomTypeId).all(),
-    ]);
-
-    const stayDates = enumerateStayDates(parsed.checkIn, parsed.checkOut);
-    const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
-    const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
-    const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
-
-    const nightlyBreakdown = stayDates.map((stayDate) => {
-      const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
-      const perRoomAssignments = calculatePerRoomOccupancyAdjustments(resolved, parsed.roomGuestAssignments);
-      const occupancyAdjustment = perRoomAssignments
-        ? {
-            included_adults_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_adults_total || 0), 0),
-            included_children_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_children_total || 0), 0),
-            extra_adults: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_adults || 0), 0),
-            extra_children: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_children || 0), 0),
-            extra_adult_amount: Number(resolved?.extra_adult_amount || 0),
-            extra_child_amount: Number(resolved?.extra_child_amount || 0),
-            adjustment_amount: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.adjustment_amount || 0), 0),
-          }
-        : calculateOccupancyAdjustment(resolved, parsed.adults, parsed.children, parsed.roomsRequested);
-      const nightlyBaseTotal = perRoomAssignments
-        ? perRoomAssignments.reduce((sum, item) => sum + Number(item.nightly_base_total || 0), 0)
-        : (resolved ? Number(resolved.nightly_amount) * parsed.roomsRequested : null);
-      return {
-        stay_date: stayDate,
-        source: resolved?.source || 'missing_rate',
-        season_id: resolved?.season_id || null,
-        season_name: resolved?.season_name || null,
-        currency: resolved?.currency || baseRate?.currency || property.currency,
-        nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
-        rooms_requested: parsed.roomsRequested,
-        nightly_base_total: nightlyBaseTotal,
-        included_adults: resolved ? Number(resolved.included_adults) : null,
-        included_children: resolved ? Number(resolved.included_children) : null,
-        room_guest_assignments: perRoomAssignments,
-        occupancy_adjustment: resolved ? occupancyAdjustment : null,
-        nightly_total: resolved ? nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0) : null,
-      };
-    });
-
-    const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
-    const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
-    const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
-    const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
-    const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
-
-    return jsonResponse({
-      ok: true,
-      property_id: propertyId,
-      room_type_id: parsed.roomTypeId,
-      request: {
-        check_in: parsed.checkIn,
-        check_out: parsed.checkOut,
-        adults: parsed.adults,
-        children: parsed.children,
-        rooms_requested: parsed.roomsRequested,
-        room_guest_assignments: parsed.roomGuestAssignments,
-      },
-      pricing: {
-        currency,
-        nightly_breakdown: nightlyBreakdown,
-        missing_rate_dates: missingDates,
-        total_base_amount: totalBaseAmount,
-        total_occupancy_adjustment: totalOccupancyAdjustment,
-        total_amount: totalAmount,
-        source_summary: {
-          has_base_rate: Boolean(baseRate),
-          active_seasons: activeSeasons.length,
-          active_season_rates: seasonRatesByKey.size,
-        },
-      },
-    });
+    const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, parsed);
+    if (quote.error) return jsonResponse(quote.error.payload, quote.error.status);
+    return jsonResponse(buildResolvedRateQuotePayload(propertyId, parsed, quote));
   } catch (error) {
     console.error('[PROPERTY_RATE_QUOTE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
@@ -3402,6 +4365,8 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
 
   const { roomUnits, holds, allocations, allotments } = await loadAvailabilityInputs(env, tenantId, propertyId, rangeStart, rangeEndExclusive, options);
   const roomUnitMap = new Map((roomUnits || []).map((roomUnit) => [String(roomUnit.id), roomUnit]));
+  const preferredRoomUnitId = options.preferredRoomUnitId ? String(options.preferredRoomUnitId).trim() : null;
+  const preferredRoomUnit = preferredRoomUnitId ? (roomUnitMap.get(preferredRoomUnitId) || null) : null;
   const roomUnitsByType = new Map();
   for (const roomUnit of roomUnits) {
     const roomTypeUnits = roomUnitsByType.get(String(roomUnit.room_type_id)) || [];
@@ -3418,7 +4383,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
 
   const { roomTypeNightCounts } = countAllocatedUnitsByNight(allocations, roomUnitMap, windowDates);
   const holdCounts = countHoldsByNight(holds, windowDates);
-  const allotmentCounts = countAllotmentsByNight(allotments, windowDates);
+  const allotmentCounts = countAllotmentsByNight(allotments, windowDates, options);
   const nightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, allotmentCounts, windowDates);
 
   const requestedNightly = (nightlyRemainingByType.get(String(requestedRoomType.id)) || []).filter((row) => stayDates.includes(row.stay_date));
@@ -3426,7 +4391,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
   const stayPlans = [];
 
   const requestedRoomUnits = roomUnitsByType.get(String(requestedRoomType.id)) || [];
-  const contiguousUnits = findContiguousUnits(requestedRoomUnits, occupiedDatesByUnit, stayDates, roomsRequested);
+  const contiguousUnits = findContiguousUnits(requestedRoomUnits, occupiedDatesByUnit, stayDates, roomsRequested, preferredRoomUnitId);
   const contiguousCapacity = hasContiguousCapacity(requestedNightly, roomsRequested);
 
   if (contiguousCapacity) {
@@ -3531,7 +4496,9 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
       check_in: checkIn,
       check_out: checkOut,
       rooms_requested: roomsRequested,
+      preferred_room_unit_id: preferredRoomUnitId,
     },
+    preferredRoomUnit,
   };
 }
 
@@ -3593,9 +4560,108 @@ function buildPlanningRecommendations(availability) {
   return recommendations;
 }
 
+function buildAllotmentConsumptionSummary(allotment, roomsRequested) {
+  if (!allotment) return null;
+  const blockedRooms = Math.max(0, Number(allotment.rooms_blocked || 0));
+  const requestedRooms = Math.max(0, Number(roomsRequested || 0));
+  const remainingRooms = Math.max(blockedRooms - requestedRooms, 0);
+  return {
+    allotment_id: allotment.id,
+    operator_name: allotment.operator_name,
+    operator_code: allotment.operator_code || null,
+    room_type_id: allotment.room_type_id,
+    room_type_code: allotment.room_type_code || null,
+    room_type_name: allotment.room_type_name || null,
+    check_in: allotment.check_in,
+    check_out: allotment.check_out,
+    release_date: allotment.release_date || null,
+    rooms_blocked: blockedRooms,
+    rooms_requested: requestedRooms,
+    remaining_rooms_after_commit: remainingRooms,
+    fully_consumed: remainingRooms === 0,
+  };
+}
+
+async function buildPreferredRoomUnitConflicts(env, tenantId, propertyId, roomTypeId, roomUnitId, checkIn, checkOut, options = {}) {
+  const normalizedRoomUnitId = String(roomUnitId || '').trim();
+  if (!normalizedRoomUnitId) return { roomUnit: null, conflicts: [] };
+
+  const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, normalizedRoomUnitId);
+  if (!roomUnit) {
+    return {
+      roomUnit: null,
+      conflicts: [{ conflict_type: 'room_missing', room_unit_id: normalizedRoomUnitId }],
+    };
+  }
+
+  const conflicts = [];
+  if (String(roomUnit.room_type_id) !== String(roomTypeId)) {
+    conflicts.push({
+      conflict_type: 'room_type_mismatch',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      room_type_id: roomUnit.room_type_id,
+    });
+  }
+  if (!roomUnit.active) {
+    conflicts.push({
+      conflict_type: 'room_inactive',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+    });
+  }
+  if (['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status || ''))) {
+    conflicts.push({
+      conflict_type: 'room_unavailable',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      floor_label: roomUnit.floor_label || null,
+      operational_status: roomUnit.operational_status,
+    });
+  }
+
+  const excludeReservationId = options.excludeReservationId ? String(options.excludeReservationId) : null;
+  const overlapResult = await env.DB
+    .prepare(
+      `SELECT ra.stay_date, ra.reservation_id, pr.guest_name, pr.status
+         FROM reservation_allocations ra
+         JOIN property_reservations pr
+           ON pr.id = ra.reservation_id
+          AND pr.tenant_id = ra.tenant_id
+          AND pr.property_id = ra.property_id
+        WHERE ra.tenant_id = ?
+          AND ra.property_id = ?
+          AND ra.room_unit_id = ?
+          AND ra.stay_date >= ?
+          AND ra.stay_date < ?
+          AND (? IS NULL OR ra.reservation_id != ?)
+          AND ra.allocation_status IN ('soft_allocated', 'locked')
+        ORDER BY ra.stay_date ASC`
+    )
+    .bind(tenantId, propertyId, normalizedRoomUnitId, checkIn, checkOut, excludeReservationId, excludeReservationId)
+    .all();
+
+  for (const row of (overlapResult.results || [])) {
+    conflicts.push({
+      conflict_type: 'reservation_overlap',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      floor_label: roomUnit.floor_label || null,
+      stay_date: row.stay_date,
+      reservation_id: row.reservation_id,
+      reservation_status: row.status,
+      guest_name: row.guest_name || null,
+    });
+  }
+
+  return { roomUnit, conflicts };
+}
+
 async function buildReservationPlanningConflicts(env, tenantId, propertyId, roomTypeId, checkIn, checkOut, options = {}) {
   const stayDates = enumerateStayDates(checkIn, checkOut);
   const excludeReservationId = options.excludeReservationId ? String(options.excludeReservationId) : null;
+  const consumeAllotmentId = options.consumeAllotmentId ? String(options.consumeAllotmentId).trim() : null;
+  const consumeAllotmentRooms = Math.max(0, Number(options.consumeAllotmentRooms || 0));
   const roomUnitsResult = await env.DB
     .prepare(
       `SELECT id, room_number, floor_label, operational_status
@@ -3700,18 +4766,24 @@ async function buildReservationPlanningConflicts(env, tenantId, propertyId, room
     expires_at: row.expires_at,
   }));
 
-  const allotmentConflicts = (allotmentResult.results || []).map((row) => ({
-    conflict_type: 'operator_allotment',
-    allotment_id: row.id,
-    operator_name: row.operator_name,
-    operator_code: row.operator_code || null,
-    source_ref: row.source_ref || null,
-    check_in: row.check_in,
-    check_out: row.check_out,
-    rooms_blocked: Number(row.rooms_blocked || 0),
-    release_date: row.release_date || null,
-    status: row.status,
-  }));
+  const allotmentConflicts = (allotmentResult.results || []).map((row) => {
+    const effectiveRoomsBlocked = consumeAllotmentId && String(row.id || '') === consumeAllotmentId
+      ? Math.max(Number(row.rooms_blocked || 0) - consumeAllotmentRooms, 0)
+      : Number(row.rooms_blocked || 0);
+    if (effectiveRoomsBlocked < 1) return null;
+    return {
+      conflict_type: 'operator_allotment',
+      allotment_id: row.id,
+      operator_name: row.operator_name,
+      operator_code: row.operator_code || null,
+      source_ref: row.source_ref || null,
+      check_in: row.check_in,
+      check_out: row.check_out,
+      rooms_blocked: effectiveRoomsBlocked,
+      release_date: row.release_date || null,
+      status: row.status,
+    };
+  }).filter(Boolean);
 
   return {
     maintenance_conflicts: maintenanceConflicts,
@@ -3721,8 +4793,14 @@ async function buildReservationPlanningConflicts(env, tenantId, propertyId, room
   };
 }
 
-function buildReservationPlanningPayload(availability, conflicts) {
+function buildReservationPlanningPayload(availability, conflicts, metadata = {}) {
   const selectedPlan = selectBestPlan(availability);
+  const selectedSegments = Array.isArray(selectedPlan?.segments) ? selectedPlan.segments : [];
+  const selectedRoomUnitIds = selectedSegments.map((segment) => String(segment.room_unit_id || '')).filter(Boolean);
+  const preferredRoomUnitId = String(metadata.preferredRoomUnitId || availability?.request?.preferred_room_unit_id || '').trim() || null;
+  const preferredRoomUnit = metadata.preferredRoomUnit || availability?.preferredRoomUnit || null;
+  const preferredRoomHonored = preferredRoomUnitId ? selectedRoomUnitIds.includes(preferredRoomUnitId) : null;
+  const preferredRoomConflicts = Array.isArray(metadata.preferredRoomConflicts) ? metadata.preferredRoomConflicts : [];
   return {
     ok: true,
     can_fulfill: !availability.shortageDates.length && Boolean(selectedPlan),
@@ -3738,6 +4816,15 @@ function buildReservationPlanningPayload(availability, conflicts) {
       allotment_conflicts: conflicts.allotment_conflicts,
     },
     recommendations: buildPlanningRecommendations(availability),
+    preferred_room_unit_id: preferredRoomUnitId,
+    preferred_room_number: preferredRoomUnit?.room_number || null,
+    preferred_room_honored: preferredRoomHonored,
+    preferred_room_conflicts: preferredRoomConflicts,
+    preferred_room_fallback_room_unit_ids: preferredRoomUnitId && selectedPlan && !preferredRoomHonored ? selectedRoomUnitIds : [],
+    preferred_room_fallback_room_numbers: preferredRoomUnitId && selectedPlan && !preferredRoomHonored
+      ? selectedSegments.map((segment) => segment.room_number).filter(Boolean)
+      : [],
+    allotment_consumption: metadata.allotmentConsumption || null,
   };
 }
 
@@ -3751,6 +4838,9 @@ function validateReservationCreateRequest(body, propertyId) {
   const guestPhone = body?.guest_phone ? String(body.guest_phone).trim() : null;
   const sourceRef = body?.source_ref ? String(body.source_ref).trim() : null;
   const sourcePayload = body?.source_payload ? JSON.stringify(body.source_payload) : null;
+  const pricingProfileId = body?.pricing_profile_id
+    ? String(body.pricing_profile_id).trim()
+    : extractPricingProfileIdFromPricingSnapshot(body?.pricing_snapshot);
   const pricingSnapshot = body?.pricing_snapshot ? JSON.stringify(body.pricing_snapshot) : JSON.stringify({});
   const specialRequests = body?.special_requests ? String(body.special_requests).trim() : null;
   const expectedArrivalTime = body?.expected_arrival_time ? String(body.expected_arrival_time).trim() : null;
@@ -3762,6 +4852,10 @@ function validateReservationCreateRequest(body, propertyId) {
   const adults = Number(body?.adults ?? 1);
   const children = Number(body?.children ?? 0);
   const holdId = body?.hold_id ? String(body.hold_id).trim() : null;
+
+  if (holdId && availability.allotmentId) {
+    return { error: 'hold_id and allotment_id cannot be used together.' };
+  }
 
   if (!PROPERTY_RESERVATION_SOURCES.has(source)) {
     return { error: 'source is invalid.' };
@@ -3786,6 +4880,7 @@ function validateReservationCreateRequest(body, propertyId) {
     guestPhone,
     adults,
     children,
+    pricingProfileId,
     pricingSnapshot,
     specialRequests,
     expectedArrivalTime,
@@ -3813,6 +4908,24 @@ async function loadActiveHold(env, tenantId, propertyId, holdId) {
     )
     .bind(holdId, tenantId, propertyId, currentUnixSeconds())
     .first();
+}
+
+function validateAllotmentConsumptionRequest(allotment, parsedRequest) {
+  if (!allotment) return 'Active allotment not found.';
+  if (String(allotment.status || '') !== 'active' || !Boolean(allotment.inventory_blocking)) {
+    return 'Allotment is no longer active for inventory blocking.';
+  }
+  if (String(allotment.room_type_id || '') !== String(parsedRequest.roomTypeId || '')) {
+    return 'allotment_id does not match the requested room type.';
+  }
+  if (parseDateUtc(parsedRequest.checkIn) < parseDateUtc(String(allotment.check_in || ''))
+      || parseDateUtc(parsedRequest.checkOut) > parseDateUtc(String(allotment.check_out || ''))) {
+    return 'Requested stay must fit inside the selected operator block window.';
+  }
+  if (Number(parsedRequest.roomsRequested || 0) > Number(allotment.rooms_blocked || 0)) {
+    return 'Requested rooms exceed the remaining operator block.';
+  }
+  return null;
 }
 
 function selectBestPlan(availability) {
@@ -3848,6 +4961,12 @@ function validateReservationRebookRequest(body, propertyId, existingReservation)
   const expectedArrivalTime = body?.expected_arrival_time !== undefined ? (body.expected_arrival_time ? String(body.expected_arrival_time).trim() : null) : existingReservation?.expected_arrival_time || null;
   const expectedFlightRef = body?.expected_flight_ref !== undefined ? (body.expected_flight_ref ? String(body.expected_flight_ref).trim() : null) : existingReservation?.expected_flight_ref || null;
   const expectedArrivalChannel = body?.expected_arrival_channel !== undefined ? (body.expected_arrival_channel ? String(body.expected_arrival_channel).trim() : null) : existingReservation?.expected_arrival_channel || null;
+  const pricingProfileId = body?.pricing_profile_id
+    ? String(body.pricing_profile_id).trim()
+    : (
+        extractPricingProfileIdFromPricingSnapshot(body?.pricing_snapshot)
+        || extractPricingProfileIdFromPricingSnapshot(existingReservation?.pricing_snapshot)
+      );
   const pricingSnapshot = body?.pricing_snapshot ? JSON.stringify(body.pricing_snapshot) : (existingReservation?.pricing_snapshot || JSON.stringify({}));
   const holdId = body?.hold_id ? String(body.hold_id).trim() : null;
 
@@ -3863,6 +4982,7 @@ function validateReservationRebookRequest(body, propertyId, existingReservation)
     expectedArrivalTime,
     expectedFlightRef,
     expectedArrivalChannel,
+    pricingProfileId,
     pricingSnapshot,
     holdId,
   };
@@ -3995,8 +5115,8 @@ async function attachSelectedStayPlanArtifacts(env, tenantId, reservationId, pro
   return { stayPlanId, lockedAt: now };
 }
 
-async function createReservationArtifacts(env, tenantId, reservationId, propertyId, reservationInput, selectedPlan) {
-  const now = currentUnixSeconds();
+async function createReservationArtifacts(env, tenantId, reservationId, propertyId, reservationInput, selectedPlan, confirmedAt = currentUnixSeconds()) {
+  const now = Number(confirmedAt || currentUnixSeconds());
   const assignedRoomUnitId = deriveAssignedRoomUnitId(selectedPlan);
 
   await env.DB
@@ -4682,7 +5802,10 @@ function resolveEffectiveHousekeepingRoomState(taskKind, taskStatus, latestRoomS
 }
 
 async function resolveReservationNightlyRate(env, tenantId, propertyId, reservation, stayDate) {
-  const [property, roomType, baseRateRow, seasonsResult, seasonRatesResult] = await Promise.all([
+  const snapshotNightly = resolveSnapshotNightlyRate(reservation?.pricing_snapshot, stayDate);
+  if (snapshotNightly) return snapshotNightly;
+
+  const [property, roomType, baseRateRow, seasonsResult, seasonRatesResult, weekdayRulesResult] = await Promise.all([
     loadPropertyById(env, tenantId, propertyId),
     loadRoomTypeById(env, tenantId, propertyId, reservation.room_type_id),
     env.DB.prepare(
@@ -4707,23 +5830,39 @@ async function resolveReservationNightlyRate(env, tenantId, propertyId, reservat
          FROM property_room_rate_season_prices
         WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
     ).bind(tenantId, propertyId, reservation.room_type_id).all(),
+    env.DB.prepare(
+      `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
+              pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
+              pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_weekday_pricing_rules pwr
+         LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
+        WHERE pwr.tenant_id = ?
+          AND pwr.property_id = ?
+          AND pwr.active = 1
+          AND (pwr.room_type_id IS NULL OR pwr.room_type_id = ?)
+        ORDER BY CASE WHEN pwr.room_type_id = ? THEN 0 ELSE 1 END ASC, pwr.day_of_week ASC, pwr.created_at ASC`
+    ).bind(tenantId, propertyId, reservation.room_type_id, reservation.room_type_id).all(),
   ]);
 
   if (!property || !roomType) return null;
   const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
   const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
+  const weekdayRules = (weekdayRulesResult.results || []).map(mapPropertyWeekdayPricingRuleRow);
   const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
   const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
-  if (!resolved) return null;
-  const occupancyAdjustment = calculateOccupancyAdjustment(resolved, reservation.adults, reservation.children, reservation.rooms_requested);
-  const nightlyBaseTotal = Number(resolved.nightly_amount) * Number(reservation.rooms_requested || 1);
+  const weekdayRule = selectApplicablePropertyWeekdayPricingRule(weekdayRules, reservation.room_type_id, stayDate);
+  const effectiveRate = applyPropertyWeekdayPricingRuleToResolvedRate(resolved, weekdayRule, stayDate);
+  if (!effectiveRate) return null;
+  const occupancyAdjustment = calculateOccupancyAdjustment(effectiveRate, reservation.adults, reservation.children, reservation.rooms_requested);
+  const nightlyBaseTotal = Number(effectiveRate.nightly_amount) * Number(reservation.rooms_requested || 1);
   return {
-    currency: resolved.currency || property.currency,
-    unit_amount: Number(resolved.nightly_amount),
+    currency: effectiveRate.currency || property.currency,
+    unit_amount: Number(effectiveRate.nightly_amount),
     total_amount: nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0),
     adjustment_amount: Number(occupancyAdjustment.adjustment_amount || 0),
-    source: resolved.source,
-    season_name: resolved.season_name,
+    source: effectiveRate.source,
+    season_name: effectiveRate.season_name,
   };
 }
 
@@ -5273,6 +6412,13 @@ export async function handlePlanPropertyReservation(request, env, params) {
   if (parsedRequest.error) return jsonResponse({ error: parsedRequest.error }, 400);
 
   try {
+    let activeAllotment = null;
+    if (parsedRequest.allotmentId) {
+      activeAllotment = await loadPropertyAllotmentById(env, tenantId, parsedRequest.propertyId, parsedRequest.allotmentId);
+      const allotmentError = validateAllotmentConsumptionRequest(activeAllotment, parsedRequest);
+      if (allotmentError) return jsonResponse({ error: allotmentError }, activeAllotment ? 409 : 404);
+    }
+
     const availability = await calculateAvailability(
       env,
       tenantId,
@@ -5280,7 +6426,12 @@ export async function handlePlanPropertyReservation(request, env, params) {
       parsedRequest.roomTypeId,
       parsedRequest.checkIn,
       parsedRequest.checkOut,
-      parsedRequest.roomsRequested
+      parsedRequest.roomsRequested,
+      {
+        preferredRoomUnitId: parsedRequest.preferredRoomUnitId,
+        consumeAllotmentId: activeAllotment?.id || null,
+        consumeAllotmentRooms: activeAllotment ? parsedRequest.roomsRequested : 0,
+      }
     );
     if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
 
@@ -5290,10 +6441,31 @@ export async function handlePlanPropertyReservation(request, env, params) {
       parsedRequest.propertyId,
       parsedRequest.roomTypeId,
       parsedRequest.checkIn,
-      parsedRequest.checkOut
+      parsedRequest.checkOut,
+      {
+        consumeAllotmentId: activeAllotment?.id || null,
+        consumeAllotmentRooms: activeAllotment ? parsedRequest.roomsRequested : 0,
+      }
     );
 
-    return jsonResponse(buildReservationPlanningPayload(availability, conflicts));
+    const preferredRoom = parsedRequest.preferredRoomUnitId
+      ? await buildPreferredRoomUnitConflicts(
+          env,
+          tenantId,
+          parsedRequest.propertyId,
+          parsedRequest.roomTypeId,
+          parsedRequest.preferredRoomUnitId,
+          parsedRequest.checkIn,
+          parsedRequest.checkOut,
+        )
+      : { roomUnit: null, conflicts: [] };
+
+    return jsonResponse(buildReservationPlanningPayload(availability, conflicts, {
+      preferredRoomUnitId: parsedRequest.preferredRoomUnitId,
+      preferredRoomUnit: preferredRoom.roomUnit,
+      preferredRoomConflicts: preferredRoom.conflicts,
+      allotmentConsumption: buildAllotmentConsumptionSummary(activeAllotment, parsedRequest.roomsRequested),
+    }));
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_PLAN]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
@@ -5557,6 +6729,20 @@ export async function handleCreatePropertyReservation(request, env, params) {
   }
 
   try {
+    let activeAllotment = null;
+    let allotmentActor = null;
+    if (parsedRequest.allotmentId) {
+      const actor = await requireTenantActor(request, env, tenantId);
+      if (actor.error) return actor.error;
+      allotmentActor = actor.session;
+
+      activeAllotment = await loadPropertyAllotmentById(env, tenantId, parsedRequest.propertyId, parsedRequest.allotmentId);
+      const allotmentError = validateAllotmentConsumptionRequest(activeAllotment, parsedRequest);
+      if (allotmentError) {
+        return jsonResponse({ error: allotmentError }, activeAllotment ? 409 : 404);
+      }
+    }
+
     let activeHold = null;
     if (parsedRequest.holdId) {
       activeHold = await loadActiveHold(env, tenantId, parsedRequest.propertyId, parsedRequest.holdId);
@@ -5581,7 +6767,12 @@ export async function handleCreatePropertyReservation(request, env, params) {
       parsedRequest.checkIn,
       parsedRequest.checkOut,
       parsedRequest.roomsRequested,
-      { excludeHoldId: parsedRequest.holdId }
+      {
+        excludeHoldId: parsedRequest.holdId,
+        preferredRoomUnitId: parsedRequest.preferredRoomUnitId,
+        consumeAllotmentId: activeAllotment?.id || null,
+        consumeAllotmentRooms: activeAllotment ? parsedRequest.roomsRequested : 0,
+      }
     );
     if (availability.error) {
       return jsonResponse(availability.error.payload, availability.error.status);
@@ -5599,12 +6790,42 @@ export async function handleCreatePropertyReservation(request, env, params) {
     }
 
     const reservationId = nanoid();
-    const artifacts = await createReservationArtifacts(env, tenantId, reservationId, parsedRequest.propertyId, parsedRequest, selectedPlan);
+    const confirmedAt = currentUnixSeconds();
+    const frozenPricing = await resolveFrozenReservationPricingSnapshot(env, tenantId, parsedRequest.propertyId, parsedRequest, {
+      fallbackSnapshot: parsedRequest.pricingSnapshot,
+      frozenAt: confirmedAt,
+    });
+    if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
+    parsedRequest.pricingSnapshot = JSON.stringify(frozenPricing.snapshot);
+    const artifacts = await createReservationArtifacts(env, tenantId, reservationId, parsedRequest.propertyId, parsedRequest, selectedPlan, confirmedAt);
 
     if (activeHold) {
       await env.DB
         .prepare(`UPDATE inventory_holds SET status = 'consumed' WHERE id = ? AND tenant_id = ? AND property_id = ? AND status = 'active'`)
         .bind(parsedRequest.holdId, tenantId, parsedRequest.propertyId)
+        .run();
+    }
+
+    const allotmentConsumption = buildAllotmentConsumptionSummary(activeAllotment, parsedRequest.roomsRequested);
+    if (activeAllotment && allotmentConsumption) {
+      await env.DB
+        .prepare(
+          `UPDATE property_allotments
+              SET rooms_blocked = ?,
+                  status = ?,
+                  updated_by = ?,
+                  updated_at = ?
+            WHERE id = ? AND tenant_id = ? AND property_id = ? AND status = 'active'`
+        )
+        .bind(
+          allotmentConsumption.remaining_rooms_after_commit,
+          allotmentConsumption.fully_consumed ? 'released' : 'active',
+          allotmentActor?.user_id || null,
+          currentUnixSeconds(),
+          activeAllotment.id,
+          tenantId,
+          parsedRequest.propertyId,
+        )
         .run();
     }
 
@@ -5622,6 +6843,10 @@ export async function handleCreatePropertyReservation(request, env, params) {
         check_out: parsedRequest.checkOut,
         room_type_id: parsedRequest.roomTypeId,
         assigned_room_unit_id: deriveAssignedRoomUnitId(selectedPlan),
+        preferred_room_unit_id: parsedRequest.preferredRoomUnitId,
+        preferred_room_honored: parsedRequest.preferredRoomUnitId
+          ? Boolean(selectedPlan.segments?.some((segment) => String(segment.room_unit_id || '') === String(parsedRequest.preferredRoomUnitId)))
+          : null,
         rooms_requested: parsedRequest.roomsRequested,
         adults: parsedRequest.adults,
         children: parsedRequest.children,
@@ -5634,6 +6859,7 @@ export async function handleCreatePropertyReservation(request, env, params) {
         segments: selectedPlan.segments,
       },
       hold: activeHold ? { id: parsedRequest.holdId, status: 'consumed' } : null,
+      allotment_consumption: allotmentConsumption,
     }, 201);
   } catch (error) {
     console.error('[PROPERTY_RESERVATION_CREATE]', error);
@@ -6091,6 +7317,11 @@ export async function handleRebookPropertyReservation(request, env, params) {
     }
 
     const now = currentUnixSeconds();
+    const frozenPricing = await resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, parsedRequest, {
+      fallbackSnapshot: parsedRequest.pricingSnapshot,
+      frozenAt: now,
+    });
+    if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
     await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
     await env.DB
       .prepare(
@@ -6116,7 +7347,7 @@ export async function handleRebookPropertyReservation(request, env, params) {
         parsedRequest.roomsRequested,
         parsedRequest.adults,
         parsedRequest.children,
-        parsedRequest.pricingSnapshot,
+        JSON.stringify(frozenPricing.snapshot),
         parsedRequest.specialRequests,
         parsedRequest.expectedArrivalTime,
         parsedRequest.expectedFlightRef,
@@ -6550,6 +7781,42 @@ export async function handleDeleteRoomUnit(request, env, params) {
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error('[ROOM_UNIT_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeletePropertyPricingProfile(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const pricingProfileId = String(params?.pricingProfileId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId);
+    if (!existing) return jsonResponse({ error: 'Pricing profile not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_pricing_profiles WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(pricingProfileId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[PROPERTY_PRICING_PROFILE_DELETE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleDeletePropertyWeekdayPricingRule(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const weekdayPricingRuleId = String(params?.weekdayPricingRuleId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+  try {
+    const existing = await loadPropertyWeekdayPricingRuleById(env, tenantId, propertyId, weekdayPricingRuleId);
+    if (!existing) return jsonResponse({ error: 'Weekday pricing rule not found.' }, 404);
+    await env.DB.prepare('DELETE FROM property_weekday_pricing_rules WHERE id = ? AND tenant_id = ? AND property_id = ?').bind(weekdayPricingRuleId, tenantId, propertyId).run();
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('[PROPERTY_WEEKDAY_PRICING_RULE_DELETE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }

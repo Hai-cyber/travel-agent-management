@@ -51,6 +51,12 @@ import {
   handleGetRoomUnitAvailabilityCalendar,
   handleGetPropertyRoomRackSummary,
   handleGetPropertyPlanningGrid,
+  handleListPropertyPricingProfiles,
+  handleCreatePropertyPricingProfile,
+  handleUpdatePropertyPricingProfile,
+  handleListPropertyWeekdayPricingRules,
+  handleCreatePropertyWeekdayPricingRule,
+  handleUpdatePropertyWeekdayPricingRule,
   handleListRoomRates,
   handleCreateRoomRate,
   handleUpdateRoomRate,
@@ -69,6 +75,8 @@ import {
   handleDeleteProperty,
   handleDeleteRoomType,
   handleDeleteRoomUnit,
+  handleDeletePropertyPricingProfile,
+  handleDeletePropertyWeekdayPricingRule,
   handleDeleteRoomRate,
   handleDeletePropertyAddonServicePreset,
   handleQuotePropertyRoomRate,
@@ -151,6 +159,40 @@ const UNDER_CONSTRUCTION_HTML = `<!DOCTYPE html>
   </div>
 </body>
 </html>`;
+
+const PRIVATE_BETA_BADGE_HTML = `<style id="platform-private-beta-style">
+#platform-private-beta-badge{position:fixed;top:16px;right:16px;z-index:2147483647;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.92);color:#f8fafc;border:1px solid rgba(148,163,184,.35);box-shadow:0 12px 30px rgba(15,23,42,.24);backdrop-filter:blur(10px);font:600 12px/1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:.02em}
+#platform-private-beta-badge .beta-dot{width:8px;height:8px;border-radius:999px;background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.18)}
+@media (max-width:640px){#platform-private-beta-badge{top:12px;right:12px;padding:8px 12px;font-size:11px}}
+</style><div id="platform-private-beta-badge" aria-label="Currently in private beta"><span class="beta-dot" aria-hidden="true"></span><span>Currently in Private Beta</span></div>`;
+
+function shouldInjectPrivateBetaBadge(request, response) {
+  if (!response) return false;
+  if (request.method !== 'GET') return false;
+  if (response.status < 200 || response.status >= 300) return false;
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  return contentType.includes('text/html');
+}
+
+function injectPrivateBetaBadge(html) {
+  if (String(html).includes('platform-private-beta-badge')) return String(html);
+  if (/<body[^>]*>/i.test(html)) {
+    return String(html).replace(/<body([^>]*)>/i, (match) => `${match}${PRIVATE_BETA_BADGE_HTML}`);
+  }
+  return `${PRIVATE_BETA_BADGE_HTML}${html}`;
+}
+
+async function withPrivateBetaBadge(request, response) {
+  if (!shouldInjectPrivateBetaBadge(request, response) || !response.body) return response;
+  const html = await response.text();
+  const headers = new Headers(response.headers);
+  if (!headers.get('content-type')) headers.set('content-type', 'text/html; charset=utf-8');
+  return new Response(injectPrivateBetaBadge(html), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 const app = new Hono();
 
@@ -783,6 +825,46 @@ const patterns = [
   },
   {
     method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/pricing-profiles' }),
+    handler: (req, env, match) => handleListPropertyPricingProfiles(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/pricing-profiles' }),
+    handler: (req, env, match) => handleCreatePropertyPricingProfile(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/pricing-profiles/:pricingProfileId' }),
+    handler: (req, env, match) => handleUpdatePropertyPricingProfile(req, env, { propertyId: match.pathname.groups.propertyId, pricingProfileId: match.pathname.groups.pricingProfileId })
+  },
+  {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/pricing-profiles/:pricingProfileId' }),
+    handler: (req, env, match) => handleDeletePropertyPricingProfile(req, env, { propertyId: match.pathname.groups.propertyId, pricingProfileId: match.pathname.groups.pricingProfileId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/weekday-pricing-rules' }),
+    handler: (req, env, match) => handleListPropertyWeekdayPricingRules(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/weekday-pricing-rules' }),
+    handler: (req, env, match) => handleCreatePropertyWeekdayPricingRule(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/weekday-pricing-rules/:weekdayPricingRuleId' }),
+    handler: (req, env, match) => handleUpdatePropertyWeekdayPricingRule(req, env, { propertyId: match.pathname.groups.propertyId, weekdayPricingRuleId: match.pathname.groups.weekdayPricingRuleId })
+  },
+  {
+    method: 'DELETE',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/weekday-pricing-rules/:weekdayPricingRuleId' }),
+    handler: (req, env, match) => handleDeletePropertyWeekdayPricingRule(req, env, { propertyId: match.pathname.groups.propertyId, weekdayPricingRuleId: match.pathname.groups.weekdayPricingRuleId })
+  },
+  {
+    method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
     handler: (req, env, match) => handleListRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
   },
@@ -1151,9 +1233,10 @@ export default {
         const trustPolicy = buildTenantTrustPolicy(tenant);
         // ── Path 1: Site Studio — live template render ────────────────────
         if (tenant.template_id) {
-          return serveSitePage(tenant, env, {
+          const siteResponse = await serveSitePage(tenant, env, {
             responseHeaders: trustPolicy.force_noindex ? { 'X-Robots-Tag': trustPolicy.robots_directive } : {},
           });
+          return withPrivateBetaBadge(request, siteResponse);
         }
 
         // ── Path 1b: Universal site render on platform/custom host ───────
@@ -1192,7 +1275,7 @@ export default {
           const html = renderPublicHtml(siteBundle, page, null, { requestUrl: request.url });
           const headers = { 'Content-Type': 'text/html; charset=utf-8' };
           if (trustPolicy.force_noindex) headers['X-Robots-Tag'] = trustPolicy.robots_directive;
-          return new Response(html, { headers });
+          return withPrivateBetaBadge(request, new Response(html, { headers }));
         }
 
         // ── Path 2: Legacy TOUR_PAGES — pre-rendered HTML ─────────────────
@@ -1206,9 +1289,9 @@ export default {
           if (obj) {
             const headers = { 'Content-Type': 'text/html; charset=utf-8' };
             if (trustPolicy.force_noindex) headers['X-Robots-Tag'] = trustPolicy.robots_directive;
-            return new Response(await obj.text(), {
+            return withPrivateBetaBadge(request, new Response(await obj.text(), {
               headers,
-            });
+            }));
           }
         }
         // No page found — fall through to API routing
@@ -1238,9 +1321,10 @@ export default {
     // to ASSETS only when Hono/manual routes do not handle the request.
     const appResponse = await app.fetch(request, env, ctx);
     if (appResponse.status !== 404 || !env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
-      return appResponse;
+      return withPrivateBetaBadge(request, appResponse);
     }
-    return env.ASSETS.fetch(request);
+    const assetResponse = await env.ASSETS.fetch(request);
+    return withPrivateBetaBadge(request, assetResponse);
   },
 
   // Scheduled purge — cron "*/15 * * * *" (configured in wrangler.jsonc triggers.crons)

@@ -1,5 +1,6 @@
 import { spawnSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import crypto from 'node:crypto';
 import { buildTenantModerationPayload, moderateTenantContent } from '../src/lib/aiModeration.js';
@@ -13,7 +14,7 @@ const SPAWN_PORT = 8790;
 const DEFAULT_PRICING_SMOKE_DATE = '2026-10-10';
 const PRICING_SMOKE_EXPECTED_TOTAL = 1360;
 const PRICING_OVERLAP_SMOKE_DATE = '2026-05-20';
-const FETCH_RETRY_DELAYS_MS = [250, 750, 1500];
+const FETCH_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
 
 let failures = 0;
 
@@ -82,8 +83,12 @@ function runD1Json(sql) {
 
 async function isServerReady(baseUrl) {
   try {
-    const response = await fetch(`${baseUrl}/api/auth/session`);
-    return response.ok;
+    const response = await fetch(`${baseUrl}/api/tenant/config`, {
+      headers: {
+        'X-Tenant-ID': TENANT_ID,
+      },
+    });
+    return response.status >= 200 && response.status < 500;
   } catch {
     return false;
   }
@@ -98,28 +103,71 @@ async function waitForServer(baseUrl, timeoutMs = 30000) {
   return false;
 }
 
+async function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.unref();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+async function resolveSmokePort(startPort = SPAWN_PORT, maxOffset = 10) {
+  for (let offset = 0; offset <= maxOffset; offset += 1) {
+    const port = startPort + offset;
+    if (await isPortAvailable(port)) return port;
+  }
+  return null;
+}
+
 async function resolveBaseUrl() {
   if (process.env.SMOKE_BASE_URL) {
     return { baseUrl: process.env.SMOKE_BASE_URL, server: null, reused: true };
   }
 
-  const baseUrl = `http://127.0.0.1:${SPAWN_PORT}`;
+  const spawnPort = await resolveSmokePort();
+  if (!spawnPort) {
+    throw new Error(`No available local smoke port found in range ${SPAWN_PORT}-${SPAWN_PORT + 10}.`);
+  }
+
+  const baseUrl = `http://127.0.0.1:${spawnPort}`;
+  if (spawnPort !== SPAWN_PORT) {
+    info(`Default smoke port ${SPAWN_PORT} is busy, using ${spawnPort} instead`);
+  }
   info(`No running local Worker detected, starting Wrangler dev on ${baseUrl}`);
 
   const child = process.platform === 'win32'
-    ? spawn(POWERSHELL_BIN, ['-NoProfile', '-Command', `& ${quotePowerShell(NPX_BIN)} 'wrangler' 'dev' '--config' './wrangler.jsonc' '--port' '${String(SPAWN_PORT)}'`], {
+    ? spawn(POWERSHELL_BIN, ['-NoProfile', '-Command', `& ${quotePowerShell(NPX_BIN)} 'wrangler' 'dev' '--local' '--config' './wrangler.jsonc' '--port' '${String(spawnPort)}'`], {
         cwd: process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
       })
-    : spawn(NPX_BIN, ['wrangler', 'dev', '--config', './wrangler.jsonc', '--port', String(SPAWN_PORT)], {
+    : spawn(NPX_BIN, ['wrangler', 'dev', '--local', '--config', './wrangler.jsonc', '--port', String(spawnPort)], {
         cwd: process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
-  child.stdout.on('data', (chunk) => process.stdout.write(String(chunk)));
-  child.stderr.on('data', (chunk) => process.stderr.write(String(chunk)));
+  let resolveReadyFromLogs;
+  const readyFromLogs = new Promise((resolve) => {
+    resolveReadyFromLogs = resolve;
+  });
+  const emitChildOutput = (chunk, writer) => {
+    const text = String(chunk);
+    writer(text);
+    if (text.includes('Ready on ') || text.includes(`Ready on ${baseUrl}`)) {
+      resolveReadyFromLogs(true);
+    }
+  };
 
-  const ready = await waitForServer(baseUrl, 45000);
+  child.stdout.on('data', (chunk) => emitChildOutput(chunk, (text) => process.stdout.write(text)));
+  child.stderr.on('data', (chunk) => emitChildOutput(chunk, (text) => process.stderr.write(text)));
+
+  const ready = await Promise.race([
+    waitForServer(baseUrl, 120000),
+    readyFromLogs,
+  ]);
   if (!ready) {
     child.kill();
     throw new Error(`Wrangler dev did not become ready on ${baseUrl}`);
@@ -1081,6 +1129,743 @@ async function runDomainVerifySmoke(baseUrl, token) {
   }
 }
 
+async function runPropertyReservationPlannerSmoke(baseUrl, token) {
+  info('Running property reservation planner smoke flow');
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const uniqueSuffix = String(Date.now());
+
+  const propertyList = await requestJson(`${baseUrl}/api/properties`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (!propertyList.response.ok || !propertyList.body?.ok || !Array.isArray(propertyList.body?.properties)) {
+    fail(`Property planner smoke could not list properties: ${propertyList.response.status} ${JSON.stringify(propertyList.body)}`);
+    return;
+  }
+
+  let propertyId = propertyList.body.properties[0]?.id || null;
+  if (!propertyId) {
+    const propertyCreate = await requestJson(`${baseUrl}/api/properties`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        name: `Planner Smoke ${uniqueSuffix}`,
+        slug: `planner-smoke-${uniqueSuffix}`,
+      }),
+    });
+    if (!propertyCreate.response.ok || !propertyCreate.body?.property?.id) {
+      fail(`Property planner smoke could not create a property: ${propertyCreate.response.status} ${JSON.stringify(propertyCreate.body)}`);
+      return;
+    }
+    propertyId = propertyCreate.body.property.id;
+  }
+
+  const roomTypeCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      code: `SMK${uniqueSuffix.slice(-6)}`,
+      name: `Smoke Type ${uniqueSuffix.slice(-4)}`,
+      base_capacity: 2,
+      max_occupancy: 2,
+      sort_order: 9990,
+    }),
+  });
+  if (!roomTypeCreate.response.ok || !roomTypeCreate.body?.room_type?.id) {
+    fail(`Property planner smoke could not create a room type: ${roomTypeCreate.response.status} ${JSON.stringify(roomTypeCreate.body)}`);
+    return;
+  }
+  const roomTypeId = roomTypeCreate.body.room_type.id;
+
+  const roomUnitOneCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      room_number: `SM-${uniqueSuffix.slice(-4)}-1`,
+      floor_label: 'Smoke',
+      sort_order: 9991,
+    }),
+  });
+  const roomUnitTwoCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      room_number: `SM-${uniqueSuffix.slice(-4)}-2`,
+      floor_label: 'Smoke',
+      sort_order: 9992,
+    }),
+  });
+  if (!roomUnitOneCreate.response.ok || !roomUnitOneCreate.body?.room_unit?.id || !roomUnitTwoCreate.response.ok || !roomUnitTwoCreate.body?.room_unit?.id) {
+    fail(`Property planner smoke could not create room units: ${roomUnitOneCreate.response.status}/${roomUnitTwoCreate.response.status} ${JSON.stringify({ one: roomUnitOneCreate.body, two: roomUnitTwoCreate.body })}`);
+    return;
+  }
+  const roomUnitOneId = roomUnitOneCreate.body.room_unit.id;
+  const roomUnitTwoId = roomUnitTwoCreate.body.room_unit.id;
+  pass('Property planner smoke fixtures created');
+
+  const preferredStayCheckIn = '2026-09-10';
+  const preferredStayCheckOut = '2026-09-12';
+  const blockingReservation = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+      preferred_room_unit_id: roomUnitOneId,
+      guest_name: `Lane Block ${uniqueSuffix}`,
+      adults: 2,
+      children: 0,
+      source: 'manual_frontdesk',
+    }),
+  });
+  if (!blockingReservation.response.ok || !blockingReservation.body?.reservation?.id) {
+    fail(`Property planner smoke could not create the blocking reservation: ${blockingReservation.response.status} ${JSON.stringify(blockingReservation.body)}`);
+    return;
+  }
+  pass('Created a blocking reservation on the preferred lane');
+
+  const preferredLanePlan = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+      preferred_room_unit_id: roomUnitOneId,
+    }),
+  });
+  const preferredPlanSegments = Array.isArray(preferredLanePlan.body?.selected_plan?.segments)
+    ? preferredLanePlan.body.selected_plan.segments
+    : [];
+  const preferredConflictTypes = Array.isArray(preferredLanePlan.body?.preferred_room_conflicts)
+    ? preferredLanePlan.body.preferred_room_conflicts.map((conflict) => conflict.conflict_type)
+    : [];
+  if (
+    !preferredLanePlan.response.ok
+    || preferredLanePlan.body?.can_fulfill !== true
+    || preferredLanePlan.body?.preferred_room_honored !== false
+    || !preferredConflictTypes.includes('reservation_overlap')
+    || !preferredPlanSegments.some((segment) => String(segment.room_unit_id || '') === String(roomUnitTwoId))
+    || preferredPlanSegments.some((segment) => String(segment.room_unit_id || '') === String(roomUnitOneId))
+  ) {
+    fail(`Preferred-lane planning did not fall back as expected: ${preferredLanePlan.response.status} ${JSON.stringify(preferredLanePlan.body)}`);
+    return;
+  }
+  pass('Planner keeps preferred lanes soft and falls back to another free room when needed');
+
+  const preferredLaneReservation = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+      preferred_room_unit_id: roomUnitOneId,
+      guest_name: `Lane Fallback ${uniqueSuffix}`,
+      adults: 1,
+      children: 0,
+      source: 'manual_frontdesk',
+    }),
+  });
+  const preferredAssignedRoomUnitId = preferredLaneReservation.body?.reservation?.assigned_room_unit_id
+    || preferredLaneReservation.body?.stay_plan?.segments?.[0]?.room_unit_id
+    || null;
+  if (
+    !preferredLaneReservation.response.ok
+    || preferredLaneReservation.body?.reservation?.preferred_room_honored !== false
+    || String(preferredAssignedRoomUnitId || '') !== String(roomUnitTwoId)
+  ) {
+    fail(`Preferred-lane reservation create did not stay off the blocked lane: ${preferredLaneReservation.response.status} ${JSON.stringify(preferredLaneReservation.body)}`);
+    return;
+  }
+  pass('Reservation create avoids force-binding a blocked preferred lane');
+
+  const allotmentCheckIn = '2026-09-20';
+  const allotmentCheckOut = '2026-09-22';
+  const allotmentCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      operator_name: `Smoke Operator ${uniqueSuffix.slice(-4)}`,
+      operator_code: 'SMOKE',
+      source_ref: `ALLOT-${uniqueSuffix}`,
+      check_in: allotmentCheckIn,
+      check_out: allotmentCheckOut,
+      release_date: '2026-09-18',
+      rooms_blocked: 2,
+      notes: 'Planner smoke allotment',
+    }),
+  });
+  if (!allotmentCreate.response.ok || !allotmentCreate.body?.allotment?.id) {
+    fail(`Property planner smoke could not create the allotment: ${allotmentCreate.response.status} ${JSON.stringify(allotmentCreate.body)}`);
+    return;
+  }
+  const allotmentId = allotmentCreate.body.allotment.id;
+  pass('Created an operator block for allotment-consumption smoke');
+
+  const freeSellPlan = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: allotmentCheckIn,
+      check_out: allotmentCheckOut,
+      rooms_requested: 1,
+    }),
+  });
+  if (!freeSellPlan.response.ok || freeSellPlan.body?.can_fulfill !== false) {
+    fail(`Operator block should remove general free-sell inventory before consumption: ${freeSellPlan.response.status} ${JSON.stringify(freeSellPlan.body)}`);
+    return;
+  }
+  pass('Active operator block reduces generic free-sell availability');
+
+  const allotmentPlan = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: allotmentCheckIn,
+      check_out: allotmentCheckOut,
+      rooms_requested: 1,
+      allotment_id: allotmentId,
+    }),
+  });
+  if (
+    !allotmentPlan.response.ok
+    || allotmentPlan.body?.can_fulfill !== true
+    || Number(allotmentPlan.body?.allotment_consumption?.remaining_rooms_after_commit) !== 1
+  ) {
+    fail(`Allotment planner preview did not expose the expected consumption summary: ${allotmentPlan.response.status} ${JSON.stringify(allotmentPlan.body)}`);
+    return;
+  }
+  pass('Planner preview exposes allotment consumption and remaining blocked rooms');
+
+  const allotmentReservationOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: allotmentCheckIn,
+      check_out: allotmentCheckOut,
+      rooms_requested: 1,
+      allotment_id: allotmentId,
+      guest_name: `Allotment Guest 1 ${uniqueSuffix}`,
+      adults: 2,
+      children: 0,
+      source: 'manual_frontdesk',
+    }),
+  });
+  if (
+    !allotmentReservationOne.response.ok
+    || Number(allotmentReservationOne.body?.allotment_consumption?.remaining_rooms_after_commit) !== 1
+  ) {
+    fail(`First allotment-backed reservation did not decrement the block as expected: ${allotmentReservationOne.response.status} ${JSON.stringify(allotmentReservationOne.body)}`);
+    return;
+  }
+  pass('First allotment-backed reservation decrements blocked inventory');
+
+  const allotmentReservationTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: allotmentCheckIn,
+      check_out: allotmentCheckOut,
+      rooms_requested: 1,
+      allotment_id: allotmentId,
+      guest_name: `Allotment Guest 2 ${uniqueSuffix}`,
+      adults: 1,
+      children: 0,
+      source: 'manual_frontdesk',
+    }),
+  });
+  if (
+    !allotmentReservationTwo.response.ok
+    || Number(allotmentReservationTwo.body?.allotment_consumption?.remaining_rooms_after_commit) !== 0
+  ) {
+    fail(`Second allotment-backed reservation did not fully consume the block: ${allotmentReservationTwo.response.status} ${JSON.stringify(allotmentReservationTwo.body)}`);
+    return;
+  }
+
+  const allotmentList = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments?from_date=${encodeURIComponent(allotmentCheckIn)}&days=5&status=all`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  const consumedAllotment = Array.isArray(allotmentList.body?.allotments)
+    ? allotmentList.body.allotments.find((item) => String(item.id || '') === String(allotmentId))
+    : null;
+  if (
+    !allotmentList.response.ok
+    || !consumedAllotment
+    || consumedAllotment.status !== 'released'
+    || Number(consumedAllotment.rooms_blocked || 0) !== 0
+    || consumedAllotment.inventory_blocking !== false
+  ) {
+    fail(`Fully consumed allotment was not released cleanly: ${allotmentList.response.status} ${JSON.stringify(allotmentList.body)}`);
+    return;
+  }
+  pass('Fully consumed operator block releases inventory and marks the allotment as released');
+}
+
+async function runPropertyPricingProfileSmoke(baseUrl, token) {
+  info('Running property pricing profile smoke flow');
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const uniqueSuffix = String(Date.now());
+
+  const propertyList = await requestJson(`${baseUrl}/api/properties`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (!propertyList.response.ok || !propertyList.body?.ok || !Array.isArray(propertyList.body?.properties)) {
+    fail(`Pricing profile smoke could not list properties: ${propertyList.response.status} ${JSON.stringify(propertyList.body)}`);
+    return;
+  }
+
+  let propertyId = propertyList.body.properties[0]?.id || null;
+  if (!propertyId) {
+    const propertyCreate = await requestJson(`${baseUrl}/api/properties`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        name: `Profile Smoke ${uniqueSuffix}`,
+        slug: `profile-smoke-${uniqueSuffix}`,
+      }),
+    });
+    if (!propertyCreate.response.ok || !propertyCreate.body?.property?.id) {
+      fail(`Pricing profile smoke could not create a property: ${propertyCreate.response.status} ${JSON.stringify(propertyCreate.body)}`);
+      return;
+    }
+    propertyId = propertyCreate.body.property.id;
+  }
+
+  const roomTypeCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      code: `PF${uniqueSuffix.slice(-6)}`,
+      name: `Profile Type ${uniqueSuffix.slice(-4)}`,
+      base_capacity: 2,
+      max_occupancy: 2,
+      sort_order: 9995,
+    }),
+  });
+  if (!roomTypeCreate.response.ok || !roomTypeCreate.body?.room_type?.id) {
+    fail(`Pricing profile smoke could not create a room type: ${roomTypeCreate.response.status} ${JSON.stringify(roomTypeCreate.body)}`);
+    return;
+  }
+  const roomTypeId = roomTypeCreate.body.room_type.id;
+
+  const roomUnitCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      room_number: `PF-${uniqueSuffix.slice(-4)}-1`,
+      floor_label: 'Profile Smoke',
+      sort_order: 9996,
+    }),
+  });
+  if (!roomUnitCreate.response.ok || !roomUnitCreate.body?.room_unit?.id) {
+    fail(`Pricing profile smoke could not create a room unit: ${roomUnitCreate.response.status} ${JSON.stringify(roomUnitCreate.body)}`);
+    return;
+  }
+
+  const baseRateCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-rates`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      rate_name: 'Smoke BAR',
+      currency: 'USD',
+      nightly_amount: 100,
+      included_adults: 2,
+      included_children: 0,
+      extra_adult_amount: 0,
+      extra_child_amount: 0,
+      active: 1,
+    }),
+  });
+  if (!baseRateCreate.response.ok || !baseRateCreate.body?.room_rate?.id) {
+    fail(`Pricing profile smoke could not create a base room rate: ${baseRateCreate.response.status} ${JSON.stringify(baseRateCreate.body)}`);
+    return;
+  }
+
+  const pricingProfileCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/pricing-profiles`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      code: `GROUP-${uniqueSuffix.slice(-4)}`,
+      name: 'Group Contract',
+      visibility: 'planner_only',
+      pricing_mode: 'delta_amount',
+      delta_amount: -15,
+      notes: 'Smoke test planner-only pricing profile',
+      active: 1,
+    }),
+  });
+  if (!pricingProfileCreate.response.ok || !pricingProfileCreate.body?.pricing_profile?.id) {
+    fail(`Pricing profile smoke could not create a pricing profile: ${pricingProfileCreate.response.status} ${JSON.stringify(pricingProfileCreate.body)}`);
+    return;
+  }
+  const pricingProfileId = pricingProfileCreate.body.pricing_profile.id;
+
+  const pricingProfileList = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/pricing-profiles`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (
+    !pricingProfileList.response.ok
+    || !Array.isArray(pricingProfileList.body?.pricing_profiles)
+    || !pricingProfileList.body.pricing_profiles.some((profile) => String(profile.id) === String(pricingProfileId))
+  ) {
+    fail(`Pricing profile smoke could not list the created pricing profile: ${pricingProfileList.response.status} ${JSON.stringify(pricingProfileList.body)}`);
+    return;
+  }
+  pass('Planner-only pricing profile CRUD baseline is available');
+
+  const quoted = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/rates/quote`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-10',
+      check_out: '2026-10-12',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+      pricing_profile_id: pricingProfileId,
+    }),
+  });
+  if (
+    !quoted.response.ok
+    || quoted.body?.pricing?.pricing_profile?.id !== pricingProfileId
+    || Number(quoted.body?.pricing?.total_amount) !== 170
+    || !Array.isArray(quoted.body?.pricing?.nightly_breakdown)
+    || quoted.body.pricing.nightly_breakdown.some((night) => Number(night.nightly_amount) !== 85)
+  ) {
+    fail(`Pricing profile smoke quote did not apply the planner overlay as expected: ${quoted.response.status} ${JSON.stringify(quoted.body)}`);
+    return;
+  }
+  pass('Quote endpoint applies planner-only pricing profiles on top of base nightly rates');
+
+  const reservationCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-10',
+      check_out: '2026-10-12',
+      rooms_requested: 1,
+      guest_name: `Profile Snapshot ${uniqueSuffix}`,
+      adults: 2,
+      children: 0,
+      source: 'manual_frontdesk',
+      pricing_profile_id: pricingProfileId,
+    }),
+  });
+  if (!reservationCreate.response.ok || !reservationCreate.body?.reservation?.id) {
+    fail(`Pricing profile smoke could not create a reservation with a frozen snapshot: ${reservationCreate.response.status} ${JSON.stringify(reservationCreate.body)}`);
+    return;
+  }
+  const reservationId = reservationCreate.body.reservation.id;
+
+  const reservationGet = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(reservationId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  const snapshot = reservationGet.body?.reservation?.pricing_snapshot;
+  const frozenNightly = Array.isArray(snapshot?.nightly_breakdown)
+    ? snapshot.nightly_breakdown.find((night) => String(night?.stay_date || '') === '2026-10-10')
+    : null;
+  if (
+    !reservationGet.response.ok
+    || snapshot?.pricing_profile_id !== pricingProfileId
+    || snapshot?.snapshot_capture_status !== 'frozen_quote'
+    || Number(snapshot?.total_amount) !== 170
+    || Number(frozenNightly?.nightly_total) !== 85
+  ) {
+    fail(`Reservation create did not freeze the quoted pricing decision: ${reservationGet.response.status} ${JSON.stringify(reservationGet.body)}`);
+    return;
+  }
+  pass('Reservation create freezes the nightly commercial breakdown into pricing_snapshot');
+
+  const reservationCheckIn = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(reservationId)}/check-in`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ assigned_room_unit_id: roomUnitCreate.body.room_unit.id }),
+  });
+  if (!reservationCheckIn.response.ok) {
+    fail(`Pricing profile smoke could not check in the reservation before night audit: ${reservationCheckIn.response.status} ${JSON.stringify(reservationCheckIn.body)}`);
+    return;
+  }
+
+  const baseRatePatch = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-rates/${encodeURIComponent(baseRateCreate.body.room_rate.id)}`, {
+    method: 'PATCH',
+    headers: authHeaders,
+    body: JSON.stringify({ nightly_amount: 250 }),
+  });
+  if (!baseRatePatch.response.ok) {
+    fail(`Pricing profile smoke could not change the live base rate after reservation freeze: ${baseRatePatch.response.status} ${JSON.stringify(baseRatePatch.body)}`);
+    return;
+  }
+
+  const nightAudit = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/folios/night-audit`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ audit_date: '2026-10-10' }),
+  });
+  if (!nightAudit.response.ok || Number(nightAudit.body?.room_charge_lines_posted) !== 1) {
+    fail(`Pricing profile smoke night audit did not post exactly one room charge: ${nightAudit.response.status} ${JSON.stringify(nightAudit.body)}`);
+    return;
+  }
+
+  const folioGet = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(reservationId)}/folio`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  const auditLine = Array.isArray(folioGet.body?.lines)
+    ? folioGet.body.lines.find((line) => String(line?.note || '') === 'night_audit:2026-10-10')
+    : null;
+  if (
+    !folioGet.response.ok
+    || !auditLine
+    || Number(auditLine.unit_amount) !== 85
+    || Number(auditLine.total_amount) !== 85
+    || String(auditLine.currency || '') !== 'USD'
+  ) {
+    fail(`Night audit did not honor the frozen reservation snapshot after live rates changed: ${folioGet.response.status} ${JSON.stringify(folioGet.body)}`);
+    return;
+  }
+  pass('Night audit posts the frozen nightly charge from pricing_snapshot before any live-rate fallback');
+}
+
+async function runPropertyWeekdayPricingSmoke(baseUrl, token) {
+  info('Running property weekday pricing smoke flow');
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const uniqueSuffix = String(Date.now());
+
+  const propertyList = await requestJson(`${baseUrl}/api/properties`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (!propertyList.response.ok || !propertyList.body?.ok || !Array.isArray(propertyList.body?.properties)) {
+    fail(`Weekday pricing smoke could not list properties: ${propertyList.response.status} ${JSON.stringify(propertyList.body)}`);
+    return;
+  }
+
+  let propertyId = propertyList.body.properties[0]?.id || null;
+  if (!propertyId) {
+    const propertyCreate = await requestJson(`${baseUrl}/api/properties`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        name: `Weekday Smoke ${uniqueSuffix}`,
+        slug: `weekday-smoke-${uniqueSuffix}`,
+      }),
+    });
+    if (!propertyCreate.response.ok || !propertyCreate.body?.property?.id) {
+      fail(`Weekday pricing smoke could not create a property: ${propertyCreate.response.status} ${JSON.stringify(propertyCreate.body)}`);
+      return;
+    }
+    propertyId = propertyCreate.body.property.id;
+  }
+
+  const roomTypeCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      code: `WD${uniqueSuffix.slice(-6)}`,
+      name: `Weekday Type ${uniqueSuffix.slice(-4)}`,
+      base_capacity: 2,
+      max_occupancy: 2,
+      sort_order: 9994,
+    }),
+  });
+  if (!roomTypeCreate.response.ok || !roomTypeCreate.body?.room_type?.id) {
+    fail(`Weekday pricing smoke could not create a room type: ${roomTypeCreate.response.status} ${JSON.stringify(roomTypeCreate.body)}`);
+    return;
+  }
+  const roomTypeId = roomTypeCreate.body.room_type.id;
+
+  const roomUnitCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      room_number: `WD-${uniqueSuffix.slice(-4)}-1`,
+      floor_label: 'Weekday Smoke',
+      sort_order: 9994,
+    }),
+  });
+  if (!roomUnitCreate.response.ok || !roomUnitCreate.body?.room_unit?.id) {
+    fail(`Weekday pricing smoke could not create a room unit: ${roomUnitCreate.response.status} ${JSON.stringify(roomUnitCreate.body)}`);
+    return;
+  }
+
+  const baseRateCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-rates`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      rate_name: 'Weekday BAR',
+      currency: 'USD',
+      nightly_amount: 100,
+      included_adults: 2,
+      included_children: 0,
+      extra_adult_amount: 0,
+      extra_child_amount: 0,
+      active: 1,
+    }),
+  });
+  if (!baseRateCreate.response.ok || !baseRateCreate.body?.room_rate?.id) {
+    fail(`Weekday pricing smoke could not create a base room rate: ${baseRateCreate.response.status} ${JSON.stringify(baseRateCreate.body)}`);
+    return;
+  }
+
+  const weekdayRuleCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/weekday-pricing-rules`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      day_of_week: 6,
+      name: 'Saturday uplift',
+      pricing_mode: 'delta_amount',
+      delta_amount: 20,
+      notes: 'Weekend uplift smoke rule',
+      active: 1,
+    }),
+  });
+  if (!weekdayRuleCreate.response.ok || !weekdayRuleCreate.body?.weekday_pricing_rule?.id) {
+    fail(`Weekday pricing smoke could not create a weekday rule: ${weekdayRuleCreate.response.status} ${JSON.stringify(weekdayRuleCreate.body)}`);
+    return;
+  }
+  const weekdayRuleId = weekdayRuleCreate.body.weekday_pricing_rule.id;
+
+  const weekdayRuleList = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/weekday-pricing-rules`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (
+    !weekdayRuleList.response.ok
+    || !Array.isArray(weekdayRuleList.body?.weekday_pricing_rules)
+    || !weekdayRuleList.body.weekday_pricing_rules.some((rule) => String(rule.id) === String(weekdayRuleId))
+  ) {
+    fail(`Weekday pricing smoke could not list the created weekday rule: ${weekdayRuleList.response.status} ${JSON.stringify(weekdayRuleList.body)}`);
+    return;
+  }
+  pass('Weekday pricing rule CRUD baseline is available');
+
+  const quoted = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/rates/quote`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-09',
+      check_out: '2026-10-12',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+    }),
+  });
+  const saturdayQuote = Array.isArray(quoted.body?.pricing?.nightly_breakdown)
+    ? quoted.body.pricing.nightly_breakdown.find((night) => String(night?.stay_date || '') === '2026-10-10')
+    : null;
+  if (
+    !quoted.response.ok
+    || Number(quoted.body?.pricing?.total_amount) !== 320
+    || !Array.isArray(quoted.body?.pricing?.nightly_breakdown)
+    || Number(quoted.body.pricing.nightly_breakdown[0]?.nightly_amount) !== 100
+    || Number(saturdayQuote?.nightly_amount) !== 120
+    || saturdayQuote?.weekday_adjustment?.day_name !== 'Saturday'
+    || Number(saturdayQuote?.weekday_adjustment?.adjustment_amount) !== 20
+  ) {
+    fail(`Weekday pricing quote did not apply the Saturday uplift as expected: ${quoted.response.status} ${JSON.stringify(quoted.body)}`);
+    return;
+  }
+  pass('Quote endpoint applies deterministic weekday adjustments and exposes them in nightly breakdowns');
+
+  const reservationCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-09',
+      check_out: '2026-10-12',
+      rooms_requested: 1,
+      guest_name: `Weekday Snapshot ${uniqueSuffix}`,
+      adults: 2,
+      children: 0,
+      source: 'manual_frontdesk',
+    }),
+  });
+  if (!reservationCreate.response.ok || !reservationCreate.body?.reservation?.id) {
+    fail(`Weekday pricing smoke could not create a reservation with frozen weekday pricing: ${reservationCreate.response.status} ${JSON.stringify(reservationCreate.body)}`);
+    return;
+  }
+  const reservationId = reservationCreate.body.reservation.id;
+
+  const reservationGet = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(reservationId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  const snapshot = reservationGet.body?.reservation?.pricing_snapshot;
+  const saturdaySnapshot = Array.isArray(snapshot?.nightly_breakdown)
+    ? snapshot.nightly_breakdown.find((night) => String(night?.stay_date || '') === '2026-10-10')
+    : null;
+  if (
+    !reservationGet.response.ok
+    || snapshot?.snapshot_capture_status !== 'frozen_quote'
+    || Number(snapshot?.total_amount) !== 320
+    || Number(saturdaySnapshot?.nightly_total) !== 120
+    || saturdaySnapshot?.weekday_adjustment?.day_name !== 'Saturday'
+  ) {
+    fail(`Reservation snapshot did not preserve the weekday adjustment breakdown: ${reservationGet.response.status} ${JSON.stringify(reservationGet.body)}`);
+    return;
+  }
+  pass('Reservation pricing snapshot preserves weekday adjustments from the shared quote resolver');
+}
+
 async function runAdminTenantSmoke(baseUrl, adminSecret) {
   info('Running admin tenant management smoke flow');
 
@@ -1198,6 +1983,9 @@ async function main() {
     const freshToken = mintBearerToken();
     await runDomainSmoke(baseUrl, freshToken);
     await runDomainVerifySmoke(baseUrl, freshToken);
+    await runPropertyReservationPlannerSmoke(baseUrl, freshToken);
+    await runPropertyPricingProfileSmoke(baseUrl, freshToken);
+    await runPropertyWeekdayPricingSmoke(baseUrl, freshToken);
     await runAdminTenantSmoke(baseUrl, adminSecret);
   } finally {
     if (server) {

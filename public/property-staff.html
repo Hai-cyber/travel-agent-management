@@ -1504,6 +1504,7 @@
         shiftHandover: null,
         sheetCreateMode: null,
         sheetCreateContext: null,
+        sheetActiveAllotment: null,
         sheetReservationPlanPreview: null,
         sheetExtendPlanPreview: null,
         sheetRoomUnit: null,
@@ -2553,7 +2554,7 @@
 
         if (!checkIn || !checkOut || checkOut <= checkIn) {
           message = 'Select a valid stay range.';
-        } else if (mode !== 'reservation' || roomsRequested === 1) {
+        } else if (mode !== 'reservation') {
           conflict = getConflictingReservation(state.sheetRoomUnit.id, checkIn, checkOut, null, getPlanningReservations());
           if (conflict) message = 'Phòng đã được đặt';
         }
@@ -2590,17 +2591,50 @@
         const preview = state.sheetReservationPlanPreview;
         wrap.hidden = false;
         const selectedPlan = preview.selected_plan;
+        const allotmentConsumption = preview.allotment_consumption || null;
         summaryEl.innerHTML = preview.can_fulfill
           ? `${Number(preview.request?.rooms_requested || 0)} room(s) can be placed. ${selectedPlan ? `Best plan: <strong>${escapeHtml(selectedPlan.plan_type || 'candidate')}</strong>.` : ''}`
           : `Planner could not place all ${Number(preview.request?.rooms_requested || 0)} requested room(s) for this stay.`;
+
+        if (allotmentConsumption) {
+          summaryEl.innerHTML += `<br><span style="color:#9a3412">Using operator block <strong>${escapeHtml(allotmentConsumption.operator_name || 'Operator')}</strong>: ${Number(allotmentConsumption.rooms_requested || 0)} of ${Number(allotmentConsumption.rooms_blocked || 0)} blocked room(s) will be consumed.${Number(allotmentConsumption.remaining_rooms_after_commit || 0) > 0 ? ` ${Number(allotmentConsumption.remaining_rooms_after_commit || 0)} room(s) remain reserved.` : ' The block will be fully released.'}</span>`;
+        }
 
         const reservationConflicts = Array.isArray(preview.conflicts?.reservation_conflicts) ? preview.conflicts.reservation_conflicts : [];
         const holdConflicts = Array.isArray(preview.conflicts?.hold_conflicts) ? preview.conflicts.hold_conflicts : [];
         const allotmentConflicts = Array.isArray(preview.conflicts?.allotment_conflicts) ? preview.conflicts.allotment_conflicts : [];
         const maintenanceConflicts = Array.isArray(preview.conflicts?.maintenance_conflicts) ? preview.conflicts.maintenance_conflicts : [];
         const shortageDates = Array.isArray(preview.conflicts?.shortage_dates) ? preview.conflicts.shortage_dates : [];
+        const preferredRoomConflicts = Array.isArray(preview.preferred_room_conflicts) ? preview.preferred_room_conflicts : [];
+        const preferredRoomLabel = preview.preferred_room_number || state.sheetRoomUnit?.room_number || preview.preferred_room_unit_id || 'preferred lane';
+
+        if (preview.preferred_room_unit_id) {
+          if (preview.preferred_room_honored) {
+            summaryEl.innerHTML += `<br><span style="color:#166534">Preferred lane <strong>${escapeHtml(preferredRoomLabel)}</strong> is available and was kept in the selected plan.</span>`;
+          } else if (preview.can_fulfill && Array.isArray(preview.preferred_room_fallback_room_numbers) && preview.preferred_room_fallback_room_numbers.length) {
+            summaryEl.innerHTML += `<br><span style="color:#9a3412">Preferred lane <strong>${escapeHtml(preferredRoomLabel)}</strong> is blocked for this stay. Planner shifted to ${preview.preferred_room_fallback_room_numbers.map((item) => `<strong>${escapeHtml(item)}</strong>`).join(', ')} instead.</span>`;
+          }
+        }
 
         const conflictLines = [];
+        if (preferredRoomConflicts.length) {
+          const sample = preferredRoomConflicts.slice(0, 4).map((item) => {
+            if (item.conflict_type === 'reservation_overlap') {
+              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} overlaps ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`;
+            }
+            if (item.conflict_type === 'room_unavailable') {
+              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} is ${escapeHtml(item.operational_status || 'unavailable')}`;
+            }
+            if (item.conflict_type === 'room_inactive') {
+              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} is inactive.`;
+            }
+            if (item.conflict_type === 'room_type_mismatch') {
+              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} does not belong to the requested room type.`;
+            }
+            return `Preferred lane conflict: ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)}`;
+          }).join('<br>');
+          conflictLines.push(sample);
+        }
         if (shortageDates.length) conflictLines.push(`Shortage dates: ${shortageDates.map((item) => escapeHtml(String(item.stay_date || item))).join(', ')}`);
         if (reservationConflicts.length) {
           const sample = reservationConflicts.slice(0, 4).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'room')} overlaps ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`).join('<br>');
@@ -2652,6 +2686,8 @@
         }
 
         try {
+          const preferredRoomUnitId = state.sheetCreateContext === 'allotment' ? null : state.sheetRoomUnit.id;
+          const allotmentId = state.sheetCreateContext === 'allotment' ? (state.sheetActiveAllotment?.id || null) : null;
           const preview = await api(`/api/properties/${state.selectedPropertyId}/reservations/plan`, {
             method: 'POST',
             body: JSON.stringify({
@@ -2659,6 +2695,8 @@
               check_in: checkIn,
               check_out: checkOut,
               rooms_requested: roomsRequested,
+              preferred_room_unit_id: preferredRoomUnitId,
+              allotment_id: allotmentId,
             }),
           });
           state.sheetReservationPlanPreview = preview;
@@ -2688,11 +2726,15 @@
 
         if (mode === 'reservation' && context === 'plan') {
           titleEl.textContent = 'New Reservation';
-          helpEl.textContent = 'Planning action only. This creates a reservation for the selected room type/lane and does not check the guest in.';
+          helpEl.textContent = 'Planning action only. The selected lane is a preference hint, not a hard bind; planner may shift to another free lane of the same type.';
+          switchesEl.hidden = true;
+        } else if (mode === 'reservation' && context === 'allotment') {
+          titleEl.textContent = 'Allotment Reservation';
+          helpEl.textContent = 'This reservation intentionally consumes rooms from the selected operator block instead of using generic free-sell inventory.';
           switchesEl.hidden = true;
         } else if (mode === 'reservation') {
           titleEl.textContent = 'New Single-Room Reservation';
-          helpEl.textContent = 'Creates a future reservation for this room type and keeps the guest out of house until an explicit check-in.';
+          helpEl.textContent = 'Creates a future reservation for this room type and keeps the guest out of house until an explicit check-in. The selected lane is a soft preference only.';
           switchesEl.hidden = false;
         } else {
           titleEl.textContent = 'Walk-in Creation';
@@ -2788,6 +2830,7 @@
         listEl.innerHTML = allotments.map((allotment) => `
           <div class="plan-allotment-pill">
             <span>${escapeHtml(allotment.operator_name || 'Operator')} · ${escapeHtml(allotment.room_type_code || allotment.room_type_name || allotment.room_type_id || '')} · ${Number(allotment.rooms_blocked || 0)} room(s) · ${escapeHtml(allotment.check_in || '')} → ${escapeHtml(allotment.check_out || '')}${allotment.release_date ? ` · release ${escapeHtml(allotment.release_date)}` : ''}</span>
+            ${allotment.status === 'active' && allotment.inventory_blocking ? `<button type="button" data-consume-allotment="${escapeHtml(allotment.id)}">Reserve</button>` : ''}
             ${allotment.status === 'active' ? `<button type="button" data-release-allotment="${escapeHtml(allotment.id)}">Release</button>` : ''}
           </div>`).join('');
       }
@@ -3225,6 +3268,7 @@
         document.getElementById('sf-walkin-rooms').value = '1';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
+        state.sheetActiveAllotment = null;
         state.sheetReservationPlanPreview = null;
         state.sheetCreateContext = res ? null : 'rack';
         setSheetCreateMode(res ? null : 'walkin', 'rack');
@@ -3297,16 +3341,22 @@
         const checkIn = String(options.checkIn || state.boardDate || new Date().toISOString().slice(0, 10)).trim();
         const checkOut = String(options.checkOut || addIsoDays(checkIn, 1)).trim();
         const createContext = String(options.context || 'plan').trim() || 'plan';
+        const activeAllotment = options.allotment || null;
         await openProfile(unitId, null, 'actions');
         const unit = state.sheetRoomUnit;
         if (!unit) return;
         setSheetCreateMode('reservation', createContext);
+        state.sheetActiveAllotment = activeAllotment;
         document.getElementById('sh-guest-name').textContent = 'New Reservation';
-        document.getElementById('sh-guest-sub').textContent = `Room ${unit.room_number} · ${checkIn} → ${checkOut}`;
+        document.getElementById('sh-guest-sub').textContent = activeAllotment
+          ? `${activeAllotment.operator_name || 'Operator block'} · ${activeAllotment.room_type_code || activeAllotment.room_type_name || unit.room_number} · ${checkIn} → ${checkOut}`
+          : `Room ${unit.room_number} · ${checkIn} → ${checkOut}`;
         const badge = document.getElementById('sh-badge');
         badge.textContent = 'draft';
         badge.setAttribute('style', sheetStatusStyle('draft'));
-        document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">Draft reservation. Complete the form below to create a new booking for this room.</div>';
+        document.getElementById('sh-stay-body').innerHTML = activeAllotment
+          ? '<div style="color:#94a3b8;font-size:12px">Draft reservation from an active operator block. Complete the form below to consume blocked inventory intentionally for this guest stay.</div>'
+          : '<div style="color:#94a3b8;font-size:12px">Draft reservation. Complete the form below to create a new booking. The selected lane is a preference hint and planner may shift the stay to another free lane of the same room type.</div>';
         document.getElementById('sf-walkin-ci').value = checkIn;
         document.getElementById('sf-walkin-co').value = checkOut;
         document.getElementById('sf-walkin-rooms').value = String(Math.max(1, Number(options.roomsRequested || 1)));
@@ -3328,6 +3378,7 @@
         document.getElementById('guest-overlay').hidden = true;
         state.sheetCreateMode = null;
         state.sheetCreateContext = null;
+        state.sheetActiveAllotment = null;
         state.sheetReservationPlanPreview = null;
         state.sheetExtendPlanPreview = null;
         state.sheetRoomUnit = null;
@@ -3877,6 +3928,27 @@
           }
         });
         document.getElementById('plan-allotment-list').addEventListener('click', async (e) => {
+          const consumeButton = e.target.closest('[data-consume-allotment]');
+          if (consumeButton && state.selectedPropertyId) {
+            const allotmentId = consumeButton.getAttribute('data-consume-allotment');
+            const allotment = (state.planningGrid?.allotments || []).find((item) => String(item.id) === String(allotmentId));
+            if (!allotment) return setFlash('Operator block not found in the current planning window.', 'err');
+            const anchorUnit = state.roomUnits.find((unit) => String(unit.room_type_id) === String(allotment.room_type_id) && unit.active && !['maintenance', 'out_of_order'].includes(String(unit.operational_status || '')));
+            if (!anchorUnit) return setFlash('No active room unit is available to anchor this operator block.', 'err');
+            try {
+              await createReservation(anchorUnit.id, {
+                checkIn: allotment.check_in,
+                checkOut: allotment.check_out,
+                context: 'allotment',
+                roomsRequested: 1,
+                allotment,
+              });
+            } catch (error) {
+              setFlash(error.message, 'err');
+            }
+            return;
+          }
+
           const button = e.target.closest('[data-release-allotment]');
           if (!button || !state.selectedPropertyId) return;
           try {
@@ -4205,6 +4277,10 @@
         const roomsRequested = Math.max(1, parseInt(document.getElementById('sf-walkin-rooms').value, 10) || 1);
         if (!guestName) return setFlash('Guest name is required.', 'err');
         try {
+          const allotmentId = state.sheetCreateContext === 'allotment' ? (state.sheetActiveAllotment?.id || null) : null;
+          const preferredRoomUnitId = state.sheetCreateMode === 'reservation' && state.sheetCreateContext !== 'allotment'
+            ? state.sheetRoomUnit.id
+            : null;
           const created = await api(`/api/properties/${state.selectedPropertyId}/reservations`, {
             method: 'POST',
             body: JSON.stringify({
@@ -4212,6 +4288,8 @@
               check_in: checkIn,
               check_out: checkOut,
               rooms_requested: roomsRequested,
+              preferred_room_unit_id: preferredRoomUnitId,
+              allotment_id: allotmentId,
               guest_name: guestName,
               guest_phone: guestPhone || null,
               guest_email: guestEmail || null,
@@ -4220,21 +4298,29 @@
               source: state.sheetCreateMode === 'reservation' ? 'manual_agent' : 'manual_frontdesk',
               source_payload: {
                 create_context: state.sheetCreateContext || 'rack',
-                preferred_room_unit_id: state.sheetCreateContext === 'rack' && roomsRequested === 1 ? state.sheetRoomUnit.id : null,
+                preferred_room_unit_id: preferredRoomUnitId,
+                allotment_id: allotmentId,
               },
             }),
           });
           if (state.sheetCreateMode === 'reservation') {
-            if (roomsRequested === 1 && state.sheetCreateContext === 'rack') {
-            await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}`, {
-              method: 'PATCH',
-              body: JSON.stringify({ assigned_room_unit_id: state.sheetRoomUnit.id }),
-            });
-            }
+            const targetUnitId = created?.stay_plan?.segments?.[0]?.room_unit_id || state.sheetRoomUnit.id;
+            const preferredRoomHonored = preferredRoomUnitId
+              ? Boolean(created?.stay_plan?.segments?.some((segment) => String(segment.room_unit_id || '') === String(preferredRoomUnitId)))
+              : null;
+            const allotmentConsumption = created?.allotment_consumption || null;
             await loadWorkspace();
-            await openStayInfo(state.sheetRoomUnit.id, created.reservation.id);
+            await openStayInfo(targetUnitId, created.reservation.id);
             switchSheetTab('stay');
-            setFlash(roomsRequested > 1 ? 'Reservation created with planner-backed multi-room request.' : 'Reservation created.');
+            if (allotmentConsumption) {
+              setFlash(`Reservation created from operator block ${allotmentConsumption.operator_name || 'Operator'}. ${Number(allotmentConsumption.remaining_rooms_after_commit || 0) > 0 ? `${Number(allotmentConsumption.remaining_rooms_after_commit || 0)} blocked room(s) remain.` : 'The block is now fully consumed and released.'}`);
+            } else if (preferredRoomUnitId && preferredRoomHonored === false) {
+              setFlash(roomsRequested > 1
+                ? 'Reservation created. Planner kept the room type but shifted away from the hinted lane.'
+                : 'Reservation created. Preferred lane was blocked, so planner used another free lane of the same type.');
+            } else {
+              setFlash(roomsRequested > 1 ? 'Reservation created with planner-backed multi-room request.' : 'Reservation created.');
+            }
             return;
           }
           await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}/check-in`, {

@@ -487,7 +487,75 @@
       <div data-panel="pricing" class="p-7 max-w-4xl">
         <div class="mb-6">
           <h1 class="text-lg font-bold text-slate-800">Pricing</h1>
-          <p class="text-sm text-slate-500 mt-0.5">Base nightly rates, rate seasons, and seasonal room prices.</p>
+          <p class="text-sm text-slate-500 mt-0.5">Planner-only pricing profiles, base nightly rates, rate seasons, and seasonal room prices.</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden mb-6">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+            <div>
+              <span class="text-sm font-semibold text-slate-700">Planner Pricing Profiles</span>
+              <p class="text-xs text-slate-400 mt-0.5">Internal-only commercial overlays like ROH, group, or tour-company pricing. These do not create inventory.</p>
+            </div>
+            <button id="btn-refresh-pricing-profiles" class="text-xs text-indigo-600 hover:underline font-medium">Refresh</button>
+          </div>
+          <div class="p-5">
+            <form id="pricing-profile-form" class="space-y-3 mb-4">
+              <div class="grid grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Code</label>
+                  <input name="code" required placeholder="ROH" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Name</label>
+                  <input name="name" required placeholder="Run of House" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Room Type Scope</label>
+                  <select id="pricing-profile-room-type" name="room_type_id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"></select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Active</label>
+                  <select name="active" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"><option value="1">Yes</option><option value="0">No</option></select>
+                </div>
+              </div>
+              <div class="grid grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Visibility</label>
+                  <select name="visibility" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"><option value="planner_only">planner_only</option></select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Pricing Mode</label>
+                  <select id="pricing-profile-mode" name="pricing_mode" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                    <option value="fixed_nightly_amount">fixed_nightly_amount</option>
+                    <option value="delta_amount">delta_amount</option>
+                    <option value="delta_percent">delta_percent</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fixed Nightly</label>
+                  <input name="fixed_nightly_amount" type="number" min="0" step="0.01" placeholder="95.00" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Delta Amount</label>
+                  <input name="delta_amount" type="number" step="0.01" placeholder="-15.00" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Delta Percent</label>
+                  <input name="delta_percent" type="number" step="0.01" placeholder="-10" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
+                  <input name="notes" placeholder="Internal planner-only profile for group allocations" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="submit" id="pricing-profile-submit-btn" class="bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-indigo-700">Save Pricing Profile</button>
+                <button type="button" id="pricing-profile-cancel-btn" class="hidden bg-white border border-slate-300 text-sm font-medium px-4 py-2 rounded-md hover:bg-slate-50">Cancel</button>
+              </div>
+            </form>
+            <div id="pricing-profile-list" class="space-y-2"><div class="text-sm text-slate-400">No pricing profiles yet.</div></div>
+          </div>
         </div>
         <!-- Base rates -->
         <div class="bg-white border border-slate-200 rounded-lg overflow-hidden mb-6">
@@ -962,7 +1030,7 @@
                   <input name="adults" type="number" min="1" value="2" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-3 gap-3">
                 <div>
                   <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Children</label>
                   <input name="children" type="number" min="0" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
@@ -970,6 +1038,10 @@
                 <div>
                   <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rooms Requested</label>
                   <input name="rooms_requested" type="number" min="1" value="1" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Pricing Profile</label>
+                  <select id="rate-quote-pricing-profile" name="pricing_profile_id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"></select>
                 </div>
               </div>
               <div>
@@ -994,6 +1066,7 @@
         selectedPropertyId: '',
         roomTypes: [],
         roomUnits: [],
+        pricingProfiles: [],
         roomRates: [],
         rateSeasons: [],
         seasonRoomRates: [],
@@ -1026,6 +1099,10 @@
         roomUnitForm: document.getElementById('room-unit-form'),
         roomUnitBulkForm: document.getElementById('room-unit-bulk-form'),
         roomUnitList: document.getElementById('room-unit-list'),
+        pricingProfileForm: document.getElementById('pricing-profile-form'),
+        pricingProfileList: document.getElementById('pricing-profile-list'),
+        pricingProfileRoomType: document.getElementById('pricing-profile-room-type'),
+        pricingProfileMode: document.getElementById('pricing-profile-mode'),
         roomRateForm: document.getElementById('room-rate-form'),
         roomRateList: document.getElementById('room-rate-list'),
         rateSeasonForm: document.getElementById('rate-season-form'),
@@ -1062,8 +1139,10 @@
         btnRefreshRoomTypes: document.getElementById('btn-refresh-room-types'),
         btnRefreshRoomUnits: document.getElementById('btn-refresh-room-units'),
         btnRefreshRoomRates: document.getElementById('btn-refresh-room-rates'),
+        btnRefreshPricingProfiles: document.getElementById('btn-refresh-pricing-profiles'),
         btnRefreshRateSeasons: document.getElementById('btn-refresh-rate-seasons'),
         btnRefreshSeasonRoomRates: document.getElementById('btn-refresh-season-room-rates'),
+        rateQuotePricingProfile: document.getElementById('rate-quote-pricing-profile'),
       };
 
       const DISABLED_TABS = ['inventory','pricing','availability','addons','lifecycle','quote'];
@@ -1135,6 +1214,70 @@
         return data;
       }
 
+      function roomRatePayload(form, options = {}) {
+        const data = formJson(form);
+        const payload = {
+          rate_name: data.rate_name,
+          currency: data.currency,
+          nightly_amount: data.nightly_amount,
+          included_adults: data.included_adults,
+          included_children: data.included_children,
+          extra_adult_amount: data.extra_adult_amount,
+          extra_child_amount: data.extra_child_amount,
+        };
+        if ('active' in data) payload.active = data.active;
+        if (options.includeRoomTypeId && data.room_type_id) payload.room_type_id = data.room_type_id;
+        return payload;
+      }
+
+      function seasonRoomRatePayload(form, options = {}) {
+        const data = formJson(form);
+        const payload = {
+          currency: data.currency,
+          nightly_amount: data.nightly_amount,
+          included_adults: data.included_adults,
+          included_children: data.included_children,
+          extra_adult_amount: data.extra_adult_amount,
+          extra_child_amount: data.extra_child_amount,
+        };
+        if ('active' in data) payload.active = data.active;
+        if (options.includeIdentifiers) {
+          if (data.season_id) payload.season_id = data.season_id;
+          if (data.room_type_id) payload.room_type_id = data.room_type_id;
+        }
+        return payload;
+      }
+
+      function pricingProfilePayload(form) {
+        const data = Object.fromEntries(new FormData(form).entries());
+        return {
+          code: String(data.code || '').trim(),
+          name: String(data.name || '').trim(),
+          room_type_id: data.room_type_id ? String(data.room_type_id).trim() : null,
+          visibility: String(data.visibility || 'planner_only').trim(),
+          pricing_mode: String(data.pricing_mode || 'fixed_nightly_amount').trim(),
+          fixed_nightly_amount: data.fixed_nightly_amount === '' ? null : data.fixed_nightly_amount,
+          delta_amount: data.delta_amount === '' ? null : data.delta_amount,
+          delta_percent: data.delta_percent === '' ? null : data.delta_percent,
+          notes: data.notes === '' ? null : data.notes,
+          active: data.active,
+        };
+      }
+
+      function syncRateFormEditMode(form) {
+        const editing = Boolean(form?.dataset?.editingId);
+        if (form?.id === 'room-rate-form') {
+          const roomTypeField = form.querySelector('[name="room_type_id"]');
+          if (roomTypeField) roomTypeField.disabled = editing;
+        }
+        if (form?.id === 'season-room-rate-form') {
+          const seasonField = form.querySelector('[name="season_id"]');
+          const roomTypeField = form.querySelector('[name="room_type_id"]');
+          if (seasonField) seasonField.disabled = editing;
+          if (roomTypeField) roomTypeField.disabled = editing;
+        }
+      }
+
       function escapeHtml(value) {
         return String(value == null ? '' : value)
           .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1199,6 +1342,27 @@
         for (const sel of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.reservationRebookRoomType]) {
           if (sel) sel.innerHTML = options || fallback;
         }
+        if (els.pricingProfileRoomType) {
+          els.pricingProfileRoomType.innerHTML = `<option value="">All room types (property-wide)</option>${options}`;
+        }
+        renderPricingProfileQuoteOptions();
+      }
+
+      function renderPricingProfileQuoteOptions() {
+        if (!els.rateQuotePricingProfile) return;
+        const selectedRoomTypeId = String(els.rateQuoteRoomType?.value || '').trim();
+        const currentValue = String(els.rateQuotePricingProfile.value || '').trim();
+        const filteredProfiles = state.pricingProfiles.filter((profile) => {
+          if (!profile.active) return false;
+          if (!profile.room_type_id) return true;
+          return !selectedRoomTypeId || String(profile.room_type_id) === selectedRoomTypeId;
+        });
+        els.rateQuotePricingProfile.innerHTML = ['<option value="">Standard public/base pricing</option>']
+          .concat(filteredProfiles.map((profile) => `<option value="${profile.id}">${escapeHtml(profile.code)} · ${escapeHtml(profile.name)}</option>`))
+          .join('');
+        if (currentValue && filteredProfiles.some((profile) => String(profile.id) === currentValue)) {
+          els.rateQuotePricingProfile.value = currentValue;
+        }
       }
 
       function renderRateSeasonOptions() {
@@ -1246,6 +1410,7 @@
         const c = document.getElementById(cancelId);
         if (c) c.classList.add('hidden');
         form.reset();
+        syncRateFormEditMode(form);
       }
 
       function renderRoomTypes() {
@@ -1294,6 +1459,36 @@
             ${actionBtns('room-rate', r.id)}
           </div>
         `).join('');
+      }
+
+      function renderPricingProfiles() {
+        if (!state.pricingProfiles.length) {
+          els.pricingProfileList.innerHTML = '<div class="text-sm text-slate-400">No pricing profiles yet.</div>';
+          renderPricingProfileQuoteOptions();
+          return;
+        }
+        els.pricingProfileList.innerHTML = state.pricingProfiles.map((profile) => {
+          const modeValue = profile.pricing_mode === 'fixed_nightly_amount'
+            ? `fixed ${profile.fixed_nightly_amount == null ? '-' : Number(profile.fixed_nightly_amount).toLocaleString()}`
+            : profile.pricing_mode === 'delta_amount'
+              ? `delta ${profile.delta_amount == null ? '-' : Number(profile.delta_amount).toLocaleString()}`
+              : `${Number(profile.delta_percent || 0).toLocaleString()}%`;
+          const scopeLabel = profile.room_type_code
+            ? `${escapeHtml(profile.room_type_code)} · room type scope`
+            : 'All room types · property scope';
+          return `
+            <div class="border border-slate-200 rounded-lg px-4 py-3 bg-white flex items-center gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-slate-800">${escapeHtml(profile.code)} · ${escapeHtml(profile.name)}</div>
+                <div class="text-xs text-slate-500 mt-0.5">${scopeLabel} · ${escapeHtml(profile.visibility)} · ${escapeHtml(profile.pricing_mode)} · ${escapeHtml(modeValue)}</div>
+                ${profile.notes ? `<div class="text-xs text-slate-400 mt-0.5">${escapeHtml(profile.notes)}</div>` : ''}
+              </div>
+              <span class="text-xs font-bold uppercase px-2 py-0.5 rounded flex-shrink-0 ${profile.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${profile.active ? 'active' : 'inactive'}</span>
+              ${actionBtns('pricing-profile', profile.id)}
+            </div>
+          `;
+        }).join('');
+        renderPricingProfileQuoteOptions();
       }
 
       function renderRateSeasons() {
@@ -1374,15 +1569,16 @@
 
       async function loadPropertyDetails() {
         if (!state.selectedPropertyId) {
-          state.roomTypes = []; state.roomUnits = []; state.roomRates = [];
+          state.roomTypes = []; state.roomUnits = []; state.pricingProfiles = []; state.roomRates = [];
           state.rateSeasons = []; state.seasonRoomRates = []; state.addonServicePresets = [];
           renderSelectedProperty(); renderRoomTypes(); renderRoomUnits();
-          renderRoomRates(); renderRateSeasons(); renderSeasonRoomRates(); renderAddonServicePresets();
+          renderPricingProfiles(); renderRoomRates(); renderRateSeasons(); renderSeasonRoomRates(); renderAddonServicePresets();
           return;
         }
-        const [rts, rus, rrs, rseasons, srrs, addons] = await Promise.all([
+        const [rts, rus, profiles, rrs, rseasons, srrs, addons] = await Promise.all([
           api('/api/properties/' + state.selectedPropertyId + '/room-types'),
           api('/api/properties/' + state.selectedPropertyId + '/room-units'),
+          api('/api/properties/' + state.selectedPropertyId + '/pricing-profiles'),
           api('/api/properties/' + state.selectedPropertyId + '/room-rates'),
           api('/api/properties/' + state.selectedPropertyId + '/rate-seasons'),
           api('/api/properties/' + state.selectedPropertyId + '/season-room-rates'),
@@ -1390,6 +1586,7 @@
         ]);
         state.roomTypes = rts.room_types || [];
         state.roomUnits = rus.room_units || [];
+        state.pricingProfiles = profiles.pricing_profiles || [];
         state.roomRates = rrs.room_rates || [];
         state.rateSeasons = rseasons.rate_seasons || [];
         state.seasonRoomRates = srrs.season_room_rates || [];
@@ -1398,7 +1595,7 @@
           state.activeRoomTypeId = (state.roomTypes[0] && state.roomTypes[0].id) || '';
         }
         renderSelectedProperty();
-        renderRoomTypes(); renderRoomUnits(); renderRoomRates();
+        renderRoomTypes(); renderRoomUnits(); renderPricingProfiles(); renderRoomRates();
         renderRateSeasons(); renderSeasonRoomRates(); renderAddonServicePresets();
         syncReservationForms(state.currentReservation);
       }
@@ -1525,7 +1722,7 @@
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
         try {
           const editingId = els.roomRateForm.dataset.editingId;
-          const data = formJson(els.roomRateForm);
+          const data = roomRatePayload(els.roomRateForm, { includeRoomTypeId: !editingId });
           if (editingId) {
             await api('/api/properties/' + state.selectedPropertyId + '/room-rates/' + editingId, { method: 'PATCH', body: JSON.stringify(data) });
             clearEditMode(els.roomRateForm, 'room-rate-submit-btn', 'room-rate-cancel-btn');
@@ -1539,6 +1736,31 @@
               await api('/api/properties/' + state.selectedPropertyId + '/room-rates', { method: 'POST', body: JSON.stringify(data) });
               setFlash('Base rate created.');
             }
+          }
+          await loadPropertyDetails();
+        } catch (err) { setFlash(err.message, 'err'); }
+      });
+
+      els.pricingProfileForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const editingId = els.pricingProfileForm.dataset.editingId;
+          const data = pricingProfilePayload(els.pricingProfileForm);
+          if (editingId) {
+            await api('/api/properties/' + state.selectedPropertyId + '/pricing-profiles/' + editingId, { method: 'PATCH', body: JSON.stringify(data) });
+            clearEditMode(els.pricingProfileForm, 'pricing-profile-submit-btn', 'pricing-profile-cancel-btn');
+            els.pricingProfileForm.querySelector('[name="visibility"]').value = 'planner_only';
+            els.pricingProfileForm.querySelector('[name="pricing_mode"]').value = 'fixed_nightly_amount';
+            els.pricingProfileForm.querySelector('[name="active"]').value = '1';
+            setFlash('Pricing profile updated.');
+          } else {
+            await api('/api/properties/' + state.selectedPropertyId + '/pricing-profiles', { method: 'POST', body: JSON.stringify(data) });
+            els.pricingProfileForm.reset();
+            els.pricingProfileForm.querySelector('[name="visibility"]').value = 'planner_only';
+            els.pricingProfileForm.querySelector('[name="pricing_mode"]').value = 'fixed_nightly_amount';
+            els.pricingProfileForm.querySelector('[name="active"]').value = '1';
+            setFlash('Pricing profile created.');
           }
           await loadPropertyDetails();
         } catch (err) { setFlash(err.message, 'err'); }
@@ -1569,7 +1791,7 @@
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
         try {
           const editingId = els.seasonRoomRateForm.dataset.editingId;
-          const data = formJson(els.seasonRoomRateForm);
+          const data = seasonRoomRatePayload(els.seasonRoomRateForm, { includeIdentifiers: !editingId });
           if (editingId) {
             await api('/api/properties/' + state.selectedPropertyId + '/season-room-rates/' + editingId, { method: 'PATCH', body: JSON.stringify(data) });
             clearEditMode(els.seasonRoomRateForm, 'season-room-rate-submit-btn', 'season-room-rate-cancel-btn');
@@ -1600,6 +1822,10 @@
           els.rateQuoteResponse.textContent = JSON.stringify(payload, null, 2);
           setFlash('Stay rate quoted.');
         } catch (err) { els.rateQuoteResponse.textContent = err.message; setFlash(err.message, 'err'); }
+      });
+
+      els.rateQuoteRoomType.addEventListener('change', () => {
+        renderPricingProfileQuoteOptions();
       });
 
       els.addonPresetForm.addEventListener('submit', async (e) => {
@@ -1733,7 +1959,7 @@
       });
 
       [els.btnRefreshProperties, els.btnRefreshRoomTypes, els.btnRefreshRoomUnits,
-       els.btnRefreshRoomRates, els.btnRefreshRateSeasons, els.btnRefreshSeasonRoomRates,
+       els.btnRefreshPricingProfiles, els.btnRefreshRoomRates, els.btnRefreshRateSeasons, els.btnRefreshSeasonRoomRates,
        els.btnRefreshAddonPresets].forEach((btn) => {
         if (!btn) return;
         btn.addEventListener('click', async () => {
@@ -1780,6 +2006,7 @@
       ['property-cancel-btn',        document.getElementById('property-form'),          'property-submit-btn',         'property-cancel-btn'],
       ['room-type-cancel-btn',       document.getElementById('room-type-form'),        'room-type-submit-btn',        'room-type-cancel-btn'],
       ['room-unit-cancel-btn',       document.getElementById('room-unit-form'),         'room-unit-submit-btn',        'room-unit-cancel-btn'],
+      ['pricing-profile-cancel-btn', document.getElementById('pricing-profile-form'),   'pricing-profile-submit-btn',  'pricing-profile-cancel-btn'],
       ['room-rate-cancel-btn',       document.getElementById('room-rate-form'),         'room-rate-submit-btn',        'room-rate-cancel-btn'],
       ['rate-season-cancel-btn',     document.getElementById('rate-season-form'),       'rate-season-submit-btn',      'rate-season-cancel-btn'],
       ['season-room-rate-cancel-btn',document.getElementById('season-room-rate-form'),  'season-room-rate-submit-btn', 'season-room-rate-cancel-btn'],
@@ -1799,6 +2026,7 @@
         'property':         { arr: () => window._propBuilderState.properties,          apiUrl: (p, i) => '/api/properties/' + i,                                    form: document.getElementById('property-form'),          submitId: 'property-submit-btn',          cancelId: 'property-cancel-btn',  reload: async () => { window._propBuilderReloadAll && await window._propBuilderReloadAll(); } },
         'room-type':        { arr: () => window._propBuilderState.roomTypes,          apiUrl: (p, i) => '/api/properties/' + p + '/room-types/' + i,               form: document.getElementById('room-type-form'),         submitId: 'room-type-submit-btn',         cancelId: 'room-type-cancel-btn',  reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
         'room-unit':        { arr: () => window._propBuilderState.roomUnits,          apiUrl: (p, i) => '/api/properties/' + p + '/room-units/' + i,               form: document.getElementById('room-unit-form'),          submitId: 'room-unit-submit-btn',         cancelId: 'room-unit-cancel-btn',  reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
+        'pricing-profile':  { arr: () => window._propBuilderState.pricingProfiles,    apiUrl: (p, i) => '/api/properties/' + p + '/pricing-profiles/' + i,         form: document.getElementById('pricing-profile-form'),    submitId: 'pricing-profile-submit-btn',   cancelId: 'pricing-profile-cancel-btn', reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
         'room-rate':        { arr: () => window._propBuilderState.roomRates,          apiUrl: (p, i) => '/api/properties/' + p + '/room-rates/' + i,               form: document.getElementById('room-rate-form'),          submitId: 'room-rate-submit-btn',         cancelId: 'room-rate-cancel-btn',  reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
         'rate-season':      { arr: () => window._propBuilderState.rateSeasons,        apiUrl: (p, i) => '/api/properties/' + p + '/rate-seasons/' + i,             form: document.getElementById('rate-season-form'),        submitId: 'rate-season-submit-btn',       cancelId: 'rate-season-cancel-btn',reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
         'season-room-rate': { arr: () => window._propBuilderState.seasonRoomRates,    apiUrl: (p, i) => '/api/properties/' + p + '/season-room-rates/' + i,        form: document.getElementById('season-room-rate-form'),   submitId: 'season-room-rate-submit-btn',  cancelId: 'season-room-rate-cancel-btn',reload: async () => { window._propBuilderReload && await window._propBuilderReload(); } },
@@ -1828,6 +2056,7 @@
       const item = cfg.arr().find(x => String(x.id) === String(id));
       if (!item) return;
       const form = cfg.form;
+      form.reset();
       // Fill form fields from item
       form.querySelectorAll('[name]').forEach(el => {
         const v = item[el.name];
@@ -1847,6 +2076,7 @@
         if (item.name) { const nf = form.querySelector('[name="name"]'); if (nf) nf.value = 'Copy of ' + item.name; }
         if (item.code) { const cf = form.querySelector('[name="code"]'); if (cf) cf.value = item.code + '-COPY'; }
       }
+      syncRateFormEditMode(form);
       form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
