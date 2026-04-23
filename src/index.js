@@ -73,6 +73,12 @@ import {
   handleDeletePropertyAddonServicePreset,
   handleQuotePropertyRoomRate,
   handleCheckPropertyAvailability,
+  handlePlanPropertyReservation,
+  handlePlanPropertyReservationExtension,
+  handleListPropertyAllotments,
+  handleCreatePropertyAllotment,
+  handleUpdatePropertyAllotment,
+  handleReleasePropertyAllotment,
   handleCreatePropertyAvailabilityHold,
   handleListPropertyAvailabilityHolds,
   handleReleasePropertyAvailabilityHold,
@@ -751,6 +757,31 @@ const patterns = [
     handler: (req, env, match) => handleGetPropertyPlanningGrid(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/plan' }),
+    handler: (req, env, match) => handlePlanPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments' }),
+    handler: (req, env, match) => handleListPropertyAllotments(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments' }),
+    handler: (req, env, match) => handleCreatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId' }),
+    handler: (req, env, match) => handleUpdatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/release' }),
+    handler: (req, env, match) => handleReleasePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/room-rates' }),
     handler: (req, env, match) => handleListRoomRates(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -934,6 +965,11 @@ const patterns = [
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/rebook' }),
     handler: (req, env, match) => handleRebookPropertyReservation(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/reservations/:reservationId/extend-plan' }),
+    handler: (req, env, match) => handlePlanPropertyReservationExtension(req, env, { propertyId: match.pathname.groups.propertyId, reservationId: match.pathname.groups.reservationId })
   },
   {
     method: 'POST',

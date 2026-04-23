@@ -20,6 +20,7 @@ Purpose: keep one stable entry point for progress tracking while the real checkp
 
 - If the task primarily touches `tours`, `booking_orders`, `tour-config`, `dashboard`, `universal site`, `billing`, `auth`, or other shared platform surfaces, update `03A_PROGRESS_LEDGER_TOUR_PLATFORM.md`.
 - If the task primarily touches `properties`, `room_types`, `room_units`, `property_reservations`, `inventory_holds`, `reservation_allocations`, `room_state_events`, `housekeeping_tasks`, `maintenance_issues`, `folios`, or other hotel/property surfaces, update `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md`.
+- Recent property runtime additions routed into `03B_PROGRESS_LEDGER_HOTEL_PROPERTY.md`: `POST /api/properties/:propertyId/allotments`, `POST /api/properties/:propertyId/allotments/:allotmentId/release`, and `POST /api/properties/:propertyId/reservations/:reservationId/extend-plan`. Use that ledger for the sample curls and checkpoint notes.
 - Do not add new checkpoint updates to this file.
 - Do not duplicate the same checkpoint in both split ledgers unless the checkpoint is genuinely cross-domain.
 

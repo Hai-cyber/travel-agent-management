@@ -828,6 +828,18 @@
     .plan-floor-divider { display:flex; background:#f1efe7; border-bottom:2px solid var(--line); }
     .plan-floor-divider-cell { flex:0 0 var(--plan-room-w); width:var(--plan-room-w); padding:2px 5px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); position:sticky; left:0; z-index:5; background:#f1efe7; overflow:hidden; }
     .plan-floor-spacer { flex:0 0 calc(var(--plan-slot-w) * var(--plan-days)); width:calc(var(--plan-slot-w) * var(--plan-days)); min-width:calc(var(--plan-slot-w) * var(--plan-days)); }
+    .plan-allotment-row { display:flex; gap:0; border-bottom:1px dashed rgba(120,113,108,0.22); background:#fbfaf7; }
+    .plan-allotment-cell { flex:0 0 var(--plan-room-w); width:var(--plan-room-w); min-width:0; padding:4px 5px; font-size:8px; font-weight:800; color:#7c2d12; border-right:2px solid var(--line); background:#fff7ed; position:sticky; left:0; z-index:6; overflow:hidden; text-transform:uppercase; letter-spacing:.05em; }
+    .plan-allotment-layer { position:absolute; inset:0; z-index:3; pointer-events:none; min-height:var(--plan-row-h, 24px); }
+    .plan-allotment-bar { position:absolute; height:18px; padding:0 6px; border-radius:9px; background:rgba(217,119,6,0.18); border:1px solid rgba(217,119,6,0.42); color:#9a3412; font-size:8px; font-weight:800; display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .plan-allotment-bar.nonblocking { background:rgba(148,163,184,0.15); border-color:rgba(100,116,139,0.35); color:#475569; }
+    .plan-allotment-panel { display:grid; gap:8px; padding:8px; border-top:1px solid var(--line); background:#fcfbf8; }
+    .plan-allotment-form { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end; }
+    .plan-allotment-form label { display:grid; gap:3px; font-size:10px; font-weight:700; color:#64748b; }
+    .plan-allotment-form input, .plan-allotment-form select { height:26px; padding:2px 6px; font:inherit; font-size:11px; border:1px solid rgba(120,113,108,0.22); border-radius:6px; background:#fff; color:#0f172a; }
+    .plan-allotment-list { display:flex; flex-wrap:wrap; gap:6px; }
+    .plan-allotment-pill { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:999px; background:#fff7ed; border:1px solid rgba(217,119,6,0.28); font-size:10px; color:#9a3412; }
+    .plan-allotment-pill button { border:none; background:#fef2f2; color:#991b1b; border-radius:999px; padding:2px 6px; cursor:pointer; font:inherit; font-size:10px; font-weight:700; }
     .plan-legend { display:flex; gap:4px; flex-wrap:nowrap; align-items:center; font-size:9px; font-weight:800; overflow:hidden; }
     .plan-leg { padding:2px 6px; border-radius:999px; white-space:nowrap; }
     .plan-leg.checked_in  { background:#dbeafe; color:#1d4ed8; }
@@ -956,6 +968,21 @@
                   </div>
                 </div>
                 <div id="planning-cal-wrap" style="overflow-x:hidden;-webkit-overflow-scrolling:touch">
+                  <div class="plan-allotment-panel">
+                    <div class="plan-allotment-form">
+                      <label>Operator<input id="plan-allotment-operator" placeholder="Tour operator" /></label>
+                      <label>Code<input id="plan-allotment-code" placeholder="TO-01" /></label>
+                      <label>Room Type<select id="plan-allotment-room-type"><option value="">Select type</option></select></label>
+                      <label>Rooms<input id="plan-allotment-rooms" type="number" min="1" max="100" value="1" /></label>
+                      <label>From<input id="plan-allotment-from" type="date" /></label>
+                      <label>To<input id="plan-allotment-to" type="date" /></label>
+                      <label>Release<input id="plan-allotment-release" type="date" /></label>
+                    </div>
+                    <div class="action-row" style="justify-content:flex-start;gap:8px">
+                      <button id="btn-create-allotment" class="button small secondary" type="button">Create Operator Block</button>
+                    </div>
+                    <div id="plan-allotment-list" class="plan-allotment-list"></div>
+                  </div>
                   <div id="planning-cal" class="plan-cal">
                     <div class="plan-empty">Load a property to view the planning calendar.</div>
                   </div>
@@ -1310,12 +1337,16 @@
             <pre id="sh-pricing" style="margin:0;font-size:11px;background:#f1f5f9;border-radius:8px;padding:10px;overflow:auto;max-height:200px;color:#334155;white-space:pre-wrap;word-break:break-all"></pre>
           </div>
           <div class="sh-sec">
-            <h4>Rebook Dates</h4>
+            <h4>Extend / Change Stay</h4>
             <div class="sh-2col">
               <label class="sh-field">New Check-in<input id="sf-rebook-ci" type="date" class="sh-input" /></label>
               <label class="sh-field">New Check-out<input id="sf-rebook-co" type="date" class="sh-input" /></label>
             </div>
-            <button id="btn-sheet-rebook" class="sa un" type="button">↩ Rebook</button>
+            <div class="sh-actions">
+              <button id="btn-sheet-rebook" class="sa un" type="button">↩ Extend / Change Stay</button>
+              <button id="btn-create-next-reservation" class="sa ci" type="button">＋ New Reservation After Stay</button>
+            </div>
+            <div id="sh-extend-preview" class="sh-validation" style="margin-top:8px;color:#0f172a;background:#f8fafc;border:1px solid #e2e8f0;padding:8px;border-radius:8px" hidden></div>
           </div>
         </div>
 
@@ -1359,18 +1390,30 @@
         <!-- ACTIONS -->
         <div data-sh-panel="actions" hidden>
           <div id="sh-walkin-box" class="sh-sec" hidden>
-            <h4>Walk-in Creation</h4>
+            <h4 id="sh-create-mode-title">Walk-in Creation</h4>
+            <p id="sh-create-mode-help" style="margin:0 0 8px 0;font-size:12px;color:#64748b">Creates a booking and checks the guest in immediately for this room.</p>
+            <div id="sh-create-mode-switches" class="sh-actions" style="margin-bottom:8px">
+              <button id="btn-mode-new-reservation" class="sa un" type="button">New Reservation</button>
+              <button id="btn-mode-walkin" class="sa ci" type="button">Walk-in + Check In</button>
+            </div>
             <div class="sh-2col">
               <label class="sh-field">Guest Name<input id="sf-walkin-name" class="sh-input" placeholder="Walk-in guest" /></label>
               <label class="sh-field">Phone<input id="sf-walkin-phone" class="sh-input" placeholder="+xx xxx xxx xxxx" /></label>
               <label class="sh-field">Email<input id="sf-walkin-email" type="email" class="sh-input" placeholder="Email" /></label>
               <label class="sh-field">Guests<input id="sf-walkin-adults" type="number" min="1" value="1" class="sh-input" /></label>
               <label class="sh-field">Children<input id="sf-walkin-children" type="number" min="0" value="0" class="sh-input" /></label>
+              <label class="sh-field">Rooms<input id="sf-walkin-rooms" type="number" min="1" max="20" value="1" class="sh-input" /></label>
               <label class="sh-field">Check-in<input id="sf-walkin-ci" type="date" class="sh-input" /></label>
               <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
             </div>
             <button id="btn-create-walkin" class="sa ci" type="button">Create Walk-in &amp; Check In</button>
             <div id="sh-walkin-validation" class="sh-validation" hidden></div>
+            <div id="sh-reservation-plan-preview" class="sh-sec" style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0" hidden>
+              <h4 style="margin-bottom:6px">Planner Preview</h4>
+              <div id="sh-plan-preview-summary" style="font-size:12px;color:#334155"></div>
+              <div id="sh-plan-preview-conflicts" style="font-size:12px;color:#7f1d1d;margin-top:8px"></div>
+              <div id="sh-plan-preview-recommendations" style="font-size:12px;color:#1e3a8a;margin-top:8px"></div>
+            </div>
           </div>
           <div class="sh-sec">
             <h4>Reservation Status</h4>
@@ -1460,6 +1503,9 @@
         activeHolds: [],
         shiftHandover: null,
         sheetCreateMode: null,
+        sheetCreateContext: null,
+        sheetReservationPlanPreview: null,
+        sheetExtendPlanPreview: null,
         sheetRoomUnit: null,
         sheetReservation: null,
         sheetActiveTab: 'profile',
@@ -2501,20 +2547,177 @@
 
         const checkIn = document.getElementById('sf-walkin-ci').value;
         const checkOut = document.getElementById('sf-walkin-co').value;
+        const roomsRequested = Math.max(1, parseInt(document.getElementById('sf-walkin-rooms')?.value || '1', 10) || 1);
         let message = '';
         let conflict = null;
 
         if (!checkIn || !checkOut || checkOut <= checkIn) {
           message = 'Select a valid stay range.';
-        } else {
+        } else if (mode !== 'reservation' || roomsRequested === 1) {
           conflict = getConflictingReservation(state.sheetRoomUnit.id, checkIn, checkOut, null, getPlanningReservations());
           if (conflict) message = 'Phòng đã được đặt';
+        }
+
+        if (mode !== 'reservation' && roomsRequested !== 1) {
+          message = 'Walk-in currently supports exactly 1 room.';
+        }
+
+        if (mode === 'reservation' && state.sheetReservationPlanPreview && state.sheetReservationPlanPreview.can_fulfill === false) {
+          message = message || 'Planner found inventory conflicts. Review the preview below.';
         }
 
         button.disabled = Boolean(message);
         validationEl.hidden = !message;
         validationEl.textContent = message;
         return { ok: !message, message, conflict };
+      }
+
+      function renderReservationPlannerPreview() {
+        const wrap = document.getElementById('sh-reservation-plan-preview');
+        const summaryEl = document.getElementById('sh-plan-preview-summary');
+        const conflictsEl = document.getElementById('sh-plan-preview-conflicts');
+        const recsEl = document.getElementById('sh-plan-preview-recommendations');
+        if (!wrap || !summaryEl || !conflictsEl || !recsEl) return;
+
+        if (state.sheetCreateMode !== 'reservation' || !state.sheetReservationPlanPreview) {
+          wrap.hidden = true;
+          summaryEl.innerHTML = '';
+          conflictsEl.innerHTML = '';
+          recsEl.innerHTML = '';
+          return;
+        }
+
+        const preview = state.sheetReservationPlanPreview;
+        wrap.hidden = false;
+        const selectedPlan = preview.selected_plan;
+        summaryEl.innerHTML = preview.can_fulfill
+          ? `${Number(preview.request?.rooms_requested || 0)} room(s) can be placed. ${selectedPlan ? `Best plan: <strong>${escapeHtml(selectedPlan.plan_type || 'candidate')}</strong>.` : ''}`
+          : `Planner could not place all ${Number(preview.request?.rooms_requested || 0)} requested room(s) for this stay.`;
+
+        const reservationConflicts = Array.isArray(preview.conflicts?.reservation_conflicts) ? preview.conflicts.reservation_conflicts : [];
+        const holdConflicts = Array.isArray(preview.conflicts?.hold_conflicts) ? preview.conflicts.hold_conflicts : [];
+        const allotmentConflicts = Array.isArray(preview.conflicts?.allotment_conflicts) ? preview.conflicts.allotment_conflicts : [];
+        const maintenanceConflicts = Array.isArray(preview.conflicts?.maintenance_conflicts) ? preview.conflicts.maintenance_conflicts : [];
+        const shortageDates = Array.isArray(preview.conflicts?.shortage_dates) ? preview.conflicts.shortage_dates : [];
+
+        const conflictLines = [];
+        if (shortageDates.length) conflictLines.push(`Shortage dates: ${shortageDates.map((item) => escapeHtml(String(item.stay_date || item))).join(', ')}`);
+        if (reservationConflicts.length) {
+          const sample = reservationConflicts.slice(0, 4).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'room')} overlaps ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`).join('<br>');
+          conflictLines.push(sample);
+        }
+        if (holdConflicts.length) {
+          const sample = holdConflicts.slice(0, 3).map((item) => `Hold ${escapeHtml(item.hold_id || '')} blocks ${escapeHtml(item.check_in || '')} → ${escapeHtml(item.check_out || '')}`).join('<br>');
+          conflictLines.push(sample);
+        }
+        if (allotmentConflicts.length) {
+          const sample = allotmentConflicts.slice(0, 3).map((item) => `Operator block ${escapeHtml(item.operator_name || '')} holds ${Number(item.rooms_blocked || 0)} room(s) ${escapeHtml(item.check_in || '')} → ${escapeHtml(item.check_out || '')}`).join('<br>');
+          conflictLines.push(sample);
+        }
+        if (maintenanceConflicts.length) {
+          const sample = maintenanceConflicts.slice(0, 3).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'room')} is ${escapeHtml(item.operational_status || 'unavailable')}`).join('<br>');
+          conflictLines.push(sample);
+        }
+        conflictsEl.innerHTML = conflictLines.length ? conflictLines.join('<br><br>') : '<span style="color:#166534">No blocking conflicts reported by the planner.</span>';
+
+        const recommendations = Array.isArray(preview.recommendations) ? preview.recommendations : [];
+        recsEl.innerHTML = recommendations.length
+          ? recommendations.map((group) => {
+              const options = Array.isArray(group.options) ? group.options.slice(0, 4).map((option) => {
+                if (option.room_type_id) return `${escapeHtml(option.name || option.code || option.room_type_id)}`;
+                if (option.plan_type) return `${escapeHtml(option.plan_type)} · moves ${Number(option.move_count || 0)}`;
+                return escapeHtml(JSON.stringify(option));
+              }).join(', ') : 'No options';
+              return `<div><strong>${escapeHtml(group.label || group.kind || 'Recommendation')}</strong>: ${options}</div>`;
+            }).join('')
+          : '<span style="color:#64748b">No alternate recommendations returned.</span>';
+      }
+
+      async function refreshReservationPlannerPreview() {
+        if (state.sheetCreateMode !== 'reservation' || !state.sheetRoomUnit || !state.selectedPropertyId) {
+          state.sheetReservationPlanPreview = null;
+          renderReservationPlannerPreview();
+          updateCreateReservationValidation();
+          return;
+        }
+
+        const checkIn = document.getElementById('sf-walkin-ci')?.value || '';
+        const checkOut = document.getElementById('sf-walkin-co')?.value || '';
+        const roomsRequested = Math.max(1, parseInt(document.getElementById('sf-walkin-rooms')?.value || '1', 10) || 1);
+        if (!checkIn || !checkOut || checkOut <= checkIn) {
+          state.sheetReservationPlanPreview = null;
+          renderReservationPlannerPreview();
+          updateCreateReservationValidation();
+          return;
+        }
+
+        try {
+          const preview = await api(`/api/properties/${state.selectedPropertyId}/reservations/plan`, {
+            method: 'POST',
+            body: JSON.stringify({
+              room_type_id: state.sheetRoomUnit.room_type_id,
+              check_in: checkIn,
+              check_out: checkOut,
+              rooms_requested: roomsRequested,
+            }),
+          });
+          state.sheetReservationPlanPreview = preview;
+        } catch (error) {
+          state.sheetReservationPlanPreview = {
+            can_fulfill: false,
+            request: { rooms_requested: roomsRequested },
+            conflicts: { shortage_dates: [], reservation_conflicts: [], hold_conflicts: [], maintenance_conflicts: [] },
+            recommendations: [],
+            selected_plan: null,
+            error: error.message,
+          };
+        }
+        renderReservationPlannerPreview();
+        updateCreateReservationValidation();
+      }
+
+      function applySheetCreateModeUi() {
+        const titleEl = document.getElementById('sh-create-mode-title');
+        const helpEl = document.getElementById('sh-create-mode-help');
+        const switchesEl = document.getElementById('sh-create-mode-switches');
+        const reservationBtn = document.getElementById('btn-mode-new-reservation');
+        const walkinBtn = document.getElementById('btn-mode-walkin');
+        const mode = state.sheetCreateMode;
+        const context = state.sheetCreateContext;
+        if (!titleEl || !helpEl || !switchesEl || !reservationBtn || !walkinBtn) return;
+
+        if (mode === 'reservation' && context === 'plan') {
+          titleEl.textContent = 'New Reservation';
+          helpEl.textContent = 'Planning action only. This creates a reservation for the selected room type/lane and does not check the guest in.';
+          switchesEl.hidden = true;
+        } else if (mode === 'reservation') {
+          titleEl.textContent = 'New Single-Room Reservation';
+          helpEl.textContent = 'Creates a future reservation for this room type and keeps the guest out of house until an explicit check-in.';
+          switchesEl.hidden = false;
+        } else {
+          titleEl.textContent = 'Walk-in Creation';
+          helpEl.textContent = 'Creates a booking and checks the guest in immediately for this room.';
+          switchesEl.hidden = false;
+        }
+
+        reservationBtn.classList.toggle('ci', mode === 'reservation');
+        reservationBtn.classList.toggle('un', mode !== 'reservation');
+        walkinBtn.classList.toggle('ci', mode !== 'reservation');
+        walkinBtn.classList.toggle('un', mode === 'reservation');
+        const roomsInput = document.getElementById('sf-walkin-rooms');
+        if (roomsInput) {
+          roomsInput.disabled = mode !== 'reservation';
+          if (mode !== 'reservation') roomsInput.value = '1';
+        }
+        renderReservationPlannerPreview();
+      }
+
+      function setSheetCreateMode(mode, context = state.sheetCreateContext || 'rack') {
+        state.sheetCreateMode = mode;
+        state.sheetCreateContext = context;
+        applySheetCreateModeUi();
+        updateCreateReservationValidation();
+        refreshReservationPlannerPreview().catch(() => {});
       }
 
       function buildPlanningReservationBars(rooms, reservations, dateRange) {
@@ -2575,6 +2778,82 @@
         return barsByRoom;
       }
 
+      function renderPlanAllotmentList(allotments) {
+        const listEl = document.getElementById('plan-allotment-list');
+        if (!listEl) return;
+        if (!Array.isArray(allotments) || !allotments.length) {
+          listEl.innerHTML = '<span style="font-size:11px;color:#64748b">No operator blocks in the current window.</span>';
+          return;
+        }
+        listEl.innerHTML = allotments.map((allotment) => `
+          <div class="plan-allotment-pill">
+            <span>${escapeHtml(allotment.operator_name || 'Operator')} · ${escapeHtml(allotment.room_type_code || allotment.room_type_name || allotment.room_type_id || '')} · ${Number(allotment.rooms_blocked || 0)} room(s) · ${escapeHtml(allotment.check_in || '')} → ${escapeHtml(allotment.check_out || '')}${allotment.release_date ? ` · release ${escapeHtml(allotment.release_date)}` : ''}</span>
+            ${allotment.status === 'active' ? `<button type="button" data-release-allotment="${escapeHtml(allotment.id)}">Release</button>` : ''}
+          </div>`).join('');
+      }
+
+      function seedPlanAllotmentForm() {
+        const typeEl = document.getElementById('plan-allotment-room-type');
+        const fromEl = document.getElementById('plan-allotment-from');
+        const toEl = document.getElementById('plan-allotment-to');
+        const releaseEl = document.getElementById('plan-allotment-release');
+        if (typeEl) {
+          const current = typeEl.value;
+          typeEl.innerHTML = '<option value="">Select type</option>' + state.roomTypes.map((roomType) => `
+            <option value="${escapeHtml(roomType.id)}"${current === roomType.id ? ' selected' : ''}>${escapeHtml(roomType.code || roomType.name || roomType.id)}</option>`).join('');
+          if (!typeEl.value && state.roomTypes.length === 1) typeEl.value = state.roomTypes[0].id;
+        }
+        if (fromEl && !fromEl.value) fromEl.value = state.planningFromDate;
+        if (toEl && !toEl.value) toEl.value = addIsoDays(state.planningFromDate, 1);
+        if (releaseEl && !releaseEl.value) releaseEl.value = state.planningFromDate;
+      }
+
+      function buildPlanningAllotmentRows(allotments, activeType, typeMap, dateRange) {
+        if (!Array.isArray(allotments) || !allotments.length || !Array.isArray(dateRange) || !dateRange.length) return '';
+        const filtered = allotments.filter((allotment) => activeType === 'all' || allotment.room_type_id === activeType);
+        if (!filtered.length) return '';
+        const dateIndex = new Map(dateRange.map((date, index) => [date, index]));
+        const rangeStart = dateRange[0];
+        const rangeEndExclusive = addIsoDays(dateRange[dateRange.length - 1], 1);
+        const grouped = new Map();
+
+        for (const allotment of filtered) {
+          const key = String(allotment.room_type_id || '');
+          if (!grouped.has(key)) grouped.set(key, []);
+          const clippedStart = allotment.check_in > rangeStart ? allotment.check_in : rangeStart;
+          const clippedEnd = allotment.check_out < rangeEndExclusive ? allotment.check_out : rangeEndExclusive;
+          const startIndex = dateIndex.get(clippedStart);
+          const endIndex = clippedEnd === rangeEndExclusive ? dateRange.length : dateIndex.get(clippedEnd);
+          if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || endIndex <= startIndex) continue;
+          grouped.get(key).push({
+            ...allotment,
+            startIndex,
+            spanDays: endIndex - startIndex,
+            leftPct: (startIndex / dateRange.length) * 100,
+            widthPct: ((endIndex - startIndex) / dateRange.length) * 100,
+          });
+        }
+
+        return Array.from(grouped.entries()).map(([roomTypeId, entries]) => {
+          entries.sort((a, b) => a.startIndex - b.startIndex || b.spanDays - a.spanDays);
+          const laneEnds = [];
+          for (const entry of entries) {
+            let lane = laneEnds.findIndex((laneEnd) => laneEnd <= entry.startIndex);
+            if (lane === -1) lane = laneEnds.length;
+            laneEnds[lane] = entry.startIndex + entry.spanDays;
+            entry.topPx = 4 + (lane * 20);
+          }
+          const rowHeight = Math.max(24, 8 + (laneEnds.length * 20));
+          const barMarkup = entries.map((entry) => {
+            const cls = entry.inventory_blocking ? '' : ' nonblocking';
+            const label = `${entry.operator_name || 'Operator'} · ${Number(entry.rooms_blocked || 0)} room(s)`;
+            const tooltip = `${entry.operator_name || 'Operator'} · ${entry.check_in} → ${entry.check_out}${entry.release_date ? ' · release ' + entry.release_date : ''}${entry.inventory_blocking ? '' : ' · not currently blocking inventory'}`;
+            return `<div class="plan-allotment-bar${cls}" style="left:${entry.leftPct}%;width:${entry.widthPct}%;top:${entry.topPx}px" title="${escapeHtml(tooltip)}">${escapeHtml(label)}</div>`;
+          }).join('');
+          return `<div class="plan-allotment-row"><div class="plan-allotment-cell">Block<br>${escapeHtml((typeMap[roomTypeId] || roomTypeId).slice(0, 8))}</div><div class="plan-row-body" style="--plan-row-h:${rowHeight}px"><div class="plan-allotment-layer">${barMarkup}</div></div></div>`;
+        }).join('');
+      }
+
       function renderPlanningCalendar() {
         computePlanSlotWidth();
         const cal = document.getElementById('planning-cal');
@@ -2594,6 +2873,8 @@
         document.querySelectorAll('.plan-view-btn').forEach((b) => {
           b.classList.toggle('active', Number(b.getAttribute('data-plan-days')) === state.planningDays);
         });
+        seedPlanAllotmentForm();
+        renderPlanAllotmentList(grid.allotments || []);
 
         // Populate type filter
         const savedType = typeFilterEl.value;
@@ -2647,6 +2928,7 @@
         });
         const planningReservations = getPlanningReservations(filteredUnits, grid.dates);
         const barsByRoom = buildPlanningReservationBars(filteredUnits, planningReservations, grid.dates);
+        const allotmentRows = buildPlanningAllotmentRows(grid.allotments || [], activeType, typeMap, grid.dates);
 
         const unitRows = sortedFloors.map((floor) => {
           const divider = `<div class="plan-floor-divider"><div class="plan-floor-divider-cell">Fl.${escapeHtml(floor)}</div><div class="plan-floor-spacer"></div></div>`;
@@ -2680,8 +2962,8 @@
                 tooltip = buildPlanningReservationTooltip(reservation);
               } else if (isVacant) {
                 tooltip = vacantPrice
-                  ? `Room ${unit.room_number} — vacant · ${vacantPrice.currency} ${compactPrice(vacantPrice.amount, vacantPrice.currency)}/n — click to assign or walk-in`
-                  : `Room ${unit.room_number} — click to assign or walk-in`;
+                  ? `Room ${unit.room_number} — vacant · ${vacantPrice.currency} ${compactPrice(vacantPrice.amount, vacantPrice.currency)}/n — click to create a reservation`
+                  : `Room ${unit.room_number} — click to create a reservation`;
               } else if (isMaint) {
                 tooltip = `Room ${unit.room_number} — Maintenance`;
               } else if (isOOO) {
@@ -2731,7 +3013,7 @@
           return divider + rows;
         }).join('');
 
-        cal.innerHTML = `<div class="plan-header-row"><div class="plan-header-room-cell">Room</div>${headerDateCells}</div>${unitRows}`;
+        cal.innerHTML = `<div class="plan-header-row"><div class="plan-header-room-cell">Room</div>${headerDateCells}</div>${allotmentRows}${unitRows}`;
       }
 
       async function loadPlanningGrid() {
@@ -2762,6 +3044,73 @@
         document.querySelectorAll('.sh-tab').forEach(b => {
           b.classList.toggle('active', b.getAttribute('data-sh-tab') === tab);
         });
+      }
+
+      function renderExtendPlanPreview() {
+        const el = document.getElementById('sh-extend-preview');
+        if (!el) return;
+        const preview = state.sheetExtendPlanPreview;
+        if (!preview) {
+          el.hidden = true;
+          el.innerHTML = '';
+          return;
+        }
+        el.hidden = false;
+        if (preview.error) {
+          el.innerHTML = `<strong>Extend preview unavailable.</strong><br>${escapeHtml(preview.error)}`;
+          return;
+        }
+        const planner = preview.planner || {};
+        const preferredConflicts = Array.isArray(preview.preferred_room_conflicts) ? preview.preferred_room_conflicts : [];
+        const shortageDates = Array.isArray(planner.conflicts?.shortage_dates) ? planner.conflicts.shortage_dates : [];
+        const allotmentConflicts = Array.isArray(planner.conflicts?.allotment_conflicts) ? planner.conflicts.allotment_conflicts : [];
+        const reservationConflicts = Array.isArray(planner.conflicts?.reservation_conflicts) ? planner.conflicts.reservation_conflicts : [];
+        const lines = [];
+        lines.push(preview.in_place_possible
+          ? '<strong>In-place extension is available.</strong>'
+          : '<strong>In-place extension is blocked.</strong>');
+        if (preferredConflicts.length) {
+          lines.push(preferredConflicts.slice(0, 3).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'Room')} conflicts on ${escapeHtml(item.stay_date || '') || 'future night'}`).join('<br>'));
+        }
+        if (shortageDates.length) lines.push(`Shortage dates: ${shortageDates.map((item) => escapeHtml(String(item.stay_date || item))).join(', ')}`);
+        if (allotmentConflicts.length) lines.push(allotmentConflicts.slice(0, 2).map((item) => `Operator block: ${escapeHtml(item.operator_name || 'Operator')} · ${Number(item.rooms_blocked || 0)} room(s)`).join('<br>'));
+        if (reservationConflicts.length) lines.push(reservationConflicts.slice(0, 2).map((item) => `Overlap: ${escapeHtml(item.room_number || item.room_unit_id || 'room')} with ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`).join('<br>'));
+        if (Array.isArray(planner.recommendations) && planner.recommendations.length) {
+          lines.push(planner.recommendations.map((group) => `<strong>${escapeHtml(group.label || group.kind || 'Recommendation')}</strong>`).join(' · '));
+        }
+        el.innerHTML = lines.join('<br><br>');
+      }
+
+      async function refreshExtendPlanPreview() {
+        const res = state.sheetReservation?.reservation;
+        if (!res || !state.selectedPropertyId) {
+          state.sheetExtendPlanPreview = null;
+          renderExtendPlanPreview();
+          return;
+        }
+        const nextCheckIn = document.getElementById('sf-rebook-ci')?.value || '';
+        const nextCheckOut = document.getElementById('sf-rebook-co')?.value || '';
+        if (!nextCheckIn || !nextCheckOut) {
+          state.sheetExtendPlanPreview = null;
+          renderExtendPlanPreview();
+          return;
+        }
+        if (nextCheckIn !== String(res.check_in || '') || parseDateUtc(nextCheckOut) <= parseDateUtc(String(res.check_out || ''))) {
+          state.sheetExtendPlanPreview = {
+            error: 'Preview is only shown for extensions that keep the same check-in date and extend beyond the current check-out.',
+          };
+          renderExtendPlanPreview();
+          return;
+        }
+        try {
+          state.sheetExtendPlanPreview = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}/extend-plan`, {
+            method: 'POST',
+            body: JSON.stringify({ check_out: nextCheckOut }),
+          });
+        } catch (error) {
+          state.sheetExtendPlanPreview = { error: error.message };
+        }
+        renderExtendPlanPreview();
       }
 
       function renderSheetInvoice() {
@@ -2873,10 +3222,12 @@
         document.getElementById('sf-walkin-email').value = '';
         document.getElementById('sf-walkin-adults').value = '1';
         document.getElementById('sf-walkin-children').value = '0';
+        document.getElementById('sf-walkin-rooms').value = '1';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
-        state.sheetCreateMode = res ? null : 'walkin';
-        document.getElementById('btn-create-walkin').textContent = 'Create Walk-in & Check In';
+        state.sheetReservationPlanPreview = null;
+        state.sheetCreateContext = res ? null : 'rack';
+        setSheetCreateMode(res ? null : 'walkin', 'rack');
         document.getElementById('sh-walkin-validation').hidden = true;
         document.getElementById('sh-walkin-validation').textContent = '';
         // Stay tab
@@ -2900,9 +3251,13 @@
           document.getElementById('sf-rebook-ci').value = res.check_in || '';
           document.getElementById('sf-rebook-co').value = res.check_out || '';
           document.getElementById('sf-eco-date').value  = res.check_out || '';
+          state.sheetExtendPlanPreview = null;
+          refreshExtendPlanPreview().catch(() => {});
         } else {
           document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">No active reservation for this room.</div>';
           document.getElementById('sh-pricing').textContent = '';
+          state.sheetExtendPlanPreview = null;
+          renderExtendPlanPreview();
         }
         await loadRoomAvailabilityCalendar(unit.id, state.roomAvailabilityMonth);
         // Service preset select
@@ -2929,7 +3284,7 @@
         renderSheetTimeline();
         document.getElementById('sh-raw').textContent = JSON.stringify(state.sheetReservation || { unit }, null, 2);
         updateCreateReservationValidation();
-        switchSheetTab(initialTab);
+        switchSheetTab(res ? initialTab : 'actions');
         overlay.hidden = false;
       }
 
@@ -2941,10 +3296,11 @@
       async function createReservation(unitId, options = {}) {
         const checkIn = String(options.checkIn || state.boardDate || new Date().toISOString().slice(0, 10)).trim();
         const checkOut = String(options.checkOut || addIsoDays(checkIn, 1)).trim();
+        const createContext = String(options.context || 'plan').trim() || 'plan';
         await openProfile(unitId, null, 'actions');
         const unit = state.sheetRoomUnit;
         if (!unit) return;
-        state.sheetCreateMode = 'reservation';
+        setSheetCreateMode('reservation', createContext);
         document.getElementById('sh-guest-name').textContent = 'New Reservation';
         document.getElementById('sh-guest-sub').textContent = `Room ${unit.room_number} · ${checkIn} → ${checkOut}`;
         const badge = document.getElementById('sh-badge');
@@ -2953,9 +3309,13 @@
         document.getElementById('sh-stay-body').innerHTML = '<div style="color:#94a3b8;font-size:12px">Draft reservation. Complete the form below to create a new booking for this room.</div>';
         document.getElementById('sf-walkin-ci').value = checkIn;
         document.getElementById('sf-walkin-co').value = checkOut;
+        document.getElementById('sf-walkin-rooms').value = String(Math.max(1, Number(options.roomsRequested || 1)));
+        state.sheetReservationPlanPreview = null;
+        state.sheetExtendPlanPreview = null;
         document.getElementById('sh-pricing').textContent = '';
-        document.getElementById('btn-create-walkin').textContent = 'Create Reservation';
+        applySheetCreateModeUi();
         updateCreateReservationValidation();
+        refreshReservationPlannerPreview().catch(() => {});
         switchSheetTab('actions');
         document.getElementById('sf-walkin-name').focus();
       }
@@ -2967,6 +3327,9 @@
       function closeGuestSheet() {
         document.getElementById('guest-overlay').hidden = true;
         state.sheetCreateMode = null;
+        state.sheetCreateContext = null;
+        state.sheetReservationPlanPreview = null;
+        state.sheetExtendPlanPreview = null;
         state.sheetRoomUnit = null;
         state.sheetReservation = null;
       }
@@ -3038,6 +3401,7 @@
           renderFolioAddonPresets();
           renderRack();
           state.planningGrid = null;
+          renderPlanAllotmentList([]);
           renderPlanningCalendar();
           return;
         }
@@ -3480,6 +3844,49 @@
         });
         document.getElementById('plan-type-filter').addEventListener('change', () => renderPlanningCalendar());
         document.getElementById('plan-floor-filter').addEventListener('change', () => renderPlanningCalendar());
+        document.getElementById('btn-create-allotment').addEventListener('click', async () => {
+          if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+          const operatorName = document.getElementById('plan-allotment-operator').value.trim();
+          const operatorCode = document.getElementById('plan-allotment-code').value.trim();
+          const roomTypeId = document.getElementById('plan-allotment-room-type').value;
+          const roomsBlocked = Math.max(1, parseInt(document.getElementById('plan-allotment-rooms').value, 10) || 1);
+          const checkIn = document.getElementById('plan-allotment-from').value;
+          const checkOut = document.getElementById('plan-allotment-to').value;
+          const releaseDate = document.getElementById('plan-allotment-release').value;
+          if (!operatorName || !roomTypeId || !checkIn || !checkOut) return setFlash('Fill operator, room type, from, and to for the operator block.', 'err');
+          try {
+            await api(`/api/properties/${state.selectedPropertyId}/allotments`, {
+              method: 'POST',
+              body: JSON.stringify({
+                operator_name: operatorName,
+                operator_code: operatorCode || null,
+                room_type_id: roomTypeId,
+                rooms_blocked: roomsBlocked,
+                check_in: checkIn,
+                check_out: checkOut,
+                release_date: releaseDate || null,
+              }),
+            });
+            document.getElementById('plan-allotment-operator').value = '';
+            document.getElementById('plan-allotment-code').value = '';
+            document.getElementById('plan-allotment-rooms').value = '1';
+            await loadPlanningGrid();
+            setFlash('Operator block created.');
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+        });
+        document.getElementById('plan-allotment-list').addEventListener('click', async (e) => {
+          const button = e.target.closest('[data-release-allotment]');
+          if (!button || !state.selectedPropertyId) return;
+          try {
+            await api(`/api/properties/${state.selectedPropertyId}/allotments/${button.getAttribute('data-release-allotment')}/release`, { method: 'POST' });
+            await loadPlanningGrid();
+            setFlash('Operator block released.');
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+        });
 
         // Click reservation → open stay info; click vacant cell → open create-reservation form
         document.getElementById('planning-cal').addEventListener('click', async (e) => {
@@ -3547,6 +3954,14 @@
       document.getElementById('guest-overlay').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeGuestSheet();
       });
+      document.getElementById('btn-mode-new-reservation').addEventListener('click', () => {
+        if (!state.sheetRoomUnit) return;
+        setSheetCreateMode('reservation', 'rack');
+      });
+      document.getElementById('btn-mode-walkin').addEventListener('click', () => {
+        if (!state.sheetRoomUnit) return;
+        setSheetCreateMode('walkin', 'rack');
+      });
 
       document.querySelector('.sh-tabs').addEventListener('click', (e) => {
         const btn = e.target.closest('.sh-tab');
@@ -3595,8 +4010,16 @@
       document.getElementById('btn-save-requests').addEventListener('click', () => {
         setFlash('Notes saved in session.');
       });
-      ['sf-walkin-ci', 'sf-walkin-co'].forEach((id) => {
-        document.getElementById(id).addEventListener('change', () => updateCreateReservationValidation());
+      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', () => {
+          updateCreateReservationValidation();
+          refreshReservationPlannerPreview().catch(() => {});
+        });
+      });
+      ['sf-rebook-ci', 'sf-rebook-co'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', () => {
+          refreshExtendPlanPreview().catch(() => {});
+        });
       });
 
       // Add preset service
@@ -3720,6 +4143,18 @@
         if (!ci || !co) return setFlash('Set new check-in and check-out dates.', 'err');
         sheetAction('rebook', { check_in: ci, check_out: co });
       });
+      document.getElementById('btn-create-next-reservation').addEventListener('click', async () => {
+        const res = state.sheetReservation?.reservation;
+        const unitId = state.sheetRoomUnit?.id;
+        if (!res || !unitId) return setFlash('Load a reservation first.', 'err');
+        const nextCheckIn = String(res.check_out || '').trim();
+        if (!nextCheckIn) return setFlash('Current reservation has no check-out date.', 'err');
+        await createReservation(unitId, {
+          checkIn: nextCheckIn,
+          checkOut: addIsoDays(nextCheckIn, 1),
+          context: 'rack',
+        });
+      });
       document.getElementById('btn-sh-cancel').addEventListener('click', () => {
         const reason = document.getElementById('sf-cancel-reason').value.trim();
         if (!confirm('Cancel this reservation? This is hard to reverse.')) return;
@@ -3767,7 +4202,8 @@
         const checkOut = document.getElementById('sf-walkin-co').value;
         const adults = Math.max(1, parseInt(document.getElementById('sf-walkin-adults').value, 10) || 1);
         const children = Math.max(0, parseInt(document.getElementById('sf-walkin-children').value, 10) || 0);
-        if (!guestName) return setFlash('Guest name is required for walk-in.', 'err');
+        const roomsRequested = Math.max(1, parseInt(document.getElementById('sf-walkin-rooms').value, 10) || 1);
+        if (!guestName) return setFlash('Guest name is required.', 'err');
         try {
           const created = await api(`/api/properties/${state.selectedPropertyId}/reservations`, {
             method: 'POST',
@@ -3775,24 +4211,30 @@
               room_type_id: state.sheetRoomUnit.room_type_id,
               check_in: checkIn,
               check_out: checkOut,
-              rooms_requested: 1,
+              rooms_requested: roomsRequested,
               guest_name: guestName,
               guest_phone: guestPhone || null,
               guest_email: guestEmail || null,
               adults,
               children,
-              source: 'manual_frontdesk',
+              source: state.sheetCreateMode === 'reservation' ? 'manual_agent' : 'manual_frontdesk',
+              source_payload: {
+                create_context: state.sheetCreateContext || 'rack',
+                preferred_room_unit_id: state.sheetCreateContext === 'rack' && roomsRequested === 1 ? state.sheetRoomUnit.id : null,
+              },
             }),
           });
           if (state.sheetCreateMode === 'reservation') {
+            if (roomsRequested === 1 && state.sheetCreateContext === 'rack') {
             await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}`, {
               method: 'PATCH',
               body: JSON.stringify({ assigned_room_unit_id: state.sheetRoomUnit.id }),
             });
+            }
             await loadWorkspace();
             await openStayInfo(state.sheetRoomUnit.id, created.reservation.id);
             switchSheetTab('stay');
-            setFlash('Reservation created.');
+            setFlash(roomsRequested > 1 ? 'Reservation created with planner-backed multi-room request.' : 'Reservation created.');
             return;
           }
           await api(`/api/properties/${state.selectedPropertyId}/reservations/${created.reservation.id}/check-in`, {

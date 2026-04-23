@@ -179,7 +179,26 @@ function countHoldsByNight(holdRows, stayDates) {
   return holdCounts;
 }
 
-function buildNightlyRemaining(roomTypes, roomUnitsByType, allocationCounts, holdCounts, stayDates) {
+function countAllotmentsByNight(allotmentRows, stayDates, todayIso = formatDateUtc(new Date())) {
+  const allotmentCounts = new Map();
+  const dateSet = new Set(stayDates);
+
+  for (const row of allotmentRows || []) {
+    if (String(row.status || 'active') !== 'active') continue;
+    if (row.release_date && String(row.release_date) < todayIso) continue;
+    const roomTypeId = String(row.room_type_id);
+    const perNight = getOrCreateMap(allotmentCounts, roomTypeId);
+    const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
+    for (const stayDate of allotmentDates) {
+      if (!dateSet.has(stayDate)) continue;
+      perNight.set(stayDate, (perNight.get(stayDate) || 0) + Number(row.rooms_blocked || 0));
+    }
+  }
+
+  return allotmentCounts;
+}
+
+function buildNightlyRemaining(roomTypes, roomUnitsByType, allocationCounts, holdCounts, allotmentCounts, stayDates) {
   const nightlyRemainingByType = new Map();
 
   for (const roomType of roomTypes) {
@@ -187,8 +206,9 @@ function buildNightlyRemaining(roomTypes, roomUnitsByType, allocationCounts, hol
     const baseCount = (roomUnitsByType.get(roomTypeId) || []).length;
     const allocated = allocationCounts.get(roomTypeId) || new Map();
     const held = holdCounts.get(roomTypeId) || new Map();
+    const allotted = allotmentCounts.get(roomTypeId) || new Map();
     const rows = stayDates.map((stayDate) => {
-      const remaining = baseCount - (allocated.get(stayDate) || 0) - (held.get(stayDate) || 0);
+      const remaining = baseCount - (allocated.get(stayDate) || 0) - (held.get(stayDate) || 0) - (allotted.get(stayDate) || 0);
       return {
         stay_date: stayDate,
         remaining: Math.max(remaining, 0),
@@ -329,6 +349,7 @@ const HOUSEKEEPING_TASK_PRIORITIES = new Set(['arrival_today_high', 'arrival_tod
 const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
 const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
+const PROPERTY_ALLOTMENT_STATUSES = new Set(['active', 'released', 'expired']);
 const AIRPORT_PICKUP_ADDON_CODES = new Set(['AIRPORT-PICKUP', 'AIRPORT-ARRIVAL']);
 
 const DEFAULT_PROPERTY_ADDON_PRESETS = {
@@ -549,6 +570,14 @@ function mapAddonServicePresetRow(row) {
     sales_policy: buildAddonSalesPolicy(row.service_type, row.code, row.name),
     onsite_only: true,
     prearrival_exception: isAirportPickupAddonPreset(row.service_type, row.code, row.name),
+  };
+}
+
+function mapPropertyAllotmentRow(row) {
+  return {
+    ...row,
+    rooms_blocked: Number(row.rooms_blocked || 0),
+    inventory_blocking: Boolean(row.inventory_blocking),
   };
 }
 
@@ -843,6 +872,90 @@ function validateRoomUnitFlagPatchRequest(body) {
   const updates = {};
   if ('do_not_disturb' in body) updates.do_not_disturb = normalizeBooleanInteger(body.do_not_disturb);
   if ('room_service_requested' in body) updates.room_service_requested = normalizeBooleanInteger(body.room_service_requested);
+  return { updates };
+}
+
+function validatePropertyAllotmentCreateRequest(body, propertyId) {
+  const property = String(propertyId || '').trim();
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  const operatorName = String(body?.operator_name || '').trim();
+  const operatorCode = body?.operator_code ? String(body.operator_code).trim() : null;
+  const sourceRef = body?.source_ref ? String(body.source_ref).trim() : null;
+  const checkIn = String(body?.check_in || '').trim();
+  const checkOut = String(body?.check_out || '').trim();
+  const releaseDate = body?.release_date ? String(body.release_date).trim() : null;
+  const roomsBlocked = Number(body?.rooms_blocked ?? 0);
+  const notes = body?.notes ? String(body.notes).trim() : null;
+
+  if (!property) return { error: 'propertyId is required.' };
+  if (!roomTypeId) return { error: 'room_type_id is required.' };
+  if (!operatorName) return { error: 'operator_name is required.' };
+  if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return { error: 'check_in and check_out must use YYYY-MM-DD format.' };
+  if (parseDateUtc(checkIn) >= parseDateUtc(checkOut)) return { error: 'check_out must be after check_in.' };
+  if (releaseDate && !isIsoDate(releaseDate)) return { error: 'release_date must use YYYY-MM-DD format.' };
+  if (!Number.isInteger(roomsBlocked) || roomsBlocked < 1 || roomsBlocked > 100) {
+    return { error: 'rooms_blocked must be an integer between 1 and 100.' };
+  }
+
+  return {
+    propertyId: property,
+    roomTypeId,
+    operatorName,
+    operatorCode,
+    sourceRef,
+    checkIn,
+    checkOut,
+    releaseDate,
+    roomsBlocked,
+    notes,
+    status: 'active',
+  };
+}
+
+function validatePropertyAllotmentPatchRequest(body) {
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'status']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('operator_name' in body) {
+    const value = String(body.operator_name || '').trim();
+    if (!value) return { error: 'operator_name cannot be empty.' };
+    updates.operator_name = value;
+  }
+  if ('operator_code' in body) updates.operator_code = body.operator_code ? String(body.operator_code).trim() : null;
+  if ('source_ref' in body) updates.source_ref = body.source_ref ? String(body.source_ref).trim() : null;
+  if ('check_in' in body) {
+    const value = String(body.check_in || '').trim();
+    if (!isIsoDate(value)) return { error: 'check_in must use YYYY-MM-DD format.' };
+    updates.check_in = value;
+  }
+  if ('check_out' in body) {
+    const value = String(body.check_out || '').trim();
+    if (!isIsoDate(value)) return { error: 'check_out must use YYYY-MM-DD format.' };
+    updates.check_out = value;
+  }
+  if ('release_date' in body) {
+    const value = body.release_date ? String(body.release_date).trim() : null;
+    if (value && !isIsoDate(value)) return { error: 'release_date must use YYYY-MM-DD format.' };
+    updates.release_date = value;
+  }
+  if (('check_in' in updates || 'check_out' in updates) && updates.check_in && updates.check_out && parseDateUtc(updates.check_in) >= parseDateUtc(updates.check_out)) {
+    return { error: 'check_out must be after check_in.' };
+  }
+  if ('rooms_blocked' in body) {
+    const value = Number(body.rooms_blocked);
+    if (!Number.isInteger(value) || value < 1 || value > 100) return { error: 'rooms_blocked must be an integer between 1 and 100.' };
+    updates.rooms_blocked = value;
+  }
+  if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
+  if ('status' in body) {
+    const value = String(body.status || '').trim();
+    if (!PROPERTY_ALLOTMENT_STATUSES.has(value)) return { error: 'status is invalid.' };
+    updates.status = value;
+  }
   return { updates };
 }
 
@@ -1341,6 +1454,59 @@ async function loadRoomTypeById(env, tenantId, propertyId, roomTypeId) {
   return row ? mapRoomTypeRow(row) : null;
 }
 
+async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId) {
+  const todayIso = formatDateUtc(new Date());
+  const row = await env.DB
+    .prepare(
+      `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
+              pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.release_date, pa.status,
+              pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
+              rt.code AS room_type_code, rt.name AS room_type_name,
+              CASE
+                WHEN pa.status = 'active' AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                ELSE 0
+              END AS inventory_blocking
+         FROM property_allotments pa
+         JOIN room_types rt
+           ON rt.id = pa.room_type_id
+          AND rt.tenant_id = pa.tenant_id
+          AND rt.property_id = pa.property_id
+        WHERE pa.id = ? AND pa.tenant_id = ? AND pa.property_id = ?`
+    )
+    .bind(todayIso, allotmentId, tenantId, propertyId)
+    .first();
+  return row ? mapPropertyAllotmentRow(row) : null;
+}
+
+async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, status = 'all') {
+  const todayIso = formatDateUtc(new Date());
+  let sql = `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
+                    pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.release_date, pa.status,
+                    pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
+                    rt.code AS room_type_code, rt.name AS room_type_name,
+                    CASE
+                      WHEN pa.status = 'active' AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                      ELSE 0
+                    END AS inventory_blocking
+               FROM property_allotments pa
+               JOIN room_types rt
+                 ON rt.id = pa.room_type_id
+                AND rt.tenant_id = pa.tenant_id
+                AND rt.property_id = pa.property_id
+              WHERE pa.tenant_id = ?
+                AND pa.property_id = ?
+                AND pa.check_in < ?
+                AND pa.check_out > ?`;
+  const binds = [todayIso, tenantId, propertyId, toDate, fromDate];
+  if (status !== 'all') {
+    sql += ` AND pa.status = ?`;
+    binds.push(status);
+  }
+  sql += ` ORDER BY pa.check_in ASC, pa.operator_name ASC, pa.room_type_id ASC`;
+  const result = await env.DB.prepare(sql).bind(...binds).all();
+  return (result.results || []).map(mapPropertyAllotmentRow);
+}
+
 async function loadRoomUnitById(env, tenantId, propertyId, roomUnitId) {
   const row = await env.DB
     .prepare(
@@ -1587,6 +1753,7 @@ export async function handleGetPropertyPlanningGrid(request, env, params) {
 
     const toDate = formatDateUtc(addDays(parseDateUtc(fromDate), days));
     const dates = enumerateStayDates(fromDate, toDate);
+    const allotments = await listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, 'all');
 
     const allocResult = await env.DB
       .prepare(
@@ -1704,9 +1871,159 @@ export async function handleGetPropertyPlanningGrid(request, env, params) {
       };
     });
 
-    return jsonResponse({ ok: true, from_date: fromDate, days, dates, units, reservations: Array.from(reservationMap.values()) });
+    return jsonResponse({ ok: true, from_date: fromDate, days, dates, units, reservations: Array.from(reservationMap.values()), allotments });
   } catch (error) {
     console.error('[PROPERTY_PLANNING_GRID_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyAllotments(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const fromDate = String(url.searchParams.get('from_date') || formatDateUtc(new Date())).trim();
+  const days = Math.min(120, Math.max(1, Number(url.searchParams.get('days') || 30)));
+  const status = String(url.searchParams.get('status') || 'all').trim();
+  if (!isIsoDate(fromDate)) return jsonResponse({ error: 'from_date must use YYYY-MM-DD format.' }, 400);
+  if (status !== 'all' && !PROPERTY_ALLOTMENT_STATUSES.has(status)) return jsonResponse({ error: 'status is invalid.' }, 400);
+
+  try {
+    const property = await loadPropertyById(env, tenantId, propertyId);
+    if (!property) return jsonResponse({ error: 'Property not found.' }, 404);
+    const toDate = formatDateUtc(addDays(parseDateUtc(fromDate), days));
+    const allotments = await listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, status);
+    return jsonResponse({ ok: true, property_id: propertyId, from_date: fromDate, days, allotments });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENTS_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleCreatePropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentCreateRequest(body, propertyId);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+    if (!roomType) return jsonResponse({ error: 'room_type_id not found for this property.' }, 404);
+    const now = currentUnixSeconds();
+    const allotmentId = nanoid();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_allotments
+          (id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
+           check_in, check_out, rooms_blocked, release_date, status, notes, created_by, updated_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        allotmentId,
+        tenantId,
+        propertyId,
+        parsed.roomTypeId,
+        parsed.operatorName,
+        parsed.operatorCode,
+        parsed.sourceRef,
+        parsed.checkIn,
+        parsed.checkOut,
+        parsed.roomsBlocked,
+        parsed.releaseDate,
+        parsed.notes,
+        actor.session.user_id || null,
+        actor.session.user_id || null,
+        now,
+        now,
+      )
+      .run();
+    const created = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    return jsonResponse({ ok: true, allotment: created }, 201);
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_CREATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+
+    const mergedCheckIn = parsed.updates.check_in || existing.check_in;
+    const mergedCheckOut = parsed.updates.check_out || existing.check_out;
+    if (parseDateUtc(mergedCheckIn) >= parseDateUtc(mergedCheckOut)) {
+      return jsonResponse({ error: 'check_out must be after check_in.' }, 400);
+    }
+
+    const sqlParts = [];
+    const bindValues = [];
+    for (const [key, value] of Object.entries(parsed.updates)) {
+      sqlParts.push(`${key} = ?`);
+      bindValues.push(value);
+    }
+    sqlParts.push('updated_by = ?');
+    bindValues.push(actor.session.user_id || null);
+    sqlParts.push('updated_at = ?');
+    bindValues.push(currentUnixSeconds());
+
+    await env.DB
+      .prepare(`UPDATE property_allotments SET ${sqlParts.join(', ')} WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(...bindValues, allotmentId, tenantId, propertyId)
+      .run();
+
+    const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    return jsonResponse({ ok: true, allotment: updated });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleReleasePropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    if (existing.status === 'released') return jsonResponse({ error: 'Allotment is already released.' }, 409);
+
+    await env.DB
+      .prepare(`UPDATE property_allotments SET status = 'released', updated_by = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+      .bind(actor.session.user_id || null, currentUnixSeconds(), allotmentId, tenantId, propertyId)
+      .run();
+
+    const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    return jsonResponse({ ok: true, allotment: updated, released: true });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_RELEASE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
@@ -3002,6 +3319,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
 async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endDate, options = {}) {
   const excludeHoldId = options.excludeHoldId ? String(options.excludeHoldId) : null;
   const excludeReservationId = options.excludeReservationId ? String(options.excludeReservationId) : null;
+  const todayIso = formatDateUtc(new Date());
   const roomUnitsResult = await env.DB
     .prepare(
       `SELECT id, tenant_id, property_id, room_type_id, room_number, floor_label, sort_order, active, operational_status
@@ -3043,10 +3361,26 @@ async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endD
     .bind(tenantId, propertyId, startDate, endDate)
     .all();
 
+  const allotmentsResult = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
+              check_in, check_out, rooms_blocked, release_date, status, notes, created_at, updated_at
+         FROM property_allotments
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND status = 'active'
+          AND check_in < ?
+          AND check_out > ?
+          AND (release_date IS NULL OR release_date >= ?)`
+    )
+    .bind(tenantId, propertyId, endDate, startDate, todayIso)
+    .all();
+
   return {
     roomUnits: roomUnitsResult.results || [],
     holds: (holdsResult.results || []).filter((row) => !excludeHoldId || String(row.id) !== excludeHoldId),
     allocations: (allocationsResult.results || []).filter((row) => !excludeReservationId || String(row.reservation_id) !== excludeReservationId),
+    allotments: allotmentsResult.results || [],
   };
 }
 
@@ -3066,7 +3400,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     return { error: { status: 404, payload: { error: 'Room type not found for this property.' } } };
   }
 
-  const { roomUnits, holds, allocations } = await loadAvailabilityInputs(env, tenantId, propertyId, rangeStart, rangeEndExclusive, options);
+  const { roomUnits, holds, allocations, allotments } = await loadAvailabilityInputs(env, tenantId, propertyId, rangeStart, rangeEndExclusive, options);
   const roomUnitMap = new Map((roomUnits || []).map((roomUnit) => [String(roomUnit.id), roomUnit]));
   const roomUnitsByType = new Map();
   for (const roomUnit of roomUnits) {
@@ -3084,7 +3418,8 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
 
   const { roomTypeNightCounts } = countAllocatedUnitsByNight(allocations, roomUnitMap, windowDates);
   const holdCounts = countHoldsByNight(holds, windowDates);
-  const nightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, windowDates);
+  const allotmentCounts = countAllotmentsByNight(allotments, windowDates);
+  const nightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, allotmentCounts, windowDates);
 
   const requestedNightly = (nightlyRemainingByType.get(String(requestedRoomType.id)) || []).filter((row) => stayDates.includes(row.stay_date));
   const shortageDates = collectShortageDates(requestedNightly, roomsRequested);
@@ -3189,6 +3524,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     stayPlans,
     sameTypeNearbyOptions,
     otherRoomTypeOptions,
+    activeAllotments: allotments,
     request: {
       property_id: propertyId,
       room_type_id: roomTypeId,
@@ -3222,6 +3558,186 @@ function buildAvailabilityPayload(result) {
       allow_upgrade_to_preserve_stay: Boolean(result.property.allow_upgrade_to_preserve_stay),
       upgrade_mode: result.property.upgrade_mode,
     },
+  };
+}
+
+function buildPlanningRecommendations(availability) {
+  const recommendations = [];
+  if (Array.isArray(availability?.sameTypeNearbyOptions) && availability.sameTypeNearbyOptions.length) {
+    recommendations.push({
+      kind: 'same_type_nearby',
+      label: 'Shift dates within same room type',
+      options: availability.sameTypeNearbyOptions,
+    });
+  }
+  if (Array.isArray(availability?.otherRoomTypeOptions) && availability.otherRoomTypeOptions.length) {
+    recommendations.push({
+      kind: 'upgrade_preserve',
+      label: 'Use an alternate room type',
+      options: availability.otherRoomTypeOptions,
+    });
+  }
+  if (Array.isArray(availability?.stayPlans) && availability.stayPlans.some((plan) => String(plan.plan_type || '').includes('split'))) {
+    recommendations.push({
+      kind: 'split_stay',
+      label: 'Consider split-stay allocation',
+      options: availability.stayPlans
+        .filter((plan) => String(plan.plan_type || '').includes('split'))
+        .map((plan) => ({
+          plan_type: plan.plan_type,
+          move_count: plan.move_count,
+          public_visible: plan.public_visible,
+        })),
+    });
+  }
+  return recommendations;
+}
+
+async function buildReservationPlanningConflicts(env, tenantId, propertyId, roomTypeId, checkIn, checkOut, options = {}) {
+  const stayDates = enumerateStayDates(checkIn, checkOut);
+  const excludeReservationId = options.excludeReservationId ? String(options.excludeReservationId) : null;
+  const roomUnitsResult = await env.DB
+    .prepare(
+      `SELECT id, room_number, floor_label, operational_status
+         FROM room_units
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND room_type_id = ?
+          AND active = 1
+        ORDER BY sort_order ASC, room_number ASC`
+    )
+    .bind(tenantId, propertyId, roomTypeId)
+    .all();
+
+  const allocationResult = await env.DB
+    .prepare(
+      `SELECT ra.room_unit_id, ra.stay_date, ra.reservation_id, pr.guest_name, pr.status,
+              ru.room_number, ru.floor_label
+         FROM reservation_allocations ra
+         JOIN room_units ru
+           ON ru.id = ra.room_unit_id
+          AND ru.tenant_id = ra.tenant_id
+          AND ru.property_id = ra.property_id
+         JOIN property_reservations pr
+           ON pr.id = ra.reservation_id
+          AND pr.tenant_id = ra.tenant_id
+          AND pr.property_id = ra.property_id
+        WHERE ra.tenant_id = ?
+          AND ra.property_id = ?
+          AND ru.room_type_id = ?
+          AND ra.stay_date >= ?
+          AND ra.stay_date < ?
+          AND (? IS NULL OR ra.reservation_id != ?)
+          AND ra.allocation_status IN ('soft_allocated', 'locked')
+        ORDER BY ra.stay_date ASC, ru.room_number ASC`
+    )
+    .bind(tenantId, propertyId, roomTypeId, checkIn, checkOut, excludeReservationId, excludeReservationId)
+    .all();
+
+  const holdResult = await env.DB
+    .prepare(
+      `SELECT id, hold_type, source_type, source_id, check_in, check_out, rooms_requested, expires_at
+         FROM inventory_holds
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND room_type_id = ?
+          AND status = 'active'
+          AND expires_at > ?
+          AND check_in < ?
+          AND check_out > ?
+        ORDER BY check_in ASC, expires_at ASC`
+    )
+    .bind(tenantId, propertyId, roomTypeId, currentUnixSeconds(), checkOut, checkIn)
+    .all();
+
+  const allotmentResult = await env.DB
+    .prepare(
+      `SELECT id, operator_name, operator_code, source_ref, check_in, check_out, rooms_blocked, release_date, status
+         FROM property_allotments
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND room_type_id = ?
+          AND status = 'active'
+          AND check_in < ?
+          AND check_out > ?
+          AND (release_date IS NULL OR release_date >= ?)
+        ORDER BY check_in ASC, operator_name ASC`
+    )
+    .bind(tenantId, propertyId, roomTypeId, checkOut, checkIn, formatDateUtc(new Date()))
+    .all();
+
+  const maintenanceConflicts = (roomUnitsResult.results || [])
+    .filter((roomUnit) => ['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status || '')))
+    .map((roomUnit) => ({
+      conflict_type: 'room_unavailable',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      floor_label: roomUnit.floor_label || null,
+      operational_status: roomUnit.operational_status,
+      affected_dates: stayDates,
+    }));
+
+  const reservationConflicts = (allocationResult.results || []).map((row) => ({
+    conflict_type: 'reservation_overlap',
+    room_unit_id: row.room_unit_id,
+    room_number: row.room_number,
+    floor_label: row.floor_label || null,
+    stay_date: row.stay_date,
+    reservation_id: row.reservation_id,
+    reservation_status: row.status,
+    guest_name: row.guest_name || null,
+  }));
+
+  const holdConflicts = (holdResult.results || []).map((row) => ({
+    conflict_type: 'inventory_hold',
+    hold_id: row.id,
+    hold_type: row.hold_type,
+    source_type: row.source_type,
+    source_id: row.source_id || null,
+    check_in: row.check_in,
+    check_out: row.check_out,
+    rooms_requested: Number(row.rooms_requested || 0),
+    expires_at: row.expires_at,
+  }));
+
+  const allotmentConflicts = (allotmentResult.results || []).map((row) => ({
+    conflict_type: 'operator_allotment',
+    allotment_id: row.id,
+    operator_name: row.operator_name,
+    operator_code: row.operator_code || null,
+    source_ref: row.source_ref || null,
+    check_in: row.check_in,
+    check_out: row.check_out,
+    rooms_blocked: Number(row.rooms_blocked || 0),
+    release_date: row.release_date || null,
+    status: row.status,
+  }));
+
+  return {
+    maintenance_conflicts: maintenanceConflicts,
+    reservation_conflicts: reservationConflicts,
+    hold_conflicts: holdConflicts,
+    allotment_conflicts: allotmentConflicts,
+  };
+}
+
+function buildReservationPlanningPayload(availability, conflicts) {
+  const selectedPlan = selectBestPlan(availability);
+  return {
+    ok: true,
+    can_fulfill: !availability.shortageDates.length && Boolean(selectedPlan),
+    request: availability.request,
+    selected_plan: selectedPlan,
+    candidate_plans: availability.stayPlans || [],
+    availability: buildAvailabilityPayload(availability).availability,
+    conflicts: {
+      shortage_dates: availability.shortageDates,
+      maintenance_conflicts: conflicts.maintenance_conflicts,
+      reservation_conflicts: conflicts.reservation_conflicts,
+      hold_conflicts: conflicts.hold_conflicts,
+      allotment_conflicts: conflicts.allotment_conflicts,
+    },
+    recommendations: buildPlanningRecommendations(availability),
   };
 }
 
@@ -4736,6 +5252,179 @@ export async function handleCheckPropertyAvailability(request, env, params) {
     return jsonResponse(buildAvailabilityPayload(availability));
   } catch (error) {
     console.error('[PROPERTY_AVAILABILITY]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handlePlanPropertyReservation(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try {
+    body = await parseJsonBody(request);
+  } catch {
+    return jsonResponse({ error: 'Request body is not valid JSON.' }, 400);
+  }
+
+  const parsedRequest = validateAvailabilityRequest(body, params?.propertyId);
+  if (parsedRequest.error) return jsonResponse({ error: parsedRequest.error }, 400);
+
+  try {
+    const availability = await calculateAvailability(
+      env,
+      tenantId,
+      parsedRequest.propertyId,
+      parsedRequest.roomTypeId,
+      parsedRequest.checkIn,
+      parsedRequest.checkOut,
+      parsedRequest.roomsRequested
+    );
+    if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
+
+    const conflicts = await buildReservationPlanningConflicts(
+      env,
+      tenantId,
+      parsedRequest.propertyId,
+      parsedRequest.roomTypeId,
+      parsedRequest.checkIn,
+      parsedRequest.checkOut
+    );
+
+    return jsonResponse(buildReservationPlanningPayload(availability, conflicts));
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_PLAN]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+async function buildPreferredRoomUnitExtensionConflicts(env, tenantId, propertyId, roomUnitId, currentCheckOut, proposedCheckOut, excludeReservationId) {
+  const roomUnit = await loadRoomUnitById(env, tenantId, propertyId, roomUnitId);
+  if (!roomUnit) {
+    return [{ conflict_type: 'room_missing', room_unit_id: roomUnitId }];
+  }
+  const conflicts = [];
+  if (['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status || ''))) {
+    conflicts.push({
+      conflict_type: 'room_unavailable',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      operational_status: roomUnit.operational_status,
+    });
+  }
+
+  const result = await env.DB
+    .prepare(
+      `SELECT ra.stay_date, ra.reservation_id, pr.guest_name, pr.status
+         FROM reservation_allocations ra
+         JOIN property_reservations pr
+           ON pr.id = ra.reservation_id
+          AND pr.tenant_id = ra.tenant_id
+          AND pr.property_id = ra.property_id
+        WHERE ra.tenant_id = ?
+          AND ra.property_id = ?
+          AND ra.room_unit_id = ?
+          AND ra.stay_date >= ?
+          AND ra.stay_date < ?
+          AND ra.reservation_id != ?
+          AND ra.allocation_status IN ('soft_allocated', 'locked')
+        ORDER BY ra.stay_date ASC`
+    )
+    .bind(tenantId, propertyId, roomUnitId, currentCheckOut, proposedCheckOut, excludeReservationId)
+    .all();
+
+  for (const row of (result.results || [])) {
+    conflicts.push({
+      conflict_type: 'reservation_overlap',
+      room_unit_id: roomUnit.id,
+      room_number: roomUnit.room_number,
+      stay_date: row.stay_date,
+      reservation_id: row.reservation_id,
+      reservation_status: row.status,
+      guest_name: row.guest_name || null,
+    });
+  }
+
+  return conflicts;
+}
+
+export async function handlePlanPropertyReservationExtension(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+
+  const propertyId = String(params?.propertyId || '').trim();
+  const reservationId = String(params?.reservationId || '').trim();
+  const actor = await requireTenantActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+
+  const proposedCheckOut = String(body?.check_out || '').trim();
+  if (!isIsoDate(proposedCheckOut)) return jsonResponse({ error: 'check_out must use YYYY-MM-DD format.' }, 400);
+
+  try {
+    const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
+    if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
+    if (!['confirmed', 'checked_in'].includes(String(record.reservation.status))) {
+      return jsonResponse({ error: 'Extend planning is only supported for confirmed or checked_in reservations.' }, 409);
+    }
+    if (Number(record.reservation.rooms_requested || 0) !== 1) {
+      return jsonResponse({ error: 'Extend planning baseline currently supports rooms_requested = 1 only.' }, 409);
+    }
+    if (parseDateUtc(proposedCheckOut) <= parseDateUtc(String(record.reservation.check_out || ''))) {
+      return jsonResponse({ error: 'check_out must extend beyond the current reservation check_out.' }, 400);
+    }
+
+    const availability = await calculateAvailability(
+      env,
+      tenantId,
+      propertyId,
+      record.reservation.room_type_id,
+      record.reservation.check_in,
+      proposedCheckOut,
+      Number(record.reservation.rooms_requested || 1),
+      { excludeReservationId: reservationId }
+    );
+    if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
+
+    const conflicts = await buildReservationPlanningConflicts(
+      env,
+      tenantId,
+      propertyId,
+      record.reservation.room_type_id,
+      record.reservation.check_in,
+      proposedCheckOut,
+      { excludeReservationId: reservationId }
+    );
+
+    const preferredRoomUnitId = reservationPrimaryRoomUnitId(record);
+    const preferredRoomConflicts = preferredRoomUnitId
+      ? await buildPreferredRoomUnitExtensionConflicts(
+          env,
+          tenantId,
+          propertyId,
+          preferredRoomUnitId,
+          record.reservation.check_out,
+          proposedCheckOut,
+          reservationId,
+        )
+      : [];
+
+    return jsonResponse({
+      ok: true,
+      reservation_id: reservationId,
+      current_check_out: record.reservation.check_out,
+      proposed_check_out: proposedCheckOut,
+      preferred_room_unit_id: preferredRoomUnitId,
+      in_place_possible: Boolean(preferredRoomUnitId) && preferredRoomConflicts.length === 0,
+      preferred_room_conflicts: preferredRoomConflicts,
+      planner: buildReservationPlanningPayload(availability, conflicts),
+    });
+  } catch (error) {
+    console.error('[PROPERTY_RESERVATION_EXTEND_PLAN]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
