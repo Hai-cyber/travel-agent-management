@@ -1529,6 +1529,32 @@
         return 'property_staff_tenant_id';
       }
 
+      function uiPrefsStorageKey() {
+        return 'property_staff_ui_prefs_v1';
+      }
+
+      function loadUiPrefs() {
+        try {
+          const raw = localStorage.getItem(uiPrefsStorageKey());
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveUiPrefs() {
+        try {
+          localStorage.setItem(uiPrefsStorageKey(), JSON.stringify({
+            sidebarCollapsed: Boolean(state.sidebarCollapsed),
+            planningDays: Number(state.planningDays || 14),
+          }));
+        } catch {
+          // Ignore storage failures in kiosk/private browsing contexts.
+        }
+      }
+
       function setFlash(message, kind = 'ok') {
         els.flash.textContent = message;
         els.flash.className = `flash show ${kind === 'err' ? 'err' : 'ok'}`;
@@ -3146,6 +3172,7 @@
       els.btnToggleSidebar?.addEventListener('click', () => {
         state.sidebarCollapsed = !state.sidebarCollapsed;
         applySidebarMode();
+        saveUiPrefs();
       });
 
       document.getElementById('btn-av-prev').addEventListener('click', async () => {
@@ -3399,6 +3426,12 @@
       });
 
       function restoreTenant() {
+        const uiPrefs = loadUiPrefs();
+        state.sidebarCollapsed = Boolean(uiPrefs.sidebarCollapsed);
+        if (Number.isInteger(uiPrefs.planningDays) && [14, 21, 30].includes(uiPrefs.planningDays)) {
+          state.planningDays = uiPrefs.planningDays;
+        }
+        applySidebarMode();
         const params = new URLSearchParams(window.location.search);
         const urlTenant = params.get('tid');
         const urlPid   = params.get('pid');
@@ -3437,6 +3470,7 @@
           const days = Number(btn.getAttribute('data-plan-days'));
           if (!days || days === state.planningDays) return;
           state.planningDays = days;
+          saveUiPrefs();
           document.querySelectorAll('.plan-view-btn').forEach((b) => b.classList.toggle('active', b === btn));
           await loadPlanningGrid().catch((err) => setFlash(err.message, 'err'));
         });

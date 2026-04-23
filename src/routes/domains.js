@@ -52,6 +52,11 @@ const TLD_PRICES_USD = {
 
 const PLATFORM_MARKUP = 0.30; // 30%
 
+function isMissingOrPlaceholderSecret(value) {
+  const normalized = String(value || '').trim();
+  return !normalized || normalized.includes('REPLACE_ME');
+}
+
 // ── Domain name validation ─────────────────────────────────────────────────────
 // Accepts: lowercase letters, digits, hyphens; 2+ labels; TLD 2-20 chars.
 // Rejects: leading/trailing hyphens, consecutive dots, IDN punycode raw input.
@@ -220,7 +225,9 @@ domains.post('/purchase', async (c) => {
 
   const stripeKey = c.env.STRIPE_SECRET_KEY?.trim();
   const baseUrl   = (c.env.PLATFORM_BASE_URL ?? '').replace(/\/$/, '');
-  if (!stripeKey) return c.json({ error: 'Stripe is not configured on this platform.' }, 503);
+  if (isMissingOrPlaceholderSecret(stripeKey)) {
+    return c.json({ error: 'Stripe is not configured on this platform.' }, 503);
+  }
 
   const cf_account = c.env.CF_ACCOUNT_ID?.trim();
   const cf_token   = c.env.CF_REGISTRAR_API_TOKEN?.trim();

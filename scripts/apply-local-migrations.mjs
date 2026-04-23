@@ -4,6 +4,7 @@ const NPX_BIN = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const POWERSHELL_BIN = 'powershell.exe';
 const DB_NAME = 'travel_agent_db';
 const RECONCILE_MIGRATION = '0012_stop_services_config.sql';
+const BOOKING_TODO_SERVICE_FIELDS_MIGRATION = '0052_booking_order_todos_service_fields.sql';
 
 function quotePowerShell(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
@@ -63,6 +64,11 @@ function hasLedgerEntry(name) {
 function hasTable(tableName) {
   const rows = runD1Json(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}' LIMIT 1;`);
   return rows.length > 0;
+}
+
+function tableColumns(tableName) {
+  if (!hasTable(tableName)) return [];
+  return runD1Json(`PRAGMA table_info(${tableName});`);
 }
 
 // Migration 0049 captures tables (tenant_destinations, tour_destination_links, tour_hotel_links)
@@ -132,6 +138,74 @@ function reconcileServicesConfigMigration() {
   console.log(`[db:migrate:local] ${RECONCILE_MIGRATION}: inserted missing ledger row because tour_stops.services_config already exists.`);
 }
 
+function reconcileBookingOrderTodoServiceFieldsMigration() {
+  if (hasLedgerEntry(BOOKING_TODO_SERVICE_FIELDS_MIGRATION)) {
+    console.log(`[db:migrate:local] ${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}: ledger already consistent.`);
+    return;
+  }
+
+  if (!hasTable('booking_order_todos')) {
+    console.log(`[db:migrate:local] ${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}: booking_order_todos missing, normal Wrangler apply will handle it.`);
+    return;
+  }
+
+  const existingColumns = new Set(tableColumns('booking_order_todos').map((row) => String(row.name)));
+  const expectedColumns = [
+    {
+      name: 'service_type',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN service_type TEXT`,
+    },
+    {
+      name: 'service_item_id',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN service_item_id TEXT`,
+    },
+    {
+      name: 'status',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`,
+    },
+    {
+      name: 'person_in_charge',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN person_in_charge TEXT`,
+    },
+    {
+      name: 'contact_name',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN contact_name TEXT`,
+    },
+    {
+      name: 'contact_phone',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN contact_phone TEXT`,
+    },
+    {
+      name: 'contact_email',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN contact_email TEXT`,
+    },
+    {
+      name: 'service_meta_json',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN service_meta_json TEXT`,
+    },
+    {
+      name: 'last_reminded_at',
+      sql: `ALTER TABLE booking_order_todos ADD COLUMN last_reminded_at INTEGER`,
+    },
+  ];
+
+  const hasAnyExpectedColumn = expectedColumns.some((column) => existingColumns.has(column.name));
+  if (!hasAnyExpectedColumn) {
+    console.log(`[db:migrate:local] ${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}: service fields missing, normal Wrangler apply will handle it.`);
+    return;
+  }
+
+  for (const column of expectedColumns) {
+    if (existingColumns.has(column.name)) continue;
+    runD1Json(column.sql);
+    console.log(`[db:migrate:local] ${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}: added missing column ${column.name}.`);
+  }
+
+  runD1Json(`CREATE INDEX IF NOT EXISTS idx_bot_status_order ON booking_order_todos(tenant_id, status, order_id);`);
+  runD1Json(`INSERT INTO d1_migrations (name, applied_at) VALUES ('${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}', CURRENT_TIMESTAMP);`);
+  console.log(`[db:migrate:local] ${BOOKING_TODO_SERVICE_FIELDS_MIGRATION}: reconciled partial apply and inserted missing ledger row.`);
+}
+
 function applyLocalMigrations() {
   const output = runNpx([
     'wrangler', 'd1', 'migrations', 'apply', DB_NAME,
@@ -145,6 +219,7 @@ try {
   reconcileServicesConfigMigration();
   reconcileShowOnHomeMigration();
   reconcileTenantDestinationsMigration();
+  reconcileBookingOrderTodoServiceFieldsMigration();
   applyLocalMigrations();
 } catch (error) {
   console.error(`[db:migrate:local] ${error.message}`);
