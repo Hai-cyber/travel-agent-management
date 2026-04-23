@@ -1402,6 +1402,7 @@
               <label class="sh-field">Email<input id="sf-walkin-email" type="email" class="sh-input" placeholder="Email" /></label>
               <label class="sh-field">Guests<input id="sf-walkin-adults" type="number" min="1" value="1" class="sh-input" /></label>
               <label class="sh-field">Children<input id="sf-walkin-children" type="number" min="0" value="0" class="sh-input" /></label>
+              <label class="sh-field">Pricing Profile<select id="sf-walkin-pricing-profile" class="sh-input"><option value="">Default / BAR</option></select></label>
               <label class="sh-field">Rooms<input id="sf-walkin-rooms" type="number" min="1" max="20" value="1" class="sh-input" /></label>
               <label class="sh-field">Check-in<input id="sf-walkin-ci" type="date" class="sh-input" /></label>
               <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
@@ -1411,6 +1412,7 @@
             <div id="sh-reservation-plan-preview" class="sh-sec" style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0" hidden>
               <h4 style="margin-bottom:6px">Planner Preview</h4>
               <div id="sh-plan-preview-summary" style="font-size:12px;color:#334155"></div>
+              <div id="sh-plan-preview-pricing" style="font-size:12px;color:#0f172a;margin-top:8px"></div>
               <div id="sh-plan-preview-conflicts" style="font-size:12px;color:#7f1d1d;margin-top:8px"></div>
               <div id="sh-plan-preview-recommendations" style="font-size:12px;color:#1e3a8a;margin-top:8px"></div>
             </div>
@@ -1490,6 +1492,7 @@
         activeTab: 'rack',
         roomTypes: [],
         roomRates: [],
+        pricingProfiles: [],
         rackAvailabilitySummary: {},
         rackFloorFocus: 'all',
         rackRoomTypeFilter: 'all',
@@ -2573,16 +2576,69 @@
         return { ok: !message, message, conflict };
       }
 
+      function renderSheetPricingProfileOptions() {
+        const select = document.getElementById('sf-walkin-pricing-profile');
+        if (!select) return;
+        const current = select.value;
+        const roomTypeId = state.sheetRoomUnit?.room_type_id ? String(state.sheetRoomUnit.room_type_id) : '';
+        const eligibleProfiles = (state.pricingProfiles || []).filter((profile) => {
+          if (!profile?.active) return false;
+          if (String(profile.visibility || '') !== 'planner_only') return false;
+          return !profile.room_type_id || String(profile.room_type_id) === roomTypeId;
+        });
+        select.innerHTML = '<option value="">Default / BAR</option>' + eligibleProfiles.map((profile) => {
+          const label = [profile.code || profile.name || profile.id, profile.room_type_code || profile.room_type_name || 'Property-wide'].filter(Boolean).join(' · ');
+          return `<option value="${escapeHtml(profile.id)}">${escapeHtml(label)}</option>`;
+        }).join('');
+        if (eligibleProfiles.some((profile) => profile.id === current)) {
+          select.value = current;
+          return;
+        }
+        const reservationProfileId = state.sheetReservation?.reservation?.pricing_snapshot?.pricing_profile_id;
+        if (reservationProfileId && eligibleProfiles.some((profile) => profile.id === reservationProfileId)) {
+          select.value = reservationProfileId;
+          return;
+        }
+        select.value = '';
+      }
+
+      function renderSelectedPlanPricingPreview(pricing) {
+        const pricingEl = document.getElementById('sh-plan-preview-pricing');
+        if (!pricingEl) return;
+        if (!pricing) {
+          pricingEl.innerHTML = '<span style="color:#64748b">No pricing preview available yet.</span>';
+          return;
+        }
+
+        const breakdownRows = Array.isArray(pricing.nightly_breakdown) ? pricing.nightly_breakdown : [];
+        const rowsMarkup = breakdownRows.slice(0, 10).map((row) => {
+          const components = Array.isArray(row.room_type_components) ? row.room_type_components : [];
+          const componentLabel = components.length > 1
+            ? components.map((component) => `${escapeHtml(component.room_type_code || component.room_type_name || component.room_type_id || 'Type')} ×${Number(component.rooms_requested || 0)}`).join(', ')
+            : escapeHtml(row.room_type_code || row.room_type_name || row.room_type_id || 'Selected type');
+          return `<div>${escapeHtml(row.stay_date || '')}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}</div>`;
+        }).join('');
+
+        pricingEl.innerHTML = `
+          <div><strong>Selected plan pricing</strong>${pricing.pricing_profile?.name ? ` · ${escapeHtml(pricing.pricing_profile.name)}` : ''}</div>
+          <div style="margin-top:4px;color:#334155">Total: <strong>${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_amount, pricing.currency)}</strong>${Number(pricing.total_occupancy_adjustment || 0) ? ` · occupancy adj ${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_occupancy_adjustment, pricing.currency)}` : ''}</div>
+          <div style="margin-top:6px;display:grid;gap:3px">${rowsMarkup || '<span style="color:#64748b">No nightly pricing rows available.</span>'}</div>
+          ${breakdownRows.length > 10 ? `<div style="margin-top:4px;color:#64748b">Showing first 10 of ${breakdownRows.length} nights.</div>` : ''}
+          ${Array.isArray(pricing.missing_rate_dates) && pricing.missing_rate_dates.length ? `<div style="margin-top:4px;color:#991b1b">Missing rate dates: ${pricing.missing_rate_dates.map((item) => escapeHtml(item)).join(', ')}</div>` : ''}`;
+      }
+
       function renderReservationPlannerPreview() {
         const wrap = document.getElementById('sh-reservation-plan-preview');
         const summaryEl = document.getElementById('sh-plan-preview-summary');
+        const pricingEl = document.getElementById('sh-plan-preview-pricing');
         const conflictsEl = document.getElementById('sh-plan-preview-conflicts');
         const recsEl = document.getElementById('sh-plan-preview-recommendations');
-        if (!wrap || !summaryEl || !conflictsEl || !recsEl) return;
+        if (!wrap || !summaryEl || !pricingEl || !conflictsEl || !recsEl) return;
 
         if (state.sheetCreateMode !== 'reservation' || !state.sheetReservationPlanPreview) {
           wrap.hidden = true;
           summaryEl.innerHTML = '';
+          pricingEl.innerHTML = '';
           conflictsEl.innerHTML = '';
           recsEl.innerHTML = '';
           return;
@@ -2599,6 +2655,7 @@
         if (allotmentConsumption) {
           summaryEl.innerHTML += `<br><span style="color:#9a3412">Using operator block <strong>${escapeHtml(allotmentConsumption.operator_name || 'Operator')}</strong>: ${Number(allotmentConsumption.rooms_requested || 0)} of ${Number(allotmentConsumption.rooms_blocked || 0)} blocked room(s) will be consumed.${Number(allotmentConsumption.remaining_rooms_after_commit || 0) > 0 ? ` ${Number(allotmentConsumption.remaining_rooms_after_commit || 0)} room(s) remain reserved.` : ' The block will be fully released.'}</span>`;
         }
+        renderSelectedPlanPricingPreview(preview.selected_plan_pricing || null);
 
         const reservationConflicts = Array.isArray(preview.conflicts?.reservation_conflicts) ? preview.conflicts.reservation_conflicts : [];
         const holdConflicts = Array.isArray(preview.conflicts?.hold_conflicts) ? preview.conflicts.hold_conflicts : [];
@@ -2688,6 +2745,7 @@
         try {
           const preferredRoomUnitId = state.sheetCreateContext === 'allotment' ? null : state.sheetRoomUnit.id;
           const allotmentId = state.sheetCreateContext === 'allotment' ? (state.sheetActiveAllotment?.id || null) : null;
+          const pricingProfileId = document.getElementById('sf-walkin-pricing-profile')?.value || null;
           const preview = await api(`/api/properties/${state.selectedPropertyId}/reservations/plan`, {
             method: 'POST',
             body: JSON.stringify({
@@ -2695,6 +2753,9 @@
               check_in: checkIn,
               check_out: checkOut,
               rooms_requested: roomsRequested,
+              adults: Math.max(1, parseInt(document.getElementById('sf-walkin-adults')?.value || '1', 10) || 1),
+              children: Math.max(0, parseInt(document.getElementById('sf-walkin-children')?.value || '0', 10) || 0),
+              pricing_profile_id: pricingProfileId || null,
               preferred_room_unit_id: preferredRoomUnitId,
               allotment_id: allotmentId,
             }),
@@ -2707,6 +2768,7 @@
             conflicts: { shortage_dates: [], reservation_conflicts: [], hold_conflicts: [], maintenance_conflicts: [] },
             recommendations: [],
             selected_plan: null,
+            selected_plan_pricing: null,
             error: error.message,
           };
         }
@@ -2751,6 +2813,8 @@
           roomsInput.disabled = mode !== 'reservation';
           if (mode !== 'reservation') roomsInput.value = '1';
         }
+        const pricingProfileSelect = document.getElementById('sf-walkin-pricing-profile');
+        if (pricingProfileSelect) pricingProfileSelect.disabled = mode !== 'reservation';
         renderReservationPlannerPreview();
       }
 
@@ -3268,6 +3332,7 @@
         document.getElementById('sf-walkin-rooms').value = '1';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
+        renderSheetPricingProfileOptions();
         state.sheetActiveAllotment = null;
         state.sheetReservationPlanPreview = null;
         state.sheetCreateContext = res ? null : 'rack';
@@ -3347,6 +3412,7 @@
         if (!unit) return;
         setSheetCreateMode('reservation', createContext);
         state.sheetActiveAllotment = activeAllotment;
+        renderSheetPricingProfileOptions();
         document.getElementById('sh-guest-name').textContent = 'New Reservation';
         document.getElementById('sh-guest-sub').textContent = activeAllotment
           ? `${activeAllotment.operator_name || 'Operator block'} · ${activeAllotment.room_type_code || activeAllotment.room_type_name || unit.room_number} · ${checkIn} → ${checkOut}`
@@ -3435,6 +3501,7 @@
           state.addonServicePresets = [];
           state.roomTypes = [];
           state.roomRates = [];
+          state.pricingProfiles = [];
           state.rackAvailabilitySummary = {};
           state.housekeepingTasks = [];
           state.roomStatesByUnit = {};
@@ -3457,12 +3524,13 @@
           return;
         }
         const boardQuery = new URLSearchParams({ board_date: state.boardDate, status: state.boardStatus, limit: '120' }).toString();
-        const [reservationPayload, roomUnitsPayload, addonPresetsPayload, roomTypesPayload, roomRatesPayload, rackSummaryPayload, housekeepingPayload, holdsPayload, shiftHandoverPayload] = await Promise.all([
+        const [reservationPayload, roomUnitsPayload, addonPresetsPayload, roomTypesPayload, roomRatesPayload, pricingProfilesPayload, rackSummaryPayload, housekeepingPayload, holdsPayload, shiftHandoverPayload] = await Promise.all([
           api(`/api/properties/${state.selectedPropertyId}/reservations?${boardQuery}`),
           api(`/api/properties/${state.selectedPropertyId}/room-units`),
           api(`/api/properties/${state.selectedPropertyId}/addon-service-presets`),
           api(`/api/properties/${state.selectedPropertyId}/room-types`),
           api(`/api/properties/${state.selectedPropertyId}/room-rates`),
+          api(`/api/properties/${state.selectedPropertyId}/pricing-profiles`),
           api(`/api/properties/${state.selectedPropertyId}/room-rack-summary?from_date=${encodeURIComponent(state.boardDate)}&lookahead_days=90`),
           api(`/api/properties/${state.selectedPropertyId}/housekeeping-tasks?board_date=${encodeURIComponent(state.boardDate)}`),
           api(`/api/properties/${state.selectedPropertyId}/availability/holds`),
@@ -3473,6 +3541,7 @@
         state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
         state.roomTypes = roomTypesPayload.room_types || [];
         state.roomRates = roomRatesPayload.room_rates || [];
+        state.pricingProfiles = pricingProfilesPayload.pricing_profiles || [];
         state.rackAvailabilitySummary = Object.fromEntries((rackSummaryPayload.summary || []).map((entry) => [String(entry.room_unit_id), entry]));
         state.housekeepingTasks = housekeepingPayload.housekeeping_tasks || [];
         state.roomStatesByUnit = Object.fromEntries((housekeepingPayload.room_states || []).map((entry) => [String(entry.room_unit_id), entry]));
@@ -4082,7 +4151,7 @@
       document.getElementById('btn-save-requests').addEventListener('click', () => {
         setFlash('Notes saved in session.');
       });
-      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms'].forEach((id) => {
+      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile'].forEach((id) => {
         document.getElementById(id).addEventListener('change', () => {
           updateCreateReservationValidation();
           refreshReservationPlannerPreview().catch(() => {});
@@ -4213,7 +4282,11 @@
         const ci = document.getElementById('sf-rebook-ci').value;
         const co = document.getElementById('sf-rebook-co').value;
         if (!ci || !co) return setFlash('Set new check-in and check-out dates.', 'err');
-        sheetAction('rebook', { check_in: ci, check_out: co });
+        sheetAction('rebook', {
+          check_in: ci,
+          check_out: co,
+          pricing_profile_id: document.getElementById('sf-walkin-pricing-profile')?.value || null,
+        });
       });
       document.getElementById('btn-create-next-reservation').addEventListener('click', async () => {
         const res = state.sheetReservation?.reservation;
@@ -4281,6 +4354,7 @@
           const preferredRoomUnitId = state.sheetCreateMode === 'reservation' && state.sheetCreateContext !== 'allotment'
             ? state.sheetRoomUnit.id
             : null;
+          const pricingProfileId = document.getElementById('sf-walkin-pricing-profile')?.value || null;
           const created = await api(`/api/properties/${state.selectedPropertyId}/reservations`, {
             method: 'POST',
             body: JSON.stringify({
@@ -4290,6 +4364,7 @@
               rooms_requested: roomsRequested,
               preferred_room_unit_id: preferredRoomUnitId,
               allotment_id: allotmentId,
+              pricing_profile_id: pricingProfileId,
               guest_name: guestName,
               guest_phone: guestPhone || null,
               guest_email: guestEmail || null,

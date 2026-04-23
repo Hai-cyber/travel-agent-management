@@ -1574,6 +1574,32 @@ async function runPropertyPricingProfileSmoke(baseUrl, token) {
   }
   pass('Quote endpoint applies planner-only pricing profiles on top of base nightly rates');
 
+  const plannerPreview = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-10',
+      check_out: '2026-10-12',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+      pricing_profile_id: pricingProfileId,
+    }),
+  });
+  if (
+    !plannerPreview.response.ok
+    || plannerPreview.body?.can_fulfill !== true
+    || plannerPreview.body?.selected_plan_pricing?.pricing_profile?.id !== pricingProfileId
+    || Number(plannerPreview.body?.selected_plan_pricing?.total_amount) !== 170
+    || !Array.isArray(plannerPreview.body?.selected_plan_pricing?.nightly_breakdown)
+    || plannerPreview.body.selected_plan_pricing.nightly_breakdown.some((night) => Number(night.nightly_total) !== 85)
+  ) {
+    fail(`Planner preview did not expose selected-plan pricing with the chosen profile: ${plannerPreview.response.status} ${JSON.stringify(plannerPreview.body)}`);
+    return;
+  }
+  pass('Planner preview exposes selected-plan pricing with the chosen pricing profile before commit');
+
   const reservationCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
     method: 'POST',
     headers: authHeaders,
