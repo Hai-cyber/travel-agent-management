@@ -29,6 +29,7 @@ import {
 import {
   buildResolvedRateQuotePayload as pricingBuildResolvedRateQuotePayload,
   buildReservationPricingSnapshot as pricingBuildReservationPricingSnapshot,
+  buildSelectedPlanPricingPreview as pricingBuildSelectedPlanPricingPreview,
   parseReservationPricingSnapshotValue as pricingParseReservationPricingSnapshotValue,
   resolveFrozenReservationPricingSnapshot as pricingResolveFrozenReservationPricingSnapshot,
   resolvePropertyRateQuote as pricingResolvePropertyRateQuote,
@@ -71,7 +72,7 @@ import {
   validateShiftHandoverPatchRequest,
 } from './properties/validators.js';
 
-const pricingSnapshotDeps = {
+const pricingDeps = {
   loadPropertyById,
   loadPropertyPricingProfileById,
   loadRoomTypeById,
@@ -1533,201 +1534,6 @@ function applyPreviewScarcityPricing(nightlyBreakdown, nightlyRemainingByType, s
   };
 }
 
-async function buildSelectedPlanPricingPreview(env, tenantId, propertyId, requestInput, selectedPlan, options = {}) {
-  if (!selectedPlan?.segments?.length) return { pricing: null };
-
-  const property = await loadPropertyById(env, tenantId, propertyId);
-  if (!property) return { error: { status: 404, payload: { error: 'Property not found.' } } };
-
-  const pricingProfileId = options.pricingProfileId ? String(options.pricingProfileId).trim() : null;
-  const pricingProfile = pricingProfileId
-    ? await loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId)
-    : null;
-  if (pricingProfileId) {
-    if (!pricingProfile) return { error: { status: 404, payload: { error: 'Pricing profile not found.' } } };
-    if (!pricingProfile.active) return { error: { status: 409, payload: { error: 'Pricing profile is inactive.' } } };
-  }
-
-  const activeSeasonsResult = await env.DB
-    .prepare(
-      `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
-         FROM property_rate_seasons
-        WHERE tenant_id = ? AND property_id = ? AND active = 1
-        ORDER BY sort_order ASC, start_date ASC, created_at ASC`
-    )
-    .bind(tenantId, propertyId)
-    .all();
-  const activeSeasons = (activeSeasonsResult.results || []).map(mapRateSeasonRow);
-
-  const roomTypeIds = Array.from(new Set((selectedPlan.segments || []).map((segment) => String(segment.room_type_id || '').trim()).filter(Boolean)));
-  const roomTypeContexts = new Map();
-
-  await Promise.all(roomTypeIds.map(async (roomTypeId) => {
-    const [roomType, baseRateRow, seasonRatesResult, weekdayRulesResult] = await Promise.all([
-      loadRoomTypeById(env, tenantId, propertyId, roomTypeId),
-      env.DB.prepare(
-        `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
-                included_adults, included_children, extra_adult_amount, extra_child_amount,
-                active, created_at, updated_at
-           FROM property_room_rates
-          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
-          ORDER BY updated_at DESC, created_at DESC
-          LIMIT 1`
-      ).bind(tenantId, propertyId, roomTypeId).first(),
-      env.DB.prepare(
-        `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
-                included_adults, included_children, extra_adult_amount, extra_child_amount,
-                active, created_at, updated_at
-           FROM property_room_rate_season_prices
-          WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
-      ).bind(tenantId, propertyId, roomTypeId).all(),
-      env.DB.prepare(
-        `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
-                pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
-                pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
-                rt.code AS room_type_code, rt.name AS room_type_name
-           FROM property_weekday_pricing_rules pwr
-           LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
-          WHERE pwr.tenant_id = ?
-            AND pwr.property_id = ?
-            AND pwr.active = 1
-            AND (pwr.room_type_id IS NULL OR pwr.room_type_id = ?)
-          ORDER BY CASE WHEN pwr.room_type_id = ? THEN 0 ELSE 1 END ASC, pwr.day_of_week ASC, pwr.created_at ASC`
-      ).bind(tenantId, propertyId, roomTypeId, roomTypeId).all(),
-    ]);
-
-    roomTypeContexts.set(roomTypeId, {
-      roomType,
-      baseRate: baseRateRow ? mapRoomRateRow(baseRateRow) : null,
-      seasonRatesByKey: new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)])),
-      weekdayRules: (weekdayRulesResult.results || []).map(mapPropertyWeekdayPricingRuleRow),
-    });
-  }));
-
-  const stayDates = enumerateStayDates(requestInput.checkIn, requestInput.checkOut);
-  const nightlyBreakdown = stayDates.map((stayDate) => {
-    const segmentsForNight = (selectedPlan.segments || []).filter((segment) => segment.check_in <= stayDate && segment.check_out > stayDate);
-    if (!segmentsForNight.length) {
-      return {
-        stay_date: stayDate,
-        source: 'missing_plan_segment',
-        currency: property.currency,
-        nightly_amount: null,
-        nightly_total: null,
-        room_type_components: [],
-        occupancy_adjustment: null,
-      };
-    }
-
-    const roomsByType = new Map();
-    for (const segment of segmentsForNight) {
-      const roomTypeId = String(segment.room_type_id || '').trim();
-      roomsByType.set(roomTypeId, (roomsByType.get(roomTypeId) || 0) + 1);
-    }
-
-    const roomTypeComponents = Array.from(roomsByType.entries()).map(([roomTypeId, roomsRequestedForType]) => {
-      const context = roomTypeContexts.get(roomTypeId);
-      const resolved = context
-        ? resolveNightlyRateForDate(stayDate, activeSeasons, context.seasonRatesByKey, context.baseRate)
-        : null;
-      const weekdayAdjusted = context
-        ? applyPropertyWeekdayPricingRuleToResolvedRate(resolved, selectApplicablePropertyWeekdayPricingRule(context.weekdayRules, roomTypeId, stayDate), stayDate)
-        : null;
-      const applicableProfile = pricingProfile && (!pricingProfile.room_type_id || String(pricingProfile.room_type_id) === roomTypeId)
-        ? pricingProfile
-        : null;
-      const quotedRate = applyPropertyPricingProfileToResolvedRate(weekdayAdjusted, applicableProfile);
-      return {
-        room_type_id: roomTypeId,
-        room_type_code: context?.roomType?.code || null,
-        room_type_name: context?.roomType?.name || null,
-        rooms_requested: roomsRequestedForType,
-        source: quotedRate?.source || 'missing_rate',
-        season_name: quotedRate?.season_name || null,
-        currency: quotedRate?.currency || property.currency,
-        nightly_amount: quotedRate ? Number(quotedRate.nightly_amount) : null,
-        nightly_total: quotedRate ? Number(quotedRate.nightly_amount) * roomsRequestedForType : null,
-        weekday_adjustment: quotedRate?.weekday_pricing_rule_applied
-          ? {
-              id: quotedRate.weekday_pricing_rule_id,
-              name: quotedRate.weekday_pricing_rule_name,
-              day_name: quotedRate.weekday_pricing_rule_day_name,
-              pricing_mode: quotedRate.weekday_pricing_rule_mode,
-              adjustment_amount: quotedRate.weekday_pricing_rule_adjustment_amount,
-              adjustment_percent: quotedRate.weekday_pricing_rule_adjustment_percent,
-            }
-          : null,
-        pricing_profile: quotedRate?.pricing_profile_applied ? mapPricingProfileQuoteSummary(applicableProfile) : null,
-        included_adults: quotedRate ? Number(quotedRate.included_adults) : null,
-        included_children: quotedRate ? Number(quotedRate.included_children) : null,
-        extra_adult_amount: quotedRate ? Number(quotedRate.extra_adult_amount || 0) : null,
-        extra_child_amount: quotedRate ? Number(quotedRate.extra_child_amount || 0) : null,
-      };
-    });
-
-    const priceableComponents = roomTypeComponents.filter((component) => Number.isFinite(Number(component.nightly_amount)));
-    const nightlyBaseTotal = priceableComponents.reduce((sum, component) => sum + Number(component.nightly_total || 0), 0);
-    const occupancyBasis = roomTypeComponents.length === 1 ? roomTypeComponents[0] : null;
-    const occupancyAdjustment = occupancyBasis && Number.isFinite(Number(occupancyBasis.nightly_amount))
-      ? calculateOccupancyAdjustment(
-          {
-            included_adults: occupancyBasis.included_adults,
-            included_children: occupancyBasis.included_children,
-            extra_adult_amount: occupancyBasis.extra_adult_amount,
-            extra_child_amount: occupancyBasis.extra_child_amount,
-          },
-          requestInput.adults,
-          requestInput.children,
-          Number(occupancyBasis.rooms_requested || 1),
-        )
-      : null;
-
-    return {
-      stay_date: stayDate,
-      currency: roomTypeComponents.find((component) => component.currency)?.currency || property.currency,
-      source: roomTypeComponents.length === 1 ? roomTypeComponents[0].source : 'selected_plan_mix',
-      season_name: roomTypeComponents.length === 1 ? roomTypeComponents[0].season_name : null,
-      room_type_id: roomTypeComponents.length === 1 ? roomTypeComponents[0].room_type_id : null,
-      room_type_code: roomTypeComponents.length === 1 ? roomTypeComponents[0].room_type_code : null,
-      room_type_name: roomTypeComponents.length === 1 ? roomTypeComponents[0].room_type_name : null,
-      rooms_requested: segmentsForNight.length,
-      nightly_amount: roomTypeComponents.length === 1 ? roomTypeComponents[0].nightly_amount : null,
-      nightly_base_total: nightlyBaseTotal,
-      occupancy_adjustment: occupancyAdjustment,
-      nightly_total: Number(nightlyBaseTotal + Number(occupancyAdjustment?.adjustment_amount || 0)),
-      room_type_components: roomTypeComponents,
-      pricing_profile: roomTypeComponents.length === 1 ? roomTypeComponents[0].pricing_profile : null,
-      weekday_adjustment: roomTypeComponents.length === 1 ? roomTypeComponents[0].weekday_adjustment : null,
-    };
-  });
-
-  const scarcityPreviewApplied = applyPreviewScarcityPricing(
-    nightlyBreakdown,
-    options.nightlyRemainingByType || null,
-    options.scarcityPreview || null,
-    nightlyBreakdown.find((row) => row.currency)?.currency || property.currency,
-  );
-  const scarcityNightlyBreakdown = scarcityPreviewApplied.nightlyBreakdown;
-  const missingDates = scarcityNightlyBreakdown.filter((row) => !Number.isFinite(Number(row.nightly_total))).map((row) => row.stay_date);
-  const totalBaseAmount = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
-  const totalOccupancyAdjustment = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
-  const totalAmount = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
-
-  return {
-    pricing: {
-      currency: scarcityNightlyBreakdown.find((row) => row.currency)?.currency || property.currency,
-      pricing_profile: mapPricingProfileQuoteSummary(pricingProfile),
-      nightly_breakdown: scarcityNightlyBreakdown,
-      missing_rate_dates: missingDates,
-      total_base_amount: totalBaseAmount,
-      total_occupancy_adjustment: totalOccupancyAdjustment,
-      total_amount: totalAmount,
-      selected_plan_type: selectedPlan.plan_type || null,
-      scarcity_preview: scarcityPreviewApplied.scarcityPreview,
-    },
-  };
-}
-
 async function recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
   const now = Date.now();
   await env.DB
@@ -3074,7 +2880,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
   try {
-    const quote = await pricingResolvePropertyRateQuote(env, tenantId, propertyId, parsed, pricingSnapshotDeps);
+    const quote = await pricingResolvePropertyRateQuote(env, tenantId, propertyId, parsed, pricingDeps);
     if (quote.error) return jsonResponse(quote.error.payload, quote.error.status);
     return jsonResponse(pricingBuildResolvedRateQuotePayload(propertyId, parsed, quote));
   } catch (error) {
@@ -5108,7 +4914,7 @@ export async function handlePlanPropertyReservation(request, env, params) {
     });
 
     if (payload.selected_plan) {
-      const selectedPlanPricing = await buildSelectedPlanPricingPreview(env, tenantId, parsedRequest.propertyId, {
+      const selectedPlanPricing = await pricingBuildSelectedPlanPricingPreview(env, tenantId, parsedRequest.propertyId, {
         checkIn: parsedRequest.checkIn,
         checkOut: parsedRequest.checkOut,
         adults: pricingPreviewRequest.adults,
@@ -5117,7 +4923,7 @@ export async function handlePlanPropertyReservation(request, env, params) {
         pricingProfileId: pricingPreviewRequest.pricingProfileId,
         scarcityPreview: pricingPreviewRequest.scarcityPreview,
         nightlyRemainingByType: availability.nightlyRemainingByType,
-      });
+      }, pricingDeps);
       if (selectedPlanPricing.error) {
         return jsonResponse(selectedPlanPricing.error.payload, selectedPlanPricing.error.status);
       }
@@ -5455,7 +5261,7 @@ export async function handleCreatePropertyReservation(request, env, params) {
     const frozenPricing = await pricingResolveFrozenReservationPricingSnapshot(env, tenantId, parsedRequest.propertyId, parsedRequest, {
       fallbackSnapshot: parsedRequest.pricingSnapshot,
       frozenAt: confirmedAt,
-    }, pricingSnapshotDeps);
+    }, pricingDeps);
     if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
     parsedRequest.pricingSnapshot = JSON.stringify(frozenPricing.snapshot);
     const artifacts = await createReservationArtifacts(env, tenantId, reservationId, parsedRequest.propertyId, parsedRequest, selectedPlan, confirmedAt);
@@ -5981,7 +5787,7 @@ export async function handleRebookPropertyReservation(request, env, params) {
     const frozenPricing = await pricingResolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, parsedRequest, {
       fallbackSnapshot: parsedRequest.pricingSnapshot,
       frozenAt: now,
-    }, pricingSnapshotDeps);
+    }, pricingDeps);
     if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
     await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
     await env.DB
