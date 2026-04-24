@@ -26,24 +26,11 @@ import {
   mapSeasonRateRow,
   parseJsonSafe,
 } from './properties/mappers.js';
-import {
-  buildAllotmentConsumptionSummary as availabilityBuildAllotmentConsumptionSummary,
-  buildAvailabilityPayload as availabilityBuildAvailabilityPayload,
-  buildPreferredRoomUnitConflicts as availabilityBuildPreferredRoomUnitConflicts,
-  buildReservationPlanningConflicts as availabilityBuildReservationPlanningConflicts,
-  buildReservationPlanningPayload as availabilityBuildReservationPlanningPayload,
-  calculateAvailability as availabilityCalculateAvailability,
-  selectBestPlan as availabilitySelectBestPlan,
-} from './properties/availability.js';
 import { createPlanningHandlers } from './properties/planning-handlers.js';
 import { createFolioHousekeepingHandlers } from './properties/folio-housekeeping-handlers.js';
 import { createReservationHandlers } from './properties/reservation-handlers.js';
 import {
   buildResolvedRateQuotePayload as pricingBuildResolvedRateQuotePayload,
-  buildReservationPricingSnapshot as pricingBuildReservationPricingSnapshot,
-  buildSelectedPlanPricingPreview as pricingBuildSelectedPlanPricingPreview,
-  parseReservationPricingSnapshotValue as pricingParseReservationPricingSnapshotValue,
-  resolveFrozenReservationPricingSnapshot as pricingResolveFrozenReservationPricingSnapshot,
   resolvePropertyRateQuote as pricingResolvePropertyRateQuote,
   resolveSnapshotNightlyRate as pricingResolveSnapshotNightlyRate,
 } from './properties/pricing.js';
@@ -96,44 +83,6 @@ const pricingDeps = {
 const availabilityDeps = {
   loadRoomUnitById,
 };
-
-const planningHandlers = createPlanningHandlers({
-  availabilityDeps,
-  jsonResponse,
-  loadActiveHold,
-  loadPropertyAllotmentById,
-  loadPropertyById,
-  loadRoomUnitById,
-  parseJsonBody,
-  pricingDeps,
-  requireTenantActor,
-  resolveTenantId,
-  validateAllotmentConsumptionRequest,
-  validateAvailabilityRequest,
-  validatePlannerPricingPreviewRequest,
-});
-
-const reservationHandlers = createReservationHandlers({
-  buildReservationGuestPhotoKey,
-  detectFileExtension,
-  ensureHousekeepingTaskForTurnover,
-  imageResponse,
-  jsonResponse,
-  loadActiveHold,
-  loadPropertyAllotmentById,
-  loadPropertyById,
-  loadRoomUnitById,
-  parseJsonBody,
-  pricingDeps,
-  recordRoomStateEvent,
-  requireTenantActor,
-  resolveTenantId,
-  validateAllotmentConsumptionRequest,
-  validateEarlyCheckoutRequest,
-  validateReservationCreateRequest,
-  validateReservationRebookRequest,
-  validateReservationRoomAssignmentRequest,
-});
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -190,6 +139,54 @@ async function requireTenantActor(request, env, tenantId) {
 // Manager+ required for property/room configuration (not operational use).
 // owner=4, manager=3, staff=2, provider=1
 const PROPERTY_ROLE_RANK = { owner: 4, manager: 3, staff: 2, provider: 1 };
+
+async function requireManagerActor(request, env, tenantId) {
+  const result = await requireTenantActor(request, env, tenantId);
+  if (result.error) return result;
+  if ((PROPERTY_ROLE_RANK[result.session.role] ?? 0) < 3) {
+    return { error: jsonResponse({ error: 'Manager or owner access required.' }, 403) };
+  }
+  return result;
+}
+
+const planningHandlers = createPlanningHandlers({
+  availabilityDeps,
+  jsonResponse,
+  loadActiveHold,
+  loadPropertyAllotmentById,
+  loadPropertyById,
+  loadRoomUnitById,
+  parseJsonBody,
+  pricingDeps,
+  requireTenantActor,
+  resolveTenantId,
+  validateAllotmentConsumptionRequest,
+  validateAvailabilityRequest,
+  validatePlannerPricingPreviewRequest,
+});
+
+const reservationHandlers = createReservationHandlers({
+  buildReservationGuestPhotoKey,
+  detectFileExtension,
+  ensureHousekeepingTaskForTurnover,
+  imageResponse,
+  jsonResponse,
+  loadActiveHold,
+  loadPropertyAllotmentById,
+  loadPropertyById,
+  loadRoomUnitById,
+  parseJsonBody,
+  pricingDeps,
+  recordRoomStateEvent,
+  requireTenantActor,
+  resolveTenantId,
+  validateAllotmentConsumptionRequest,
+  validateEarlyCheckoutRequest,
+  validateReservationCreateRequest,
+  validateReservationRebookRequest,
+  validateReservationRoomAssignmentRequest,
+});
+
 const folioHousekeepingHandlers = createFolioHousekeepingHandlers({
   PROPERTY_ROLE_RANK,
   buildDynamicUpdateSql,
@@ -214,15 +211,6 @@ const folioHousekeepingHandlers = createFolioHousekeepingHandlers({
   validateFolioPaymentRequest,
   validateHousekeepingTaskPatchRequest,
 });
-
-async function requireManagerActor(request, env, tenantId) {
-  const result = await requireTenantActor(request, env, tenantId);
-  if (result.error) return result;
-  if ((PROPERTY_ROLE_RANK[result.session.role] ?? 0) < 3) {
-    return { error: jsonResponse({ error: 'Manager or owner access required.' }, 403) };
-  }
-  return result;
-}
 
 function rangesOverlap(startA, endA, startB, endB) {
   return startA < endB && startB < endA;
@@ -3229,109 +3217,32 @@ export async function runPropertyNightAuditForDate(env, auditDate) {
   return { ok: true, audit_date: targetDate, room_charge_lines_posted: postedCount };
 }
 
-export async function handleGetPropertyReservationFolio(request, env, params) {
-  return folioHousekeepingHandlers.handleGetPropertyReservationFolio(request, env, params);
-}
-
-export async function handleCreatePropertyReservationFolioLine(request, env, params) {
-  return folioHousekeepingHandlers.handleCreatePropertyReservationFolioLine(request, env, params);
-}
-
-export async function handleCreatePropertyReservationFolioPayment(request, env, params) {
-  return folioHousekeepingHandlers.handleCreatePropertyReservationFolioPayment(request, env, params);
-}
-
-export async function handleUploadReservationGuestPhoto(request, env, params) {
-  return reservationHandlers.handleUploadReservationGuestPhoto(request, env, params);
-}
-
-export async function handleGetReservationGuestPhoto(request, env, params) {
-  return reservationHandlers.handleGetReservationGuestPhoto(request, env, params);
-}
-
-export async function handleListPropertyAvailabilityHolds(request, env, params) {
-  return planningHandlers.handleListPropertyAvailabilityHolds(request, env, params);
-}
-
-export async function handleRunPropertyNightAudit(request, env, params) {
-  return folioHousekeepingHandlers.handleRunPropertyNightAudit(request, env, params);
-}
-
-export async function handleListHousekeepingTasks(request, env, params) {
-  return folioHousekeepingHandlers.handleListHousekeepingTasks(request, env, params);
-}
-
-export async function handleSyncHousekeepingTasks(request, env, params) {
-  return folioHousekeepingHandlers.handleSyncHousekeepingTasks(request, env, params);
-}
-
-export async function handleUpdateHousekeepingTask(request, env, params) {
-  return folioHousekeepingHandlers.handleUpdateHousekeepingTask(request, env, params);
-}
-
-export async function handleCheckPropertyAvailability(request, env, params) {
-  return planningHandlers.handleCheckPropertyAvailability(request, env, params);
-}
-
-export async function handlePlanPropertyReservation(request, env, params) {
-  return planningHandlers.handlePlanPropertyReservation(request, env, params);
-}
-
-export async function handlePlanPropertyReservationExtension(request, env, params) {
-  return planningHandlers.handlePlanPropertyReservationExtension(request, env, params);
-}
-
-export async function handleCreatePropertyAvailabilityHold(request, env, params) {
-  return planningHandlers.handleCreatePropertyAvailabilityHold(request, env, params);
-}
-
-export async function handleCreatePropertyReservation(request, env, params) {
-  return reservationHandlers.handleCreatePropertyReservation(request, env, params);
-}
-
-export async function handleListPropertyReservations(request, env, params) {
-  return reservationHandlers.handleListPropertyReservations(request, env, params);
-}
-
-export async function handleReleasePropertyAvailabilityHold(request, env, params) {
-  return planningHandlers.handleReleasePropertyAvailabilityHold(request, env, params);
-}
-
-export async function handleGetPropertyReservation(request, env, params) {
-  return reservationHandlers.handleGetPropertyReservation(request, env, params);
-}
-
-export async function handleUpdatePropertyReservationAssignment(request, env, params) {
-  return reservationHandlers.handleUpdatePropertyReservationAssignment(request, env, params);
-}
-
-export async function handleCancelPropertyReservation(request, env, params) {
-  return reservationHandlers.handleCancelPropertyReservation(request, env, params);
-}
-
-export async function handleRebookPropertyReservation(request, env, params) {
-  return reservationHandlers.handleRebookPropertyReservation(request, env, params);
-}
-
-export async function handleCheckInPropertyReservation(request, env, params) {
-  return reservationHandlers.handleCheckInPropertyReservation(request, env, params);
-}
-
-export async function handleCheckOutPropertyReservation(request, env, params) {
-  return reservationHandlers.handleCheckOutPropertyReservation(request, env, params);
-}
-
-export async function handleEarlyCheckOutPropertyReservation(request, env, params) {
-  return reservationHandlers.handleEarlyCheckOutPropertyReservation(request, env, params);
-}
-
-export async function handleNoShowPropertyReservation(request, env, params) {
-  return reservationHandlers.handleNoShowPropertyReservation(request, env, params);
-}
-
-export async function handleUndoPropertyReservationStatus(request, env, params) {
-  return reservationHandlers.handleUndoPropertyReservationStatus(request, env, params);
-}
+export const handleGetPropertyReservationFolio = folioHousekeepingHandlers.handleGetPropertyReservationFolio;
+export const handleCreatePropertyReservationFolioLine = folioHousekeepingHandlers.handleCreatePropertyReservationFolioLine;
+export const handleCreatePropertyReservationFolioPayment = folioHousekeepingHandlers.handleCreatePropertyReservationFolioPayment;
+export const handleUploadReservationGuestPhoto = reservationHandlers.handleUploadReservationGuestPhoto;
+export const handleGetReservationGuestPhoto = reservationHandlers.handleGetReservationGuestPhoto;
+export const handleListPropertyAvailabilityHolds = planningHandlers.handleListPropertyAvailabilityHolds;
+export const handleRunPropertyNightAudit = folioHousekeepingHandlers.handleRunPropertyNightAudit;
+export const handleListHousekeepingTasks = folioHousekeepingHandlers.handleListHousekeepingTasks;
+export const handleSyncHousekeepingTasks = folioHousekeepingHandlers.handleSyncHousekeepingTasks;
+export const handleUpdateHousekeepingTask = folioHousekeepingHandlers.handleUpdateHousekeepingTask;
+export const handleCheckPropertyAvailability = planningHandlers.handleCheckPropertyAvailability;
+export const handlePlanPropertyReservation = planningHandlers.handlePlanPropertyReservation;
+export const handlePlanPropertyReservationExtension = planningHandlers.handlePlanPropertyReservationExtension;
+export const handleCreatePropertyAvailabilityHold = planningHandlers.handleCreatePropertyAvailabilityHold;
+export const handleCreatePropertyReservation = reservationHandlers.handleCreatePropertyReservation;
+export const handleListPropertyReservations = reservationHandlers.handleListPropertyReservations;
+export const handleReleasePropertyAvailabilityHold = planningHandlers.handleReleasePropertyAvailabilityHold;
+export const handleGetPropertyReservation = reservationHandlers.handleGetPropertyReservation;
+export const handleUpdatePropertyReservationAssignment = reservationHandlers.handleUpdatePropertyReservationAssignment;
+export const handleCancelPropertyReservation = reservationHandlers.handleCancelPropertyReservation;
+export const handleRebookPropertyReservation = reservationHandlers.handleRebookPropertyReservation;
+export const handleCheckInPropertyReservation = reservationHandlers.handleCheckInPropertyReservation;
+export const handleCheckOutPropertyReservation = reservationHandlers.handleCheckOutPropertyReservation;
+export const handleEarlyCheckOutPropertyReservation = reservationHandlers.handleEarlyCheckOutPropertyReservation;
+export const handleNoShowPropertyReservation = reservationHandlers.handleNoShowPropertyReservation;
+export const handleUndoPropertyReservationStatus = reservationHandlers.handleUndoPropertyReservationStatus;
 
 export async function handleDeleteProperty(request, env, params) {
   const tenantId = resolveTenantId(request);
