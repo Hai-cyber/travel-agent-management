@@ -27,8 +27,10 @@ import {
   parseJsonSafe,
 } from './properties/mappers.js';
 import {
+  buildResolvedRateQuotePayload as pricingBuildResolvedRateQuotePayload,
   buildReservationPricingSnapshot as pricingBuildReservationPricingSnapshot,
   parseReservationPricingSnapshotValue as pricingParseReservationPricingSnapshotValue,
+  resolveFrozenReservationPricingSnapshot as pricingResolveFrozenReservationPricingSnapshot,
   resolveSnapshotNightlyRate as pricingResolveSnapshotNightlyRate,
 } from './properties/pricing.js';
 import {
@@ -67,6 +69,10 @@ import {
   validateSeasonRoomRatePatchRequest,
   validateShiftHandoverPatchRequest,
 } from './properties/validators.js';
+
+const pricingSnapshotDeps = {
+  resolvePropertyRateQuote,
+};
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -1882,56 +1888,6 @@ async function resolvePropertyRateQuote(env, tenantId, propertyId, parsed) {
   };
 }
 
-function buildResolvedRateQuotePayload(propertyId, parsed, quote) {
-  return {
-    ok: true,
-    property_id: propertyId,
-    room_type_id: parsed.roomTypeId,
-    request: {
-      check_in: parsed.checkIn,
-      check_out: parsed.checkOut,
-      adults: parsed.adults,
-      children: parsed.children,
-      rooms_requested: parsed.roomsRequested,
-      room_guest_assignments: parsed.roomGuestAssignments,
-      pricing_profile_id: parsed.pricingProfileId,
-    },
-    pricing: {
-      currency: quote.currency,
-      pricing_profile: mapPricingProfileQuoteSummary(quote.pricingProfile),
-      nightly_breakdown: quote.nightlyBreakdown,
-      missing_rate_dates: quote.missingDates,
-      total_base_amount: quote.totalBaseAmount,
-      total_occupancy_adjustment: quote.totalOccupancyAdjustment,
-      total_amount: quote.totalAmount,
-      source_summary: quote.sourceSummary,
-    },
-  };
-}
-
-async function resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, reservationInput, options = {}) {
-  const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, {
-    roomTypeId: reservationInput.roomTypeId,
-    checkIn: reservationInput.checkIn,
-    checkOut: reservationInput.checkOut,
-    adults: reservationInput.adults,
-    children: reservationInput.children,
-    roomsRequested: reservationInput.roomsRequested,
-    roomGuestAssignments: reservationInput.roomGuestAssignments || null,
-    pricingProfileId: reservationInput.pricingProfileId || null,
-  });
-  if (quote.error) return { error: quote.error };
-
-  return {
-    snapshot: pricingBuildReservationPricingSnapshot(
-      quote,
-      reservationInput,
-      Number(options.frozenAt || currentUnixSeconds()),
-      pricingParseReservationPricingSnapshotValue(options.fallbackSnapshot || null),
-    ),
-  };
-}
-
 async function recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
   const now = Date.now();
   await env.DB
@@ -3280,7 +3236,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
   try {
     const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, parsed);
     if (quote.error) return jsonResponse(quote.error.payload, quote.error.status);
-    return jsonResponse(buildResolvedRateQuotePayload(propertyId, parsed, quote));
+    return jsonResponse(pricingBuildResolvedRateQuotePayload(propertyId, parsed, quote));
   } catch (error) {
     console.error('[PROPERTY_RATE_QUOTE]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
@@ -5656,10 +5612,10 @@ export async function handleCreatePropertyReservation(request, env, params) {
 
     const reservationId = nanoid();
     const confirmedAt = currentUnixSeconds();
-    const frozenPricing = await resolveFrozenReservationPricingSnapshot(env, tenantId, parsedRequest.propertyId, parsedRequest, {
+    const frozenPricing = await pricingResolveFrozenReservationPricingSnapshot(env, tenantId, parsedRequest.propertyId, parsedRequest, {
       fallbackSnapshot: parsedRequest.pricingSnapshot,
       frozenAt: confirmedAt,
-    });
+    }, pricingSnapshotDeps);
     if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
     parsedRequest.pricingSnapshot = JSON.stringify(frozenPricing.snapshot);
     const artifacts = await createReservationArtifacts(env, tenantId, reservationId, parsedRequest.propertyId, parsedRequest, selectedPlan, confirmedAt);
@@ -6182,10 +6138,10 @@ export async function handleRebookPropertyReservation(request, env, params) {
     }
 
     const now = currentUnixSeconds();
-    const frozenPricing = await resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, parsedRequest, {
+    const frozenPricing = await pricingResolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, parsedRequest, {
       fallbackSnapshot: parsedRequest.pricingSnapshot,
       frozenAt: now,
-    });
+    }, pricingSnapshotDeps);
     if (frozenPricing.error) return jsonResponse(frozenPricing.error.payload, frozenPricing.error.status);
     await discardReservationStayPlanState(env, tenantId, propertyId, reservationId);
     await env.DB

@@ -743,7 +743,8 @@ function buildReservationPricingSnapshot(quote, reservationInput, frozenAt, fall
 }
 
 async function resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, reservationInput, options = {}, deps) {
-  const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, {
+  const quoteResolver = deps?.resolvePropertyRateQuote || resolvePropertyRateQuote;
+  const quote = await quoteResolver(env, tenantId, propertyId, {
     roomTypeId: reservationInput.roomTypeId,
     checkIn: reservationInput.checkIn,
     checkOut: reservationInput.checkOut,
