@@ -31,6 +31,7 @@ import {
   buildReservationPricingSnapshot as pricingBuildReservationPricingSnapshot,
   parseReservationPricingSnapshotValue as pricingParseReservationPricingSnapshotValue,
   resolveFrozenReservationPricingSnapshot as pricingResolveFrozenReservationPricingSnapshot,
+  resolvePropertyRateQuote as pricingResolvePropertyRateQuote,
   resolveSnapshotNightlyRate as pricingResolveSnapshotNightlyRate,
 } from './properties/pricing.js';
 import {
@@ -71,7 +72,9 @@ import {
 } from './properties/validators.js';
 
 const pricingSnapshotDeps = {
-  resolvePropertyRateQuote,
+  loadPropertyById,
+  loadPropertyPricingProfileById,
+  loadRoomTypeById,
 };
 
 function jsonResponse(payload, status = 200) {
@@ -1725,169 +1728,6 @@ async function buildSelectedPlanPricingPreview(env, tenantId, propertyId, reques
   };
 }
 
-async function resolvePropertyRateQuote(env, tenantId, propertyId, parsed) {
-  const property = await loadPropertyById(env, tenantId, propertyId);
-  if (!property) return { error: { payload: { error: 'Property not found.' }, status: 404 } };
-
-  const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
-  if (!roomType) return { error: { payload: { error: 'Room type not found.' }, status: 404 } };
-
-  const totalGuests = Number(parsed.adults || 0) + Number(parsed.children || 0);
-  const maxGuests = Number(roomType.max_occupancy || 0) * Number(parsed.roomsRequested || 1);
-  if (maxGuests > 0 && totalGuests > maxGuests) {
-    return {
-      error: {
-        payload: { error: `Guest mix exceeds the configured max occupancy for ${parsed.roomsRequested} room(s).` },
-        status: 409,
-      },
-    };
-  }
-
-  const [baseRateRow, seasonsResult, seasonRatesResult, weekdayRulesResult, pricingProfile] = await Promise.all([
-    env.DB.prepare(
-      `SELECT id, tenant_id, property_id, room_type_id, rate_name, currency, nightly_amount,
-              included_adults, included_children, extra_adult_amount, extra_child_amount,
-              active, created_at, updated_at
-         FROM property_room_rates
-        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1
-        ORDER BY updated_at DESC, created_at DESC
-        LIMIT 1`
-    ).bind(tenantId, propertyId, parsed.roomTypeId).first(),
-    env.DB.prepare(
-      `SELECT id, tenant_id, property_id, name, start_date, end_date, sort_order, active, created_at, updated_at
-         FROM property_rate_seasons
-        WHERE tenant_id = ? AND property_id = ? AND active = 1
-        ORDER BY sort_order ASC, start_date ASC, created_at ASC`
-    ).bind(tenantId, propertyId).all(),
-    env.DB.prepare(
-      `SELECT id, tenant_id, property_id, season_id, room_type_id, currency, nightly_amount,
-              included_adults, included_children, extra_adult_amount, extra_child_amount,
-              active, created_at, updated_at
-         FROM property_room_rate_season_prices
-        WHERE tenant_id = ? AND property_id = ? AND room_type_id = ? AND active = 1`
-    ).bind(tenantId, propertyId, parsed.roomTypeId).all(),
-    env.DB.prepare(
-      `SELECT pwr.id, pwr.tenant_id, pwr.property_id, pwr.room_type_id, pwr.day_of_week, pwr.name,
-              pwr.pricing_mode, pwr.fixed_nightly_amount, pwr.delta_amount, pwr.delta_percent,
-              pwr.notes, pwr.active, pwr.created_by, pwr.updated_by, pwr.created_at, pwr.updated_at,
-              rt.code AS room_type_code, rt.name AS room_type_name
-         FROM property_weekday_pricing_rules pwr
-         LEFT JOIN room_types rt ON rt.id = pwr.room_type_id AND rt.tenant_id = pwr.tenant_id AND rt.property_id = pwr.property_id
-        WHERE pwr.tenant_id = ?
-          AND pwr.property_id = ?
-          AND pwr.active = 1
-          AND (pwr.room_type_id IS NULL OR pwr.room_type_id = ?)
-        ORDER BY CASE WHEN pwr.room_type_id = ? THEN 0 ELSE 1 END ASC, pwr.day_of_week ASC, pwr.created_at ASC`
-    ).bind(tenantId, propertyId, parsed.roomTypeId, parsed.roomTypeId).all(),
-    parsed.pricingProfileId
-      ? loadPropertyPricingProfileById(env, tenantId, propertyId, parsed.pricingProfileId)
-      : Promise.resolve(null),
-  ]);
-
-  if (parsed.pricingProfileId) {
-    if (!pricingProfile) return { error: { payload: { error: 'Pricing profile not found.' }, status: 404 } };
-    if (!pricingProfile.active) return { error: { payload: { error: 'Pricing profile is inactive.' }, status: 409 } };
-    if (pricingProfile.room_type_id && String(pricingProfile.room_type_id) !== parsed.roomTypeId) {
-      return {
-        error: {
-          payload: { error: 'Pricing profile does not apply to the selected room type.' },
-          status: 409,
-        },
-      };
-    }
-  }
-
-  const stayDates = enumerateStayDates(parsed.checkIn, parsed.checkOut);
-  const activeSeasons = (seasonsResult.results || []).map(mapRateSeasonRow);
-  const seasonRatesByKey = new Map((seasonRatesResult.results || []).map((row) => [String(row.season_id), mapSeasonRateRow(row)]));
-  const weekdayRules = (weekdayRulesResult.results || []).map(mapPropertyWeekdayPricingRuleRow);
-  const baseRate = baseRateRow ? mapRoomRateRow(baseRateRow) : null;
-
-  const nightlyBreakdown = stayDates.map((stayDate) => {
-    const resolved = resolveNightlyRateForDate(stayDate, activeSeasons, seasonRatesByKey, baseRate);
-    const weekdayRule = selectApplicablePropertyWeekdayPricingRule(weekdayRules, parsed.roomTypeId, stayDate);
-    const weekdayAdjustedRate = applyPropertyWeekdayPricingRuleToResolvedRate(resolved, weekdayRule, stayDate);
-    const quotedRate = applyPropertyPricingProfileToResolvedRate(weekdayAdjustedRate, pricingProfile);
-    const perRoomAssignments = calculatePerRoomOccupancyAdjustments(quotedRate, parsed.roomGuestAssignments);
-    const occupancyAdjustment = perRoomAssignments
-      ? {
-          included_adults_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_adults_total || 0), 0),
-          included_children_total: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.included_children_total || 0), 0),
-          extra_adults: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_adults || 0), 0),
-          extra_children: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.extra_children || 0), 0),
-          extra_adult_amount: Number(quotedRate?.extra_adult_amount || 0),
-          extra_child_amount: Number(quotedRate?.extra_child_amount || 0),
-          adjustment_amount: perRoomAssignments.reduce((sum, item) => sum + Number(item.occupancy_adjustment.adjustment_amount || 0), 0),
-        }
-      : calculateOccupancyAdjustment(quotedRate, parsed.adults, parsed.children, parsed.roomsRequested);
-    const nightlyBaseTotal = perRoomAssignments
-      ? perRoomAssignments.reduce((sum, item) => sum + Number(item.nightly_base_total || 0), 0)
-      : (quotedRate ? Number(quotedRate.nightly_amount) * parsed.roomsRequested : null);
-    return {
-      stay_date: stayDate,
-      source: quotedRate?.source || 'missing_rate',
-      season_id: quotedRate?.season_id || null,
-      season_name: quotedRate?.season_name || null,
-      currency: quotedRate?.currency || baseRate?.currency || property.currency,
-      base_nightly_amount: resolved ? Number(resolved.nightly_amount) : null,
-      weekday_nightly_amount: weekdayAdjustedRate ? Number(weekdayAdjustedRate.nightly_amount) : null,
-      nightly_amount: quotedRate ? Number(quotedRate.nightly_amount) : null,
-      rooms_requested: parsed.roomsRequested,
-      nightly_base_total: nightlyBaseTotal,
-      included_adults: quotedRate ? Number(quotedRate.included_adults) : null,
-      included_children: quotedRate ? Number(quotedRate.included_children) : null,
-      room_guest_assignments: perRoomAssignments,
-      weekday_adjustment: quotedRate?.weekday_pricing_rule_applied
-        ? {
-            id: quotedRate.weekday_pricing_rule_id,
-            name: quotedRate.weekday_pricing_rule_name,
-            day_of_week: quotedRate.weekday_pricing_rule_day_of_week,
-            day_name: quotedRate.weekday_pricing_rule_day_name,
-            pricing_mode: quotedRate.weekday_pricing_rule_mode,
-            adjustment_amount: quotedRate.weekday_pricing_rule_adjustment_amount,
-            adjustment_percent: quotedRate.weekday_pricing_rule_adjustment_percent,
-          }
-        : null,
-      pricing_profile: quotedRate?.pricing_profile_applied
-        ? {
-            id: quotedRate.pricing_profile_id,
-            code: quotedRate.pricing_profile_code,
-            name: quotedRate.pricing_profile_name,
-            pricing_mode: quotedRate.pricing_profile_mode,
-            adjustment_amount: quotedRate.pricing_profile_adjustment_amount,
-            adjustment_percent: quotedRate.pricing_profile_adjustment_percent,
-          }
-        : null,
-      occupancy_adjustment: quotedRate ? occupancyAdjustment : null,
-      nightly_total: quotedRate ? nightlyBaseTotal + Number(occupancyAdjustment.adjustment_amount || 0) : null,
-    };
-  });
-
-  const missingDates = nightlyBreakdown.filter((row) => row.nightly_amount === null).map((row) => row.stay_date);
-  const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
-  const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
-  const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
-  const currency = nightlyBreakdown.find((row) => row.currency)?.currency || property.currency;
-
-  return {
-    pricingProfile,
-    nightlyBreakdown,
-    missingDates,
-    totalBaseAmount,
-    totalOccupancyAdjustment,
-    totalAmount,
-    currency,
-    sourceSummary: {
-      has_base_rate: Boolean(baseRate),
-      active_seasons: activeSeasons.length,
-      active_season_rates: seasonRatesByKey.size,
-      weekday_rules_loaded: weekdayRules.length,
-      weekday_pricing_applied: nightlyBreakdown.some((row) => row.weekday_adjustment),
-      pricing_profile_applied: Boolean(pricingProfile),
-    },
-  };
-}
-
 async function recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
   const now = Date.now();
   await env.DB
@@ -3234,7 +3074,7 @@ export async function handleQuotePropertyRoomRate(request, env, params) {
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
   try {
-    const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, parsed);
+    const quote = await pricingResolvePropertyRateQuote(env, tenantId, propertyId, parsed, pricingSnapshotDeps);
     if (quote.error) return jsonResponse(quote.error.payload, quote.error.status);
     return jsonResponse(pricingBuildResolvedRateQuotePayload(propertyId, parsed, quote));
   } catch (error) {
