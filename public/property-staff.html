@@ -2608,6 +2608,72 @@
         select.value = '';
       }
 
+      function formatPlannerDate(dateText, options = {}) {
+        const value = String(dateText || '').trim();
+        if (!value) return '';
+        const date = new Date(`${value}T00:00:00Z`);
+        if (Number.isNaN(date.getTime())) return value;
+        return new Intl.DateTimeFormat('en-GB', {
+          weekday: options.weekday ?? 'short',
+          day: options.day ?? 'numeric',
+          month: options.month ?? 'short',
+          year: options.year ?? 'numeric',
+          timeZone: 'UTC',
+        }).format(date);
+      }
+
+      function formatPlannerDateRange(checkIn, checkOut) {
+        const start = formatPlannerDate(checkIn, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const endDate = addIsoDays(String(checkOut || '').trim(), -1);
+        const end = formatPlannerDate(endDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        if (!start) return '';
+        if (!end || start === end) return start;
+        return `${start} to ${end}`;
+      }
+
+      function plannerPlanTypeLabel(planType) {
+        const value = String(planType || '').trim();
+        if (value === 'contiguous_same_type') return 'Stay in one room';
+        if (value === 'split_same_type') return 'Split stay in the same room type';
+        if (value === 'contiguous_upgrade') return 'Upgrade to keep the stay together';
+        return 'Suggested stay plan';
+      }
+
+      function plannerRoomTypeLabel(roomTypeId, fallback = 'room') {
+        const roomType = (state.roomTypes || []).find((item) => String(item.id) === String(roomTypeId || ''));
+        return roomType?.name || roomType?.code || String(fallback || roomTypeId || 'room');
+      }
+
+      function plannerRowRoomTypeLabel(row) {
+        return row.room_type_name || plannerRoomTypeLabel(row.room_type_id, row.room_type_code || 'Selected room type');
+      }
+
+      function plannerComponentLabel(component) {
+        const base = component.room_type_name || plannerRoomTypeLabel(component.room_type_id, component.room_type_code || 'Room type');
+        return Number(component.rooms_requested || 0) > 1 ? `${base} ×${Number(component.rooms_requested || 0)}` : base;
+      }
+
+      function formatPlannerRoomLabel(value, fallback = 'preferred room') {
+        const label = String(value || '').trim();
+        if (!label) return fallback;
+        return /^room\b/i.test(label) ? label : `Room ${label}`;
+      }
+
+      function formatPlannerRecommendation(group, option) {
+        if (group.kind === 'same_type_nearby') {
+          return formatPlannerDateRange(option.check_in, option.check_out);
+        }
+        if (group.kind === 'upgrade_preserve') {
+          return option.name || option.code || plannerRoomTypeLabel(option.room_type_id, 'Alternate room type');
+        }
+        if (group.kind === 'split_stay') {
+          const moves = Number(option.move_count || 0);
+          return `${plannerPlanTypeLabel(option.plan_type)}${moves > 0 ? ` · ${moves} room change${moves === 1 ? '' : 's'}` : ''}`;
+        }
+        if (option.name || option.code) return option.name || option.code;
+        return 'Another option is available';
+      }
+
       function renderSelectedPlanPricingPreview(pricing) {
         const pricingEl = document.getElementById('sh-plan-preview-pricing');
         if (!pricingEl) return;
@@ -2620,9 +2686,9 @@
         const rowsMarkup = breakdownRows.slice(0, 10).map((row) => {
           const components = Array.isArray(row.room_type_components) ? row.room_type_components : [];
           const componentLabel = components.length > 1
-            ? components.map((component) => `${escapeHtml(component.room_type_code || component.room_type_name || component.room_type_id || 'Type')} ×${Number(component.rooms_requested || 0)}`).join(', ')
-            : escapeHtml(row.room_type_code || row.room_type_name || row.room_type_id || 'Selected type');
-          return `<div>${escapeHtml(row.stay_date || '')}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}${row.scarcity_adjustment?.applied_amount ? ` · scarcity +${escapeHtml(row.currency || '')} ${compactPrice(row.scarcity_adjustment.applied_amount, row.currency)}` : ''}</div>`;
+            ? components.map((component) => escapeHtml(plannerComponentLabel(component))).join(', ')
+            : escapeHtml(plannerRowRoomTypeLabel(row));
+          return `<div>${escapeHtml(formatPlannerDate(row.stay_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}${row.scarcity_adjustment?.applied_amount ? ` · scarcity +${escapeHtml(row.currency || '')} ${compactPrice(row.scarcity_adjustment.applied_amount, row.currency)}` : ''}</div>`;
         }).join('');
 
         const scarcityPreview = pricing.scarcity_preview || null;
@@ -2663,8 +2729,8 @@
         const selectedPlan = preview.selected_plan;
         const allotmentConsumption = preview.allotment_consumption || null;
         summaryEl.innerHTML = preview.can_fulfill
-          ? `${Number(preview.request?.rooms_requested || 0)} room(s) can be placed. ${selectedPlan ? `Best plan: <strong>${escapeHtml(selectedPlan.plan_type || 'candidate')}</strong>.` : ''}`
-          : `Planner could not place all ${Number(preview.request?.rooms_requested || 0)} requested room(s) for this stay.`;
+          ? `${Number(preview.request?.rooms_requested || 0) === 1 ? '1 room is available' : `${Number(preview.request?.rooms_requested || 0)} rooms are available`}.${selectedPlan ? ` Best option: <strong>${escapeHtml(plannerPlanTypeLabel(selectedPlan.plan_type))}</strong>.` : ''}`
+          : `${Number(preview.request?.rooms_requested || 0) === 1 ? 'No room is available for these dates.' : `Not all ${Number(preview.request?.rooms_requested || 0)} rooms are available for these dates.`}${selectedPlan ? ` Closest match: <strong>${escapeHtml(plannerPlanTypeLabel(selectedPlan.plan_type))}</strong>.` : ''}`;
 
         if (allotmentConsumption) {
           summaryEl.innerHTML += `<br><span style="color:#9a3412">Using operator block <strong>${escapeHtml(allotmentConsumption.operator_name || 'Operator')}</strong>: ${Number(allotmentConsumption.rooms_requested || 0)} of ${Number(allotmentConsumption.rooms_blocked || 0)} blocked room(s) will be consumed.${Number(allotmentConsumption.remaining_rooms_after_commit || 0) > 0 ? ` ${Number(allotmentConsumption.remaining_rooms_after_commit || 0)} room(s) remain reserved.` : ' The block will be fully released.'}</span>`;
@@ -2677,13 +2743,13 @@
         const maintenanceConflicts = Array.isArray(preview.conflicts?.maintenance_conflicts) ? preview.conflicts.maintenance_conflicts : [];
         const shortageDates = Array.isArray(preview.conflicts?.shortage_dates) ? preview.conflicts.shortage_dates : [];
         const preferredRoomConflicts = Array.isArray(preview.preferred_room_conflicts) ? preview.preferred_room_conflicts : [];
-        const preferredRoomLabel = preview.preferred_room_number || state.sheetRoomUnit?.room_number || preview.preferred_room_unit_id || 'preferred lane';
+        const preferredRoomLabel = formatPlannerRoomLabel(preview.preferred_room_number || state.sheetRoomUnit?.room_number || preview.preferred_room_unit_id, 'preferred room');
 
         if (preview.preferred_room_unit_id) {
           if (preview.preferred_room_honored) {
-            summaryEl.innerHTML += `<br><span style="color:#166534">Preferred lane <strong>${escapeHtml(preferredRoomLabel)}</strong> is available and was kept in the selected plan.</span>`;
+            summaryEl.innerHTML += `<br><span style="color:#166534">Preferred room <strong>${escapeHtml(preferredRoomLabel)}</strong> is available and stays in the plan.</span>`;
           } else if (preview.can_fulfill && Array.isArray(preview.preferred_room_fallback_room_numbers) && preview.preferred_room_fallback_room_numbers.length) {
-            summaryEl.innerHTML += `<br><span style="color:#9a3412">Preferred lane <strong>${escapeHtml(preferredRoomLabel)}</strong> is blocked for this stay. Planner shifted to ${preview.preferred_room_fallback_room_numbers.map((item) => `<strong>${escapeHtml(item)}</strong>`).join(', ')} instead.</span>`;
+            summaryEl.innerHTML += `<br><span style="color:#9a3412">Preferred room <strong>${escapeHtml(preferredRoomLabel)}</strong> is not free for these dates. The planner moved the stay to ${preview.preferred_room_fallback_room_numbers.map((item) => `<strong>${escapeHtml(formatPlannerRoomLabel(item, item))}</strong>`).join(', ')} instead.</span>`;
           }
         }
 
@@ -2691,36 +2757,36 @@
         if (preferredRoomConflicts.length) {
           const sample = preferredRoomConflicts.slice(0, 4).map((item) => {
             if (item.conflict_type === 'reservation_overlap') {
-              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} overlaps ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`;
+              return `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || preferredRoomLabel, preferredRoomLabel))} is already booked on ${escapeHtml(formatPlannerDate(item.stay_date))}.`;
             }
             if (item.conflict_type === 'room_unavailable') {
-              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} is ${escapeHtml(item.operational_status || 'unavailable')}`;
+              return `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || preferredRoomLabel, preferredRoomLabel))} is currently ${escapeHtml(item.operational_status || 'unavailable')}.`;
             }
             if (item.conflict_type === 'room_inactive') {
-              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} is inactive.`;
+              return `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || preferredRoomLabel, preferredRoomLabel))} is not active.`;
             }
             if (item.conflict_type === 'room_type_mismatch') {
-              return `Preferred lane ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)} does not belong to the requested room type.`;
+              return `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || preferredRoomLabel, preferredRoomLabel))} is not in the requested room type.`;
             }
-            return `Preferred lane conflict: ${escapeHtml(item.room_number || item.room_unit_id || preferredRoomLabel)}`;
+            return `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || preferredRoomLabel, preferredRoomLabel))} cannot be used for this stay.`;
           }).join('<br>');
           conflictLines.push(sample);
         }
-        if (shortageDates.length) conflictLines.push(`Shortage dates: ${shortageDates.map((item) => escapeHtml(String(item.stay_date || item))).join(', ')}`);
+        if (shortageDates.length) conflictLines.push(`Not enough rooms on: ${shortageDates.map((item) => escapeHtml(formatPlannerDate(String(item.stay_date || item)))).join(', ')}`);
         if (reservationConflicts.length) {
-          const sample = reservationConflicts.slice(0, 4).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'room')} overlaps ${escapeHtml(item.reservation_id || 'reservation')} on ${escapeHtml(item.stay_date || '')}`).join('<br>');
+          const sample = reservationConflicts.slice(0, 4).map((item) => `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || 'room', 'Another room'))} is already booked on ${escapeHtml(formatPlannerDate(item.stay_date))}.`).join('<br>');
           conflictLines.push(sample);
         }
         if (holdConflicts.length) {
-          const sample = holdConflicts.slice(0, 3).map((item) => `Hold ${escapeHtml(item.hold_id || '')} blocks ${escapeHtml(item.check_in || '')} → ${escapeHtml(item.check_out || '')}`).join('<br>');
+          const sample = holdConflicts.slice(0, 3).map((item) => `A temporary hold blocks ${escapeHtml(formatPlannerDateRange(item.check_in || '', item.check_out || ''))}.`).join('<br>');
           conflictLines.push(sample);
         }
         if (allotmentConflicts.length) {
-          const sample = allotmentConflicts.slice(0, 3).map((item) => `Operator block ${escapeHtml(item.operator_name || '')} holds ${Number(item.rooms_blocked || 0)} room(s) ${escapeHtml(item.check_in || '')} → ${escapeHtml(item.check_out || '')}`).join('<br>');
+          const sample = allotmentConflicts.slice(0, 3).map((item) => `Operator block ${escapeHtml(item.operator_name || 'Operator')} keeps ${Number(item.rooms_blocked || 0)} room(s) from ${escapeHtml(formatPlannerDateRange(item.check_in || '', item.check_out || ''))}.`).join('<br>');
           conflictLines.push(sample);
         }
         if (maintenanceConflicts.length) {
-          const sample = maintenanceConflicts.slice(0, 3).map((item) => `${escapeHtml(item.room_number || item.room_unit_id || 'room')} is ${escapeHtml(item.operational_status || 'unavailable')}`).join('<br>');
+          const sample = maintenanceConflicts.slice(0, 3).map((item) => `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || 'room', 'A room'))} is currently ${escapeHtml(item.operational_status || 'unavailable')}.`).join('<br>');
           conflictLines.push(sample);
         }
         conflictsEl.innerHTML = conflictLines.length ? conflictLines.join('<br><br>') : '<span style="color:#166534">No blocking conflicts reported by the planner.</span>';
@@ -2728,11 +2794,7 @@
         const recommendations = Array.isArray(preview.recommendations) ? preview.recommendations : [];
         recsEl.innerHTML = recommendations.length
           ? recommendations.map((group) => {
-              const options = Array.isArray(group.options) ? group.options.slice(0, 4).map((option) => {
-                if (option.room_type_id) return `${escapeHtml(option.name || option.code || option.room_type_id)}`;
-                if (option.plan_type) return `${escapeHtml(option.plan_type)} · moves ${Number(option.move_count || 0)}`;
-                return escapeHtml(JSON.stringify(option));
-              }).join(', ') : 'No options';
+              const options = Array.isArray(group.options) ? group.options.slice(0, 4).map((option) => escapeHtml(formatPlannerRecommendation(group, option))).join(', ') : 'No options';
               return `<div><strong>${escapeHtml(group.label || group.kind || 'Recommendation')}</strong>: ${options}</div>`;
             }).join('')
           : '<span style="color:#64748b">No alternate recommendations returned.</span>';
