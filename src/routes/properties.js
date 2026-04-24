@@ -27,6 +27,11 @@ import {
   parseJsonSafe,
 } from './properties/mappers.js';
 import {
+  buildReservationPricingSnapshot as pricingBuildReservationPricingSnapshot,
+  parseReservationPricingSnapshotValue as pricingParseReservationPricingSnapshotValue,
+  resolveSnapshotNightlyRate as pricingResolveSnapshotNightlyRate,
+} from './properties/pricing.js';
+import {
   validateAddonServicePresetCreateRequest,
   validateAddonServicePresetPatchRequest,
   validateAvailabilityRequest,
@@ -1415,18 +1420,6 @@ function calculatePerRoomOccupancyAdjustments(resolvedRate, roomGuestAssignments
   });
 }
 
-function parseReservationPricingSnapshotValue(value) {
-  if (!value) return null;
-  if (typeof value === 'object') return value;
-  return parseJsonSafe(value);
-}
-
-function extractPricingProfileIdFromPricingSnapshot(value) {
-  const snapshot = parseReservationPricingSnapshotValue(value);
-  const pricingProfileId = snapshot?.pricing_profile_id ?? snapshot?.pricing_profile?.id ?? null;
-  return pricingProfileId ? String(pricingProfileId).trim() : null;
-}
-
 function mapPricingProfileQuoteSummary(pricingProfile) {
   if (!pricingProfile) return null;
   return {
@@ -1916,73 +1909,6 @@ function buildResolvedRateQuotePayload(propertyId, parsed, quote) {
   };
 }
 
-function buildReservationPricingSnapshot(quote, reservationInput, frozenAt, fallbackSnapshot = null) {
-  const parsedFallback = fallbackSnapshot && typeof fallbackSnapshot === 'object' ? { ...fallbackSnapshot } : {};
-  const nightlyTotals = quote.nightlyBreakdown
-    .map((row) => Number(row.nightly_total))
-    .filter((amount) => Number.isFinite(amount));
-  const averageNightlyAmount = nightlyTotals.length
-    ? Number((nightlyTotals.reduce((sum, amount) => sum + amount, 0) / nightlyTotals.length).toFixed(2))
-    : null;
-  const fallbackTotalAmount = Number.isFinite(Number(parsedFallback.total_amount))
-    ? Number(parsedFallback.total_amount)
-    : (Number.isFinite(Number(parsedFallback.total)) ? Number(parsedFallback.total) : null);
-  const pricingProfileSummary = mapPricingProfileQuoteSummary(quote.pricingProfile) || parsedFallback.pricing_profile || null;
-  const pricingProfileId = quote.pricingProfile?.id
-    || parsedFallback.pricing_profile_id
-    || parsedFallback.pricing_profile?.id
-    || null;
-  const snapshotBase = {
-    ...parsedFallback,
-    version: 'reservation_pricing_snapshot_v1',
-    frozen_at: frozenAt,
-    check_in: reservationInput.checkIn,
-    check_out: reservationInput.checkOut,
-    room_type_id: reservationInput.roomTypeId,
-    adults: reservationInput.adults,
-    children: reservationInput.children,
-    rooms_requested: reservationInput.roomsRequested,
-    request: {
-      check_in: reservationInput.checkIn,
-      check_out: reservationInput.checkOut,
-      adults: reservationInput.adults,
-      children: reservationInput.children,
-      rooms_requested: reservationInput.roomsRequested,
-      pricing_profile_id: reservationInput.pricingProfileId || null,
-    },
-    pricing_profile_id: pricingProfileId ? String(pricingProfileId) : null,
-    pricing_profile: pricingProfileSummary,
-    source_summary: quote.sourceSummary,
-    missing_rate_dates: quote.missingDates,
-  };
-
-  if (quote.missingDates.length) {
-    return {
-      ...snapshotBase,
-      snapshot_capture_status: 'legacy_fallback',
-      currency: parsedFallback.currency || quote.currency || null,
-      total: fallbackTotalAmount,
-      total_amount: fallbackTotalAmount,
-      nightly_amount: Number.isFinite(Number(parsedFallback.nightly_amount))
-        ? Number(parsedFallback.nightly_amount)
-        : averageNightlyAmount,
-      nightly_breakdown: Array.isArray(parsedFallback.nightly_breakdown) ? parsedFallback.nightly_breakdown : [],
-    };
-  }
-
-  return {
-    ...snapshotBase,
-    snapshot_capture_status: 'frozen_quote',
-    currency: quote.currency,
-    total: quote.totalAmount,
-    total_amount: quote.totalAmount,
-    total_base_amount: quote.totalBaseAmount,
-    total_occupancy_adjustment: quote.totalOccupancyAdjustment,
-    nightly_amount: averageNightlyAmount,
-    nightly_breakdown: quote.nightlyBreakdown,
-  };
-}
-
 async function resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId, reservationInput, options = {}) {
   const quote = await resolvePropertyRateQuote(env, tenantId, propertyId, {
     roomTypeId: reservationInput.roomTypeId,
@@ -1997,35 +1923,12 @@ async function resolveFrozenReservationPricingSnapshot(env, tenantId, propertyId
   if (quote.error) return { error: quote.error };
 
   return {
-    snapshot: buildReservationPricingSnapshot(
+    snapshot: pricingBuildReservationPricingSnapshot(
       quote,
       reservationInput,
       Number(options.frozenAt || currentUnixSeconds()),
-      parseReservationPricingSnapshotValue(options.fallbackSnapshot || null),
+      pricingParseReservationPricingSnapshotValue(options.fallbackSnapshot || null),
     ),
-  };
-}
-
-function resolveSnapshotNightlyRate(snapshotValue, stayDate) {
-  const snapshot = parseReservationPricingSnapshotValue(snapshotValue);
-  if (!snapshot || typeof snapshot !== 'object') return null;
-  const nightly = Array.isArray(snapshot.nightly_breakdown)
-    ? snapshot.nightly_breakdown.find((row) => String(row?.stay_date || '') === String(stayDate || '').trim())
-    : null;
-  if (!nightly) return null;
-
-  const unitAmount = Number(nightly.nightly_amount);
-  const totalAmount = Number(nightly.nightly_total);
-  if (!Number.isFinite(unitAmount) || !Number.isFinite(totalAmount)) return null;
-
-  return {
-    currency: nightly.currency || snapshot.currency || null,
-    unit_amount: unitAmount,
-    total_amount: totalAmount,
-    adjustment_amount: Number(nightly.occupancy_adjustment?.adjustment_amount || 0),
-    source: nightly.source || 'pricing_snapshot',
-    season_name: nightly.season_name || null,
-    from_snapshot: true,
   };
 }
 
@@ -4741,7 +4644,7 @@ function resolveEffectiveHousekeepingRoomState(taskKind, taskStatus, latestRoomS
 }
 
 async function resolveReservationNightlyRate(env, tenantId, propertyId, reservation, stayDate) {
-  const snapshotNightly = resolveSnapshotNightlyRate(reservation?.pricing_snapshot, stayDate);
+  const snapshotNightly = pricingResolveSnapshotNightlyRate(reservation?.pricing_snapshot, stayDate);
   if (snapshotNightly) return snapshotNightly;
 
   const [property, roomType, baseRateRow, seasonsResult, seasonRatesResult, weekdayRulesResult] = await Promise.all([
