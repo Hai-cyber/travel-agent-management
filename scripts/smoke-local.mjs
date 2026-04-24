@@ -1600,6 +1600,38 @@ async function runPropertyPricingProfileSmoke(baseUrl, token) {
   }
   pass('Planner preview exposes selected-plan pricing with the chosen pricing profile before commit');
 
+  const scarcityPreview = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: '2026-10-10',
+      check_out: '2026-10-12',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+      pricing_profile_id: pricingProfileId,
+      scarcity_preview: {
+        enabled: true,
+        threshold_remaining: 1,
+        surcharge_amount: 12,
+        max_total_amount: 20,
+      },
+    }),
+  });
+  if (
+    !scarcityPreview.response.ok
+    || scarcityPreview.body?.selected_plan_pricing?.scarcity_preview?.applied !== true
+    || Number(scarcityPreview.body?.selected_plan_pricing?.scarcity_preview?.total_surcharge_amount) !== 20
+    || Number(scarcityPreview.body?.selected_plan_pricing?.total_amount) !== 190
+    || !Array.isArray(scarcityPreview.body?.selected_plan_pricing?.nightly_breakdown)
+    || scarcityPreview.body.selected_plan_pricing.nightly_breakdown.every((night) => Number(night?.scarcity_adjustment?.applied_amount || 0) < 1)
+  ) {
+    fail(`Planner preview did not apply capped manual scarcity pricing as expected: ${scarcityPreview.response.status} ${JSON.stringify(scarcityPreview.body)}`);
+    return;
+  }
+  pass('Planner preview applies capped manual scarcity pricing only in preview mode');
+
   const reservationCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
     method: 'POST',
     headers: authHeaders,

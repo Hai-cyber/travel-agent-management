@@ -1407,6 +1407,12 @@
               <label class="sh-field">Check-in<input id="sf-walkin-ci" type="date" class="sh-input" /></label>
               <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
             </div>
+            <div class="sh-2col" style="margin-top:8px">
+              <label class="sh-field" style="justify-content:end"><span>Manual Scarcity Preview</span><input id="sf-walkin-scarcity-enabled" type="checkbox" class="sh-input" style="height:auto;min-height:18px;width:18px;padding:0" /></label>
+              <label class="sh-field">Trigger When Remaining &lt;<input id="sf-walkin-scarcity-threshold" type="number" min="0" max="20" value="1" class="sh-input" /></label>
+              <label class="sh-field">Surcharge / Night<input id="sf-walkin-scarcity-amount" type="number" min="0" step="0.01" value="0" class="sh-input" /></label>
+              <label class="sh-field">Total Cap<input id="sf-walkin-scarcity-cap" type="number" min="0" step="0.01" value="0" class="sh-input" /></label>
+            </div>
             <button id="btn-create-walkin" class="sa ci" type="button">Create Walk-in &amp; Check In</button>
             <div id="sh-walkin-validation" class="sh-validation" hidden></div>
             <div id="sh-reservation-plan-preview" class="sh-sec" style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0" hidden>
@@ -2616,12 +2622,20 @@
           const componentLabel = components.length > 1
             ? components.map((component) => `${escapeHtml(component.room_type_code || component.room_type_name || component.room_type_id || 'Type')} ×${Number(component.rooms_requested || 0)}`).join(', ')
             : escapeHtml(row.room_type_code || row.room_type_name || row.room_type_id || 'Selected type');
-          return `<div>${escapeHtml(row.stay_date || '')}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}</div>`;
+          return `<div>${escapeHtml(row.stay_date || '')}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}${row.scarcity_adjustment?.applied_amount ? ` · scarcity +${escapeHtml(row.currency || '')} ${compactPrice(row.scarcity_adjustment.applied_amount, row.currency)}` : ''}</div>`;
         }).join('');
+
+        const scarcityPreview = pricing.scarcity_preview || null;
+        const scarcityLine = scarcityPreview?.applied
+          ? `<div style="margin-top:4px;color:#9a3412">Manual scarcity preview applied: ${escapeHtml(pricing.currency || '')} ${compactPrice(scarcityPreview.total_surcharge_amount, pricing.currency)} across ${Number(scarcityPreview.triggered_nights || 0)} night(s), trigger when remaining inventory drops below ${Number(scarcityPreview.threshold_remaining || 0)}, capped at ${escapeHtml(pricing.currency || '')} ${compactPrice(scarcityPreview.max_total_amount, pricing.currency)}.</div>`
+          : (scarcityPreview?.enabled
+            ? `<div style="margin-top:4px;color:#64748b">Manual scarcity preview is enabled but no selected-plan night dropped below the configured threshold.</div>`
+            : '');
 
         pricingEl.innerHTML = `
           <div><strong>Selected plan pricing</strong>${pricing.pricing_profile?.name ? ` · ${escapeHtml(pricing.pricing_profile.name)}` : ''}</div>
           <div style="margin-top:4px;color:#334155">Total: <strong>${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_amount, pricing.currency)}</strong>${Number(pricing.total_occupancy_adjustment || 0) ? ` · occupancy adj ${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_occupancy_adjustment, pricing.currency)}` : ''}</div>
+          ${scarcityLine}
           <div style="margin-top:6px;display:grid;gap:3px">${rowsMarkup || '<span style="color:#64748b">No nightly pricing rows available.</span>'}</div>
           ${breakdownRows.length > 10 ? `<div style="margin-top:4px;color:#64748b">Showing first 10 of ${breakdownRows.length} nights.</div>` : ''}
           ${Array.isArray(pricing.missing_rate_dates) && pricing.missing_rate_dates.length ? `<div style="margin-top:4px;color:#991b1b">Missing rate dates: ${pricing.missing_rate_dates.map((item) => escapeHtml(item)).join(', ')}</div>` : ''}`;
@@ -2756,6 +2770,12 @@
               adults: Math.max(1, parseInt(document.getElementById('sf-walkin-adults')?.value || '1', 10) || 1),
               children: Math.max(0, parseInt(document.getElementById('sf-walkin-children')?.value || '0', 10) || 0),
               pricing_profile_id: pricingProfileId || null,
+              scarcity_preview: {
+                enabled: Boolean(document.getElementById('sf-walkin-scarcity-enabled')?.checked),
+                threshold_remaining: Math.max(0, parseInt(document.getElementById('sf-walkin-scarcity-threshold')?.value || '1', 10) || 0),
+                surcharge_amount: Math.max(0, Number(document.getElementById('sf-walkin-scarcity-amount')?.value || '0') || 0),
+                max_total_amount: Math.max(0, Number(document.getElementById('sf-walkin-scarcity-cap')?.value || '0') || 0),
+              },
               preferred_room_unit_id: preferredRoomUnitId,
               allotment_id: allotmentId,
             }),
@@ -2815,6 +2835,12 @@
         }
         const pricingProfileSelect = document.getElementById('sf-walkin-pricing-profile');
         if (pricingProfileSelect) pricingProfileSelect.disabled = mode !== 'reservation';
+        ['sf-walkin-scarcity-enabled', 'sf-walkin-scarcity-threshold', 'sf-walkin-scarcity-amount', 'sf-walkin-scarcity-cap'].forEach((id) => {
+          const input = document.getElementById(id);
+          if (!input) return;
+          input.disabled = mode !== 'reservation';
+          if (mode !== 'reservation' && id === 'sf-walkin-scarcity-enabled') input.checked = false;
+        });
         renderReservationPlannerPreview();
       }
 
@@ -3330,6 +3356,10 @@
         document.getElementById('sf-walkin-adults').value = '1';
         document.getElementById('sf-walkin-children').value = '0';
         document.getElementById('sf-walkin-rooms').value = '1';
+        document.getElementById('sf-walkin-scarcity-enabled').checked = false;
+        document.getElementById('sf-walkin-scarcity-threshold').value = '1';
+        document.getElementById('sf-walkin-scarcity-amount').value = '0';
+        document.getElementById('sf-walkin-scarcity-cap').value = '0';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
         renderSheetPricingProfileOptions();
@@ -4151,7 +4181,7 @@
       document.getElementById('btn-save-requests').addEventListener('click', () => {
         setFlash('Notes saved in session.');
       });
-      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile'].forEach((id) => {
+      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile', 'sf-walkin-scarcity-enabled', 'sf-walkin-scarcity-threshold', 'sf-walkin-scarcity-amount', 'sf-walkin-scarcity-cap'].forEach((id) => {
         document.getElementById(id).addEventListener('change', () => {
           updateCreateReservationValidation();
           refreshReservationPlannerPreview().catch(() => {});

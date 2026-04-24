@@ -1689,6 +1689,10 @@ function validatePlannerPricingPreviewRequest(body) {
   const adults = Number(body?.adults ?? 1);
   const children = Number(body?.children ?? 0);
   const pricingProfileId = body?.pricing_profile_id ? String(body.pricing_profile_id).trim() : null;
+  const scarcityEnabled = Boolean(body?.scarcity_preview?.enabled);
+  const thresholdRemaining = body?.scarcity_preview?.threshold_remaining == null ? 1 : Number(body.scarcity_preview.threshold_remaining);
+  const surchargeAmount = body?.scarcity_preview?.surcharge_amount == null ? 0 : Number(body.scarcity_preview.surcharge_amount);
+  const maxTotalAmount = body?.scarcity_preview?.max_total_amount == null ? 0 : Number(body.scarcity_preview.max_total_amount);
 
   if (!Number.isInteger(adults) || adults < 1) {
     return { error: 'adults must be an integer greater than 0.' };
@@ -1696,11 +1700,26 @@ function validatePlannerPricingPreviewRequest(body) {
   if (!Number.isInteger(children) || children < 0) {
     return { error: 'children must be an integer greater than or equal to 0.' };
   }
+  if (!Number.isInteger(thresholdRemaining) || thresholdRemaining < 0 || thresholdRemaining > 20) {
+    return { error: 'scarcity_preview.threshold_remaining must be an integer between 0 and 20.' };
+  }
+  if (!Number.isFinite(surchargeAmount) || surchargeAmount < 0) {
+    return { error: 'scarcity_preview.surcharge_amount must be a number greater than or equal to 0.' };
+  }
+  if (!Number.isFinite(maxTotalAmount) || maxTotalAmount < 0) {
+    return { error: 'scarcity_preview.max_total_amount must be a number greater than or equal to 0.' };
+  }
 
   return {
     adults,
     children,
     pricingProfileId,
+    scarcityPreview: {
+      enabled: scarcityEnabled,
+      thresholdRemaining,
+      surchargeAmount,
+      maxTotalAmount,
+    },
   };
 }
 
@@ -2640,6 +2659,96 @@ function mapPricingProfileQuoteSummary(pricingProfile) {
   };
 }
 
+function applyPreviewScarcityPricing(nightlyBreakdown, nightlyRemainingByType, scarcityPreview, currency) {
+  const normalized = Array.isArray(nightlyBreakdown) ? nightlyBreakdown.map((row) => ({ ...row })) : [];
+  const config = scarcityPreview && scarcityPreview.enabled
+    ? {
+        enabled: true,
+        threshold_remaining: Number(scarcityPreview.thresholdRemaining || 0),
+        surcharge_amount: Number(scarcityPreview.surchargeAmount || 0),
+        max_total_amount: Number(scarcityPreview.maxTotalAmount || 0),
+      }
+    : {
+        enabled: false,
+        threshold_remaining: Number(scarcityPreview?.thresholdRemaining || 0),
+        surcharge_amount: Number(scarcityPreview?.surchargeAmount || 0),
+        max_total_amount: Number(scarcityPreview?.maxTotalAmount || 0),
+      };
+
+  if (!config.enabled || config.surcharge_amount <= 0 || config.max_total_amount <= 0) {
+    return {
+      nightlyBreakdown: normalized.map((row) => ({
+        ...row,
+        scarcity_adjustment: null,
+      })),
+      scarcityPreview: {
+        ...config,
+        total_surcharge_amount: 0,
+        triggered_nights: 0,
+        applied: false,
+        currency,
+      },
+    };
+  }
+
+  let remainingCap = config.max_total_amount;
+  let totalSurchargeAmount = 0;
+  let triggeredNights = 0;
+
+  const scarcityNightly = normalized.map((row) => {
+    const components = Array.isArray(row.room_type_components) ? row.room_type_components : [];
+    const triggeredComponents = components.map((component) => {
+      const nightlyRows = nightlyRemainingByType?.get(String(component.room_type_id || '')) || [];
+      const nightlyRow = nightlyRows.find((candidate) => String(candidate.stay_date || '') === String(row.stay_date || '')) || null;
+      const remainingAfterSelectedPlan = nightlyRow
+        ? Math.max(Number(nightlyRow.remaining || 0) - Number(component.rooms_requested || 0), 0)
+        : null;
+      if (remainingAfterSelectedPlan === null || remainingAfterSelectedPlan >= config.threshold_remaining) return null;
+      return {
+        room_type_id: component.room_type_id,
+        room_type_code: component.room_type_code || null,
+        room_type_name: component.room_type_name || null,
+        remaining_after_selected_plan: remainingAfterSelectedPlan,
+        threshold_remaining: config.threshold_remaining,
+      };
+    }).filter(Boolean);
+
+    if (!triggeredComponents.length || remainingCap <= 0 || !Number.isFinite(Number(row.nightly_total))) {
+      return {
+        ...row,
+        scarcity_adjustment: null,
+      };
+    }
+
+    const appliedAmount = Number(Math.min(config.surcharge_amount, remainingCap).toFixed(2));
+    remainingCap = Number(Math.max(0, remainingCap - appliedAmount).toFixed(2));
+    totalSurchargeAmount = Number((totalSurchargeAmount + appliedAmount).toFixed(2));
+    triggeredNights += 1;
+
+    return {
+      ...row,
+      nightly_total: Number((Number(row.nightly_total || 0) + appliedAmount).toFixed(2)),
+      scarcity_adjustment: {
+        applied_amount: appliedAmount,
+        currency: row.currency || currency,
+        triggered_components: triggeredComponents,
+        threshold_remaining: config.threshold_remaining,
+      },
+    };
+  });
+
+  return {
+    nightlyBreakdown: scarcityNightly,
+    scarcityPreview: {
+      ...config,
+      total_surcharge_amount: totalSurchargeAmount,
+      triggered_nights: triggeredNights,
+      applied: totalSurchargeAmount > 0,
+      currency,
+    },
+  };
+}
+
 async function buildSelectedPlanPricingPreview(env, tenantId, propertyId, requestInput, selectedPlan, options = {}) {
   if (!selectedPlan?.segments?.length) return { pricing: null };
 
@@ -2808,21 +2917,29 @@ async function buildSelectedPlanPricingPreview(env, tenantId, propertyId, reques
     };
   });
 
-  const missingDates = nightlyBreakdown.filter((row) => !Number.isFinite(Number(row.nightly_total))).map((row) => row.stay_date);
-  const totalBaseAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
-  const totalOccupancyAdjustment = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
-  const totalAmount = nightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
+  const scarcityPreviewApplied = applyPreviewScarcityPricing(
+    nightlyBreakdown,
+    options.nightlyRemainingByType || null,
+    options.scarcityPreview || null,
+    nightlyBreakdown.find((row) => row.currency)?.currency || property.currency,
+  );
+  const scarcityNightlyBreakdown = scarcityPreviewApplied.nightlyBreakdown;
+  const missingDates = scarcityNightlyBreakdown.filter((row) => !Number.isFinite(Number(row.nightly_total))).map((row) => row.stay_date);
+  const totalBaseAmount = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_base_total) || 0), 0);
+  const totalOccupancyAdjustment = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.occupancy_adjustment?.adjustment_amount) || 0), 0);
+  const totalAmount = scarcityNightlyBreakdown.reduce((sum, row) => sum + (Number(row.nightly_total) || 0), 0);
 
   return {
     pricing: {
-      currency: nightlyBreakdown.find((row) => row.currency)?.currency || property.currency,
+      currency: scarcityNightlyBreakdown.find((row) => row.currency)?.currency || property.currency,
       pricing_profile: mapPricingProfileQuoteSummary(pricingProfile),
-      nightly_breakdown: nightlyBreakdown,
+      nightly_breakdown: scarcityNightlyBreakdown,
       missing_rate_dates: missingDates,
       total_base_amount: totalBaseAmount,
       total_occupancy_adjustment: totalOccupancyAdjustment,
       total_amount: totalAmount,
       selected_plan_type: selectedPlan.plan_type || null,
+      scarcity_preview: scarcityPreviewApplied.scarcityPreview,
     },
   };
 }
@@ -4691,6 +4808,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     property,
     requestedRoomType,
     requestedNightly,
+    nightlyRemainingByType,
     shortageDates,
     stayPlans,
     sameTypeNearbyOptions,
@@ -6683,6 +6801,8 @@ export async function handlePlanPropertyReservation(request, env, params) {
         children: pricingPreviewRequest.children,
       }, payload.selected_plan, {
         pricingProfileId: pricingPreviewRequest.pricingProfileId,
+        scarcityPreview: pricingPreviewRequest.scarcityPreview,
+        nightlyRemainingByType: availability.nightlyRemainingByType,
       });
       if (selectedPlanPricing.error) {
         return jsonResponse(selectedPlanPricing.error.payload, selectedPlanPricing.error.status);
