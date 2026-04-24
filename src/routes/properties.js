@@ -1,5 +1,16 @@
 import { nanoid } from 'nanoid';
 import { SESSION_COOKIE_NAME, getAuthSession } from '../lib/auth.js';
+import {
+  addDays,
+  currentUnixSeconds,
+  enumerateDateRange,
+  enumerateStayDates,
+  formatDateParts,
+  formatDateUtc,
+  getTimeZoneDateTimeParts,
+  isIsoDate,
+  parseDateUtc,
+} from './properties/date-utils.js';
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -63,69 +74,6 @@ async function requireManagerActor(request, env, tenantId) {
     return { error: jsonResponse({ error: 'Manager or owner access required.' }, 403) };
   }
   return result;
-}
-
-function currentUnixSeconds() {
-  return Math.floor(Date.now() / 1000);
-}
-
-function isIsoDate(value) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
-}
-
-function parseDateUtc(value) {
-  return new Date(`${value}T00:00:00Z`);
-}
-
-function formatDateUtc(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function formatDateParts(parts) {
-  return `${String(parts.year).padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
-}
-
-function getTimeZoneDateTimeParts(timestamp = new Date(), timeZone = 'Asia/Ho_Chi_Minh') {
-  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: false,
-  }).formatToParts(date);
-  const get = (type) => parseInt(parts.find((part) => part.type === type)?.value ?? '0', 10);
-  return {
-    year: get('year'),
-    month: get('month'),
-    day: get('day'),
-    hour: get('hour'),
-    minute: get('minute'),
-  };
-}
-
-function addDays(date, days) {
-  const next = new Date(date.getTime());
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-function enumerateStayDates(checkIn, checkOut) {
-  const dates = [];
-  for (let cursor = parseDateUtc(checkIn); cursor < parseDateUtc(checkOut); cursor = addDays(cursor, 1)) {
-    dates.push(formatDateUtc(cursor));
-  }
-  return dates;
-}
-
-function enumerateDateRange(startDate, endDate) {
-  const dates = [];
-  for (let cursor = new Date(startDate.getTime()); cursor <= endDate; cursor = addDays(cursor, 1)) {
-    dates.push(formatDateUtc(cursor));
-  }
-  return dates;
 }
 
 function rangesOverlap(startA, endA, startB, endB) {
