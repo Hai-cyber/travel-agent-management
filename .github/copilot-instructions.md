@@ -25,6 +25,9 @@ Always follow the "Rescue Rebuild" rules defined in:
 
 ## 3. Implementation Workflow
 - **Before coding**: Analyze impact on both `index.js` and the specific route file.
+- **Module shape**: Prefer modular extraction when it meaningfully keeps route files light and easier to reason about.
+- **Do not over-split**: Avoid fragmenting logic into too many small modules; optimize for system stability, straightforward debugging, and easier future maintenance.
+- **Further splitting**: Do not keep splitting modules beyond the current need unless the user explicitly asks for another split step.
 - **Registration**: When adding a new handler in `routes/`, always:
     1. Export the named handler function.
     2. Update the `index.js` imports.

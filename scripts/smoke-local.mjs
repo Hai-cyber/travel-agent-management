@@ -1423,6 +1423,215 @@ async function runPropertyReservationPlannerSmoke(baseUrl, token) {
   pass('Fully consumed operator block releases inventory and marks the allotment as released');
 }
 
+async function runPropertyRohCommitmentSmoke(baseUrl, token) {
+  info('Running property ROH commitment smoke flow');
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(3).toString('hex')}-roh`;
+  const fixtureKey = crypto.randomBytes(3).toString('hex').toUpperCase();
+
+  const propertyList = await requestJson(`${baseUrl}/api/properties`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (!propertyList.response.ok || !Array.isArray(propertyList.body?.properties) || !propertyList.body.properties[0]?.id) {
+    fail(`ROH smoke could not list an existing property: ${propertyList.response.status} ${JSON.stringify(propertyList.body)}`);
+    return;
+  }
+  const propertyId = propertyList.body.properties[0].id;
+
+  const roomTypeOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ code: `R1${fixtureKey}`, name: `ROH One ${fixtureKey}`, base_capacity: 2, max_occupancy: 2, sort_order: 10001 }),
+  });
+  const roomTypeTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ code: `R2${fixtureKey}`, name: `ROH Two ${fixtureKey}`, base_capacity: 2, max_occupancy: 2, sort_order: 10002 }),
+  });
+  if (!roomTypeOne.response.ok || !roomTypeOne.body?.room_type?.id || !roomTypeTwo.response.ok || !roomTypeTwo.body?.room_type?.id) {
+    fail(`ROH smoke could not create room types: ${roomTypeOne.response.status}/${roomTypeTwo.response.status} ${JSON.stringify({ one: roomTypeOne.body, two: roomTypeTwo.body })}`);
+    return;
+  }
+
+  const roomUnitOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ room_type_id: roomTypeOne.body.room_type.id, room_number: `RH-${fixtureKey}-1`, floor_label: 'ROH', sort_order: 10011 }),
+  });
+  const roomUnitTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ room_type_id: roomTypeTwo.body.room_type.id, room_number: `RH-${fixtureKey}-2`, floor_label: 'ROH', sort_order: 10012 }),
+  });
+  if (!roomUnitOne.response.ok || !roomUnitOne.body?.room_unit?.id || !roomUnitTwo.response.ok || !roomUnitTwo.body?.room_unit?.id) {
+    fail(`ROH smoke could not create room units: ${roomUnitOne.response.status}/${roomUnitTwo.response.status} ${JSON.stringify({ one: roomUnitOne.body, two: roomUnitTwo.body })}`);
+    return;
+  }
+
+  const rohCheckIn = '2026-11-20';
+  const rohCheckOut = '2026-11-22';
+  const rohAllotment = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      operator_name: `ROH Operator ${String(uniqueSuffix).slice(-4)}`,
+      operator_code: 'ROH',
+      source_ref: `ROH-${uniqueSuffix}`,
+      check_in: rohCheckIn,
+      check_out: rohCheckOut,
+      release_date: '2026-11-18',
+      rooms_blocked: 2,
+      roh_capacity_filter: 'max_2',
+      notes: 'ROH commitment smoke',
+    }),
+  });
+  if (!rohAllotment.response.ok || !rohAllotment.body?.allotment?.id) {
+    fail(`ROH smoke could not create ROH allotment: ${rohAllotment.response.status} ${JSON.stringify(rohAllotment.body)}`);
+    return;
+  }
+  const allotmentId = rohAllotment.body.allotment.id;
+
+  const allocation = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/allocate`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ allocation_source: 'manual_allocate' }),
+  });
+  if (!allocation.response.ok || !Array.isArray(allocation.body?.allocations) || allocation.body.allocations.length !== 2) {
+    fail(`ROH smoke allocation did not materialize two room allocations: ${allocation.response.status} ${JSON.stringify(allocation.body)}`);
+    return;
+  }
+  pass('ROH allotment allocated into concrete room units');
+
+  const confirmed = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/confirm`, {
+    method: 'POST',
+    headers: authHeaders,
+  });
+  if (
+    !confirmed.response.ok
+    || confirmed.body?.allotment?.status !== 'confirmed'
+    || !Array.isArray(confirmed.body?.rooming_list_entries)
+    || confirmed.body.rooming_list_entries.length !== 2
+    || !confirmed.body?.master_folio?.id
+  ) {
+    fail(`ROH smoke confirm did not seed rooming list and master folio: ${confirmed.response.status} ${JSON.stringify(confirmed.body)}`);
+    return;
+  }
+  pass('ROH allotment confirm seeded rooming list and master folio');
+
+  const roomingList = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/rooming-list`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
+  });
+  if (!roomingList.response.ok || !Array.isArray(roomingList.body?.entries) || roomingList.body.entries.length !== 2) {
+    fail(`ROH smoke could not list rooming entries: ${roomingList.response.status} ${JSON.stringify(roomingList.body)}`);
+    return;
+  }
+  const [entryOne, entryTwo] = roomingList.body.entries;
+
+  const roomingUpdateOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/rooming-list/${encodeURIComponent(entryOne.id)}`, {
+    method: 'PATCH',
+    headers: authHeaders,
+    body: JSON.stringify({ display_name: 'Lead Guest', guest_name: 'Lead Guest', rooming_status: 'checked_in', payer_scope: 'master' }),
+  });
+  const roomingUpdateTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/rooming-list/${encodeURIComponent(entryTwo.id)}`, {
+    method: 'PATCH',
+    headers: authHeaders,
+    body: JSON.stringify({ display_name: 'Delegate Two', guest_name: 'Delegate Two', rooming_status: 'named', payer_scope: 'guest' }),
+  });
+  if (!roomingUpdateOne.response.ok || !roomingUpdateTwo.response.ok) {
+    fail(`ROH smoke could not patch rooming entries: ${roomingUpdateOne.response.status}/${roomingUpdateTwo.response.status} ${JSON.stringify({ one: roomingUpdateOne.body, two: roomingUpdateTwo.body })}`);
+    return;
+  }
+  pass('ROH rooming entries accept payer scope and guest labeling');
+
+  const masterFolioPatch = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/master-folio`, {
+    method: 'PATCH',
+    headers: authHeaders,
+    body: JSON.stringify({ billing_mode: 'mixed', note: 'ROH routing smoke' }),
+  });
+  if (!masterFolioPatch.response.ok || masterFolioPatch.body?.master_folio?.billing_mode !== 'mixed') {
+    fail(`ROH smoke could not switch master folio to mixed billing: ${masterFolioPatch.response.status} ${JSON.stringify(masterFolioPatch.body)}`);
+    return;
+  }
+
+  const masterCharge = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/charges`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      rooming_entry_id: entryOne.id,
+      line_type: 'service_charge',
+      category: 'package',
+      description: 'Group package',
+      quantity: 1,
+      unit_amount: 120,
+      currency: 'USD',
+    }),
+  });
+  const guestCharge = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/charges`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      rooming_entry_id: entryTwo.id,
+      line_type: 'fee',
+      category: 'incidentals',
+      description: 'Mini bar',
+      quantity: 1,
+      unit_amount: 35,
+      currency: 'USD',
+    }),
+  });
+  if (!masterCharge.response.ok || masterCharge.body?.payer_scope !== 'master' || !masterCharge.body?.line?.id) {
+    fail(`ROH smoke master charge did not route into master folio: ${masterCharge.response.status} ${JSON.stringify(masterCharge.body)}`);
+    return;
+  }
+  if (!guestCharge.response.ok || guestCharge.body?.payer_scope !== 'guest' || !guestCharge.body?.deferred_guest_charge?.id) {
+    fail(`ROH smoke guest charge did not defer to guest scope: ${guestCharge.response.status} ${JSON.stringify(guestCharge.body)}`);
+    return;
+  }
+  pass('ROH charges route into master and deferred guest scope correctly');
+
+  const masterFolioGet = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/master-folio`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
+  });
+  if (
+    !masterFolioGet.response.ok
+    || !Array.isArray(masterFolioGet.body?.lines)
+    || masterFolioGet.body.lines.length !== 1
+    || !Array.isArray(masterFolioGet.body?.deferred_guest_charges)
+    || masterFolioGet.body.deferred_guest_charges.length !== 1
+    || Number(masterFolioGet.body?.summary?.charge_total) !== 120
+  ) {
+    fail(`ROH smoke master folio payload did not expose routed lines and deferred guest charges: ${masterFolioGet.response.status} ${JSON.stringify(masterFolioGet.body)}`);
+    return;
+  }
+  pass('Master folio exposes routed lines, deferred guest charges, and summary totals');
+
+  const rackSummary = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-rack-summary?from_date=${encodeURIComponent(rohCheckIn)}&lookahead_days=14`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
+  });
+  const rackRows = Array.isArray(rackSummary.body?.summary) ? rackSummary.body.summary : [];
+  const occupiedByOperator = rackRows.find((item) => String(item.current_allotment_id || '') === String(allotmentId) && String(item.current_allotment_rooming_status || '') === 'checked_in');
+  const reservedByOperator = rackRows.find((item) => String(item.current_allotment_id || '') === String(allotmentId) && String(item.current_allotment_rooming_status || '') === 'named');
+  if (
+    !rackSummary.response.ok
+    || !occupiedByOperator
+    || !reservedByOperator
+    || !String(occupiedByOperator.why_not_assignable || '').includes('Occupied by operator block')
+    || !String(reservedByOperator.why_not_assignable || '').includes('Reserved by operator block')
+  ) {
+    fail(`ROH smoke rack summary did not expose B2B occupancy truth: ${rackSummary.response.status} ${JSON.stringify(rackSummary.body)}`);
+    return;
+  }
+  pass('Rack summary exposes confirmed operator occupancy for housekeeping and rack visibility');
+}
+
 async function runPropertyPricingProfileSmoke(baseUrl, token) {
   info('Running property pricing profile smoke flow');
 
@@ -2042,6 +2251,7 @@ async function main() {
     await runDomainSmoke(baseUrl, freshToken);
     await runDomainVerifySmoke(baseUrl, freshToken);
     await runPropertyReservationPlannerSmoke(baseUrl, freshToken);
+    await runPropertyRohCommitmentSmoke(baseUrl, freshToken);
     await runPropertyPricingProfileSmoke(baseUrl, freshToken);
     await runPropertyWeekdayPricingSmoke(baseUrl, freshToken);
     await runAdminTenantSmoke(baseUrl, adminSecret);

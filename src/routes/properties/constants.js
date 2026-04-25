@@ -7,7 +7,20 @@ const HOUSEKEEPING_TASK_PRIORITIES = new Set(['arrival_today_high', 'arrival_tod
 const PROPERTY_ADDON_SERVICE_TYPES = new Set(['transfer', 'meal', 'wellness', 'housekeeping', 'transport', 'experience', 'fee', 'other']);
 const PROPERTY_ADDON_PRICING_MODES = new Set(['fixed', 'per_unit', 'per_guest', 'per_night']);
 const PROPERTY_ADDON_SCOPES = new Set(['per_stay', 'per_night', 'per_guest', 'per_room']);
-const PROPERTY_ALLOTMENT_STATUSES = new Set(['active', 'released', 'expired']);
+const PROPERTY_ALLOTMENT_STATUSES = new Set([
+  'draft',
+  'active',
+  'allocated',
+  'confirmed',
+  'in_house',
+  'released',
+  'cancelled',
+  'expired',
+]);
+const PROPERTY_ALLOTMENT_COMMITMENT_STATUSES = new Set(['draft', 'active', 'allocated', 'confirmed', 'in_house']);
+const PROPERTY_ALLOTMENT_ROOMING_STATUSES = new Set(['pending', 'named', 'checked_in', 'checked_out', 'cancelled']);
+const PROPERTY_ALLOTMENT_MASTER_FOLIO_BILLING_MODES = new Set(['master_only', 'guest_only', 'mixed']);
+const PROPERTY_ALLOTMENT_PAYER_SCOPES = new Set(['master', 'guest']);
 const PROPERTY_PRICING_PROFILE_VISIBILITIES = new Set(['planner_only']);
 const PROPERTY_PRICING_PROFILE_MODES = new Set(['fixed_nightly_amount', 'delta_amount', 'delta_percent']);
 const PROPERTY_RESERVATION_SOURCES = new Set([
@@ -30,6 +43,10 @@ export {
   PROPERTY_ADDON_PRICING_MODES,
   PROPERTY_ADDON_SCOPES,
   PROPERTY_ADDON_SERVICE_TYPES,
+  PROPERTY_ALLOTMENT_COMMITMENT_STATUSES,
+  PROPERTY_ALLOTMENT_MASTER_FOLIO_BILLING_MODES,
+  PROPERTY_ALLOTMENT_PAYER_SCOPES,
+  PROPERTY_ALLOTMENT_ROOMING_STATUSES,
   PROPERTY_ALLOTMENT_STATUSES,
   PROPERTY_PRICING_PROFILE_MODES,
   PROPERTY_PRICING_PROFILE_VISIBILITIES,

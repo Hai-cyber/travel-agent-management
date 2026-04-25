@@ -6,6 +6,9 @@ import {
   PROPERTY_ADDON_PRICING_MODES,
   PROPERTY_ADDON_SCOPES,
   PROPERTY_ADDON_SERVICE_TYPES,
+  PROPERTY_ALLOTMENT_MASTER_FOLIO_BILLING_MODES,
+  PROPERTY_ALLOTMENT_PAYER_SCOPES,
+  PROPERTY_ALLOTMENT_ROOMING_STATUSES,
   PROPERTY_ALLOTMENT_STATUSES,
   PROPERTY_PRICING_PROFILE_MODES,
   PROPERTY_PRICING_PROFILE_VISIBILITIES,
@@ -14,6 +17,8 @@ import {
   PROPERTY_UPGRADE_MODES,
   ROOM_UNIT_OPERATIONAL_STATUSES,
 } from './constants.js';
+
+const PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS = new Set(['max_2', 'gte_2']);
 
 function slugify(value) {
   return String(value || '')
@@ -335,7 +340,8 @@ function validateRoomUnitFlagPatchRequest(body) {
 
 function validatePropertyAllotmentCreateRequest(body, propertyId) {
   const property = String(propertyId || '').trim();
-  const roomTypeId = String(body?.room_type_id || '').trim();
+  const roomTypeId = body?.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  const rohCapacityFilter = body?.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
   const operatorName = String(body?.operator_name || '').trim();
   const operatorCode = body?.operator_code ? String(body.operator_code).trim() : null;
   const sourceRef = body?.source_ref ? String(body.source_ref).trim() : null;
@@ -346,7 +352,6 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
   const notes = body?.notes ? String(body.notes).trim() : null;
 
   if (!property) return { error: 'propertyId is required.' };
-  if (!roomTypeId) return { error: 'room_type_id is required.' };
   if (!operatorName) return { error: 'operator_name is required.' };
   if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return { error: 'check_in and check_out must use YYYY-MM-DD format.' };
   if (parseDateUtc(checkIn) >= parseDateUtc(checkOut)) return { error: 'check_out must be after check_in.' };
@@ -354,10 +359,14 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
   if (!Number.isInteger(roomsBlocked) || roomsBlocked < 1 || roomsBlocked > 100) {
     return { error: 'rooms_blocked must be an integer between 1 and 100.' };
   }
+  if (roomTypeId == null && rohCapacityFilter && !PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS.has(rohCapacityFilter)) {
+    return { error: 'roh_capacity_filter is invalid. Use max_2 or gte_2.' };
+  }
 
   return {
     propertyId: property,
     roomTypeId,
+    rohCapacityFilter: roomTypeId == null ? (rohCapacityFilter || 'max_2') : null,
     operatorName,
     operatorCode,
     sourceRef,
@@ -371,7 +380,7 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
 }
 
 function validatePropertyAllotmentPatchRequest(body) {
-  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'status']);
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'status', 'roh_capacity_filter']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -408,6 +417,13 @@ function validatePropertyAllotmentPatchRequest(body) {
     if (!Number.isInteger(value) || value < 1 || value > 100) return { error: 'rooms_blocked must be an integer between 1 and 100.' };
     updates.rooms_blocked = value;
   }
+  if ('roh_capacity_filter' in body) {
+    const value = body.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
+    if (value && !PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS.has(value)) {
+      return { error: 'roh_capacity_filter is invalid. Use max_2 or gte_2.' };
+    }
+    updates.roh_capacity_filter = value;
+  }
   if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
   if ('status' in body) {
     const value = String(body.status || '').trim();
@@ -415,6 +431,92 @@ function validatePropertyAllotmentPatchRequest(body) {
     updates.status = value;
   }
   return { updates };
+}
+
+function validatePropertyAllotmentAllocateRequest(body) {
+  const allocationSource = String(body?.allocation_source || 'manual_allocate').trim();
+  if (!['manual_allocate', 'manual_reallocate'].includes(allocationSource)) {
+    return { error: 'allocation_source is invalid.' };
+  }
+  return { allocationSource };
+}
+
+function validatePropertyAllotmentRoomingListPatchRequest(body) {
+  const allowed = new Set(['display_name', 'guest_name', 'note', 'rooming_status', 'payer_scope']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('display_name' in body) {
+    const value = String(body.display_name || '').trim();
+    if (!value) return { error: 'display_name cannot be empty.' };
+    updates.display_name = value;
+  }
+  if ('guest_name' in body) updates.guest_name = body.guest_name ? String(body.guest_name).trim() : null;
+  if ('note' in body) updates.note = body.note ? String(body.note).trim() : null;
+  if ('rooming_status' in body) {
+    const value = String(body.rooming_status || '').trim();
+    if (!PROPERTY_ALLOTMENT_ROOMING_STATUSES.has(value)) return { error: 'rooming_status is invalid.' };
+    updates.rooming_status = value;
+  }
+  if ('payer_scope' in body) {
+    const value = String(body.payer_scope || '').trim();
+    if (!PROPERTY_ALLOTMENT_PAYER_SCOPES.has(value)) return { error: 'payer_scope is invalid.' };
+    updates.payer_scope = value;
+  }
+  return { updates };
+}
+
+function validatePropertyAllotmentMasterFolioPatchRequest(body) {
+  const allowed = new Set(['billing_mode', 'note']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for update.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('billing_mode' in body) {
+    const value = String(body.billing_mode || '').trim();
+    if (!PROPERTY_ALLOTMENT_MASTER_FOLIO_BILLING_MODES.has(value)) return { error: 'billing_mode is invalid.' };
+    updates.billing_mode = value;
+  }
+  if ('note' in body) updates.note = body.note ? String(body.note).trim() : null;
+  return { updates };
+}
+
+function validatePropertyAllotmentChargeRoutingRequest(body) {
+  const roomingEntryId = body?.rooming_entry_id ? String(body.rooming_entry_id).trim() : null;
+  const lineType = String(body?.line_type || '').trim();
+  const category = body?.category ? String(body.category).trim() : null;
+  const description = String(body?.description || '').trim();
+  const quantity = Number(body?.quantity ?? 1);
+  const unitAmount = Number(body?.unit_amount ?? 0);
+  const currency = String(body?.currency || 'USD').trim().toUpperCase();
+  const note = body?.note ? String(body.note).trim() : null;
+  const payerScope = body?.payer_scope ? String(body.payer_scope).trim() : null;
+
+  if (!['room_charge', 'service_charge', 'fee', 'discount', 'refund', 'payment'].includes(lineType)) {
+    return { error: 'line_type is invalid.' };
+  }
+  if (!description) return { error: 'description is required.' };
+  if (!Number.isFinite(quantity) || quantity <= 0) return { error: 'quantity must be greater than 0.' };
+  if (!Number.isFinite(unitAmount)) return { error: 'unit_amount must be a valid number.' };
+  if (payerScope && !PROPERTY_ALLOTMENT_PAYER_SCOPES.has(payerScope)) return { error: 'payer_scope is invalid.' };
+
+  return {
+    roomingEntryId,
+    lineType,
+    category,
+    description,
+    quantity,
+    unitAmount,
+    totalAmount: Number((quantity * unitAmount).toFixed(2)),
+    currency,
+    note,
+    payerScope,
+  };
 }
 
 function validateRoomRateCreateRequest(body) {
@@ -766,6 +868,7 @@ function validatePropertyPricingProfileConfiguration(pricingMode, values) {
 function validatePropertyPricingProfileCreateRequest(body, propertyId) {
   const property = String(propertyId || '').trim();
   const roomTypeId = body?.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  const rohCapacityFilter = body?.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
   const code = String(body?.code || '').trim().toUpperCase();
   const name = String(body?.name || '').trim();
   const visibility = String(body?.visibility || 'planner_only').trim();
@@ -781,6 +884,9 @@ function validatePropertyPricingProfileCreateRequest(body, propertyId) {
   }
   if (!name) return { error: 'name is required.' };
   if (!PROPERTY_PRICING_PROFILE_VISIBILITIES.has(visibility)) return { error: 'visibility is invalid.' };
+  if (rohCapacityFilter && !PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS.has(rohCapacityFilter)) {
+    return { error: 'roh_capacity_filter is invalid. Use max_2 or gte_2.' };
+  }
 
   const normalizedConfig = validatePropertyPricingProfileConfiguration(pricingMode, {
     fixedNightlyAmount,
@@ -796,6 +902,7 @@ function validatePropertyPricingProfileCreateRequest(body, propertyId) {
     name,
     visibility,
     pricingMode,
+    rohCapacityFilter: roomTypeId ? null : rohCapacityFilter,
     fixedNightlyAmount: normalizedConfig.fixedNightlyAmount,
     deltaAmount: normalizedConfig.deltaAmount,
     deltaPercent: normalizedConfig.deltaPercent,
@@ -811,6 +918,7 @@ function validatePropertyPricingProfilePatchRequest(body) {
     'name',
     'visibility',
     'pricing_mode',
+    'roh_capacity_filter',
     'fixed_nightly_amount',
     'delta_amount',
     'delta_percent',
@@ -842,6 +950,13 @@ function validatePropertyPricingProfilePatchRequest(body) {
     const value = String(body.visibility || '').trim();
     if (!PROPERTY_PRICING_PROFILE_VISIBILITIES.has(value)) return { error: 'visibility is invalid.' };
     updates.visibility = value;
+  }
+  if ('roh_capacity_filter' in body) {
+    const value = body.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
+    if (value && !PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS.has(value)) {
+      return { error: 'roh_capacity_filter is invalid. Use max_2 or gte_2.' };
+    }
+    updates.roh_capacity_filter = value;
   }
   if ('pricing_mode' in body) {
     const value = String(body.pricing_mode || '').trim();
@@ -1060,8 +1175,8 @@ function validateAvailabilityRequest(body, propertyId) {
   const allotmentId = body?.allotment_id ? String(body.allotment_id).trim() : null;
   const normalizedPropertyId = String(propertyId || '').trim();
 
-  if (!normalizedPropertyId || !roomTypeId || !isIsoDate(checkIn) || !isIsoDate(checkOut)) {
-    return { error: 'propertyId, room_type_id, check_in, and check_out are required.' };
+  if (!normalizedPropertyId || (!roomTypeId && !allotmentId) || !isIsoDate(checkIn) || !isIsoDate(checkOut)) {
+    return { error: 'propertyId, check_in, and check_out are required. room_type_id is required unless allotment_id is provided.' };
   }
   if (!Number.isInteger(roomsRequested) || roomsRequested < 1) {
     return { error: 'rooms_requested must be an integer greater than 0.' };
@@ -1300,6 +1415,10 @@ export {
   validateHousekeepingTaskPatchRequest,
   validatePlannerPricingPreviewRequest,
   validatePropertyAllotmentCreateRequest,
+  validatePropertyAllotmentAllocateRequest,
+  validatePropertyAllotmentChargeRoutingRequest,
+  validatePropertyAllotmentMasterFolioPatchRequest,
+  validatePropertyAllotmentRoomingListPatchRequest,
   validatePropertyAllotmentPatchRequest,
   validatePropertyCreateRequest,
   validatePropertyPatchRequest,

@@ -84,7 +84,15 @@ import {
   handlePlanPropertyReservation,
   handlePlanPropertyReservationExtension,
   handleListPropertyAllotments,
+  handleListPropertyAllotmentEvents,
+  handleGetPropertyAllotmentMasterFolio,
+  handleListPropertyAllotmentRoomingList,
+  handlePostPropertyAllotmentCharge,
   handleCreatePropertyAllotment,
+  handleAllocatePropertyAllotment,
+  handleConfirmPropertyAllotment,
+  handleUpdatePropertyAllotmentMasterFolio,
+  handleUpdatePropertyAllotmentRoomingListEntry,
   handleUpdatePropertyAllotment,
   handleReleasePropertyAllotment,
   handleCreatePropertyAvailabilityHold,
@@ -110,6 +118,7 @@ import {
   handleEarlyCheckOutPropertyReservation,
   handleNoShowPropertyReservation,
   handleUndoPropertyReservationStatus,
+  runScheduledAllotmentReleaseAutomation,
   runScheduledHousekeepingAutomation,
   runPropertyNightAuditForDate,
 } from './routes/properties.js';
@@ -809,6 +818,36 @@ const patterns = [
     handler: (req, env, match) => handleListPropertyAllotments(req, env, { propertyId: match.pathname.groups.propertyId })
   },
   {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/events' }),
+    handler: (req, env, match) => handleListPropertyAllotmentEvents(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/master-folio' }),
+    handler: (req, env, match) => handleGetPropertyAllotmentMasterFolio(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/master-folio' }),
+    handler: (req, env, match) => handleUpdatePropertyAllotmentMasterFolio(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/charges' }),
+    handler: (req, env, match) => handlePostPropertyAllotmentCharge(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/rooming-list' }),
+    handler: (req, env, match) => handleListPropertyAllotmentRoomingList(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/rooming-list/:entryId' }),
+    handler: (req, env, match) => handleUpdatePropertyAllotmentRoomingListEntry(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId, entryId: match.pathname.groups.entryId })
+  },
+  {
     method: 'POST',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments' }),
     handler: (req, env, match) => handleCreatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId })
@@ -817,6 +856,16 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId' }),
     handler: (req, env, match) => handleUpdatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/allocate' }),
+    handler: (req, env, match) => handleAllocatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/confirm' }),
+    handler: (req, env, match) => handleConfirmPropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
   },
   {
     method: 'POST',
@@ -1334,6 +1383,7 @@ export default {
     ctx.waitUntil(purgeExpiredOrders(env));
     ctx.waitUntil(runTrialMaintenance(env));
     ctx.waitUntil(runTodoReminders(env));
+    ctx.waitUntil(runScheduledAllotmentReleaseAutomation(env));
     ctx.waitUntil(runScheduledHousekeepingAutomation(env));
     // Only run daily digest on the 8am cron, not the 15-min tick
     if (event.cron === '0 8 * * *') {

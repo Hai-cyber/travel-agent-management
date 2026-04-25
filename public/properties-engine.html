@@ -539,10 +539,18 @@
                   <input name="delta_amount" type="number" step="0.01" placeholder="-15.00" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-3 gap-3">
                 <div>
                   <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Delta Percent</label>
                   <input name="delta_percent" type="number" step="0.01" placeholder="-10" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ROH Default Capacity</label>
+                  <select id="pricing-profile-roh-capacity" name="roh_capacity_filter" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                    <option value="">Not used</option>
+                    <option value="max_2">Max = 2</option>
+                    <option value="gte_2">Max &gt;= 2</option>
+                  </select>
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -555,6 +563,70 @@
               </div>
             </form>
             <div id="pricing-profile-list" class="space-y-2"><div class="text-sm text-slate-400">No pricing profiles yet.</div></div>
+          </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden mb-6">
+          <div class="px-5 py-3 border-b border-slate-100">
+            <span class="text-sm font-semibold text-slate-700">Manual Scarcity Preview</span>
+            <p class="text-xs text-slate-400 mt-0.5">Internal pricing-only preview. Use this in the tenant dashboard pricing tab, not in the operations workspace.</p>
+          </div>
+          <div class="p-5">
+            <form id="pricing-scarcity-form" class="space-y-3">
+              <div class="grid grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Room Type</label>
+                  <select id="pricing-scarcity-room-type" name="room_type_id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"></select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Check-in</label>
+                  <input name="check_in" type="date" value="2026-12-24" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Check-out</label>
+                  <input name="check_out" type="date" value="2026-12-27" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Pricing Profile</label>
+                  <select id="pricing-scarcity-pricing-profile" name="pricing_profile_id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"></select>
+                </div>
+              </div>
+              <div class="grid grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Adults</label>
+                  <input name="adults" type="number" min="1" value="2" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Children</label>
+                  <input name="children" type="number" min="0" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rooms Requested</label>
+                  <input name="rooms_requested" type="number" min="1" value="1" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div class="flex items-end">
+                  <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+                    <input name="scarcity_enabled" type="checkbox" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                    Enable manual scarcity preview
+                  </label>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Trigger Remaining Below</label>
+                  <input name="scarcity_threshold_remaining" type="number" min="0" max="20" value="1" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Surcharge per Night</label>
+                  <input name="scarcity_surcharge_amount" type="number" min="0" step="0.01" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Cap</label>
+                  <input name="scarcity_max_total_amount" type="number" min="0" step="0.01" value="0" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <button type="submit" class="bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-amber-700">Preview Scarcity Quote</button>
+            </form>
+            <pre id="pricing-scarcity-response" class="response mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 max-h-72 overflow-auto">Manual scarcity preview output will render here.</pre>
           </div>
         </div>
         <!-- Base rates -->
@@ -1103,6 +1175,7 @@
         pricingProfileList: document.getElementById('pricing-profile-list'),
         pricingProfileRoomType: document.getElementById('pricing-profile-room-type'),
         pricingProfileMode: document.getElementById('pricing-profile-mode'),
+        pricingProfileRohCapacity: document.getElementById('pricing-profile-roh-capacity'),
         roomRateForm: document.getElementById('room-rate-form'),
         roomRateList: document.getElementById('room-rate-list'),
         rateSeasonForm: document.getElementById('rate-season-form'),
@@ -1118,6 +1191,10 @@
         rateQuoteForm: document.getElementById('rate-quote-form'),
         rateQuoteRoomType: document.getElementById('rate-quote-room-type'),
         rateQuoteResponse: document.getElementById('rate-quote-response'),
+        pricingScarcityForm: document.getElementById('pricing-scarcity-form'),
+        pricingScarcityRoomType: document.getElementById('pricing-scarcity-room-type'),
+        pricingScarcityPricingProfile: document.getElementById('pricing-scarcity-pricing-profile'),
+        pricingScarcityResponse: document.getElementById('pricing-scarcity-response'),
         reservationLookupForm: document.getElementById('reservation-lookup-form'),
         reservationLookupId: document.getElementById('reservation-lookup-id'),
         holdReleaseForm: document.getElementById('hold-release-form'),
@@ -1256,6 +1333,7 @@
           room_type_id: data.room_type_id ? String(data.room_type_id).trim() : null,
           visibility: String(data.visibility || 'planner_only').trim(),
           pricing_mode: String(data.pricing_mode || 'fixed_nightly_amount').trim(),
+          roh_capacity_filter: data.room_type_id ? null : (data.roh_capacity_filter ? String(data.roh_capacity_filter).trim() : null),
           fixed_nightly_amount: data.fixed_nightly_amount === '' ? null : data.fixed_nightly_amount,
           delta_amount: data.delta_amount === '' ? null : data.delta_amount,
           delta_percent: data.delta_percent === '' ? null : data.delta_percent,
@@ -1339,30 +1417,44 @@
       function renderRoomTypeOptions() {
         const options = state.roomTypes.map((rt) => `<option value="${rt.id}">${escapeHtml(rt.code)} · ${escapeHtml(rt.name)}</option>`).join('');
         const fallback = '<option value="">No room types</option>';
-        for (const sel of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.reservationRebookRoomType]) {
+        for (const sel of [els.availabilityRoomType, els.roomUnitRoomType, els.bulkRoomType, els.roomRateRoomType, els.seasonRoomRateRoomType, els.rateQuoteRoomType, els.pricingScarcityRoomType, els.reservationRebookRoomType]) {
           if (sel) sel.innerHTML = options || fallback;
         }
         if (els.pricingProfileRoomType) {
           els.pricingProfileRoomType.innerHTML = `<option value="">All room types (property-wide)</option>${options}`;
         }
+        syncPricingProfileRohCapacityVisibility();
         renderPricingProfileQuoteOptions();
       }
 
-      function renderPricingProfileQuoteOptions() {
-        if (!els.rateQuotePricingProfile) return;
-        const selectedRoomTypeId = String(els.rateQuoteRoomType?.value || '').trim();
-        const currentValue = String(els.rateQuotePricingProfile.value || '').trim();
+      function renderPricingProfileOptionsFor(roomTypeSelect, pricingProfileSelect) {
+        if (!pricingProfileSelect) return;
+        const selectedRoomTypeId = String(roomTypeSelect?.value || '').trim();
+        const currentValue = String(pricingProfileSelect.value || '').trim();
         const filteredProfiles = state.pricingProfiles.filter((profile) => {
           if (!profile.active) return false;
           if (!profile.room_type_id) return true;
           return !selectedRoomTypeId || String(profile.room_type_id) === selectedRoomTypeId;
         });
-        els.rateQuotePricingProfile.innerHTML = ['<option value="">Standard public/base pricing</option>']
+        pricingProfileSelect.innerHTML = ['<option value="">Standard public/base pricing</option>']
           .concat(filteredProfiles.map((profile) => `<option value="${profile.id}">${escapeHtml(profile.code)} · ${escapeHtml(profile.name)}</option>`))
           .join('');
         if (currentValue && filteredProfiles.some((profile) => String(profile.id) === currentValue)) {
-          els.rateQuotePricingProfile.value = currentValue;
+          pricingProfileSelect.value = currentValue;
         }
+      }
+
+      function renderPricingProfileQuoteOptions() {
+        renderPricingProfileOptionsFor(els.rateQuoteRoomType, els.rateQuotePricingProfile);
+        renderPricingProfileOptionsFor(els.pricingScarcityRoomType, els.pricingScarcityPricingProfile);
+      }
+
+      function syncPricingProfileRohCapacityVisibility() {
+        if (!els.pricingProfileRohCapacity || !els.pricingProfileRoomType) return;
+        const isPropertyWide = !String(els.pricingProfileRoomType.value || '').trim();
+        els.pricingProfileRohCapacity.disabled = !isPropertyWide;
+        els.pricingProfileRohCapacity.closest('div').style.opacity = isPropertyWide ? '1' : '0.55';
+        if (!isPropertyWide) els.pricingProfileRohCapacity.value = '';
       }
 
       function renderRateSeasonOptions() {
@@ -1411,6 +1503,7 @@
         if (c) c.classList.add('hidden');
         form.reset();
         syncRateFormEditMode(form);
+        if (form?.id === 'pricing-profile-form') syncPricingProfileRohCapacityVisibility();
       }
 
       function renderRoomTypes() {
@@ -1480,7 +1573,7 @@
             <div class="border border-slate-200 rounded-lg px-4 py-3 bg-white flex items-center gap-3">
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-semibold text-slate-800">${escapeHtml(profile.code)} · ${escapeHtml(profile.name)}</div>
-                <div class="text-xs text-slate-500 mt-0.5">${scopeLabel} · ${escapeHtml(profile.visibility)} · ${escapeHtml(profile.pricing_mode)} · ${escapeHtml(modeValue)}</div>
+                <div class="text-xs text-slate-500 mt-0.5">${scopeLabel} · ${escapeHtml(profile.visibility)} · ${escapeHtml(profile.pricing_mode)} · ${escapeHtml(modeValue)}${profile.roh_capacity_filter ? ` · ROH ${escapeHtml(profile.roh_capacity_filter === 'gte_2' ? 'max >= 2' : 'max = 2')}` : ''}</div>
                 ${profile.notes ? `<div class="text-xs text-slate-400 mt-0.5">${escapeHtml(profile.notes)}</div>` : ''}
               </div>
               <span class="text-xs font-bold uppercase px-2 py-0.5 rounded flex-shrink-0 ${profile.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${profile.active ? 'active' : 'inactive'}</span>
@@ -1488,6 +1581,7 @@
             </div>
           `;
         }).join('');
+        syncPricingProfileRohCapacityVisibility();
         renderPricingProfileQuoteOptions();
       }
 
@@ -1828,6 +1922,45 @@
         renderPricingProfileQuoteOptions();
       });
 
+      els.pricingProfileRoomType.addEventListener('change', () => {
+        syncPricingProfileRohCapacityVisibility();
+      });
+
+      els.pricingScarcityForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
+        try {
+          const data = formJson(els.pricingScarcityForm);
+          const payload = await api('/api/properties/' + state.selectedPropertyId + '/rates/quote', {
+            method: 'POST',
+            body: JSON.stringify({
+              room_type_id: data.room_type_id,
+              check_in: data.check_in,
+              check_out: data.check_out,
+              adults: Number(data.adults || 1),
+              children: Number(data.children || 0),
+              rooms_requested: Number(data.rooms_requested || 1),
+              pricing_profile_id: data.pricing_profile_id || null,
+              scarcity_preview: {
+                enabled: data.scarcity_enabled === 'on',
+                threshold_remaining: Number(data.scarcity_threshold_remaining || 1),
+                surcharge_amount: Number(data.scarcity_surcharge_amount || 0),
+                max_total_amount: Number(data.scarcity_max_total_amount || 0),
+              },
+            }),
+          });
+          els.pricingScarcityResponse.textContent = JSON.stringify(payload, null, 2);
+          setFlash('Manual scarcity preview generated.');
+        } catch (err) {
+          els.pricingScarcityResponse.textContent = err.message;
+          setFlash(err.message, 'err');
+        }
+      });
+
+      els.pricingScarcityRoomType.addEventListener('change', () => {
+        renderPricingProfileQuoteOptions();
+      });
+
       els.addonPresetForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
@@ -2064,6 +2197,7 @@
         if (el.type === 'checkbox') el.checked = !!Number(v);
         else el.value = v;
       });
+      if (list === 'pricing-profile') syncPricingProfileRohCapacityVisibility();
       if (action === 'edit') {
         form.dataset.editingId = id;
         const s = document.getElementById(cfg.submitId);

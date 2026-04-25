@@ -61,7 +61,7 @@ function createPricingHandlers(deps) {
       const result = await env.DB
         .prepare(
           `SELECT ppp.id, ppp.tenant_id, ppp.property_id, ppp.room_type_id, ppp.code, ppp.name,
-                  ppp.visibility, ppp.pricing_mode, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
+              ppp.visibility, ppp.pricing_mode, ppp.roh_capacity_filter, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
                   ppp.notes, ppp.active, ppp.created_by, ppp.updated_by, ppp.created_at, ppp.updated_at,
                   rt.code AS room_type_code, rt.name AS room_type_name
              FROM property_pricing_profiles ppp
@@ -107,8 +107,8 @@ function createPricingHandlers(deps) {
         .prepare(
           `INSERT INTO property_pricing_profiles
             (id, tenant_id, property_id, room_type_id, code, name, visibility, pricing_mode,
-             fixed_nightly_amount, delta_amount, delta_percent, notes, active, created_by, updated_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             roh_capacity_filter, fixed_nightly_amount, delta_amount, delta_percent, notes, active, created_by, updated_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           id,
@@ -119,6 +119,7 @@ function createPricingHandlers(deps) {
           parsed.name,
           parsed.visibility,
           parsed.pricingMode,
+          parsed.rohCapacityFilter,
           parsed.fixedNightlyAmount,
           parsed.deltaAmount,
           parsed.deltaPercent,
@@ -184,6 +185,11 @@ function createPricingHandlers(deps) {
 
       const updates = {
         ...parsed.updates,
+        roh_capacity_filter: nextRoomTypeId
+          ? null
+          : (Object.prototype.hasOwnProperty.call(parsed.updates, 'roh_capacity_filter')
+            ? parsed.updates.roh_capacity_filter
+            : existing.roh_capacity_filter),
         fixed_nightly_amount: normalizedConfig.fixedNightlyAmount,
         delta_amount: normalizedConfig.deltaAmount,
         delta_percent: normalizedConfig.deltaPercent,

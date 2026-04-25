@@ -67,6 +67,7 @@ function mapPropertyPricingProfileRow(row) {
     ...row,
     active: Boolean(row.active),
     scope: row.room_type_id ? 'room_type' : 'property',
+    roh_capacity_filter: row.room_type_id ? null : (String(row.roh_capacity_filter || '').trim() || null),
     fixed_nightly_amount: row.fixed_nightly_amount == null ? null : Number(row.fixed_nightly_amount),
     delta_amount: row.delta_amount == null ? null : Number(row.delta_amount),
     delta_percent: row.delta_percent == null ? null : Number(row.delta_percent),
@@ -116,10 +117,54 @@ function mapAddonServicePresetRow(row) {
 }
 
 function mapPropertyAllotmentRow(row) {
+  const rohCapacityFilter = row.room_type_id
+    ? null
+    : (String(row.roh_capacity_filter || '').trim() || 'max_2');
   return {
     ...row,
     rooms_blocked: Number(row.rooms_blocked || 0),
+    roh_capacity_filter: rohCapacityFilter,
     inventory_blocking: Boolean(row.inventory_blocking),
+    commitment_blocking: Boolean(row.inventory_blocking),
+    auto_release_enabled: Boolean(row.auto_release_enabled),
+    auto_release_state: row.auto_release_state || 'none',
+    auto_release_due: row.release_date || null,
+  };
+}
+
+function mapPropertyAllotmentAllocationRow(row) {
+  return {
+    ...row,
+    inventory_blocking: String(row.allocation_status || 'allocated') === 'allocated',
+  };
+}
+
+function mapPropertyAllotmentRoomingListEntryRow(row) {
+  return {
+    ...row,
+    guest_name: row.guest_name || null,
+    note: row.note || null,
+  };
+}
+
+function mapPropertyAllotmentMasterFolioRow(row) {
+  return {
+    ...row,
+    note: row.note || null,
+  };
+}
+
+function mapPropertyAllotmentMasterFolioLineRow(row) {
+  return {
+    ...row,
+    note: row.note || null,
+  };
+}
+
+function mapPropertyAllotmentDeferredGuestChargeRow(row) {
+  return {
+    ...row,
+    note: row.note || null,
   };
 }
 
@@ -128,6 +173,11 @@ export {
   buildAddonSalesPolicy,
   mapAddonServicePresetRow,
   mapPropertyAllotmentRow,
+  mapPropertyAllotmentAllocationRow,
+  mapPropertyAllotmentMasterFolioRow,
+  mapPropertyAllotmentMasterFolioLineRow,
+  mapPropertyAllotmentDeferredGuestChargeRow,
+  mapPropertyAllotmentRoomingListEntryRow,
   mapPropertyPricingProfileRow,
   mapPropertyRow,
   mapPropertyWeekdayPricingRuleRow,

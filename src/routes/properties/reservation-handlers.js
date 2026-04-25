@@ -201,6 +201,9 @@ function createReservationHandlers(deps) {
         parsedRequest.checkOut,
         parsedRequest.roomsRequested,
         {
+          adults: parsedRequest.adults,
+          children: parsedRequest.children,
+          activeAllotment,
           excludeHoldId: parsedRequest.holdId,
           preferredRoomUnitId: parsedRequest.preferredRoomUnitId,
           consumeAllotmentId: activeAllotment?.id || null,
@@ -220,6 +223,10 @@ function createReservationHandlers(deps) {
       const selectedPlan = selectBestPlan(availability);
       if (!selectedPlan || !selectedPlan.segments?.length || selectedPlan.segments.some((segment) => !segment.room_unit_id)) {
         return jsonResponse({ error: 'No concrete allocation plan is available for confirmation yet.' }, 409);
+      }
+
+      if (!parsedRequest.roomTypeId) {
+        parsedRequest.roomTypeId = String(selectedPlan.segments?.[0]?.room_type_id || '').trim() || null;
       }
 
       const reservationId = nanoid();
@@ -661,7 +668,12 @@ function createReservationHandlers(deps) {
         parsedRequest.checkIn,
         parsedRequest.checkOut,
         parsedRequest.roomsRequested,
-        { excludeHoldId: parsedRequest.holdId, excludeReservationId: reservationId }
+        {
+          adults: parsedRequest.adults,
+          children: parsedRequest.children,
+          excludeHoldId: parsedRequest.holdId,
+          excludeReservationId: reservationId,
+        }
       );
       if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
       if (availability.shortageDates.length) {
@@ -998,7 +1010,11 @@ function createReservationHandlers(deps) {
             record.reservation.check_in,
             restoredCheckOut,
             record.reservation.rooms_requested,
-            { excludeReservationId: reservationId }
+            {
+              adults: Number(record.reservation.adults || 1),
+              children: Number(record.reservation.children || 0),
+              excludeReservationId: reservationId,
+            }
           );
           if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
           if (availability.shortageDates.length) {
@@ -1054,7 +1070,11 @@ function createReservationHandlers(deps) {
           record.reservation.check_in,
           record.reservation.check_out,
           record.reservation.rooms_requested,
-          { excludeReservationId: reservationId }
+          {
+            adults: Number(record.reservation.adults || 1),
+            children: Number(record.reservation.children || 0),
+            excludeReservationId: reservationId,
+          }
         );
         if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
         if (availability.shortageDates.length) {

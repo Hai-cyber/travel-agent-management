@@ -15,6 +15,11 @@ import {
   PROPERTY_WEEKDAY_NAMES,
   buildAddonSalesPolicy,
   mapAddonServicePresetRow,
+  mapPropertyAllotmentAllocationRow,
+  mapPropertyAllotmentDeferredGuestChargeRow,
+  mapPropertyAllotmentMasterFolioRow,
+  mapPropertyAllotmentMasterFolioLineRow,
+  mapPropertyAllotmentRoomingListEntryRow,
   mapPropertyAllotmentRow,
   mapPropertyPricingProfileRow,
   mapPropertyRow,
@@ -47,7 +52,11 @@ import {
   validateFolioPaymentRequest,
   validateHousekeepingTaskPatchRequest,
   validatePlannerPricingPreviewRequest,
+  validatePropertyAllotmentAllocateRequest,
+  validatePropertyAllotmentChargeRoutingRequest,
   validatePropertyAllotmentCreateRequest,
+  validatePropertyAllotmentMasterFolioPatchRequest,
+  validatePropertyAllotmentRoomingListPatchRequest,
   validatePropertyAllotmentPatchRequest,
   validatePropertyCreateRequest,
   validatePropertyPatchRequest,
@@ -107,6 +116,28 @@ function resolveTenantId(request) {
 
 function parseJsonBody(request) {
   return request.json();
+}
+
+async function recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, action, fromStatus, toStatus, payload = null, actorUserId = null) {
+  await env.DB
+    .prepare(
+      `INSERT INTO property_allotment_events
+        (id, tenant_id, property_id, allotment_id, action, from_status, to_status, actor_user_id, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      nanoid(),
+      tenantId,
+      propertyId,
+      allotmentId,
+      action,
+      fromStatus,
+      toStatus,
+      actorUserId,
+      payload ? JSON.stringify(payload) : null,
+      currentUnixSeconds(),
+    )
+    .run();
 }
 
 function readAuthTokenFromRequest(request) {
@@ -437,22 +468,36 @@ async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId)
   const todayIso = formatDateUtc(new Date());
   const row = await env.DB
     .prepare(
-      `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
-              pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.release_date, pa.status,
+            `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
+              pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.roh_capacity_filter, pa.release_date, pa.status,
               pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
               rt.code AS room_type_code, rt.name AS room_type_name,
               CASE
-                WHEN pa.status = 'active' AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                WHEN pa.status IN ('draft', 'active', 'allocated') AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                WHEN pa.status IN ('confirmed', 'in_house') THEN 1
                 ELSE 0
-              END AS inventory_blocking
+              END AS inventory_blocking,
+              CASE
+                WHEN pa.status IN ('confirmed', 'in_house', 'released', 'cancelled', 'expired') THEN 0
+                WHEN pa.release_date IS NOT NULL THEN 1
+                ELSE 0
+              END AS auto_release_enabled,
+              CASE
+                WHEN pa.status IN ('confirmed', 'in_house') THEN 'locked'
+                WHEN pa.status IN ('released', 'cancelled', 'expired') THEN 'closed'
+                WHEN pa.release_date IS NULL THEN 'none'
+                WHEN pa.release_date < ? THEN 'overdue'
+                WHEN pa.release_date = ? THEN 'due_today'
+                ELSE 'scheduled'
+              END AS auto_release_state
          FROM property_allotments pa
-         JOIN room_types rt
+         LEFT JOIN room_types rt
            ON rt.id = pa.room_type_id
           AND rt.tenant_id = pa.tenant_id
           AND rt.property_id = pa.property_id
         WHERE pa.id = ? AND pa.tenant_id = ? AND pa.property_id = ?`
     )
-    .bind(todayIso, allotmentId, tenantId, propertyId)
+    .bind(todayIso, todayIso, todayIso, allotmentId, tenantId, propertyId)
     .first();
   return row ? mapPropertyAllotmentRow(row) : null;
 }
@@ -460,15 +505,29 @@ async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId)
 async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, status = 'all') {
   const todayIso = formatDateUtc(new Date());
   let sql = `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
-                    pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.release_date, pa.status,
+                    pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.roh_capacity_filter, pa.release_date, pa.status,
                     pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
                     rt.code AS room_type_code, rt.name AS room_type_name,
                     CASE
-                      WHEN pa.status = 'active' AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                      WHEN pa.status IN ('draft', 'active', 'allocated') AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                      WHEN pa.status IN ('confirmed', 'in_house') THEN 1
                       ELSE 0
-                    END AS inventory_blocking
+                    END AS inventory_blocking,
+                    CASE
+                      WHEN pa.status IN ('confirmed', 'in_house', 'released', 'cancelled', 'expired') THEN 0
+                      WHEN pa.release_date IS NOT NULL THEN 1
+                      ELSE 0
+                    END AS auto_release_enabled,
+                    CASE
+                      WHEN pa.status IN ('confirmed', 'in_house') THEN 'locked'
+                      WHEN pa.status IN ('released', 'cancelled', 'expired') THEN 'closed'
+                      WHEN pa.release_date IS NULL THEN 'none'
+                      WHEN pa.release_date < ? THEN 'overdue'
+                      WHEN pa.release_date = ? THEN 'due_today'
+                      ELSE 'scheduled'
+                    END AS auto_release_state
                FROM property_allotments pa
-               JOIN room_types rt
+               LEFT JOIN room_types rt
                  ON rt.id = pa.room_type_id
                 AND rt.tenant_id = pa.tenant_id
                 AND rt.property_id = pa.property_id
@@ -476,7 +535,7 @@ async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate
                 AND pa.property_id = ?
                 AND pa.check_in < ?
                 AND pa.check_out > ?`;
-  const binds = [todayIso, tenantId, propertyId, toDate, fromDate];
+  const binds = [todayIso, todayIso, todayIso, tenantId, propertyId, toDate, fromDate];
   if (status !== 'all') {
     sql += ` AND pa.status = ?`;
     binds.push(status);
@@ -484,6 +543,529 @@ async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate
   sql += ` ORDER BY pa.check_in ASC, pa.operator_name ASC, pa.room_type_id ASC`;
   const result = await env.DB.prepare(sql).bind(...binds).all();
   return (result.results || []).map(mapPropertyAllotmentRow);
+}
+
+async function autoReleaseExpiredAllotmentsForProperty(env, tenantId, propertyId, localDate, actorUserId = 'system:auto_release') {
+  const result = await env.DB
+    .prepare(
+      `SELECT id
+         FROM property_allotments
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND status IN ('draft', 'active', 'allocated')
+          AND release_date IS NOT NULL
+          AND release_date < ?`
+    )
+    .bind(tenantId, propertyId, localDate)
+    .all();
+
+  let releasedCount = 0;
+  const now = currentUnixSeconds();
+  for (const row of (result.results || [])) {
+    const allotmentId = String(row.id || '').trim();
+    if (!allotmentId) continue;
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) continue;
+    const activeAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotmentId);
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE property_allotment_allocations
+            SET allocation_status = 'released',
+                released_reason = 'auto_release_policy',
+                updated_by = ?,
+                updated_at = ?
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND allotment_id = ?
+            AND allocation_status = 'allocated'`
+      ).bind(actorUserId, now, tenantId, propertyId, allotmentId),
+      env.DB.prepare(
+        `UPDATE property_allotments
+            SET status = 'expired',
+                updated_by = ?,
+                updated_at = ?
+          WHERE id = ?
+            AND tenant_id = ?
+            AND property_id = ?
+            AND status IN ('draft', 'active', 'allocated')`
+      ).bind(actorUserId, now, allotmentId, tenantId, propertyId),
+    ]);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_auto_released', existing.status, 'expired', {
+      released_by_policy: true,
+      release_reason: 'auto_release_policy',
+      release_date: existing.release_date || null,
+      released_allocations: activeAllocations.length,
+      room_unit_ids: activeAllocations.map((allocation) => allocation.room_unit_id),
+      actor_type: 'system',
+    }, null);
+    releasedCount += 1;
+  }
+  return releasedCount;
+}
+
+async function listPropertyAllotmentAllocationsInRange(env, tenantId, propertyId, fromDate, toDate, allocationStatus = 'all') {
+  let sql = `SELECT paa.id, paa.tenant_id, paa.property_id, paa.allotment_id, paa.room_type_id, paa.room_unit_id,
+                    paa.operator_name, paa.check_in, paa.check_out, paa.allocation_status, paa.allocation_source,
+                    paa.released_reason, paa.created_by, paa.updated_by, paa.created_at, paa.updated_at,
+                    ru.room_number, ru.floor_label,
+                    rt.code AS room_type_code, rt.name AS room_type_name,
+                    pa.roh_capacity_filter
+               FROM property_allotment_allocations paa
+               JOIN property_allotments pa
+                 ON pa.id = paa.allotment_id
+                AND pa.tenant_id = paa.tenant_id
+                AND pa.property_id = paa.property_id
+               JOIN room_units ru
+                 ON ru.id = paa.room_unit_id
+                AND ru.tenant_id = paa.tenant_id
+                AND ru.property_id = paa.property_id
+               LEFT JOIN room_types rt
+                 ON rt.id = paa.room_type_id
+                AND rt.tenant_id = paa.tenant_id
+                AND rt.property_id = paa.property_id
+              WHERE paa.tenant_id = ?
+                AND paa.property_id = ?
+                AND paa.check_in < ?
+                AND paa.check_out > ?`;
+  const binds = [tenantId, propertyId, toDate, fromDate];
+  if (allocationStatus !== 'all') {
+    sql += ' AND paa.allocation_status = ?';
+    binds.push(allocationStatus);
+  }
+  sql += ' ORDER BY paa.check_in ASC, ru.floor_label ASC, ru.room_number ASC';
+  const result = await env.DB.prepare(sql).bind(...binds).all();
+  return (result.results || []).map(mapPropertyAllotmentAllocationRow);
+}
+
+async function listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotmentId) {
+  const result = await env.DB
+    .prepare(
+      `SELECT paa.id, paa.tenant_id, paa.property_id, paa.allotment_id, paa.room_type_id, paa.room_unit_id,
+              paa.operator_name, paa.check_in, paa.check_out, paa.allocation_status, paa.allocation_source,
+              paa.released_reason, paa.created_by, paa.updated_by, paa.created_at, paa.updated_at,
+              ru.room_number, ru.floor_label,
+              rt.code AS room_type_code, rt.name AS room_type_name,
+              pa.roh_capacity_filter
+         FROM property_allotment_allocations paa
+         JOIN property_allotments pa
+           ON pa.id = paa.allotment_id
+          AND pa.tenant_id = paa.tenant_id
+          AND pa.property_id = paa.property_id
+         JOIN room_units ru
+           ON ru.id = paa.room_unit_id
+          AND ru.tenant_id = paa.tenant_id
+          AND ru.property_id = paa.property_id
+         LEFT JOIN room_types rt
+           ON rt.id = paa.room_type_id
+          AND rt.tenant_id = paa.tenant_id
+          AND rt.property_id = paa.property_id
+        WHERE paa.tenant_id = ?
+          AND paa.property_id = ?
+          AND paa.allotment_id = ?
+          AND paa.allocation_status = 'allocated'
+        ORDER BY ru.floor_label ASC, ru.room_number ASC`
+    )
+    .bind(tenantId, propertyId, allotmentId)
+    .all();
+  return (result.results || []).map(mapPropertyAllotmentAllocationRow);
+}
+
+async function listPropertyAllotmentEvents(env, tenantId, propertyId, allotmentId, limit = 50) {
+  const result = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, allotment_id, action, from_status, to_status, actor_user_id, payload_json, created_at
+         FROM property_allotment_events
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allotment_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?`
+    )
+    .bind(tenantId, propertyId, allotmentId, limit)
+    .all();
+  return (result.results || []).map((row) => ({
+    ...row,
+    payload_json: parseJsonSafe(row.payload_json),
+  }));
+}
+
+async function listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotmentId) {
+  const result = await env.DB
+    .prepare(
+      `SELECT prle.id, prle.tenant_id, prle.property_id, prle.allotment_id, prle.allotment_allocation_id,
+              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.display_name, prle.guest_name,
+              prle.note, prle.created_by, prle.updated_by, prle.created_at, prle.updated_at,
+              ru.room_number, ru.floor_label,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_allotment_rooming_list_entries prle
+         JOIN room_units ru
+           ON ru.id = prle.room_unit_id
+          AND ru.tenant_id = prle.tenant_id
+          AND ru.property_id = prle.property_id
+         LEFT JOIN room_types rt
+           ON rt.id = prle.room_type_id
+          AND rt.tenant_id = prle.tenant_id
+          AND rt.property_id = prle.property_id
+        WHERE prle.tenant_id = ?
+          AND prle.property_id = ?
+          AND prle.allotment_id = ?
+        ORDER BY ru.floor_label ASC, ru.room_number ASC, prle.created_at ASC`
+    )
+    .bind(tenantId, propertyId, allotmentId)
+    .all();
+  return (result.results || []).map(mapPropertyAllotmentRoomingListEntryRow);
+}
+
+async function loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, entryId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT prle.id, prle.tenant_id, prle.property_id, prle.allotment_id, prle.allotment_allocation_id,
+              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.display_name, prle.guest_name,
+              prle.note, prle.created_by, prle.updated_by, prle.created_at, prle.updated_at,
+              ru.room_number, ru.floor_label,
+              rt.code AS room_type_code, rt.name AS room_type_name
+         FROM property_allotment_rooming_list_entries prle
+         JOIN room_units ru
+           ON ru.id = prle.room_unit_id
+          AND ru.tenant_id = prle.tenant_id
+          AND ru.property_id = prle.property_id
+         LEFT JOIN room_types rt
+           ON rt.id = prle.room_type_id
+          AND rt.tenant_id = prle.tenant_id
+          AND rt.property_id = prle.property_id
+        WHERE prle.tenant_id = ?
+          AND prle.property_id = ?
+          AND prle.allotment_id = ?
+          AND prle.id = ?`
+    )
+    .bind(tenantId, propertyId, allotmentId, entryId)
+    .first();
+  return row ? mapPropertyAllotmentRoomingListEntryRow(row) : null;
+}
+
+async function ensurePropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotment, allocations, actorUserId) {
+  const existingEntries = await listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotment.id);
+  const existingAllocationIds = new Set(existingEntries.map((entry) => String(entry.allotment_allocation_id || '')));
+  const now = currentUnixSeconds();
+  const inserts = [];
+  for (const allocation of (allocations || [])) {
+    const allocationId = String(allocation.id || '').trim();
+    if (!allocationId || existingAllocationIds.has(allocationId)) continue;
+    const roomLabel = allocation.room_number ? `Room ${allocation.room_number}` : 'Room TBD';
+    inserts.push(env.DB.prepare(
+      `INSERT INTO property_allotment_rooming_list_entries
+        (id, tenant_id, property_id, allotment_id, allotment_allocation_id, room_type_id, room_unit_id,
+         rooming_status, display_name, guest_name, note, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, NULL, ?, ?, ?, ?)`
+    ).bind(
+      nanoid(),
+      tenantId,
+      propertyId,
+      allotment.id,
+      allocationId,
+      allocation.room_type_id,
+      allocation.room_unit_id,
+      `${allotment.operator_name || 'Operator'} · ${roomLabel}`,
+      actorUserId || null,
+      actorUserId || null,
+      now,
+      now,
+    ));
+  }
+  if (inserts.length) await env.DB.batch(inserts);
+  return listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotment.id);
+}
+
+async function loadPropertyAllotmentMasterFolio(env, tenantId, propertyId, allotmentId) {
+  const row = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, allotment_id, status, billing_mode, currency, note,
+              opened_at, settled_at, closed_by, created_at, updated_at
+         FROM property_allotment_master_folios
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allotment_id = ?`
+    )
+    .bind(tenantId, propertyId, allotmentId)
+    .first();
+  return row ? mapPropertyAllotmentMasterFolioRow(row) : null;
+}
+
+async function ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, allotment, actorUserId = null) {
+  let folio = await loadPropertyAllotmentMasterFolio(env, tenantId, propertyId, allotment.id);
+  if (folio) return { folio, created: false };
+
+  const property = await loadPropertyById(env, tenantId, propertyId);
+  const currency = String(property?.currency || 'USD').trim().toUpperCase();
+  const now = currentUnixSeconds();
+  const folioId = nanoid();
+  await env.DB
+    .prepare(
+      `INSERT INTO property_allotment_master_folios
+        (id, tenant_id, property_id, allotment_id, status, billing_mode, currency, note, opened_at, settled_at, closed_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'open', 'master_only', ?, NULL, ?, NULL, NULL, ?, ?)`
+    )
+    .bind(folioId, tenantId, propertyId, allotment.id, currency, now, now, now)
+    .run();
+  folio = await loadPropertyAllotmentMasterFolio(env, tenantId, propertyId, allotment.id);
+  if (folio) {
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotment.id, 'allotment_master_folio_opened', allotment.status, allotment.status, {
+      master_folio_id: folio.id,
+      billing_mode: folio.billing_mode,
+      currency: folio.currency,
+    }, actorUserId || null);
+  }
+  return { folio, created: true };
+}
+
+async function loadPropertyAllotmentMasterFolioLines(env, tenantId, propertyId, allotmentId) {
+  const result = await env.DB
+    .prepare(
+      `SELECT paml.id, paml.tenant_id, paml.property_id, paml.master_folio_id, paml.allotment_id, paml.rooming_entry_id,
+              paml.line_type, paml.source_type, paml.category, paml.description, paml.quantity, paml.unit_amount,
+              paml.total_amount, paml.currency, paml.status, paml.posted_at, paml.posted_by, paml.note, paml.created_at, paml.updated_at
+         FROM property_allotment_master_folio_lines paml
+        WHERE paml.tenant_id = ?
+          AND paml.property_id = ?
+          AND paml.allotment_id = ?
+        ORDER BY paml.posted_at ASC, paml.created_at ASC`
+    )
+    .bind(tenantId, propertyId, allotmentId)
+    .all();
+  return (result.results || []).map(mapPropertyAllotmentMasterFolioLineRow);
+}
+
+async function loadPropertyAllotmentDeferredGuestCharges(env, tenantId, propertyId, allotmentId) {
+  const result = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, allotment_id, rooming_entry_id, line_type, source_type, category,
+              description, quantity, unit_amount, total_amount, currency, routing_status, note, created_by, created_at, updated_at
+         FROM property_allotment_deferred_guest_charges
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allotment_id = ?
+        ORDER BY created_at ASC`
+    )
+    .bind(tenantId, propertyId, allotmentId)
+    .all();
+  return (result.results || []).map(mapPropertyAllotmentDeferredGuestChargeRow);
+}
+
+async function recalculatePropertyAllotmentMasterFolioStatus(env, tenantId, propertyId, masterFolioId) {
+  const totals = await env.DB
+    .prepare(
+      `SELECT COALESCE(SUM(total_amount), 0) AS balance_due,
+              COALESCE(SUM(CASE WHEN line_type = 'payment' THEN ABS(total_amount) ELSE 0 END), 0) AS payment_total,
+              COALESCE(SUM(CASE WHEN line_type != 'payment' AND total_amount > 0 THEN total_amount ELSE 0 END), 0) AS charge_total,
+              COALESCE(SUM(CASE WHEN line_type != 'payment' AND total_amount < 0 THEN total_amount ELSE 0 END), 0) AS adjustment_total
+         FROM property_allotment_master_folio_lines
+        WHERE tenant_id = ? AND property_id = ? AND master_folio_id = ? AND status = 'posted'`
+    )
+    .bind(tenantId, propertyId, masterFolioId)
+    .first();
+
+  const now = currentUnixSeconds();
+  const balanceDue = Number(totals?.balance_due || 0);
+  const nextStatus = balanceDue <= 0 ? 'settled' : 'open';
+  await env.DB
+    .prepare(
+      `UPDATE property_allotment_master_folios
+          SET status = ?,
+              settled_at = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(nextStatus, nextStatus === 'settled' ? now : null, now, masterFolioId, tenantId, propertyId)
+    .run();
+
+  return {
+    charge_total: Number(totals?.charge_total || 0),
+    payment_total: Number(totals?.payment_total || 0),
+    adjustment_total: Number(totals?.adjustment_total || 0),
+    balance_due: balanceDue,
+    status: nextStatus,
+  };
+}
+
+function resolveAllotmentChargePayerScope(masterFolio, roomingEntry, parsedCharge) {
+  const billingMode = String(masterFolio?.billing_mode || 'master_only').trim() || 'master_only';
+  if (parsedCharge?.payerScope) return parsedCharge.payerScope;
+  if (billingMode === 'master_only') return 'master';
+  if (billingMode === 'guest_only') return 'guest';
+  if (String(parsedCharge?.lineType || '') === 'room_charge') return 'master';
+  const roomingScope = String(roomingEntry?.payer_scope || '').trim();
+  if (roomingScope === 'master' || roomingScope === 'guest') return roomingScope;
+  return 'guest';
+}
+
+function filterEligibleRoomTypesForAllotment(allotment, roomTypes, roomRateMap) {
+  if (allotment.room_type_id) {
+    return roomTypes.filter((roomType) => String(roomType.id) === String(allotment.room_type_id));
+  }
+  const rohCapacityFilter = String(allotment.roh_capacity_filter || 'max_2').trim() || 'max_2';
+  return [...roomTypes]
+    .filter((roomType) => {
+      const maxOccupancy = Number(roomType.max_occupancy || 0);
+      return rohCapacityFilter === 'gte_2' ? maxOccupancy >= 2 : maxOccupancy === 2;
+    })
+    .sort((left, right) => {
+      const leftRate = Number(roomRateMap.get(String(left.id)) || Number.MAX_SAFE_INTEGER);
+      const rightRate = Number(roomRateMap.get(String(right.id)) || Number.MAX_SAFE_INTEGER);
+      if (leftRate !== rightRate) return leftRate - rightRate;
+      const leftSort = Number(left.sort_order || 0);
+      const rightSort = Number(right.sort_order || 0);
+      if (leftSort !== rightSort) return leftSort - rightSort;
+      return String(left.name || left.code || left.id).localeCompare(String(right.name || right.code || right.id));
+    });
+}
+
+async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotment, actorUserId, allocationSource = 'manual_allocate') {
+  const existingAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotment.id);
+  if (existingAllocations.length) {
+    if (existingAllocations.length === Number(allotment.rooms_blocked || 0)) {
+      return { allocations: existingAllocations, alreadyAllocated: true };
+    }
+    return { error: 'This operator block already has partial room allocations. Release it first before reallocating.' };
+  }
+
+  const roomTypesResult = await env.DB
+    .prepare(
+      `SELECT id, code, name, max_occupancy, sort_order
+         FROM room_types
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1
+        ORDER BY sort_order ASC, name ASC`
+    )
+    .bind(tenantId, propertyId)
+    .all();
+  const roomRatesResult = await env.DB
+    .prepare(
+      `SELECT room_type_id, MIN(nightly_amount) AS min_nightly_amount
+         FROM property_room_rates
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1
+        GROUP BY room_type_id`
+    )
+    .bind(tenantId, propertyId)
+    .all();
+  const roomUnitsResult = await env.DB
+    .prepare(
+      `SELECT id, room_type_id, room_number, floor_label, sort_order
+         FROM room_units
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1
+          AND operational_status NOT IN ('maintenance', 'out_of_order')
+        ORDER BY sort_order ASC, room_number ASC`
+    )
+    .bind(tenantId, propertyId)
+    .all();
+  const reservationOverlapResult = await env.DB
+    .prepare(
+      `SELECT DISTINCT room_unit_id
+         FROM reservation_allocations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allocation_status IN ('soft_allocated', 'locked')
+          AND stay_date >= ?
+          AND stay_date < ?`
+    )
+    .bind(tenantId, propertyId, allotment.check_in, allotment.check_out)
+    .all();
+  const allotmentOverlapResult = await env.DB
+    .prepare(
+      `SELECT DISTINCT room_unit_id
+         FROM property_allotment_allocations
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allocation_status = 'allocated'
+          AND check_in < ?
+          AND check_out > ?`
+    )
+    .bind(tenantId, propertyId, allotment.check_out, allotment.check_in)
+    .all();
+
+  const roomTypes = roomTypesResult.results || [];
+  const roomRateMap = new Map((roomRatesResult.results || []).map((row) => [String(row.room_type_id || ''), Number(row.min_nightly_amount || Number.MAX_SAFE_INTEGER)]));
+  const blockedRoomUnitIds = new Set([
+    ...(reservationOverlapResult.results || []).map((row) => String(row.room_unit_id || '')),
+    ...(allotmentOverlapResult.results || []).map((row) => String(row.room_unit_id || '')),
+  ]);
+  const eligibleRoomTypes = filterEligibleRoomTypesForAllotment(allotment, roomTypes, roomRateMap);
+  if (!eligibleRoomTypes.length) {
+    return { error: 'No eligible room types match this operator block.' };
+  }
+
+  const candidateUnits = [];
+  for (const roomType of eligibleRoomTypes) {
+    const matchingUnits = (roomUnitsResult.results || []).filter((roomUnit) => String(roomUnit.room_type_id) === String(roomType.id));
+    for (const roomUnit of matchingUnits) {
+      if (blockedRoomUnitIds.has(String(roomUnit.id))) continue;
+      candidateUnits.push({ roomType, roomUnit });
+    }
+  }
+
+  const requiredRooms = Number(allotment.rooms_blocked || 0);
+  if (candidateUnits.length < requiredRooms) {
+    return {
+      error: `Only ${candidateUnits.length} free room(s) are currently available to allocate against this operator block.`,
+      availableRooms: candidateUnits.length,
+    };
+  }
+
+  const now = currentUnixSeconds();
+  const chosenUnits = candidateUnits.slice(0, requiredRooms);
+  const batchStatements = chosenUnits.map(({ roomType, roomUnit }) => env.DB.prepare(
+    `INSERT INTO property_allotment_allocations
+      (id, tenant_id, property_id, allotment_id, room_type_id, room_unit_id, operator_name,
+       check_in, check_out, allocation_status, allocation_source, released_reason, created_by, updated_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'allocated', ?, NULL, ?, ?, ?, ?)`
+  ).bind(
+    nanoid(),
+    tenantId,
+    propertyId,
+    allotment.id,
+    roomType.id,
+    roomUnit.id,
+    allotment.operator_name,
+    allotment.check_in,
+    allotment.check_out,
+    allocationSource,
+    actorUserId || null,
+    actorUserId || null,
+    now,
+    now,
+  ));
+  await env.DB.batch(batchStatements);
+  await env.DB
+    .prepare(
+      `UPDATE property_allotments
+          SET status = CASE WHEN status IN ('draft', 'active') THEN 'allocated' ELSE status END,
+              updated_by = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(actorUserId || null, now, allotment.id, tenantId, propertyId)
+    .run();
+  const allocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotment.id);
+  await recordPropertyAllotmentEvent(
+    env,
+    tenantId,
+    propertyId,
+    allotment.id,
+    'allotment_allocated',
+    allotment.status,
+    allotment.status === 'draft' || allotment.status === 'active' ? 'allocated' : allotment.status,
+    {
+      allocation_source: allocationSource,
+      allocated_rooms: allocations.length,
+      room_unit_ids: allocations.map((allocation) => allocation.room_unit_id),
+    },
+    actorUserId || null,
+  );
+  return { allocations, alreadyAllocated: false };
 }
 
 async function loadRoomUnitById(env, tenantId, propertyId, roomUnitId) {
@@ -636,6 +1218,31 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
       .bind(tenantId, propertyId, fromDate, rangeEndExclusive)
       .all();
 
+    const allotmentOccupancyResult = await env.DB
+      .prepare(
+        `SELECT paa.room_unit_id, paa.allotment_id, pa.operator_name, pa.status AS allotment_status,
+                paa.check_in, paa.check_out,
+                prle.id AS rooming_entry_id, prle.rooming_status, prle.display_name, prle.guest_name
+           FROM property_allotment_allocations paa
+           JOIN property_allotments pa
+             ON pa.id = paa.allotment_id
+            AND pa.tenant_id = paa.tenant_id
+            AND pa.property_id = paa.property_id
+           LEFT JOIN property_allotment_rooming_list_entries prle
+             ON prle.allotment_allocation_id = paa.id
+            AND prle.tenant_id = paa.tenant_id
+            AND prle.property_id = paa.property_id
+          WHERE paa.tenant_id = ?
+            AND paa.property_id = ?
+            AND paa.allocation_status = 'allocated'
+            AND pa.status IN ('confirmed', 'in_house')
+            AND paa.check_out > ?
+            AND paa.check_in < ?
+          ORDER BY paa.room_unit_id ASC, paa.check_in ASC`
+      )
+      .bind(tenantId, propertyId, fromDate, rangeEndExclusive)
+      .all();
+
     // Build per-unit segment list (ordered by first_alloc_date ascending)
     const byUnit = new Map();
     for (const row of (allocResult.results || [])) {
@@ -645,8 +1252,17 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
       byUnit.get(unitId).push(row);
     }
 
+    const allotmentsByUnit = new Map();
+    for (const row of (allotmentOccupancyResult.results || [])) {
+      const unitId = String(row.room_unit_id || '').trim();
+      if (!unitId) continue;
+      if (!allotmentsByUnit.has(unitId)) allotmentsByUnit.set(unitId, []);
+      allotmentsByUnit.get(unitId).push(row);
+    }
+
     const summary = roomUnits.map((roomUnit) => {
       const segments = byUnit.get(String(roomUnit.id)) || [];
+      const allotmentSegments = allotmentsByUnit.get(String(roomUnit.id)) || [];
 
       // Current = a segment whose allocated nights include fromDate
       // (first_alloc_date <= fromDate AND last_alloc_date >= fromDate)
@@ -654,14 +1270,21 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
       // Next = first segment that starts strictly after fromDate
       const next = segments.find((s) => s.first_alloc_date > fromDate) || null;
 
+      const currentAllotment = !current
+        ? (allotmentSegments.find((segment) => String(segment.check_in || '') <= fromDate && String(segment.check_out || '') > fromDate) || null)
+        : null;
+      const nextAllotment = !next
+        ? (allotmentSegments.find((segment) => String(segment.check_in || '') > fromDate) || null)
+        : null;
+
       // Open nights = free nights between now and the next blocked segment
-      const openFrom = current ? current.check_out : fromDate;
-      const openEnd = next ? next.first_alloc_date : rangeEndExclusive;
+      const openFrom = current ? current.check_out : (currentAllotment ? currentAllotment.check_out : fromDate);
+      const openEnd = next ? next.first_alloc_date : (nextAllotment ? nextAllotment.check_in : rangeEndExclusive);
       const openNights = Math.max(0, enumerateStayDates(openFrom, openEnd).length);
 
       // Arrival/departure signals (relative to fromDate)
-      const arrivalToday = !current && next?.first_alloc_date === fromDate;
-      const departureToday = current?.check_out === fromDate;
+      const arrivalToday = (!current && next?.first_alloc_date === fromDate) || (!current && !next && nextAllotment?.check_in === fromDate);
+      const departureToday = current?.check_out === fromDate || currentAllotment?.check_out === fromDate;
 
       // Human-readable explanation for why a room cannot be freely assigned
       let whyNotAssignable = null;
@@ -671,24 +1294,45 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
         whyNotAssignable = departureToday
           ? `Departing today · ${current.guest_name || 'Guest'}`
           : `Occupied until ${current.check_out} · ${current.guest_name || 'Guest'}`;
+      } else if (currentAllotment) {
+        const roomingLabel = currentAllotment.guest_name || currentAllotment.display_name || currentAllotment.operator_name || 'Operator block';
+        const occupiedLabel = currentAllotment.rooming_status === 'checked_in' || currentAllotment.allotment_status === 'in_house'
+          ? 'Occupied'
+          : 'Reserved';
+        whyNotAssignable = departureToday
+          ? `${occupiedLabel} by operator block today · ${roomingLabel}`
+          : `${occupiedLabel} by operator block until ${currentAllotment.check_out} · ${roomingLabel}`;
       } else if (next) {
         whyNotAssignable = arrivalToday
           ? `Arriving today · ${next.guest_name || 'Guest'}`
           : `${openNights} night${openNights !== 1 ? 's' : ''} free · Next: ${next.guest_name || 'Reservation'} arrives ${next.first_alloc_date}`;
+      } else if (nextAllotment) {
+        const roomingLabel = nextAllotment.guest_name || nextAllotment.display_name || nextAllotment.operator_name || 'Operator block';
+        whyNotAssignable = arrivalToday
+          ? `Operator block arrives today · ${roomingLabel}`
+          : `${openNights} night${openNights !== 1 ? 's' : ''} free · Next operator block: ${roomingLabel} arrives ${nextAllotment.check_in}`;
       }
 
       return {
         room_unit_id: roomUnit.id,
         current_reservation_id: current?.reservation_id || null,
-        current_guest_name: current?.guest_name || null,
-        current_check_out: current?.check_out || null,
+        current_guest_name: current?.guest_name || currentAllotment?.guest_name || currentAllotment?.display_name || currentAllotment?.operator_name || null,
+        current_check_out: current?.check_out || currentAllotment?.check_out || null,
         departure_today: departureToday || false,
         next_reservation_id: next?.reservation_id || null,
         next_reservation_start: next?.first_alloc_date || null,
         next_reservation_guest_name: next?.guest_name || null,
+        current_allotment_id: currentAllotment?.allotment_id || null,
+        current_allotment_operator_name: currentAllotment?.operator_name || null,
+        current_allotment_display_name: currentAllotment?.display_name || currentAllotment?.guest_name || null,
+        current_allotment_rooming_status: currentAllotment?.rooming_status || null,
+        current_allotment_status: currentAllotment?.allotment_status || null,
+        next_allotment_id: nextAllotment?.allotment_id || null,
+        next_allotment_start: nextAllotment?.check_in || null,
+        next_allotment_display_name: nextAllotment?.display_name || nextAllotment?.guest_name || nextAllotment?.operator_name || null,
         arrival_today: arrivalToday || false,
         open_nights: openNights,
-        fully_open_within_window: !current && !next,
+        fully_open_within_window: !current && !next && !currentAllotment && !nextAllotment,
         why_not_assignable: whyNotAssignable,
       };
     });
@@ -733,6 +1377,7 @@ export async function handleGetPropertyPlanningGrid(request, env, params) {
     const toDate = formatDateUtc(addDays(parseDateUtc(fromDate), days));
     const dates = enumerateStayDates(fromDate, toDate);
     const allotments = await listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, 'all');
+    const allotmentAllocations = await listPropertyAllotmentAllocationsInRange(env, tenantId, propertyId, fromDate, toDate, 'allocated');
 
     const allocResult = await env.DB
       .prepare(
@@ -850,7 +1495,7 @@ export async function handleGetPropertyPlanningGrid(request, env, params) {
       };
     });
 
-    return jsonResponse({ ok: true, from_date: fromDate, days, dates, units, reservations: Array.from(reservationMap.values()), allotments });
+    return jsonResponse({ ok: true, from_date: fromDate, days, dates, units, reservations: Array.from(reservationMap.values()), allotments, allotment_allocations: allotmentAllocations });
   } catch (error) {
     console.error('[PROPERTY_PLANNING_GRID_GET]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
@@ -883,6 +1528,275 @@ export async function handleListPropertyAllotments(request, env, params) {
   }
 }
 
+export async function handleListPropertyAllotmentEvents(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  const url = new URL(request.url);
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const events = await listPropertyAllotmentEvents(env, tenantId, propertyId, allotmentId, limit);
+    return jsonResponse({ ok: true, allotment_id: allotmentId, events });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_EVENTS_LIST]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleListPropertyAllotmentRoomingList(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const entries = await listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotmentId);
+    return jsonResponse({ ok: true, allotment_id: allotmentId, entries });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_ROOMING_LIST_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleGetPropertyAllotmentMasterFolio(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const ensured = await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, existing, actor.session.user_id || null);
+    const lines = await loadPropertyAllotmentMasterFolioLines(env, tenantId, propertyId, allotmentId);
+    const deferredGuestCharges = await loadPropertyAllotmentDeferredGuestCharges(env, tenantId, propertyId, allotmentId);
+    const summary = await recalculatePropertyAllotmentMasterFolioStatus(env, tenantId, propertyId, ensured.folio.id);
+    return jsonResponse({ ok: true, allotment_id: allotmentId, master_folio: ensured.folio, lines, deferred_guest_charges: deferredGuestCharges, summary });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_MASTER_FOLIO_GET]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyAllotmentMasterFolio(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentMasterFolioPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const ensured = await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, existing, actor.session.user_id || null);
+    const sqlParts = [];
+    const bindValues = [];
+    for (const [key, value] of Object.entries(parsed.updates)) {
+      sqlParts.push(`${key} = ?`);
+      bindValues.push(value);
+    }
+    sqlParts.push('updated_at = ?');
+    bindValues.push(currentUnixSeconds());
+
+    await env.DB
+      .prepare(`UPDATE property_allotment_master_folios SET ${sqlParts.join(', ')} WHERE id = ? AND tenant_id = ? AND property_id = ? AND allotment_id = ?`)
+      .bind(...bindValues, ensured.folio.id, tenantId, propertyId, allotmentId)
+      .run();
+
+    const updated = await loadPropertyAllotmentMasterFolio(env, tenantId, propertyId, allotmentId);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_master_folio_updated', existing.status, existing.status, {
+      updates: parsed.updates,
+      master_folio_id: updated?.id || ensured.folio.id,
+    }, actor.session.user_id || null);
+    return jsonResponse({ ok: true, master_folio: updated });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_MASTER_FOLIO_PATCH]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handlePostPropertyAllotmentCharge(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentChargeRoutingRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const allotment = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!allotment) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const ensuredMasterFolio = await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, allotment, actor.session.user_id || null);
+    let roomingEntry = null;
+    if (parsed.roomingEntryId) {
+      roomingEntry = await loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, parsed.roomingEntryId);
+      if (!roomingEntry) return jsonResponse({ error: 'Rooming list entry not found.' }, 404);
+    }
+
+    const payerScope = resolveAllotmentChargePayerScope(ensuredMasterFolio.folio, roomingEntry, parsed);
+    const now = currentUnixSeconds();
+
+    if (payerScope === 'master') {
+      const lineId = nanoid();
+      await env.DB
+        .prepare(
+          `INSERT INTO property_allotment_master_folio_lines
+            (id, tenant_id, property_id, master_folio_id, allotment_id, rooming_entry_id, line_type, source_type, category,
+             description, quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'manual_manager', ?, ?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          lineId,
+          tenantId,
+          propertyId,
+          ensuredMasterFolio.folio.id,
+          allotmentId,
+          roomingEntry?.id || null,
+          parsed.lineType,
+          parsed.category,
+          parsed.description,
+          parsed.quantity,
+          parsed.unitAmount,
+          parsed.totalAmount,
+          parsed.currency,
+          now,
+          actor.session.user_id || null,
+          parsed.note,
+          now,
+          now,
+        )
+        .run();
+      const lines = await loadPropertyAllotmentMasterFolioLines(env, tenantId, propertyId, allotmentId);
+      const line = lines.find((item) => String(item.id) === String(lineId)) || null;
+      const summary = await recalculatePropertyAllotmentMasterFolioStatus(env, tenantId, propertyId, ensuredMasterFolio.folio.id);
+      await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_charge_routed', allotment.status, allotment.status, {
+        payer_scope: 'master',
+        master_folio_id: ensuredMasterFolio.folio.id,
+        master_folio_line_id: lineId,
+        rooming_entry_id: roomingEntry?.id || null,
+        line_type: parsed.lineType,
+        total_amount: parsed.totalAmount,
+        currency: parsed.currency,
+      }, actor.session.user_id || null);
+      return jsonResponse({ ok: true, payer_scope: 'master', master_folio: ensuredMasterFolio.folio, line, summary });
+    }
+
+    if (!roomingEntry) {
+      return jsonResponse({ error: 'rooming_entry_id is required when a charge routes to guest scope.' }, 409);
+    }
+
+    const deferredChargeId = nanoid();
+    await env.DB
+      .prepare(
+        `INSERT INTO property_allotment_deferred_guest_charges
+          (id, tenant_id, property_id, allotment_id, rooming_entry_id, line_type, source_type, category,
+           description, quantity, unit_amount, total_amount, currency, routing_status, note, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'manual_manager', ?, ?, ?, ?, ?, ?, 'pending_guest_folio', ?, ?, ?, ?)`
+      )
+      .bind(
+        deferredChargeId,
+        tenantId,
+        propertyId,
+        allotmentId,
+        roomingEntry.id,
+        parsed.lineType,
+        parsed.category,
+        parsed.description,
+        parsed.quantity,
+        parsed.unitAmount,
+        parsed.totalAmount,
+        parsed.currency,
+        parsed.note,
+        actor.session.user_id || null,
+        now,
+        now,
+      )
+      .run();
+    const deferredGuestCharges = await loadPropertyAllotmentDeferredGuestCharges(env, tenantId, propertyId, allotmentId);
+    const deferredCharge = deferredGuestCharges.find((item) => String(item.id) === String(deferredChargeId)) || null;
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_charge_routed', allotment.status, allotment.status, {
+      payer_scope: 'guest',
+      deferred_guest_charge_id: deferredChargeId,
+      rooming_entry_id: roomingEntry.id,
+      line_type: parsed.lineType,
+      total_amount: parsed.totalAmount,
+      currency: parsed.currency,
+    }, actor.session.user_id || null);
+    return jsonResponse({ ok: true, payer_scope: 'guest', deferred_guest_charge: deferredCharge, routing_status: 'pending_guest_folio' });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_CHARGE_ROUTE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleUpdatePropertyAllotmentRoomingListEntry(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const entryId = String(params?.entryId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentRoomingListPatchRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existingAllotment = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existingAllotment) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const existingEntry = await loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, entryId);
+    if (!existingEntry) return jsonResponse({ error: 'Rooming list entry not found.' }, 404);
+
+    const sqlParts = [];
+    const bindValues = [];
+    for (const [key, value] of Object.entries(parsed.updates)) {
+      sqlParts.push(`${key} = ?`);
+      bindValues.push(value);
+    }
+    sqlParts.push('updated_by = ?');
+    bindValues.push(actor.session.user_id || null);
+    sqlParts.push('updated_at = ?');
+    bindValues.push(currentUnixSeconds());
+
+    await env.DB
+      .prepare(`UPDATE property_allotment_rooming_list_entries SET ${sqlParts.join(', ')} WHERE id = ? AND tenant_id = ? AND property_id = ? AND allotment_id = ?`)
+      .bind(...bindValues, entryId, tenantId, propertyId, allotmentId)
+      .run();
+
+    const updated = await loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, entryId);
+    return jsonResponse({ ok: true, entry: updated });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_ROOMING_LIST_PATCH]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
 export async function handleCreatePropertyAllotment(request, env, params) {
   const tenantId = resolveTenantId(request);
   if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
@@ -896,16 +1810,18 @@ export async function handleCreatePropertyAllotment(request, env, params) {
   if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
   try {
-    const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
-    if (!roomType) return jsonResponse({ error: 'room_type_id not found for this property.' }, 404);
+    if (parsed.roomTypeId) {
+      const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
+      if (!roomType) return jsonResponse({ error: 'room_type_id not found for this property.' }, 404);
+    }
     const now = currentUnixSeconds();
     const allotmentId = nanoid();
     await env.DB
       .prepare(
         `INSERT INTO property_allotments
           (id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
-           check_in, check_out, rooms_blocked, release_date, status, notes, created_by, updated_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
+           check_in, check_out, rooms_blocked, roh_capacity_filter, release_date, status, notes, created_by, updated_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
       )
       .bind(
         allotmentId,
@@ -918,6 +1834,7 @@ export async function handleCreatePropertyAllotment(request, env, params) {
         parsed.checkIn,
         parsed.checkOut,
         parsed.roomsBlocked,
+        parsed.rohCapacityFilter,
         parsed.releaseDate,
         parsed.notes,
         actor.session.user_id || null,
@@ -926,6 +1843,15 @@ export async function handleCreatePropertyAllotment(request, env, params) {
         now,
       )
       .run();
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_created', null, 'active', {
+      operator_name: parsed.operatorName,
+      room_type_id: parsed.roomTypeId,
+      check_in: parsed.checkIn,
+      check_out: parsed.checkOut,
+      rooms_blocked: parsed.roomsBlocked,
+      release_date: parsed.releaseDate,
+      roh_capacity_filter: parsed.rohCapacityFilter,
+    }, actor.session.user_id || null);
     const created = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
     return jsonResponse({ ok: true, allotment: created }, 201);
   } catch (error) {
@@ -950,6 +1876,9 @@ export async function handleUpdatePropertyAllotment(request, env, params) {
   try {
     const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
     if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    if (existing.room_type_id && 'roh_capacity_filter' in parsed.updates) {
+      parsed.updates.roh_capacity_filter = null;
+    }
 
     const mergedCheckIn = parsed.updates.check_in || existing.check_in;
     const mergedCheckOut = parsed.updates.check_out || existing.check_out;
@@ -974,9 +1903,107 @@ export async function handleUpdatePropertyAllotment(request, env, params) {
       .run();
 
     const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_updated', existing.status, updated.status, {
+      updates: parsed.updates,
+    }, actor.session.user_id || null);
     return jsonResponse({ ok: true, allotment: updated });
   } catch (error) {
     console.error('[PROPERTY_ALLOTMENT_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleAllocatePropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body = {};
+  try { body = await parseJsonBody(request); } catch { body = {}; }
+  const parsed = validatePropertyAllotmentAllocateRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    if (existing.status !== 'active' || !existing.inventory_blocking) {
+      return jsonResponse({ error: 'Only active inventory-blocking allotments can be allocated.' }, 409);
+    }
+
+    const allocated = await allocatePropertyAllotmentRooms(env, tenantId, propertyId, existing, actor.session.user_id || null, parsed.allocationSource);
+    if (allocated.error) {
+      return jsonResponse({ error: allocated.error, available_rooms: allocated.availableRooms ?? null }, 409);
+    }
+
+    return jsonResponse({
+      ok: true,
+      allotment: existing,
+      allocations: allocated.allocations,
+      already_allocated: Boolean(allocated.alreadyAllocated),
+    });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_ALLOCATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleConfirmPropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    if (['confirmed', 'in_house'].includes(String(existing.status || ''))) {
+      return jsonResponse({ error: 'Allotment is already confirmed.' }, 409);
+    }
+    if (['released', 'cancelled', 'expired'].includes(String(existing.status || ''))) {
+      return jsonResponse({ error: 'Released, cancelled, or expired allotments cannot be confirmed.' }, 409);
+    }
+
+    const activeAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotmentId);
+    const roomsBlocked = Number(existing.rooms_blocked || 0);
+    if (activeAllocations.length !== roomsBlocked) {
+      return jsonResponse({
+        error: 'Allotment must have all rooms allocated before confirmation.',
+        allocated_rooms: activeAllocations.length,
+        rooms_blocked: roomsBlocked,
+      }, 409);
+    }
+
+    const now = currentUnixSeconds();
+    await env.DB
+      .prepare(
+        `UPDATE property_allotments
+            SET status = 'confirmed',
+                updated_by = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      )
+      .bind(actor.session.user_id || null, now, allotmentId, tenantId, propertyId)
+      .run();
+
+    const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    const roomingListEntries = await ensurePropertyAllotmentRoomingListEntries(env, tenantId, propertyId, updated, activeAllocations, actor.session.user_id || null);
+    const ensuredMasterFolio = await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, updated, actor.session.user_id || null);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_confirmed', existing.status, 'confirmed', {
+      confirmed_rooms: activeAllocations.length,
+      room_unit_ids: activeAllocations.map((allocation) => allocation.room_unit_id),
+      auto_release_locked: true,
+      rooming_list_entries_created: roomingListEntries.length,
+      master_folio_id: ensuredMasterFolio.folio?.id || null,
+    }, actor.session.user_id || null);
+
+    return jsonResponse({ ok: true, allotment: updated, allocations: activeAllocations, rooming_list_entries: roomingListEntries, master_folio: ensuredMasterFolio.folio, confirmed: true });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_CONFIRM]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
@@ -994,12 +2021,35 @@ export async function handleReleasePropertyAllotment(request, env, params) {
     if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
     if (existing.status === 'released') return jsonResponse({ error: 'Allotment is already released.' }, 409);
 
+    const now = currentUnixSeconds();
+    const activeAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotmentId);
+    await env.DB
+      .prepare(
+        `UPDATE property_allotment_allocations
+            SET allocation_status = 'released',
+                released_reason = 'allotment_released',
+                updated_by = ?,
+                updated_at = ?
+          WHERE tenant_id = ?
+            AND property_id = ?
+            AND allotment_id = ?
+            AND allocation_status = 'allocated'`
+      )
+      .bind(actor.session.user_id || null, now, tenantId, propertyId, allotmentId)
+      .run();
+
     await env.DB
       .prepare(`UPDATE property_allotments SET status = 'released', updated_by = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`)
-      .bind(actor.session.user_id || null, currentUnixSeconds(), allotmentId, tenantId, propertyId)
+      .bind(actor.session.user_id || null, now, allotmentId, tenantId, propertyId)
       .run();
 
     const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_released', existing.status, updated.status, {
+      released_by_policy: false,
+      released_allocations: activeAllocations.length,
+      room_unit_ids: activeAllocations.map((allocation) => allocation.room_unit_id),
+      release_reason: 'manual_release',
+    }, actor.session.user_id || null);
     return jsonResponse({ ok: true, allotment: updated, released: true });
   } catch (error) {
     console.error('[PROPERTY_ALLOTMENT_RELEASE]', error);
@@ -1048,7 +2098,7 @@ async function loadPropertyPricingProfileById(env, tenantId, propertyId, pricing
   const row = await env.DB
     .prepare(
       `SELECT ppp.id, ppp.tenant_id, ppp.property_id, ppp.room_type_id, ppp.code, ppp.name,
-              ppp.visibility, ppp.pricing_mode, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
+              ppp.visibility, ppp.pricing_mode, ppp.roh_capacity_filter, ppp.fixed_nightly_amount, ppp.delta_amount, ppp.delta_percent,
               ppp.notes, ppp.active, ppp.created_by, ppp.updated_by, ppp.created_at, ppp.updated_at,
               rt.code AS room_type_code, rt.name AS room_type_name
          FROM property_pricing_profiles ppp
@@ -1896,7 +2946,7 @@ function validateAllotmentConsumptionRequest(allotment, parsedRequest) {
   if (String(allotment.status || '') !== 'active' || !Boolean(allotment.inventory_blocking)) {
     return 'Allotment is no longer active for inventory blocking.';
   }
-  if (String(allotment.room_type_id || '') !== String(parsedRequest.roomTypeId || '')) {
+  if (allotment.room_type_id && String(allotment.room_type_id || '') !== String(parsedRequest.roomTypeId || '')) {
     return 'allotment_id does not match the requested room type.';
   }
   if (parseDateUtc(parsedRequest.checkIn) < parseDateUtc(String(allotment.check_in || ''))
@@ -2223,6 +3273,27 @@ export async function runScheduledHousekeepingAutomation(env, now = new Date()) 
   }
 
   return { ok: true, property_count: propertyCount, created_task_count: createdTaskCount };
+}
+
+export async function runScheduledAllotmentReleaseAutomation(env, now = new Date()) {
+  const propertiesResult = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, timezone
+         FROM properties
+        WHERE status = 'active'`
+    )
+    .all();
+
+  let propertyCount = 0;
+  let expiredAllotmentCount = 0;
+  for (const property of (propertiesResult.results || [])) {
+    const timeZone = String(property.timezone || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
+    const localDate = formatDateParts(getTimeZoneDateTimeParts(now, timeZone));
+    expiredAllotmentCount += await autoReleaseExpiredAllotmentsForProperty(env, String(property.tenant_id), String(property.id), localDate);
+    propertyCount += 1;
+  }
+
+  return { ok: true, property_count: propertyCount, expired_allotment_count: expiredAllotmentCount };
 }
 
 async function loadHousekeepingTasks(env, tenantId, propertyId, options = {}) {

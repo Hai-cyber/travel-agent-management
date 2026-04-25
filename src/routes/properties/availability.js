@@ -72,6 +72,7 @@ function countAllotmentsByNight(allotmentRows, stayDates, options = {}) {
   for (const row of allotmentRows || []) {
     if (String(row.status || 'active') !== 'active') continue;
     if (row.release_date && String(row.release_date) < todayIso) continue;
+    if (!row.room_type_id) continue;
     const effectiveRoomsBlocked = effectiveAllotmentRoomsBlocked(row, options);
     if (effectiveRoomsBlocked < 1) continue;
     const roomTypeId = String(row.room_type_id);
@@ -84,6 +85,107 @@ function countAllotmentsByNight(allotmentRows, stayDates, options = {}) {
   }
 
   return allotmentCounts;
+}
+
+function countRohAllotmentsByNight(allotmentRows, stayDates, options = {}) {
+  const todayIso = options.todayIso || formatDateUtc(new Date());
+  const rohCounts = new Map();
+  const dateSet = new Set(stayDates);
+
+  for (const row of allotmentRows || []) {
+    if (String(row.status || 'active') !== 'active') continue;
+    if (row.release_date && String(row.release_date) < todayIso) continue;
+    if (row.room_type_id) continue;
+    const effectiveRoomsBlocked = effectiveAllotmentRoomsBlocked(row, options);
+    if (effectiveRoomsBlocked < 1) continue;
+    const rohCapacityFilter = String(row.roh_capacity_filter || '').trim() || 'max_2';
+    const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
+    for (const stayDate of allotmentDates) {
+      if (!dateSet.has(stayDate)) continue;
+      const filtersForDate = rohCounts.get(stayDate) || new Map();
+      filtersForDate.set(rohCapacityFilter, (filtersForDate.get(rohCapacityFilter) || 0) + effectiveRoomsBlocked);
+      rohCounts.set(stayDate, filtersForDate);
+    }
+  }
+
+  return rohCounts;
+}
+
+function rankRohRoomTypes(roomTypes, roomRateByType, rohCapacityFilter = 'max_2') {
+  const eligibleRoomTypes = (roomTypes || []).filter((roomType) => {
+    const maxOccupancy = Number(roomType?.max_occupancy || 0);
+    if (rohCapacityFilter === 'gte_2') return maxOccupancy >= 2;
+    return maxOccupancy === 2;
+  });
+  return eligibleRoomTypes.sort((left, right) => {
+    const leftPrice = Number(roomRateByType.get(String(left?.id || '')));
+    const rightPrice = Number(roomRateByType.get(String(right?.id || '')));
+    const normalizedLeftPrice = Number.isFinite(leftPrice) ? leftPrice : Number.MAX_SAFE_INTEGER;
+    const normalizedRightPrice = Number.isFinite(rightPrice) ? rightPrice : Number.MAX_SAFE_INTEGER;
+    if (normalizedLeftPrice !== normalizedRightPrice) return normalizedLeftPrice - normalizedRightPrice;
+
+    const leftSort = Number(left?.sort_order || 0);
+    const rightSort = Number(right?.sort_order || 0);
+    if (leftSort !== rightSort) return leftSort - rightSort;
+    return String(left?.name || left?.code || left?.id || '').localeCompare(String(right?.name || right?.code || right?.id || ''));
+  });
+}
+
+function applyRohAllotments(nightlyRemainingByType, roomTypes, rohCountsByNight, stayDates, roomRateByType) {
+  const clonedRowsByType = new Map();
+  const rowLookupByType = new Map();
+  for (const [roomTypeId, rows] of nightlyRemainingByType.entries()) {
+    const clonedRows = (rows || []).map((row) => ({ ...row }));
+    clonedRowsByType.set(roomTypeId, clonedRows);
+    rowLookupByType.set(roomTypeId, new Map(clonedRows.map((row) => [row.stay_date, row])));
+  }
+
+  const warnings = [];
+
+  for (const stayDate of stayDates) {
+    const countsByFilter = rohCountsByNight.get(stayDate);
+    if (!(countsByFilter instanceof Map) || !countsByFilter.size) continue;
+
+    for (const [rohCapacityFilter, requestedRooms] of countsByFilter.entries()) {
+      let roomsToBlock = Math.max(0, Number(requestedRooms || 0));
+      if (roomsToBlock < 1) continue;
+
+      const rankedRoomTypes = rankRohRoomTypes(roomTypes, roomRateByType, rohCapacityFilter);
+      const consumed = [];
+      for (const roomType of rankedRoomTypes) {
+        if (roomsToBlock < 1) break;
+        const roomTypeId = String(roomType.id || '');
+        const row = rowLookupByType.get(roomTypeId)?.get(stayDate);
+        if (!row) continue;
+        const available = Math.max(0, Number(row.remaining || 0));
+        if (available < 1) continue;
+        const blockedHere = Math.min(available, roomsToBlock);
+        row.remaining = Math.max(available - blockedHere, 0);
+        roomsToBlock -= blockedHere;
+        consumed.push({
+          room_type_id: roomTypeId,
+          room_type_code: roomType.code || null,
+          room_type_name: roomType.name || null,
+          blocked_rooms: blockedHere,
+        });
+      }
+
+      if (roomsToBlock > 0) {
+        const filterLabel = rohCapacityFilter === 'gte_2' ? 'max occupancy >= 2' : 'max occupancy = 2';
+        warnings.push({
+          kind: 'roh_out_of_stock',
+          stay_date: stayDate,
+          roh_capacity_filter: rohCapacityFilter,
+          requested_block_rooms: Math.max(0, Number(requestedRooms || 0)),
+          unallocated_block_rooms: roomsToBlock,
+          consumed_room_types: consumed,
+          message: `ROH block (${filterLabel}) exceeds sellable inventory on ${stayDate}. ${roomsToBlock} room(s) spill beyond the current availability stack.`,
+        });
+      }
+    }
+  }
+
+  return { nightlyRemainingByType: clonedRowsByType, warnings };
 }
 
 function buildNightlyRemaining(roomTypes, roomUnitsByType, allocationCounts, holdCounts, allotmentCounts, stayDates) {
@@ -180,6 +282,157 @@ function buildSameTypeSplitSegments(roomUnits, occupiedDatesByUnit, stayDates, r
   return segments;
 }
 
+function rankMixedCategoryRoomTypes(roomTypes, roomRateByType, totalGuests) {
+  return [...(roomTypes || [])]
+    .filter((roomType) => Number(roomType?.max_occupancy || 0) >= Math.max(1, Number(totalGuests || 1)))
+    .sort((left, right) => {
+      const leftPrice = Number(roomRateByType.get(String(left?.id || '')));
+      const rightPrice = Number(roomRateByType.get(String(right?.id || '')));
+      const normalizedLeftPrice = Number.isFinite(leftPrice) ? leftPrice : Number.MAX_SAFE_INTEGER;
+      const normalizedRightPrice = Number.isFinite(rightPrice) ? rightPrice : Number.MAX_SAFE_INTEGER;
+      if (normalizedLeftPrice !== normalizedRightPrice) return normalizedLeftPrice - normalizedRightPrice;
+      const leftSort = Number(left?.sort_order || 0);
+      const rightSort = Number(right?.sort_order || 0);
+      if (leftSort !== rightSort) return leftSort - rightSort;
+      return String(left?.name || left?.code || left?.id || '').localeCompare(String(right?.name || right?.code || right?.id || ''));
+    });
+}
+
+function buildMixedCategorySplitSegments(roomTypes, roomUnitsByType, occupiedDatesByUnit, stayDates, roomRateByType, totalGuests) {
+  const rankedRoomTypes = rankMixedCategoryRoomTypes(roomTypes, roomRateByType, totalGuests);
+  const segments = [];
+  let currentSegment = null;
+  let currentUnitId = null;
+
+  for (let index = 0; index < stayDates.length; index += 1) {
+    const stayDate = stayDates[index];
+    let selected = null;
+
+    for (const roomType of rankedRoomTypes) {
+      const roomTypeId = String(roomType.id || '');
+      const units = roomUnitsByType.get(roomTypeId) || [];
+      const availableUnit = units.find((roomUnit) => {
+        const occupiedDates = occupiedDatesByUnit.get(String(roomUnit.id)) || new Set();
+        return !occupiedDates.has(stayDate);
+      });
+      if (!availableUnit) continue;
+      selected = { roomType, roomUnit: availableUnit };
+      break;
+    }
+
+    if (!selected) return [];
+
+    const nextDate = index + 1 < stayDates.length ? stayDates[index + 1] : null;
+    const selectedUnitId = String(selected.roomUnit.id || '');
+    const selectedRoomTypeId = String(selected.roomType.id || '');
+    if (!currentSegment || currentUnitId !== selectedUnitId) {
+      if (currentSegment) segments.push(currentSegment);
+      currentSegment = {
+        room_type_id: selectedRoomTypeId,
+        room_unit_id: selectedUnitId,
+        room_number: selected.roomUnit.room_number || null,
+        floor_label: selected.roomUnit.floor_label || null,
+        check_in: stayDate,
+        check_out: nextDate || formatDateUtc(addDays(parseDateUtc(stayDate), 1)),
+      };
+      currentUnitId = selectedUnitId;
+    } else {
+      currentSegment.check_out = nextDate || formatDateUtc(addDays(parseDateUtc(stayDate), 1));
+    }
+  }
+
+  if (currentSegment) segments.push(currentSegment);
+  return segments;
+}
+
+function buildRohMultiRoomSegments(roomTypes, roomUnitsByType, occupiedDatesByUnit, nightlyRemainingByType, stayDates, roomRateByType, roomsRequested, rohCapacityFilter) {
+  const rankedRoomTypes = rankRohRoomTypes(roomTypes, roomRateByType, rohCapacityFilter);
+  if (!rankedRoomTypes.length) return { segments: [], shortageDates: [...stayDates] };
+
+  const remainingByTypeNight = new Map();
+  for (const roomType of rankedRoomTypes) {
+    const roomTypeId = String(roomType.id || '');
+    const nightlyRows = nightlyRemainingByType.get(roomTypeId) || [];
+    remainingByTypeNight.set(roomTypeId, new Map(nightlyRows.map((row) => [row.stay_date, Math.max(0, Number(row.remaining || 0))])));
+  }
+
+  const reservedUnitsByNight = new Map();
+  const laneSegments = Array.from({ length: roomsRequested }, () => []);
+  const laneCurrent = Array.from({ length: roomsRequested }, () => null);
+  const shortageDates = new Set();
+
+  for (const stayDate of stayDates) {
+    for (let laneIndex = 0; laneIndex < roomsRequested; laneIndex += 1) {
+      const reservedUnits = getOrCreateSetMap(reservedUnitsByNight, stayDate);
+      const currentSegment = laneCurrent[laneIndex];
+      let selectedRoomType = null;
+      let selectedUnit = null;
+
+      if (currentSegment?.room_unit_id && currentSegment?.room_type_id) {
+        const currentUnitId = String(currentSegment.room_unit_id);
+        const currentRoomTypeId = String(currentSegment.room_type_id);
+        const roomTypeRemaining = remainingByTypeNight.get(currentRoomTypeId)?.get(stayDate) || 0;
+        const occupiedDates = occupiedDatesByUnit.get(currentUnitId) || new Set();
+        if (!reservedUnits.has(currentUnitId) && roomTypeRemaining > 0 && !occupiedDates.has(stayDate)) {
+          const candidateRoomType = rankedRoomTypes.find((roomType) => String(roomType.id) === currentRoomTypeId) || null;
+          const candidateUnit = (roomUnitsByType.get(currentRoomTypeId) || []).find((roomUnit) => String(roomUnit.id) === currentUnitId) || null;
+          if (candidateRoomType && candidateUnit) {
+            selectedRoomType = candidateRoomType;
+            selectedUnit = candidateUnit;
+          }
+        }
+      }
+
+      if (!selectedRoomType || !selectedUnit) {
+        for (const roomType of rankedRoomTypes) {
+          const roomTypeId = String(roomType.id || '');
+          const roomTypeRemaining = remainingByTypeNight.get(roomTypeId)?.get(stayDate) || 0;
+          if (roomTypeRemaining < 1) continue;
+          const availableUnit = prioritizeRoomUnits(roomUnitsByType.get(roomTypeId) || [], currentSegment?.room_unit_id || null).find((roomUnit) => {
+            const roomUnitId = String(roomUnit.id || '');
+            const occupiedDates = occupiedDatesByUnit.get(roomUnitId) || new Set();
+            return !reservedUnits.has(roomUnitId) && !occupiedDates.has(stayDate);
+          });
+          if (!availableUnit) continue;
+          selectedRoomType = roomType;
+          selectedUnit = availableUnit;
+          break;
+        }
+      }
+
+      if (!selectedRoomType || !selectedUnit) {
+        shortageDates.add(stayDate);
+        continue;
+      }
+
+      const selectedRoomTypeId = String(selectedRoomType.id || '');
+      const selectedUnitId = String(selectedUnit.id || '');
+      reservedUnits.add(selectedUnitId);
+      const nextRemaining = Math.max((remainingByTypeNight.get(selectedRoomTypeId)?.get(stayDate) || 0) - 1, 0);
+      remainingByTypeNight.get(selectedRoomTypeId)?.set(stayDate, nextRemaining);
+
+      const nextDate = stayDates[stayDates.indexOf(stayDate) + 1] || formatDateUtc(addDays(parseDateUtc(stayDate), 1));
+      if (currentSegment && String(currentSegment.room_unit_id) === selectedUnitId && String(currentSegment.room_type_id) === selectedRoomTypeId) {
+        currentSegment.check_out = nextDate;
+      } else {
+        const newSegment = {
+          room_type_id: selectedRoomTypeId,
+          room_unit_id: selectedUnitId,
+          room_number: selectedUnit.room_number || null,
+          floor_label: selectedUnit.floor_label || null,
+          check_in: stayDate,
+          check_out: nextDate,
+        };
+        laneSegments[laneIndex].push(newSegment);
+        laneCurrent[laneIndex] = newSegment;
+      }
+    }
+  }
+
+  if (shortageDates.size) return { segments: [], shortageDates: [...shortageDates] };
+  return { segments: laneSegments.flat(), shortageDates: [] };
+}
+
 function buildNearbyOptions(stayDatesByType, checkIn, checkOut, roomsRequested, windowDays = 3) {
   const options = [];
   const stayLength = enumerateStayDates(checkIn, checkOut).length;
@@ -274,9 +527,22 @@ async function loadPropertyContext(env, tenantId, propertyId, roomTypeId) {
     .bind(tenantId, propertyId)
     .all();
 
+  const roomRatesResult = await env.DB
+    .prepare(
+      `SELECT room_type_id, MIN(nightly_amount) AS min_nightly_amount
+         FROM property_room_rates
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1
+        GROUP BY room_type_id`
+    )
+    .bind(tenantId, propertyId)
+    .all();
+
   const roomTypes = roomTypesResult.results || [];
   const requestedRoomType = roomTypes.find((roomType) => String(roomType.id) === String(roomTypeId)) || null;
-  return { property, roomTypes, requestedRoomType };
+  const roomRateByType = new Map((roomRatesResult.results || []).map((row) => [String(row.room_type_id || ''), Number(row.min_nightly_amount)]));
+  return { property, roomTypes, requestedRoomType, roomRateByType };
 }
 
 async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endDate, options = {}) {
@@ -327,7 +593,7 @@ async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endD
   const allotmentsResult = await env.DB
     .prepare(
       `SELECT id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
-              check_in, check_out, rooms_blocked, release_date, status, notes, created_at, updated_at
+              check_in, check_out, rooms_blocked, roh_capacity_filter, release_date, status, notes, created_at, updated_at
          FROM property_allotments
         WHERE tenant_id = ?
           AND property_id = ?
@@ -355,11 +621,13 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
   const rangeStart = formatDateUtc(windowStart);
   const rangeEndExclusive = formatDateUtc(windowEnd);
 
-  const { property, roomTypes, requestedRoomType } = await loadPropertyContext(env, tenantId, propertyId, roomTypeId);
+  const { property, roomTypes, requestedRoomType, roomRateByType } = await loadPropertyContext(env, tenantId, propertyId, roomTypeId);
   if (!property) {
     return { error: { status: 404, payload: { error: 'Property not found.' } } };
   }
-  if (!requestedRoomType) {
+  const activeAllotment = options.activeAllotment || null;
+  const isRohAllotmentRequest = !roomTypeId && activeAllotment && !activeAllotment.room_type_id;
+  if (!requestedRoomType && !isRohAllotmentRequest) {
     return { error: { status: 404, payload: { error: 'Room type not found for this property.' } } };
   }
 
@@ -384,11 +652,74 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
   const { roomTypeNightCounts } = countAllocatedUnitsByNight(allocations, roomUnitMap, windowDates);
   const holdCounts = countHoldsByNight(holds, windowDates);
   const allotmentCounts = countAllotmentsByNight(allotments, windowDates, options);
-  const nightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, allotmentCounts, windowDates);
+  const rohCountsByNight = countRohAllotmentsByNight(allotments, windowDates, options);
+  const baseNightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, allotmentCounts, windowDates);
+  const rohApplied = applyRohAllotments(baseNightlyRemainingByType, roomTypes, rohCountsByNight, windowDates, roomRateByType);
+  const nightlyRemainingByType = rohApplied.nightlyRemainingByType;
 
-  const requestedNightly = (nightlyRemainingByType.get(String(requestedRoomType.id)) || []).filter((row) => stayDates.includes(row.stay_date));
-  const shortageDates = collectShortageDates(requestedNightly, roomsRequested);
+  const requestedNightly = requestedRoomType
+    ? (nightlyRemainingByType.get(String(requestedRoomType.id)) || []).filter((row) => stayDates.includes(row.stay_date))
+    : [];
+  let shortageDates = requestedRoomType ? collectShortageDates(requestedNightly, roomsRequested) : [];
   const stayPlans = [];
+  const totalGuests = Math.max(1, Number(options.adults || 1) + Number(options.children || 0));
+
+  if (isRohAllotmentRequest) {
+    const rohCapacityFilter = String(activeAllotment.roh_capacity_filter || '').trim() || 'max_2';
+    const rohPlan = buildRohMultiRoomSegments(
+      roomTypes,
+      roomUnitsByType,
+      occupiedDatesByUnit,
+      nightlyRemainingByType,
+      stayDates,
+      roomRateByType,
+      roomsRequested,
+      rohCapacityFilter,
+    );
+    shortageDates = rohPlan.shortageDates;
+    if (rohPlan.segments.length) {
+      const moveCount = Math.max(0, rohPlan.segments.length - roomsRequested);
+      const categoryCount = new Set(rohPlan.segments.map((segment) => String(segment.room_type_id || ''))).size;
+      stayPlans.push(
+        buildPlan(
+          'roh_multi_category',
+          12 + moveCount,
+          moveCount,
+          Math.max(categoryCount - 1, 0),
+          false,
+          rohPlan.segments,
+          ['ROH operator block distributed across the cheapest eligible room categories while respecting capacity and avoiding duplicate lanes per night.']
+        )
+      );
+    }
+  }
+
+  if (!requestedRoomType) {
+    stayPlans.sort((a, b) => a.score - b.score);
+    return {
+      property,
+      requestedRoomType: stayPlans[0]?.segments?.[0]?.room_type_id
+        ? (roomTypes.find((roomType) => String(roomType.id) === String(stayPlans[0].segments[0].room_type_id)) || null)
+        : null,
+      requestedNightly,
+      nightlyRemainingByType,
+      shortageDates,
+      stayPlans,
+      sameTypeNearbyOptions: [],
+      otherRoomTypeOptions: [],
+      activeAllotments: allotments,
+      warnings: rohApplied.warnings,
+      request: {
+        property_id: propertyId,
+        room_type_id: stayPlans[0]?.segments?.[0]?.room_type_id || null,
+        check_in: checkIn,
+        check_out: checkOut,
+        rooms_requested: roomsRequested,
+        preferred_room_unit_id: preferredRoomUnitId,
+      },
+      preferredRoomUnit,
+    };
+  }
 
   const requestedRoomUnits = roomUnitsByType.get(String(requestedRoomType.id)) || [];
   const contiguousUnits = findContiguousUnits(requestedRoomUnits, occupiedDatesByUnit, stayDates, roomsRequested, preferredRoomUnitId);
@@ -427,6 +758,29 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
           Boolean(property.split_stay_public_visible),
           splitSegments,
           ['Split stay candidate generated because same-type capacity exists across the stay but not on one continuous lane.']
+        )
+      );
+    }
+  }
+
+  if (roomsRequested === 1 && property.allow_upgrade_to_preserve_stay) {
+    const mixedSegments = buildMixedCategorySplitSegments(roomTypes, roomUnitsByType, occupiedDatesByUnit, stayDates, roomRateByType, totalGuests);
+    const mixedMoveCount = Math.max(0, mixedSegments.length - 1);
+    const mixedUpgradeSegments = mixedSegments.filter((segment) => String(segment.room_type_id || '') !== String(requestedRoomType.id)).length;
+    if (
+      mixedSegments.length > 1
+      && mixedMoveCount <= Number(property.max_room_moves_per_reservation || 1)
+      && mixedUpgradeSegments <= Number(property.max_upgrade_segments_per_stay || mixedSegments.length)
+    ) {
+      stayPlans.push(
+        buildPlan(
+          'split_mixed_category',
+          32 + mixedMoveCount * 4,
+          mixedMoveCount,
+          mixedUpgradeSegments,
+          false,
+          mixedSegments,
+          ['Cheapest eligible room is selected night by night across categories while respecting max occupancy and lane availability.']
         )
       );
     }
@@ -491,6 +845,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     sameTypeNearbyOptions,
     otherRoomTypeOptions,
     activeAllotments: allotments,
+    warnings: rohApplied.warnings,
     request: {
       property_id: propertyId,
       room_type_id: roomTypeId,
@@ -519,6 +874,7 @@ function buildAvailabilityPayload(result) {
       stay_plans: result.stayPlans,
       same_type_nearby_options: result.sameTypeNearbyOptions,
       other_room_type_options: result.otherRoomTypeOptions,
+      warnings: result.warnings || [],
     },
     policy: {
       split_stay_enabled: Boolean(result.property.split_stay_enabled),
@@ -820,6 +1176,7 @@ function buildReservationPlanningPayload(availability, conflicts, metadata = {})
       hold_conflicts: conflicts.hold_conflicts,
       allotment_conflicts: conflicts.allotment_conflicts,
     },
+    warnings: availability.warnings || [],
     recommendations: buildPlanningRecommendations(availability),
     preferred_room_unit_id: preferredRoomUnitId,
     preferred_room_number: preferredRoomUnit?.room_number || null,

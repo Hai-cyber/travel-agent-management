@@ -149,7 +149,11 @@ function createPlanningHandlers(deps) {
         parsedRequest.roomTypeId,
         parsedRequest.checkIn,
         parsedRequest.checkOut,
-        parsedRequest.roomsRequested
+        parsedRequest.roomsRequested,
+        {
+          adults: Number(body?.adults ?? 1),
+          children: Number(body?.children ?? 0),
+        }
       );
       if (availability.error) {
         return jsonResponse(availability.error.payload, availability.error.status);
@@ -197,6 +201,9 @@ function createPlanningHandlers(deps) {
         parsedRequest.checkOut,
         parsedRequest.roomsRequested,
         {
+          adults: pricingPreviewRequest.adults,
+          children: pricingPreviewRequest.children,
+          activeAllotment,
           preferredRoomUnitId: parsedRequest.preferredRoomUnitId,
           consumeAllotmentId: activeAllotment?.id || null,
           consumeAllotmentRooms: activeAllotment ? parsedRequest.roomsRequested : 0,
@@ -300,7 +307,11 @@ function createPlanningHandlers(deps) {
         record.reservation.check_in,
         proposedCheckOut,
         Number(record.reservation.rooms_requested || 1),
-        { excludeReservationId: reservationId }
+        {
+          excludeReservationId: reservationId,
+          adults: Number(record.reservation.adults || 1),
+          children: Number(record.reservation.children || 0),
+        }
       );
       if (availability.error) return jsonResponse(availability.error.payload, availability.error.status);
 
@@ -381,7 +392,11 @@ function createPlanningHandlers(deps) {
         parsedRequest.roomTypeId,
         parsedRequest.checkIn,
         parsedRequest.checkOut,
-        parsedRequest.roomsRequested
+        parsedRequest.roomsRequested,
+        {
+          adults: Number(body?.adults ?? 1),
+          children: Number(body?.children ?? 0),
+        }
       );
       if (availability.error) {
         return jsonResponse(availability.error.payload, availability.error.status);
@@ -427,7 +442,11 @@ function createPlanningHandlers(deps) {
         parsedRequest.roomTypeId,
         parsedRequest.checkIn,
         parsedRequest.checkOut,
-        parsedRequest.roomsRequested
+        parsedRequest.roomsRequested,
+        {
+          adults: Number(body?.adults ?? 1),
+          children: Number(body?.children ?? 0),
+        }
       );
 
       return jsonResponse({

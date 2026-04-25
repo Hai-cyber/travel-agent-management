@@ -497,9 +497,7 @@
     }
     .rack-toolbar-main { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
     .rack-control-group { display:grid; gap:4px; }
-    .rack-floor-buttons { display:flex; gap:4px; flex-wrap:wrap; }
-    .rack-floor-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-    .rack-type-select-wrap { display:grid; gap:4px; width:min(190px,100%); }
+    .rack-filter-select-wrap { display:grid; gap:4px; width:min(190px,100%); }
     .rack-legend-row {
       display:flex;
       gap:6px;
@@ -833,8 +831,13 @@
     .plan-allotment-layer { position:absolute; inset:0; z-index:3; pointer-events:none; min-height:var(--plan-row-h, 24px); }
     .plan-allotment-bar { position:absolute; height:18px; padding:0 6px; border-radius:9px; background:rgba(217,119,6,0.18); border:1px solid rgba(217,119,6,0.42); color:#9a3412; font-size:8px; font-weight:800; display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .plan-allotment-bar.nonblocking { background:rgba(148,163,184,0.15); border-color:rgba(100,116,139,0.35); color:#475569; }
+    .plan-allotment-bar.draft { background:rgba(59,130,246,0.14); border-color:rgba(37,99,235,0.34); color:#1d4ed8; }
+    .plan-allotment-bar.allocated { background:rgba(217,119,6,0.18); border-color:rgba(217,119,6,0.42); color:#9a3412; }
+    .plan-allotment-bar.confirmed,
+    .plan-allotment-bar.in_house { background:rgba(15,118,110,0.14); border-color:rgba(13,148,136,0.34); color:#115e59; }
+    .plan-allocation-bar { position:absolute; height:18px; padding:0 6px; border-radius:9px; background:rgba(15,118,110,0.14); border:1px solid rgba(15,118,110,0.38); color:#115e59; font-size:8px; font-weight:800; display:flex; align-items:center; gap:6px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
     .plan-allotment-panel { display:grid; gap:8px; padding:8px; border-top:1px solid var(--line); background:#fcfbf8; }
-    .plan-allotment-form { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end; }
+    .plan-allotment-form { display:grid; grid-template-columns:repeat(8, minmax(0, 1fr)); gap:6px; align-items:end; }
     .plan-allotment-form label { display:grid; gap:3px; font-size:10px; font-weight:700; color:#64748b; }
     .plan-allotment-form input, .plan-allotment-form select { height:26px; padding:2px 6px; font:inherit; font-size:11px; border:1px solid rgba(120,113,108,0.22); border-radius:6px; background:#fff; color:#0f172a; }
     .plan-allotment-list { display:flex; flex-wrap:wrap; gap:6px; }
@@ -852,6 +855,61 @@
     .plan-view-btn { padding:1px 8px; font-size:10px; font-weight:800; border:1px solid rgba(120,113,108,0.3); border-radius:5px; background:#fff; cursor:pointer; color:#475569; line-height:1.7; flex-shrink:0; }
     .plan-view-btn.active { background:#0f172a; color:#fff; border-color:#0f172a; }
     .plan-view-btn:hover:not(.active) { background:#f1f5f9; }
+    .planning-toolbar {
+      display:grid;
+      grid-template-columns:minmax(0, auto) minmax(0, auto) minmax(0, auto) minmax(0, auto) minmax(0, 1fr);
+      gap:8px;
+      align-items:center;
+      padding:8px 10px;
+      border-bottom:1px solid var(--line);
+      background:rgba(255,255,255,0.72);
+    }
+    .planning-toolbar-group {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      flex-wrap:wrap;
+    }
+    .planning-toolbar-group.filters {
+      padding-left:8px;
+      border-left:1px solid var(--line);
+    }
+    .planning-toolbar-group.actions {
+      justify-content:flex-start;
+    }
+    .planning-date-label {
+      display:flex;
+      align-items:center;
+      gap:4px;
+      font-size:10px;
+      font-weight:700;
+      color:#64748b;
+      white-space:nowrap;
+      flex-shrink:0;
+    }
+    .planning-input,
+    .planning-select {
+      height:28px;
+      padding:0 8px;
+      font:inherit;
+      font-size:11px;
+      border:1px solid rgba(120,113,108,0.22);
+      border-radius:8px;
+      background:#fff;
+      color:#0f172a;
+      min-width:0;
+    }
+    .planning-select.type { min-width:138px; }
+    .planning-select.floor { min-width:118px; }
+    .planning-refresh-btn { height:28px; padding:0 10px; font-size:10px; flex-shrink:0; }
+    .planning-toolbar .plan-legend {
+      justify-content:flex-end;
+      margin:0;
+      min-width:0;
+      overflow:auto hidden;
+      padding-bottom:2px;
+    }
 
     @media (max-width: 1180px) {
       .hero,
@@ -875,7 +933,10 @@
       }
       .rack-toolbar { grid-template-columns: 1fr; }
       .rack-toolbar-main { align-items:stretch; }
-      .rack-type-select-wrap { width:100%; }
+      .rack-filter-select-wrap { width:100%; }
+      .planning-toolbar { grid-template-columns:1fr; align-items:stretch; }
+      .planning-toolbar-group.filters { padding-left:0; border-left:none; }
+      .planning-toolbar .plan-legend { justify-content:flex-start; }
       .hero-side { border-left: 0; border-top: 1px solid var(--line); }
       .property-list { max-height: none; }
       .ops-now { width:100%; justify-content:flex-start; }
@@ -938,26 +999,30 @@
             <!-- CHK-R108: Multi-room planning calendar -->
             <section data-staff-panel="planning" hidden>
               <div class="section" style="padding:0">
-                <!-- one-line planning toolbar -->
-                <div style="display:flex;flex-wrap:nowrap;gap:4px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);overflow-x:auto;min-height:36px">
-                  <label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#64748b;margin:0;white-space:nowrap;flex-shrink:0">
-                    From <input id="plan-from-date" type="date" style="height:24px;padding:1px 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a" />
-                  </label>
-                  <div id="plan-view-btns" style="display:flex;gap:2px;flex-shrink:0">
+                <div class="planning-toolbar">
+                  <div class="planning-toolbar-group">
+                    <label class="planning-date-label">
+                      From <input id="plan-from-date" type="date" class="planning-input" />
+                    </label>
+                  </div>
+                  <div id="plan-view-btns" class="planning-toolbar-group">
                     <button class="plan-view-btn" data-plan-days="7" type="button">W</button>
                     <button class="plan-view-btn active" data-plan-days="14" type="button">2W</button>
                     <button class="plan-view-btn" data-plan-days="21" type="button">3W</button>
                     <button class="plan-view-btn" data-plan-days="28" type="button">4W</button>
                   </div>
-                  <div style="width:1px;align-self:stretch;background:var(--line);flex-shrink:0;margin:0 2px"></div>
-                  <select id="plan-type-filter" title="Room type" style="height:24px;padding:0 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a;flex-shrink:0;max-width:90px">
-                    <option value="all">All types</option>
-                  </select>
-                  <select id="plan-floor-filter" title="Floor" style="height:24px;padding:0 4px;font:inherit;font-size:10px;border:1px solid rgba(120,113,108,0.22);border-radius:5px;background:#fff;color:#0f172a;flex-shrink:0;max-width:72px">
-                    <option value="all">All floors</option>
-                  </select>
-                  <button id="btn-refresh-planning" class="button small secondary" type="button" style="height:24px;padding:0 7px;font-size:10px;flex-shrink:0">↻</button>
-                  <div class="plan-legend" style="flex:1;justify-content:flex-end;margin:0;min-width:0">
+                  <div class="planning-toolbar-group filters">
+                    <select id="plan-type-filter" title="Room type" class="planning-select type">
+                      <option value="all">All room types</option>
+                    </select>
+                    <select id="plan-floor-filter" title="Floor" class="planning-select floor">
+                      <option value="all">All floors</option>
+                    </select>
+                  </div>
+                  <div class="planning-toolbar-group actions">
+                    <button id="btn-refresh-planning" class="button small secondary planning-refresh-btn" type="button">↻</button>
+                  </div>
+                  <div class="plan-legend">
                     <span class="plan-leg checked_in">Checked In</span>
                     <span class="plan-leg reserved">Reserved</span>
                     <span class="plan-leg draft">Draft</span>
@@ -973,6 +1038,7 @@
                       <label>Operator<input id="plan-allotment-operator" placeholder="Tour operator" /></label>
                       <label>Code<input id="plan-allotment-code" placeholder="TO-01" /></label>
                       <label>Room Type<select id="plan-allotment-room-type"><option value="">Select type</option></select></label>
+                      <label>ROH Capacity<select id="plan-allotment-roh-capacity"><option value="max_2">Max = 2</option><option value="gte_2">Max &gt;= 2</option></select></label>
                       <label>Rooms<input id="plan-allotment-rooms" type="number" min="1" max="100" value="1" /></label>
                       <label>From<input id="plan-allotment-from" type="date" /></label>
                       <label>To<input id="plan-allotment-to" type="date" /></label>
@@ -1052,6 +1118,16 @@
                     <div class="hk-toolbar-copy">
                       <h2>Housekeeping</h2>
                       <div id="housekeeping-flow-note" class="hk-flow-note">Stayover refresh: refresh needed -> refreshing -> refreshed. Turnover clean: dirty -> being cleaned -> ready for inspection. Manager: ready for inspection -> inspected -> clean.</div>
+                    </div>
+                    <div class="rack-filter-select-wrap">
+                      <select id="housekeeping-floor-filter" class="rack-select">
+                        <option value="all">All floors</option>
+                      </select>
+                    </div>
+                    <div class="rack-filter-select-wrap">
+                      <select id="housekeeping-room-type-filter" class="rack-select">
+                        <option value="all">All room types</option>
+                      </select>
                     </div>
                     <span id="housekeeping-role-badge" class="tag">role pending</span>
                   </div>
@@ -1174,12 +1250,12 @@
               <div class="rack-section">
                 <div class="rack-toolbar">
                   <div class="rack-toolbar-main">
-                    <div class="rack-control-group">
-                      <div id="rack-floor-buttons" class="rack-floor-buttons">
-                        <button type="button" class="button small rack-floor-btn active" data-rack-floor="all">All floors</button>
-                      </div>
+                    <div class="rack-filter-select-wrap">
+                      <select id="rack-floor-filter" class="rack-select">
+                        <option value="all">All floors</option>
+                      </select>
                     </div>
-                    <div class="rack-type-select-wrap">
+                    <div class="rack-filter-select-wrap">
                       <select id="rack-room-type-filter" class="rack-select">
                         <option value="all">All room types</option>
                       </select>
@@ -1407,12 +1483,6 @@
               <label class="sh-field">Check-in<input id="sf-walkin-ci" type="date" class="sh-input" /></label>
               <label class="sh-field">Check-out<input id="sf-walkin-co" type="date" class="sh-input" /></label>
             </div>
-            <div class="sh-2col" style="margin-top:8px">
-              <label class="sh-field" style="justify-content:end"><span>Manual Scarcity Preview</span><input id="sf-walkin-scarcity-enabled" type="checkbox" class="sh-input" style="height:auto;min-height:18px;width:18px;padding:0" /></label>
-              <label class="sh-field">Trigger When Remaining &lt;<input id="sf-walkin-scarcity-threshold" type="number" min="0" max="20" value="1" class="sh-input" /></label>
-              <label class="sh-field">Surcharge / Night<input id="sf-walkin-scarcity-amount" type="number" min="0" step="0.01" value="0" class="sh-input" /></label>
-              <label class="sh-field">Total Cap<input id="sf-walkin-scarcity-cap" type="number" min="0" step="0.01" value="0" class="sh-input" /></label>
-            </div>
             <button id="btn-create-walkin" class="sa ci" type="button">Create Walk-in &amp; Check In</button>
             <div id="sh-walkin-validation" class="sh-validation" hidden></div>
             <div id="sh-reservation-plan-preview" class="sh-sec" style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0" hidden>
@@ -1502,6 +1572,8 @@
         rackAvailabilitySummary: {},
         rackFloorFocus: 'all',
         rackRoomTypeFilter: 'all',
+        housekeepingFloorFocus: 'all',
+        housekeepingRoomTypeFilter: 'all',
         sidebarCollapsed: false,
         planningGrid: null,
         planningFromDate: new Date().toISOString().slice(0, 10),
@@ -1514,6 +1586,8 @@
         sheetCreateMode: null,
         sheetCreateContext: null,
         sheetActiveAllotment: null,
+        sheetRequestedRoomTypeId: null,
+        sheetReservationPlanPreviewRequestId: 0,
         sheetReservationPlanPreview: null,
         sheetExtendPlanPreview: null,
         sheetRoomUnit: null,
@@ -1547,9 +1621,11 @@
         staffTabStrip: document.getElementById('staff-tab-strip'),
         btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
         workspaceShell: document.querySelector('.workspace-shell'),
-        rackFloorButtons: document.getElementById('rack-floor-buttons'),
+        rackFloorFilter: document.getElementById('rack-floor-filter'),
         rackRoomTypeFilter: document.getElementById('rack-room-type-filter'),
         rackGridContainer: document.getElementById('rack-grid-container'),
+        housekeepingFloorFilter: document.getElementById('housekeeping-floor-filter'),
+        housekeepingRoomTypeFilter: document.getElementById('housekeeping-room-type-filter'),
         boardDate: document.getElementById('board-date'),
         boardStatus: document.getElementById('board-status'),
         btnRefreshBoard: document.getElementById('btn-refresh-board'),
@@ -1755,6 +1831,11 @@
         if (summary.next_reservation_start) {
           const guestFirst = (summary.next_reservation_guest_name || '').split(' ')[0] || '';
           const untilLabel = `until ${summary.next_reservation_start}${guestFirst ? ` · ${guestFirst}` : ''}`;
+          return primaryKey === 'departing' ? `${nights}n free after · next: ${untilLabel}` : `${nights}n free · ${untilLabel}`;
+        }
+        if (summary.next_allotment_start) {
+          const guestFirst = (summary.next_allotment_display_name || '').split(' ')[0] || '';
+          const untilLabel = `until ${summary.next_allotment_start}${guestFirst ? ` · ${guestFirst}` : ''}`;
           return primaryKey === 'departing' ? `${nights}n free after · next: ${untilLabel}` : `${nights}n free · ${untilLabel}`;
         }
         const label = `${nights} night${nights !== 1 ? 's' : ''} free`;
@@ -1993,8 +2074,9 @@
 
         const typeMap = {};
         state.roomTypes.forEach((roomType) => { typeMap[roomType.id] = roomType.code || roomType.name || roomType.id; });
+        const housekeepingFloorOptions = sortFloorLabels(Array.from(new Set(housekeepingUnitsMatchingType().map((unit) => String(unit.floor_label || '—')))));
         const floors = {};
-        state.roomUnits.forEach((roomUnit) => {
+        filteredHousekeepingUnits().forEach((roomUnit) => {
           const floorLabel = roomUnit.floor_label || '—';
           if (!floors[floorLabel]) floors[floorLabel] = [];
           floors[floorLabel].push(roomUnit);
@@ -2004,11 +2086,13 @@
           const rightType = typeMap[right.room_type_id] || '';
           return leftType.localeCompare(rightType) || (left.room_number || '').localeCompare(right.room_number || '', undefined, { numeric: true });
         }));
-        const sortedFloors = Object.keys(floors).sort((left, right) => {
-          const leftNumber = parseFloat(left);
-          const rightNumber = parseFloat(right);
-          return isNaN(leftNumber) || isNaN(rightNumber) ? right.localeCompare(left) : rightNumber - leftNumber;
-        });
+        const sortedFloors = sortFloorLabels(Object.keys(floors));
+        renderHousekeepingControls(housekeepingFloorOptions);
+
+        if (!sortedFloors.length) {
+          els.housekeepingRoomList.innerHTML = '<div class="empty">No rooms match the current housekeeping filters.</div>';
+          return;
+        }
 
         els.housekeepingRoomList.innerHTML = sortedFloors.map((floor) => {
           const cells = floors[floor].map((roomUnit) => {
@@ -2184,6 +2268,31 @@
         ) || null;
       }
 
+      function rackAllotmentSummaryForUnit(unit) {
+        const summary = state.rackAvailabilitySummary[String(unit.id)] || null;
+        if (!summary) return null;
+        if (summary.current_allotment_id) {
+          return {
+            kind: 'current',
+            allotment_id: summary.current_allotment_id,
+            operator_name: summary.current_allotment_operator_name,
+            display_name: summary.current_allotment_display_name,
+            rooming_status: summary.current_allotment_rooming_status,
+            allotment_status: summary.current_allotment_status,
+            check_out: summary.current_check_out,
+          };
+        }
+        if (summary.next_allotment_id) {
+          return {
+            kind: 'next',
+            allotment_id: summary.next_allotment_id,
+            display_name: summary.next_allotment_display_name,
+            check_in: summary.next_allotment_start,
+          };
+        }
+        return null;
+      }
+
       function hydrateGuestPhotoCacheFromReservation(reservation) {
         if (reservation?.id && reservation?.guest_photo_url) {
           state.guestPhotos[reservation.id] = reservation.guest_photo_url;
@@ -2206,6 +2315,17 @@
           return { key: 'reserved', label: 'Reserved' };
         }
 
+        const allotmentSummary = rackAllotmentSummaryForUnit(unit);
+        if (allotmentSummary?.kind === 'current') {
+          if (allotmentSummary.rooming_status === 'checked_in' || allotmentSummary.allotment_status === 'in_house') {
+            return { key: 'occupied', label: 'Occupied by Operator' };
+          }
+          return { key: 'reserved', label: 'Reserved by Operator' };
+        }
+        if (allotmentSummary?.kind === 'next' && allotmentSummary.check_in === state.boardDate) {
+          return { key: 'reserved', label: 'Operator Arrival Today' };
+        }
+
         if (checkedOutReservationForUnit(unit)) return { key: 'checked-out', label: 'Checked-out' };
         return { key: 'available', label: 'Open Now' };
       }
@@ -2220,12 +2340,20 @@
         return { key: hkState.stripKey, label: hkState.label };
       }
 
-      function rackFloorAnchorId(floorLabel) {
-        return `rack-floor-${String(floorLabel || 'unknown').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'unknown'}`;
+      function sortFloorLabels(floorLabels) {
+        return [...floorLabels].sort((left, right) => {
+          const leftNumber = parseFloat(left);
+          const rightNumber = parseFloat(right);
+          return isNaN(leftNumber) || isNaN(rightNumber) ? right.localeCompare(left) : rightNumber - leftNumber;
+        });
+      }
+
+      function rackUnitsMatchingType() {
+        return state.roomUnits.filter((unit) => state.rackRoomTypeFilter === 'all' || String(unit.room_type_id) === String(state.rackRoomTypeFilter));
       }
 
       function filteredRackUnits() {
-        return state.roomUnits.filter((unit) => state.rackRoomTypeFilter === 'all' || String(unit.room_type_id) === String(state.rackRoomTypeFilter));
+        return rackUnitsMatchingType().filter((unit) => state.rackFloorFocus === 'all' || String(unit.floor_label || '—') === String(state.rackFloorFocus));
       }
 
       function renderRackControls(sortedFloors) {
@@ -2239,12 +2367,41 @@
         }
         els.rackRoomTypeFilter.innerHTML = roomTypeOptions.join('');
         els.rackRoomTypeFilter.value = state.rackRoomTypeFilter;
+        if (!sortedFloors.includes(state.rackFloorFocus)) {
+          state.rackFloorFocus = 'all';
+        }
+        els.rackFloorFilter.innerHTML = ['<option value="all">All floors</option>']
+          .concat(sortedFloors.map((floor) => `<option value="${escapeHtml(floor)}">Floor ${escapeHtml(floor)}</option>`))
+          .join('');
+        els.rackFloorFilter.value = state.rackFloorFocus;
+      }
 
-        const buttons = [
-          `<button type="button" class="button small rack-floor-btn ${state.rackFloorFocus === 'all' ? 'active' : ''}" data-rack-floor="all">All floors</button>`,
-          ...sortedFloors.map((floor) => `<button type="button" class="button small rack-floor-btn ${state.rackFloorFocus === floor ? 'active' : ''}" data-rack-floor="${escapeHtml(floor)}">Floor ${escapeHtml(floor)}</button>`),
-        ];
-        els.rackFloorButtons.innerHTML = buttons.join('');
+      function housekeepingUnitsMatchingType() {
+        return state.roomUnits.filter((unit) => state.housekeepingRoomTypeFilter === 'all' || String(unit.room_type_id) === String(state.housekeepingRoomTypeFilter));
+      }
+
+      function filteredHousekeepingUnits() {
+        return housekeepingUnitsMatchingType().filter((unit) => state.housekeepingFloorFocus === 'all' || String(unit.floor_label || '—') === String(state.housekeepingFloorFocus));
+      }
+
+      function renderHousekeepingControls(sortedFloors) {
+        const roomTypeOptions = ['<option value="all">All room types</option>']
+          .concat(state.roomTypes.map((roomType) => {
+            const label = roomType.code ? `${roomType.code} - ${roomType.name}` : roomType.name;
+            return `<option value="${escapeHtml(roomType.id)}">${escapeHtml(label)}</option>`;
+          }));
+        if (!state.roomTypes.some((roomType) => String(roomType.id) === String(state.housekeepingRoomTypeFilter))) {
+          state.housekeepingRoomTypeFilter = 'all';
+        }
+        els.housekeepingRoomTypeFilter.innerHTML = roomTypeOptions.join('');
+        els.housekeepingRoomTypeFilter.value = state.housekeepingRoomTypeFilter;
+        if (!sortedFloors.includes(state.housekeepingFloorFocus)) {
+          state.housekeepingFloorFocus = 'all';
+        }
+        els.housekeepingFloorFilter.innerHTML = ['<option value="all">All floors</option>']
+          .concat(sortedFloors.map((floor) => `<option value="${escapeHtml(floor)}">Floor ${escapeHtml(floor)}</option>`))
+          .join('');
+        els.housekeepingFloorFilter.value = state.housekeepingFloorFocus;
       }
 
       function rackReservationForUnit(unit) {
@@ -2262,6 +2419,7 @@
         }
         const typeMap = {};
         state.roomTypes.forEach(t => { typeMap[t.id] = t.code || t.name || t.id; });
+        const rackFloorOptions = sortFloorLabels(Array.from(new Set(rackUnitsMatchingType().map((unit) => String(unit.floor_label || '—')))));
         const floors = {};
         filteredRackUnits().forEach((u) => {
           const fl = u.floor_label || '—';
@@ -2274,11 +2432,8 @@
           const tb = typeMap[b.room_type_id] || '';
           return ta.localeCompare(tb) || (a.room_number || '').localeCompare(b.room_number || '', undefined, { numeric: true });
         }));
-        const sorted = Object.keys(floors).sort((a, b) => {
-          const na = parseFloat(a), nb = parseFloat(b);
-          return isNaN(na) || isNaN(nb) ? b.localeCompare(a) : nb - na;
-        });
-        renderRackControls(sorted);
+        const sorted = sortFloorLabels(Object.keys(floors));
+        renderRackControls(rackFloorOptions);
         if (!sorted.length) {
           container.innerHTML = '<div class="empty">No rooms match the current room-type filter.</div>';
           return;
@@ -2288,9 +2443,12 @@
             const primary = rackPrimaryState(u);
             const secondary = rackSecondaryState(u);
             const res = rackReservationForUnit(u) || checkedOutReservationForUnit(u);
+            const allotmentSummary = rackAllotmentSummaryForUnit(u);
             const nextOpenNights = nextOpenNightsLabel(u, primary.key);
             const code = escapeHtml((typeMap[u.room_type_id] || u.room_type_id || '').slice(0, 8));
-            const first = res ? escapeHtml((res.guest_name || '').split(' ')[0] || '…') : '';
+            const first = res
+              ? escapeHtml((res.guest_name || '').split(' ')[0] || '…')
+              : (allotmentSummary?.display_name ? escapeHtml(String(allotmentSummary.display_name).split(' ')[0] || '…') : '');
             const suffix = res && Number(res.rooms_requested || 0) > 1 ? `+${Number(res.rooms_requested) - 1}` : '';
             const hasPhoto = res && state.guestPhotos[res.id];
             const currentRate = escapeHtml(formatRackPrice(u, res));
@@ -2298,6 +2456,7 @@
             const unitSummary = state.rackAvailabilitySummary[String(u.id)] || null;
             const badges = [
               (res?.status === 'confirmed' && res.arrival_today) || unitSummary?.arrival_today ? '<span class="rc-badge arrival">ARR</span>' : '',
+              allotmentSummary?.kind === 'current' ? '<span class="rc-badge arrival">B2B</span>' : '',
               u.do_not_disturb ? '<span class="rc-flag dnd">DND</span>' : '',
               u.room_service_requested ? '<span class="rc-flag rs">RS</span>' : '',
             ].filter(Boolean).join('');
@@ -2318,7 +2477,7 @@
             </button>`;
           }).join('');
           return `<div class="rack-floor-section">
-            <div id="${escapeHtml(rackFloorAnchorId(floor))}" class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
+            <div class="rack-floor-label">Floor&nbsp;${escapeHtml(floor)}</div>
             <div class="rack-grid">${cells}</div>
           </div>`;
         }).join('');
@@ -2573,7 +2732,12 @@
         }
 
         if (mode === 'reservation' && state.sheetReservationPlanPreview && state.sheetReservationPlanPreview.can_fulfill === false) {
-          message = message || 'Planner found inventory conflicts. Review the preview below.';
+          const rohWarning = Array.isArray(state.sheetReservationPlanPreview.warnings)
+            ? state.sheetReservationPlanPreview.warnings.find((item) => item.kind === 'roh_out_of_stock')
+            : null;
+          message = message || (rohWarning
+            ? 'ROH block has exhausted sellable inventory for one or more nights. Review the planner warning below.'
+            : 'Planner found inventory conflicts. Review the preview below.');
         }
 
         button.disabled = Boolean(message);
@@ -2586,7 +2750,9 @@
         const select = document.getElementById('sf-walkin-pricing-profile');
         if (!select) return;
         const current = select.value;
-        const roomTypeId = state.sheetRoomUnit?.room_type_id ? String(state.sheetRoomUnit.room_type_id) : '';
+        const roomTypeId = state.sheetRequestedRoomTypeId
+          ? String(state.sheetRequestedRoomTypeId)
+          : (state.sheetRoomUnit?.room_type_id ? String(state.sheetRoomUnit.room_type_id) : '');
         const eligibleProfiles = (state.pricingProfiles || []).filter((profile) => {
           if (!profile?.active) return false;
           if (String(profile.visibility || '') !== 'planner_only') return false;
@@ -2606,6 +2772,57 @@
           return;
         }
         select.value = '';
+      }
+
+      function minimumNightlyAmountForRoomType(roomTypeId) {
+        const activeRates = (state.roomRates || []).filter((rate) => String(rate.room_type_id || '') === String(roomTypeId || '') && rate.active !== false);
+        if (!activeRates.length) return Number.MAX_SAFE_INTEGER;
+        return activeRates.reduce((minAmount, rate) => {
+          const amount = Number(rate.nightly_amount);
+          return Number.isFinite(amount) ? Math.min(minAmount, amount) : minAmount;
+        }, Number.MAX_SAFE_INTEGER);
+      }
+
+      function resolveAllotmentRequestedRoomTypeId(allotment, roomsRequested = 1) {
+        if (!allotment) return state.sheetRoomUnit?.room_type_id || null;
+        if (allotment.room_type_id) return String(allotment.room_type_id);
+
+        const rohCapacityFilter = String(allotment.roh_capacity_filter || 'max_2').trim() || 'max_2';
+        const roomUnitCountsByType = new Map();
+        (state.roomUnits || []).forEach((roomUnit) => {
+          if (!roomUnit?.active || ['maintenance', 'out_of_order'].includes(String(roomUnit.operational_status || ''))) return;
+          const roomTypeId = String(roomUnit.room_type_id || '').trim();
+          if (!roomTypeId) return;
+          roomUnitCountsByType.set(roomTypeId, (roomUnitCountsByType.get(roomTypeId) || 0) + 1);
+        });
+
+        const eligibleRoomTypes = (state.roomTypes || []).filter((roomType) => {
+          const maxOccupancy = Number(roomType?.max_occupancy || 0);
+          if (rohCapacityFilter === 'gte_2') return maxOccupancy >= 2;
+          return maxOccupancy === 2;
+        });
+        if (!eligibleRoomTypes.length) return null;
+
+        const sortedRoomTypes = [...eligibleRoomTypes].sort((left, right) => {
+          const leftCount = Number(roomUnitCountsByType.get(String(left.id || '')) || 0);
+          const rightCount = Number(roomUnitCountsByType.get(String(right.id || '')) || 0);
+          const leftEnough = leftCount >= roomsRequested ? 1 : 0;
+          const rightEnough = rightCount >= roomsRequested ? 1 : 0;
+          if (leftEnough !== rightEnough) return rightEnough - leftEnough;
+
+          const leftRate = minimumNightlyAmountForRoomType(left.id);
+          const rightRate = minimumNightlyAmountForRoomType(right.id);
+          if (leftRate !== rightRate) return leftRate - rightRate;
+
+          if (leftCount !== rightCount) return rightCount - leftCount;
+
+          const leftSort = Number(left.sort_order || 0);
+          const rightSort = Number(right.sort_order || 0);
+          if (leftSort !== rightSort) return leftSort - rightSort;
+          return String(left.name || left.code || left.id || '').localeCompare(String(right.name || right.code || right.id || ''));
+        });
+
+        return String(sortedRoomTypes[0]?.id || '') || null;
       }
 
       function formatPlannerDate(dateText, options = {}) {
@@ -2635,6 +2852,7 @@
         const value = String(planType || '').trim();
         if (value === 'contiguous_same_type') return 'Stay in one room';
         if (value === 'split_same_type') return 'Split stay in the same room type';
+        if (value === 'split_mixed_category') return 'Split stay across room categories';
         if (value === 'contiguous_upgrade') return 'Upgrade to keep the stay together';
         return 'Suggested stay plan';
       }
@@ -2688,20 +2906,12 @@
           const componentLabel = components.length > 1
             ? components.map((component) => escapeHtml(plannerComponentLabel(component))).join(', ')
             : escapeHtml(plannerRowRoomTypeLabel(row));
-          return `<div>${escapeHtml(formatPlannerDate(row.stay_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}${row.scarcity_adjustment?.applied_amount ? ` · scarcity +${escapeHtml(row.currency || '')} ${compactPrice(row.scarcity_adjustment.applied_amount, row.currency)}` : ''}</div>`;
+          return `<div>${escapeHtml(formatPlannerDate(row.stay_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}: <strong>${componentLabel}</strong> · ${escapeHtml(row.currency || '')} ${compactPrice(row.nightly_total, row.currency)}${row.weekday_adjustment?.name ? ` · ${escapeHtml(row.weekday_adjustment.name)}` : ''}</div>`;
         }).join('');
-
-        const scarcityPreview = pricing.scarcity_preview || null;
-        const scarcityLine = scarcityPreview?.applied
-          ? `<div style="margin-top:4px;color:#9a3412">Manual scarcity preview applied: ${escapeHtml(pricing.currency || '')} ${compactPrice(scarcityPreview.total_surcharge_amount, pricing.currency)} across ${Number(scarcityPreview.triggered_nights || 0)} night(s), trigger when remaining inventory drops below ${Number(scarcityPreview.threshold_remaining || 0)}, capped at ${escapeHtml(pricing.currency || '')} ${compactPrice(scarcityPreview.max_total_amount, pricing.currency)}.</div>`
-          : (scarcityPreview?.enabled
-            ? `<div style="margin-top:4px;color:#64748b">Manual scarcity preview is enabled but no selected-plan night dropped below the configured threshold.</div>`
-            : '');
 
         pricingEl.innerHTML = `
           <div><strong>Selected plan pricing</strong>${pricing.pricing_profile?.name ? ` · ${escapeHtml(pricing.pricing_profile.name)}` : ''}</div>
           <div style="margin-top:4px;color:#334155">Total: <strong>${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_amount, pricing.currency)}</strong>${Number(pricing.total_occupancy_adjustment || 0) ? ` · occupancy adj ${escapeHtml(pricing.currency || '')} ${compactPrice(pricing.total_occupancy_adjustment, pricing.currency)}` : ''}</div>
-          ${scarcityLine}
           <div style="margin-top:6px;display:grid;gap:3px">${rowsMarkup || '<span style="color:#64748b">No nightly pricing rows available.</span>'}</div>
           ${breakdownRows.length > 10 ? `<div style="margin-top:4px;color:#64748b">Showing first 10 of ${breakdownRows.length} nights.</div>` : ''}
           ${Array.isArray(pricing.missing_rate_dates) && pricing.missing_rate_dates.length ? `<div style="margin-top:4px;color:#991b1b">Missing rate dates: ${pricing.missing_rate_dates.map((item) => escapeHtml(item)).join(', ')}</div>` : ''}`;
@@ -2742,6 +2952,7 @@
         const allotmentConflicts = Array.isArray(preview.conflicts?.allotment_conflicts) ? preview.conflicts.allotment_conflicts : [];
         const maintenanceConflicts = Array.isArray(preview.conflicts?.maintenance_conflicts) ? preview.conflicts.maintenance_conflicts : [];
         const shortageDates = Array.isArray(preview.conflicts?.shortage_dates) ? preview.conflicts.shortage_dates : [];
+        const plannerWarnings = Array.isArray(preview.warnings) ? preview.warnings : [];
         const preferredRoomConflicts = Array.isArray(preview.preferred_room_conflicts) ? preview.preferred_room_conflicts : [];
         const preferredRoomLabel = formatPlannerRoomLabel(preview.preferred_room_number || state.sheetRoomUnit?.room_number || preview.preferred_room_unit_id, 'preferred room');
 
@@ -2785,6 +2996,10 @@
           const sample = allotmentConflicts.slice(0, 3).map((item) => `Operator block ${escapeHtml(item.operator_name || 'Operator')} keeps ${Number(item.rooms_blocked || 0)} room(s) from ${escapeHtml(formatPlannerDateRange(item.check_in || '', item.check_out || ''))}.`).join('<br>');
           conflictLines.push(sample);
         }
+        if (plannerWarnings.length) {
+          const sample = plannerWarnings.slice(0, 3).map((warning) => escapeHtml(warning.message || 'Planner warning.')).join('<br>');
+          conflictLines.push(`<strong>Sales warning</strong><br>${sample}`);
+        }
         if (maintenanceConflicts.length) {
           const sample = maintenanceConflicts.slice(0, 3).map((item) => `${escapeHtml(formatPlannerRoomLabel(item.room_number || item.room_unit_id || 'room', 'A room'))} is currently ${escapeHtml(item.operational_status || 'unavailable')}.`).join('<br>');
           conflictLines.push(sample);
@@ -2818,32 +3033,35 @@
           return;
         }
 
+        const requestId = (state.sheetReservationPlanPreviewRequestId || 0) + 1;
+        state.sheetReservationPlanPreviewRequestId = requestId;
+
         try {
           const preferredRoomUnitId = state.sheetCreateContext === 'allotment' ? null : state.sheetRoomUnit.id;
           const allotmentId = state.sheetCreateContext === 'allotment' ? (state.sheetActiveAllotment?.id || null) : null;
+          const requestedRoomTypeId = state.sheetRequestedRoomTypeId || state.sheetRoomUnit.room_type_id;
+          const plannerRoomTypeId = state.sheetCreateContext === 'allotment' && !state.sheetActiveAllotment?.room_type_id
+            ? null
+            : requestedRoomTypeId;
           const pricingProfileId = document.getElementById('sf-walkin-pricing-profile')?.value || null;
           const preview = await api(`/api/properties/${state.selectedPropertyId}/reservations/plan`, {
             method: 'POST',
             body: JSON.stringify({
-              room_type_id: state.sheetRoomUnit.room_type_id,
+              room_type_id: plannerRoomTypeId,
               check_in: checkIn,
               check_out: checkOut,
               rooms_requested: roomsRequested,
               adults: Math.max(1, parseInt(document.getElementById('sf-walkin-adults')?.value || '1', 10) || 1),
               children: Math.max(0, parseInt(document.getElementById('sf-walkin-children')?.value || '0', 10) || 0),
               pricing_profile_id: pricingProfileId || null,
-              scarcity_preview: {
-                enabled: Boolean(document.getElementById('sf-walkin-scarcity-enabled')?.checked),
-                threshold_remaining: Math.max(0, parseInt(document.getElementById('sf-walkin-scarcity-threshold')?.value || '1', 10) || 0),
-                surcharge_amount: Math.max(0, Number(document.getElementById('sf-walkin-scarcity-amount')?.value || '0') || 0),
-                max_total_amount: Math.max(0, Number(document.getElementById('sf-walkin-scarcity-cap')?.value || '0') || 0),
-              },
               preferred_room_unit_id: preferredRoomUnitId,
               allotment_id: allotmentId,
             }),
           });
+          if (state.sheetReservationPlanPreviewRequestId !== requestId) return;
           state.sheetReservationPlanPreview = preview;
         } catch (error) {
+          if (state.sheetReservationPlanPreviewRequestId !== requestId) return;
           state.sheetReservationPlanPreview = {
             can_fulfill: false,
             request: { rooms_requested: roomsRequested },
@@ -2897,21 +3115,17 @@
         }
         const pricingProfileSelect = document.getElementById('sf-walkin-pricing-profile');
         if (pricingProfileSelect) pricingProfileSelect.disabled = mode !== 'reservation';
-        ['sf-walkin-scarcity-enabled', 'sf-walkin-scarcity-threshold', 'sf-walkin-scarcity-amount', 'sf-walkin-scarcity-cap'].forEach((id) => {
-          const input = document.getElementById(id);
-          if (!input) return;
-          input.disabled = mode !== 'reservation';
-          if (mode !== 'reservation' && id === 'sf-walkin-scarcity-enabled') input.checked = false;
-        });
         renderReservationPlannerPreview();
       }
 
-      function setSheetCreateMode(mode, context = state.sheetCreateContext || 'rack') {
+      function setSheetCreateMode(mode, context = state.sheetCreateContext || 'rack', options = {}) {
         state.sheetCreateMode = mode;
         state.sheetCreateContext = context;
         applySheetCreateModeUi();
         updateCreateReservationValidation();
-        refreshReservationPlannerPreview().catch(() => {});
+        if (!options.skipPlannerPreviewRefresh) {
+          refreshReservationPlannerPreview().catch(() => {});
+        }
       }
 
       function buildPlanningReservationBars(rooms, reservations, dateRange) {
@@ -2972,31 +3186,112 @@
         return barsByRoom;
       }
 
+      function buildPlanningAllotmentAllocationBars(rooms, allocations, dateRange) {
+        const barsByRoom = new Map();
+        const roomIds = new Set((rooms || []).map((room) => String(room.room_unit_id || room.id || '')).filter(Boolean));
+        for (const roomId of roomIds) barsByRoom.set(roomId, []);
+        if (!Array.isArray(dateRange) || !dateRange.length) return barsByRoom;
+
+        const dateIndex = new Map(dateRange.map((date, index) => [date, index]));
+        const rangeStart = dateRange[0];
+        const rangeEndExclusive = addIsoDays(dateRange[dateRange.length - 1], 1);
+
+        for (const allocation of (allocations || [])) {
+          const roomId = String(allocation?.room_unit_id || '').trim();
+          if (!roomId || !roomIds.has(roomId)) continue;
+          const checkIn = String(allocation?.check_in || '').trim();
+          const checkOut = String(allocation?.check_out || '').trim();
+          if (!checkIn || !checkOut || checkOut <= rangeStart || checkIn >= rangeEndExclusive) continue;
+
+          const clippedStart = checkIn > rangeStart ? checkIn : rangeStart;
+          const clippedEnd = checkOut < rangeEndExclusive ? checkOut : rangeEndExclusive;
+          const startIndex = dateIndex.get(clippedStart);
+          const endIndex = clippedEnd === rangeEndExclusive ? dateRange.length : dateIndex.get(clippedEnd);
+          if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || endIndex <= startIndex) continue;
+
+          barsByRoom.get(roomId).push({
+            allocation_id: String(allocation.id || ''),
+            allotment_id: String(allocation.allotment_id || ''),
+            room_unit_id: roomId,
+            operator_name: String(allocation.operator_name || '').trim() || 'Operator',
+            room_type_code: allocation.room_type_code || null,
+            check_in: checkIn,
+            check_out: checkOut,
+            startIndex,
+            spanDays: endIndex - startIndex,
+            leftPct: (startIndex / dateRange.length) * 100,
+            widthPct: ((endIndex - startIndex) / dateRange.length) * 100,
+          });
+        }
+
+        for (const bars of barsByRoom.values()) {
+          bars.sort((a, b) => a.startIndex - b.startIndex || b.spanDays - a.spanDays);
+          const laneEnds = [];
+          for (const bar of bars) {
+            let lane = laneEnds.findIndex((laneEnd) => laneEnd <= bar.startIndex);
+            if (lane === -1) lane = laneEnds.length;
+            laneEnds[lane] = bar.startIndex + bar.spanDays;
+            bar.lane = lane;
+            bar.topPx = 4 + (lane * 20);
+          }
+          bars.laneCount = laneEnds.length || 0;
+        }
+
+        return barsByRoom;
+      }
+
       function renderPlanAllotmentList(allotments) {
         const listEl = document.getElementById('plan-allotment-list');
         if (!listEl) return;
-        if (!Array.isArray(allotments) || !allotments.length) {
+        const allocationsByAllotment = new Map();
+        for (const allocation of (state.planningGrid?.allotment_allocations || [])) {
+          const allotmentId = String(allocation.allotment_id || '').trim();
+          allocationsByAllotment.set(allotmentId, (allocationsByAllotment.get(allotmentId) || 0) + 1);
+        }
+        const visibleAllotments = Array.isArray(allotments)
+          ? allotments.filter((allotment) => !['released', 'cancelled'].includes(String(allotment.status || '')))
+          : [];
+        if (!visibleAllotments.length) {
           listEl.innerHTML = '<span style="font-size:11px;color:#64748b">No operator blocks in the current window.</span>';
           return;
         }
-        listEl.innerHTML = allotments.map((allotment) => `
+        listEl.innerHTML = visibleAllotments.map((allotment) => `
           <div class="plan-allotment-pill">
-            <span>${escapeHtml(allotment.operator_name || 'Operator')} · ${escapeHtml(allotment.room_type_code || allotment.room_type_name || allotment.room_type_id || '')} · ${Number(allotment.rooms_blocked || 0)} room(s) · ${escapeHtml(allotment.check_in || '')} → ${escapeHtml(allotment.check_out || '')}${allotment.release_date ? ` · release ${escapeHtml(allotment.release_date)}` : ''}</span>
-            ${allotment.status === 'active' && allotment.inventory_blocking ? `<button type="button" data-consume-allotment="${escapeHtml(allotment.id)}">Reserve</button>` : ''}
-            ${allotment.status === 'active' ? `<button type="button" data-release-allotment="${escapeHtml(allotment.id)}">Release</button>` : ''}
+            <span>${escapeHtml(allotment.operator_name || 'Operator')} · ${escapeHtml(String(allotment.status || 'draft').replace(/_/g, ' '))} · ${escapeHtml(allotment.room_type_code || allotment.room_type_name || allotment.room_type_id || 'ROH')}${!allotment.room_type_id ? ` · ${escapeHtml(allotment.roh_capacity_filter === 'gte_2' ? 'max >= 2' : 'max = 2')}` : ''} · ${Number(allotment.rooms_blocked || 0)} room(s) · ${escapeHtml(allotment.check_in || '')} → ${escapeHtml(allotment.check_out || '')}${allotment.release_date ? ` · release ${escapeHtml(allotment.release_date)}` : ''}${allotment.auto_release_state === 'due_today' ? ' · auto-release today' : ''}${allotment.auto_release_state === 'overdue' ? ' · overdue auto-release' : ''}${allocationsByAllotment.get(String(allotment.id)) ? ` · allocated ${Number(allocationsByAllotment.get(String(allotment.id)) || 0)}/${Number(allotment.rooms_blocked || 0)}` : ''}</span>
+            <button type="button" data-consume-allotment="${escapeHtml(allotment.id)}">Allocate Rooms</button>
+            ${['draft', 'active', 'allocated'].includes(String(allotment.status || '')) ? `<button type="button" data-confirm-allotment="${escapeHtml(allotment.id)}">Confirm</button>` : ''}
+            <button type="button" data-release-allotment="${escapeHtml(allotment.id)}">Release</button>
           </div>`).join('');
+      }
+
+      function defaultRohCapacityFilter() {
+        const profiles = Array.isArray(state.pricingProfiles) ? state.pricingProfiles : [];
+        const rohProfile = profiles.find((profile) => {
+          if (!profile?.active || profile.room_type_id) return false;
+          const code = String(profile.code || '').trim().toUpperCase();
+          const name = String(profile.name || '').trim().toUpperCase();
+          return code === 'ROH' || name.includes('RUN OF HOUSE') || name === 'ROH';
+        });
+        return rohProfile?.roh_capacity_filter || 'max_2';
       }
 
       function seedPlanAllotmentForm() {
         const typeEl = document.getElementById('plan-allotment-room-type');
+        const rohCapacityEl = document.getElementById('plan-allotment-roh-capacity');
         const fromEl = document.getElementById('plan-allotment-from');
         const toEl = document.getElementById('plan-allotment-to');
         const releaseEl = document.getElementById('plan-allotment-release');
         if (typeEl) {
           const current = typeEl.value;
-          typeEl.innerHTML = '<option value="">Select type</option>' + state.roomTypes.map((roomType) => `
+          typeEl.innerHTML = `<option value="">Select type</option><option value="__ROH__"${current === '__ROH__' ? ' selected' : ''}>ROH / Run of House</option>` + state.roomTypes.map((roomType) => `
             <option value="${escapeHtml(roomType.id)}"${current === roomType.id ? ' selected' : ''}>${escapeHtml(roomType.code || roomType.name || roomType.id)}</option>`).join('');
           if (!typeEl.value && state.roomTypes.length === 1) typeEl.value = state.roomTypes[0].id;
+        }
+        if (rohCapacityEl && !rohCapacityEl.value) rohCapacityEl.value = defaultRohCapacityFilter();
+        if (rohCapacityEl && typeEl) {
+          const isRoh = typeEl.value === '__ROH__';
+          rohCapacityEl.closest('label').style.opacity = isRoh ? '1' : '0.55';
+          if (isRoh && !rohCapacityEl.value) rohCapacityEl.value = defaultRohCapacityFilter();
         }
         if (fromEl && !fromEl.value) fromEl.value = state.planningFromDate;
         if (toEl && !toEl.value) toEl.value = addIsoDays(state.planningFromDate, 1);
@@ -3005,7 +3300,11 @@
 
       function buildPlanningAllotmentRows(allotments, activeType, typeMap, dateRange) {
         if (!Array.isArray(allotments) || !allotments.length || !Array.isArray(dateRange) || !dateRange.length) return '';
-        const filtered = allotments.filter((allotment) => activeType === 'all' || allotment.room_type_id === activeType);
+        const filtered = allotments.filter((allotment) => {
+          if (['released', 'cancelled'].includes(String(allotment.status || ''))) return false;
+          if (activeType === 'all') return true;
+          return !allotment.room_type_id || allotment.room_type_id === activeType;
+        });
         if (!filtered.length) return '';
         const dateIndex = new Map(dateRange.map((date, index) => [date, index]));
         const rangeStart = dateRange[0];
@@ -3013,7 +3312,7 @@
         const grouped = new Map();
 
         for (const allotment of filtered) {
-          const key = String(allotment.room_type_id || '');
+          const key = String(allotment.room_type_id || '__ROH__');
           if (!grouped.has(key)) grouped.set(key, []);
           const clippedStart = allotment.check_in > rangeStart ? allotment.check_in : rangeStart;
           const clippedEnd = allotment.check_out < rangeEndExclusive ? allotment.check_out : rangeEndExclusive;
@@ -3040,12 +3339,17 @@
           }
           const rowHeight = Math.max(24, 8 + (laneEnds.length * 20));
           const barMarkup = entries.map((entry) => {
-            const cls = entry.inventory_blocking ? '' : ' nonblocking';
-            const label = `${entry.operator_name || 'Operator'} · ${Number(entry.rooms_blocked || 0)} room(s)`;
-            const tooltip = `${entry.operator_name || 'Operator'} · ${entry.check_in} → ${entry.check_out}${entry.release_date ? ' · release ' + entry.release_date : ''}${entry.inventory_blocking ? '' : ' · not currently blocking inventory'}`;
+            const statusClass = String(entry.status || 'draft').replace(/[^a-z_]/g, '');
+            const cls = entry.inventory_blocking ? ` ${statusClass}` : ' nonblocking';
+            const autoReleaseNote = entry.auto_release_state === 'due_today'
+              ? ' · auto-release today'
+              : (entry.auto_release_state === 'overdue' ? ' · overdue auto-release' : '');
+            const label = `${entry.operator_name || 'Operator'} · ${String(entry.status || 'draft').replace(/_/g, ' ')} · ${Number(entry.rooms_blocked || 0)} room(s}`;
+            const tooltip = `${entry.operator_name || 'Operator'} · ${String(entry.status || 'draft').replace(/_/g, ' ')} · ${entry.check_in} → ${entry.check_out}${entry.release_date ? ' · release ' + entry.release_date : ''}${autoReleaseNote}${entry.inventory_blocking ? '' : ' · not currently blocking inventory'}`;
             return `<div class="plan-allotment-bar${cls}" style="left:${entry.leftPct}%;width:${entry.widthPct}%;top:${entry.topPx}px" title="${escapeHtml(tooltip)}">${escapeHtml(label)}</div>`;
           }).join('');
-          return `<div class="plan-allotment-row"><div class="plan-allotment-cell">Block<br>${escapeHtml((typeMap[roomTypeId] || roomTypeId).slice(0, 8))}</div><div class="plan-row-body" style="--plan-row-h:${rowHeight}px"><div class="plan-allotment-layer">${barMarkup}</div></div></div>`;
+          const rowLabel = roomTypeId === '__ROH__' ? 'ROH' : (typeMap[roomTypeId] || roomTypeId);
+          return `<div class="plan-allotment-row"><div class="plan-allotment-cell">Block<br>${escapeHtml(String(rowLabel || 'ROH').slice(0, 8))}</div><div class="plan-row-body" style="--plan-row-h:${rowHeight}px"><div class="plan-allotment-layer">${barMarkup}</div></div></div>`;
         }).join('');
       }
 
@@ -3078,12 +3382,17 @@
           typeIds.map((id) => `<option value="${escapeHtml(id)}"${savedType === id ? ' selected' : ''}>${escapeHtml(typeMap[id] || id)}</option>`).join('');
         if (savedType && typeIds.includes(savedType)) typeFilterEl.value = savedType;
 
-        // Populate floor filter
+        const activeTypeForFloors = typeFilterEl.value;
+        const floorUnits = activeTypeForFloors === 'all'
+          ? grid.units
+          : grid.units.filter((u) => u.room_type_id === activeTypeForFloors);
+
+        // Populate floor filter from the current type-filtered unit set so floor switching stays stable.
         const savedFloor = floorFilterEl.value;
-        const floorIds = [...new Set(grid.units.map((u) => u.floor_label || '—'))];
+        const floorIds = [...new Set(floorUnits.map((u) => u.floor_label || '—'))];
         floorFilterEl.innerHTML = '<option value="all">All floors</option>' +
           floorIds
-            .sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb; })
+            .sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return isNaN(na) || isNaN(nb) ? b.localeCompare(a) : nb - na; })
             .map((fl) => `<option value="${escapeHtml(fl)}"${savedFloor === fl ? ' selected' : ''}>${escapeHtml(fl === '—' ? 'No floor' : 'Fl.' + fl)}</option>`).join('');
         if (savedFloor && floorIds.includes(savedFloor)) floorFilterEl.value = savedFloor;
 
@@ -3123,6 +3432,7 @@
         });
         const planningReservations = getPlanningReservations(filteredUnits, grid.dates);
         const barsByRoom = buildPlanningReservationBars(filteredUnits, planningReservations, grid.dates);
+        const allotmentAllocationBarsByRoom = buildPlanningAllotmentAllocationBars(filteredUnits, grid.allotment_allocations || [], grid.dates);
         const allotmentRows = buildPlanningAllotmentRows(grid.allotments || [], activeType, typeMap, grid.dates);
 
         const unitRows = sortedFloors.map((floor) => {
@@ -3131,7 +3441,10 @@
             const typeCode = escapeHtml((typeMap[unit.room_type_id] || unit.room_type_id || '').slice(0, 6));
             const roomCell = `<div class="plan-room-cell"><div class="pr-num">${escapeHtml(unit.room_number)}</div><div class="pr-type">${typeCode}</div></div>`;
             const roomBars = barsByRoom.get(String(unit.room_unit_id)) || [];
-            const laneCount = roomBars.laneCount || (roomBars.length ? 1 : 0);
+            const allocationBars = allotmentAllocationBarsByRoom.get(String(unit.room_unit_id)) || [];
+            const reservationLaneCount = roomBars.laneCount || (roomBars.length ? 1 : 0);
+            const allocationLaneCount = allocationBars.laneCount || (allocationBars.length ? 1 : 0);
+            const laneCount = reservationLaneCount + allocationLaneCount;
             const rowHeight = Math.max(32, laneCount ? (8 + (laneCount * 20)) : 32);
             const slotMap = new Map((unit.slots || []).map((slot) => [slot.date, slot]));
             const slotCells = grid.dates.map((date) => {
@@ -3202,6 +3515,11 @@
                 : '';
               const tooltip = `${bar.guest_name || '(no name)'} · ${bar.status_label} · ${bar.check_in} → ${bar.check_out}${bar.nightly_amount != null ? ' · ' + (bar.currency || '') + ' ' + compactPrice(bar.nightly_amount, bar.currency) + '/n' : ''}`;
               return `<div class="plan-res-bar ${bar.status}" style="left:${bar.leftPct}%;width:${bar.widthPct}%;top:${bar.topPx}px" title="${escapeHtml(tooltip)}" data-plan-unit-id="${escapeHtml(unit.room_unit_id)}" data-plan-res-id="${escapeHtml(bar.reservation_id)}" data-plan-status="${escapeHtml(bar.status)}"><span class="prb-name">${guestLabel}</span>${priceLabel}</div>`;
+            }).join('') + allocationBars.map((bar) => {
+              const topPx = 4 + (reservationLaneCount * 20) + (bar.lane * 20);
+              const typeSuffix = bar.room_type_code ? ` · ${bar.room_type_code}` : '';
+              const tooltip = `${bar.operator_name || 'Operator'}${typeSuffix} · ${bar.check_in} → ${bar.check_out}`;
+              return `<div class="plan-allocation-bar" style="left:${bar.leftPct}%;width:${bar.widthPct}%;top:${topPx}px" title="${escapeHtml(tooltip)}"><span>${escapeHtml(bar.operator_name || 'Operator')}${typeSuffix ? `<span class="prb-price">${escapeHtml(typeSuffix)}</span>` : ''}</span></div>`;
             }).join('');
             return `<div class="plan-unit-row">${roomCell}<div class="plan-row-body" style="--plan-row-h:${rowHeight}px"><div class="plan-slot-grid">${slotCells}</div><div class="plan-bar-layer">${barMarkup}</div></div></div>`;
           }).join('');
@@ -3418,10 +3736,6 @@
         document.getElementById('sf-walkin-adults').value = '1';
         document.getElementById('sf-walkin-children').value = '0';
         document.getElementById('sf-walkin-rooms').value = '1';
-        document.getElementById('sf-walkin-scarcity-enabled').checked = false;
-        document.getElementById('sf-walkin-scarcity-threshold').value = '1';
-        document.getElementById('sf-walkin-scarcity-amount').value = '0';
-        document.getElementById('sf-walkin-scarcity-cap').value = '0';
         document.getElementById('sf-walkin-ci').value = state.boardDate || new Date().toISOString().slice(0, 10);
         document.getElementById('sf-walkin-co').value = addIsoDays(state.boardDate || new Date().toISOString().slice(0, 10), 1);
         renderSheetPricingProfileOptions();
@@ -3499,15 +3813,15 @@
         const checkOut = String(options.checkOut || addIsoDays(checkIn, 1)).trim();
         const createContext = String(options.context || 'plan').trim() || 'plan';
         const activeAllotment = options.allotment || null;
+        const roomsRequested = Math.max(1, Number(options.roomsRequested || activeAllotment?.rooms_blocked || 1));
         await openProfile(unitId, null, 'actions');
         const unit = state.sheetRoomUnit;
         if (!unit) return;
-        setSheetCreateMode('reservation', createContext);
         state.sheetActiveAllotment = activeAllotment;
-        renderSheetPricingProfileOptions();
+        state.sheetRequestedRoomTypeId = options.requestedRoomTypeId || resolveAllotmentRequestedRoomTypeId(activeAllotment, roomsRequested) || unit.room_type_id;
         document.getElementById('sh-guest-name').textContent = 'New Reservation';
         document.getElementById('sh-guest-sub').textContent = activeAllotment
-          ? `${activeAllotment.operator_name || 'Operator block'} · ${activeAllotment.room_type_code || activeAllotment.room_type_name || unit.room_number} · ${checkIn} → ${checkOut}`
+          ? `${activeAllotment.operator_name || 'Operator block'} · ${activeAllotment.room_type_code || activeAllotment.room_type_name || 'ROH'} · ${checkIn} → ${checkOut}`
           : `Room ${unit.room_number} · ${checkIn} → ${checkOut}`;
         const badge = document.getElementById('sh-badge');
         badge.textContent = 'draft';
@@ -3517,11 +3831,12 @@
           : '<div style="color:#94a3b8;font-size:12px">Draft reservation. Complete the form below to create a new booking. The selected lane is a preference hint and planner may shift the stay to another free lane of the same room type.</div>';
         document.getElementById('sf-walkin-ci').value = checkIn;
         document.getElementById('sf-walkin-co').value = checkOut;
-        document.getElementById('sf-walkin-rooms').value = String(Math.max(1, Number(options.roomsRequested || 1)));
+        document.getElementById('sf-walkin-rooms').value = String(roomsRequested);
+        setSheetCreateMode('reservation', createContext, { skipPlannerPreviewRefresh: true });
+        renderSheetPricingProfileOptions();
         state.sheetReservationPlanPreview = null;
         state.sheetExtendPlanPreview = null;
         document.getElementById('sh-pricing').textContent = '';
-        applySheetCreateModeUi();
         updateCreateReservationValidation();
         refreshReservationPlannerPreview().catch(() => {});
         switchSheetTab('actions');
@@ -3537,6 +3852,7 @@
         state.sheetCreateMode = null;
         state.sheetCreateContext = null;
         state.sheetActiveAllotment = null;
+        state.sheetRequestedRoomTypeId = null;
         state.sheetReservationPlanPreview = null;
         state.sheetExtendPlanPreview = null;
         state.sheetRoomUnit = null;
@@ -3815,16 +4131,20 @@
         renderRack();
       });
 
-      els.rackFloorButtons.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-rack-floor]');
-        if (!button) return;
-        const floor = button.getAttribute('data-rack-floor') || 'all';
-        state.rackFloorFocus = floor;
+      els.rackFloorFilter.addEventListener('change', () => {
+        state.rackFloorFocus = els.rackFloorFilter.value || 'all';
         renderRack();
-        const target = floor === 'all'
-          ? els.rackGridContainer
-          : document.getElementById(rackFloorAnchorId(floor));
-        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      els.housekeepingRoomTypeFilter.addEventListener('change', () => {
+        state.housekeepingRoomTypeFilter = els.housekeepingRoomTypeFilter.value || 'all';
+        state.housekeepingFloorFocus = 'all';
+        renderHousekeeping();
+      });
+
+      els.housekeepingFloorFilter.addEventListener('change', () => {
+        state.housekeepingFloorFocus = els.housekeepingFloorFilter.value || 'all';
+        renderHousekeeping();
       });
 
       els.btnLoadReservation.addEventListener('click', async () => {
@@ -4056,16 +4376,19 @@
         });
         document.getElementById('plan-type-filter').addEventListener('change', () => renderPlanningCalendar());
         document.getElementById('plan-floor-filter').addEventListener('change', () => renderPlanningCalendar());
+        document.getElementById('plan-allotment-room-type').addEventListener('change', () => seedPlanAllotmentForm());
         document.getElementById('btn-create-allotment').addEventListener('click', async () => {
           if (!state.selectedPropertyId) return setFlash('Select a property first.', 'err');
           const operatorName = document.getElementById('plan-allotment-operator').value.trim();
           const operatorCode = document.getElementById('plan-allotment-code').value.trim();
-          const roomTypeId = document.getElementById('plan-allotment-room-type').value;
+          const roomTypeValue = document.getElementById('plan-allotment-room-type').value;
+          const roomTypeId = roomTypeValue === '__ROH__' ? null : roomTypeValue;
+          const rohCapacityFilter = document.getElementById('plan-allotment-roh-capacity').value || 'max_2';
           const roomsBlocked = Math.max(1, parseInt(document.getElementById('plan-allotment-rooms').value, 10) || 1);
           const checkIn = document.getElementById('plan-allotment-from').value;
           const checkOut = document.getElementById('plan-allotment-to').value;
           const releaseDate = document.getElementById('plan-allotment-release').value;
-          if (!operatorName || !roomTypeId || !checkIn || !checkOut) return setFlash('Fill operator, room type, from, and to for the operator block.', 'err');
+          if (!operatorName || !roomTypeValue || !checkIn || !checkOut) return setFlash('Fill operator, room type or ROH, from, and to for the operator block.', 'err');
           try {
             await api(`/api/properties/${state.selectedPropertyId}/allotments`, {
               method: 'POST',
@@ -4073,6 +4396,7 @@
                 operator_name: operatorName,
                 operator_code: operatorCode || null,
                 room_type_id: roomTypeId,
+                roh_capacity_filter: roomTypeId ? null : rohCapacityFilter,
                 rooms_blocked: roomsBlocked,
                 check_in: checkIn,
                 check_out: checkOut,
@@ -4082,6 +4406,7 @@
             document.getElementById('plan-allotment-operator').value = '';
             document.getElementById('plan-allotment-code').value = '';
             document.getElementById('plan-allotment-rooms').value = '1';
+            document.getElementById('plan-allotment-roh-capacity').value = defaultRohCapacityFilter();
             await loadPlanningGrid();
             setFlash('Operator block created.');
           } catch (error) {
@@ -4094,16 +4419,30 @@
             const allotmentId = consumeButton.getAttribute('data-consume-allotment');
             const allotment = (state.planningGrid?.allotments || []).find((item) => String(item.id) === String(allotmentId));
             if (!allotment) return setFlash('Operator block not found in the current planning window.', 'err');
-            const anchorUnit = state.roomUnits.find((unit) => String(unit.room_type_id) === String(allotment.room_type_id) && unit.active && !['maintenance', 'out_of_order'].includes(String(unit.operational_status || '')));
-            if (!anchorUnit) return setFlash('No active room unit is available to anchor this operator block.', 'err');
             try {
-              await createReservation(anchorUnit.id, {
-                checkIn: allotment.check_in,
-                checkOut: allotment.check_out,
-                context: 'allotment',
-                roomsRequested: 1,
-                allotment,
+              const payload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${allotmentId}/allocate`, {
+                method: 'POST',
+                body: JSON.stringify({ allocation_source: 'manual_allocate' }),
               });
+              await loadPlanningGrid();
+              setFlash(payload.already_allocated
+                ? 'Operator block was already allocated and is now shown on the planner.'
+                : `Allocated ${Number(payload.allocations?.length || 0)} room(s) for ${allotment.operator_name || 'operator block'}.`);
+            } catch (error) {
+              setFlash(error.message, 'err');
+            }
+            return;
+          }
+
+          const confirmButton = e.target.closest('[data-confirm-allotment]');
+          if (confirmButton && state.selectedPropertyId) {
+            const allotmentId = confirmButton.getAttribute('data-confirm-allotment');
+            try {
+              const payload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${allotmentId}/confirm`, {
+                method: 'POST',
+              });
+              await loadPlanningGrid();
+              setFlash(`Operator block confirmed with ${Number(payload.allocations?.length || 0)} allocated room(s).`);
             } catch (error) {
               setFlash(error.message, 'err');
             }
@@ -4243,7 +4582,7 @@
       document.getElementById('btn-save-requests').addEventListener('click', () => {
         setFlash('Notes saved in session.');
       });
-      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile', 'sf-walkin-scarcity-enabled', 'sf-walkin-scarcity-threshold', 'sf-walkin-scarcity-amount', 'sf-walkin-scarcity-cap'].forEach((id) => {
+      ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile'].forEach((id) => {
         document.getElementById(id).addEventListener('change', () => {
           updateCreateReservationValidation();
           refreshReservationPlannerPreview().catch(() => {});
@@ -4446,11 +4785,14 @@
           const preferredRoomUnitId = state.sheetCreateMode === 'reservation' && state.sheetCreateContext !== 'allotment'
             ? state.sheetRoomUnit.id
             : null;
+          const plannerRoomTypeId = state.sheetCreateContext === 'allotment' && !state.sheetActiveAllotment?.room_type_id
+            ? null
+            : (state.sheetRequestedRoomTypeId || state.sheetRoomUnit.room_type_id);
           const pricingProfileId = document.getElementById('sf-walkin-pricing-profile')?.value || null;
           const created = await api(`/api/properties/${state.selectedPropertyId}/reservations`, {
             method: 'POST',
             body: JSON.stringify({
-              room_type_id: state.sheetRoomUnit.room_type_id,
+              room_type_id: plannerRoomTypeId,
               check_in: checkIn,
               check_out: checkOut,
               rooms_requested: roomsRequested,
@@ -4467,6 +4809,7 @@
                 create_context: state.sheetCreateContext || 'rack',
                 preferred_room_unit_id: preferredRoomUnitId,
                 allotment_id: allotmentId,
+                requested_room_type_id: state.sheetRequestedRoomTypeId || state.sheetRoomUnit.room_type_id,
               },
             }),
           });
