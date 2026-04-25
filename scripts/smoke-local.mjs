@@ -1235,6 +1235,98 @@ async function runPropertyReservationPlannerSmoke(baseUrl, token) {
   }
   pass('Created a blocking reservation on the preferred lane');
 
+  const directAvailability = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/availability`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+    }),
+  });
+  const nightlyRemaining = Array.isArray(directAvailability.body?.availability?.nightly_remaining)
+    ? directAvailability.body.availability.nightly_remaining
+    : [];
+  if (
+    !directAvailability.response.ok
+    || nightlyRemaining.length !== 2
+    || !nightlyRemaining.every((row) => Number(row?.remaining) === 1)
+    || Array.isArray(directAvailability.body?.availability?.shortage_dates) && directAvailability.body.availability.shortage_dates.length !== 0
+  ) {
+    fail(`Direct availability did not reflect night-based remaining inventory after one locked allocation: ${directAvailability.response.status} ${JSON.stringify(directAvailability.body)}`);
+    return;
+  }
+  pass('Direct availability stays night-based and subtracts locked allocations from sellable room-unit inventory');
+
+  const holdCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/availability/hold`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+      hold_type: 'soft_hold',
+      source_type: 'smoke_test',
+      source_id: `hold-${uniqueSuffix}`,
+      ttl_seconds: 900,
+    }),
+  });
+  const heldNightlyRemaining = Array.isArray(holdCreate.body?.availability?.nightly_remaining)
+    ? holdCreate.body.availability.nightly_remaining
+    : [];
+  const holdId = holdCreate.body?.hold?.id || null;
+  if (
+    holdCreate.response.status !== 201
+    || !holdId
+    || heldNightlyRemaining.length !== 2
+    || !heldNightlyRemaining.every((row) => Number(row?.remaining) === 0)
+    || !Array.isArray(holdCreate.body?.availability?.shortage_dates)
+    || holdCreate.body.availability.shortage_dates.length !== 2
+  ) {
+    fail(`Availability hold did not subtract active hold inventory as expected: ${holdCreate.response.status} ${JSON.stringify(holdCreate.body)}`);
+    return;
+  }
+  pass('Availability hold path rechecks inventory and subtracts active holds from nightly remaining counts');
+
+  const holdRelease = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/availability/hold/${encodeURIComponent(holdId)}/release`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (!holdRelease.response.ok || holdRelease.body?.ok !== true) {
+    fail(`Availability hold release failed: ${holdRelease.response.status} ${JSON.stringify(holdRelease.body)}`);
+    return;
+  }
+
+  const availabilityAfterRelease = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/availability`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      check_in: preferredStayCheckIn,
+      check_out: preferredStayCheckOut,
+      rooms_requested: 1,
+    }),
+  });
+  const nightlyRemainingAfterRelease = Array.isArray(availabilityAfterRelease.body?.availability?.nightly_remaining)
+    ? availabilityAfterRelease.body.availability.nightly_remaining
+    : [];
+  if (
+    !availabilityAfterRelease.response.ok
+    || nightlyRemainingAfterRelease.length !== 2
+    || !nightlyRemainingAfterRelease.every((row) => Number(row?.remaining) === 1)
+    || !Array.isArray(availabilityAfterRelease.body?.availability?.shortage_dates)
+    || availabilityAfterRelease.body.availability.shortage_dates.length !== 0
+  ) {
+    fail(`Availability did not reopen after hold release: ${availabilityAfterRelease.response.status} ${JSON.stringify(availabilityAfterRelease.body)}`);
+    return;
+  }
+  pass('Hold release restores nightly remaining inventory without mutating locked reservation truth');
+
   const preferredLanePlan = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
     method: 'POST',
     headers: authHeaders,
@@ -1508,6 +1600,11 @@ async function runPropertyRohCommitmentSmoke(baseUrl, token) {
     fail(`ROH smoke allocation did not materialize two room allocations: ${allocation.response.status} ${JSON.stringify(allocation.body)}`);
     return;
   }
+  const allocatedRoomTypeId = String(allocation.body.allocations[0]?.room_type_id || '').trim();
+  if (!allocatedRoomTypeId) {
+    fail(`ROH smoke allocation did not return a concrete allocated room type: ${allocation.response.status} ${JSON.stringify(allocation.body)}`);
+    return;
+  }
   pass('ROH allotment allocated into concrete room units');
 
   const confirmed = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/confirm`, {
@@ -1525,6 +1622,22 @@ async function runPropertyRohCommitmentSmoke(baseUrl, token) {
     return;
   }
   pass('ROH allotment confirm seeded rooming list and master folio');
+
+  const freeSellBlockedByAllocation = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/plan`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: allocatedRoomTypeId,
+      check_in: rohCheckIn,
+      check_out: rohCheckOut,
+      rooms_requested: 1,
+    }),
+  });
+  if (!freeSellBlockedByAllocation.response.ok || freeSellBlockedByAllocation.body?.can_fulfill !== false) {
+    fail(`ROH materialized allocation did not block free-sell planner inventory as expected: ${freeSellBlockedByAllocation.response.status} ${JSON.stringify(freeSellBlockedByAllocation.body)}`);
+    return;
+  }
+  pass('ROH materialized allocations block free-sell planner inventory on their concrete lanes');
 
   const roomingList = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(allotmentId)}/rooming-list`, {
     headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
@@ -1630,6 +1743,171 @@ async function runPropertyRohCommitmentSmoke(baseUrl, token) {
     return;
   }
   pass('Rack summary exposes confirmed operator occupancy for housekeeping and rack visibility');
+}
+
+async function runPropertyAllotmentReworkSmoke(baseUrl, token) {
+  info('Running property allotment rework smoke flow');
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const fixtureKey = crypto.randomBytes(3).toString('hex').toUpperCase();
+
+  const propertyList = await requestJson(`${baseUrl}/api/properties`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
+  });
+  if (!propertyList.response.ok || !Array.isArray(propertyList.body?.properties) || !propertyList.body.properties[0]?.id) {
+    fail(`Allotment rework smoke could not list an existing property: ${propertyList.response.status} ${JSON.stringify(propertyList.body)}`);
+    return;
+  }
+  const propertyId = propertyList.body.properties[0].id;
+
+  const deluxeType = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ code: `DX${fixtureKey}`, name: `Deluxe ${fixtureKey}`, base_capacity: 2, max_occupancy: 2, sort_order: 12001 }),
+  });
+  const suiteType = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ code: `SU${fixtureKey}`, name: `Suite ${fixtureKey}`, base_capacity: 2, max_occupancy: 3, sort_order: 12002 }),
+  });
+  if (!deluxeType.response.ok || !suiteType.response.ok) {
+    fail(`Allotment rework smoke could not create room types: ${JSON.stringify({ deluxe: deluxeType.body, suite: suiteType.body })}`);
+    return;
+  }
+
+  const deluxeUnitOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ room_type_id: deluxeType.body.room_type.id, room_number: `DX-${fixtureKey}-1`, floor_label: 'RW', sort_order: 12011 }),
+  });
+  const deluxeUnitTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ room_type_id: deluxeType.body.room_type.id, room_number: `DX-${fixtureKey}-2`, floor_label: 'RW', sort_order: 12012 }),
+  });
+  const suiteUnitOne = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ room_type_id: suiteType.body.room_type.id, room_number: `SU-${fixtureKey}-1`, floor_label: 'RW', sort_order: 12021 }),
+  });
+  const suiteUnitTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ room_type_id: suiteType.body.room_type.id, room_number: `SU-${fixtureKey}-2`, floor_label: 'RW', sort_order: 12022 }),
+  });
+  if (![deluxeUnitOne, deluxeUnitTwo, suiteUnitOne, suiteUnitTwo].every((item) => item.response.ok && item.body?.room_unit?.id)) {
+    fail(`Allotment rework smoke could not create room units: ${JSON.stringify({ deluxeUnitOne: deluxeUnitOne.body, deluxeUnitTwo: deluxeUnitTwo.body, suiteUnitOne: suiteUnitOne.body, suiteUnitTwo: suiteUnitTwo.body })}`);
+    return;
+  }
+
+  const checkIn = '2026-12-10';
+  const checkOut = '2026-12-12';
+  const confirmedAllotment = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({
+      operator_name: `Rework Operator ${fixtureKey}`,
+      operator_code: `RW-${fixtureKey}`,
+      room_type_id: deluxeType.body.room_type.id,
+      rooms_blocked: 2,
+      check_in: checkIn,
+      check_out: checkOut,
+      release_date: '2026-12-08',
+      notes: 'rework smoke',
+    }),
+  });
+  if (!confirmedAllotment.response.ok || !confirmedAllotment.body?.allotment?.id) {
+    fail(`Allotment rework smoke could not create source allotment: ${confirmedAllotment.response.status} ${JSON.stringify(confirmedAllotment.body)}`);
+    return;
+  }
+  const sourceAllotmentId = confirmedAllotment.body.allotment.id;
+
+  const sourceAllocated = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(sourceAllotmentId)}/allocate`, {
+    method: 'POST', headers: authHeaders, body: JSON.stringify({ allocation_source: 'manual_allocate' }),
+  });
+  const sourceConfirmed = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(sourceAllotmentId)}/confirm`, {
+    method: 'POST', headers: authHeaders,
+  });
+  if (!sourceAllocated.response.ok || !sourceConfirmed.response.ok || sourceConfirmed.body?.allotment?.status !== 'confirmed') {
+    fail(`Allotment rework smoke could not prepare confirmed source allotment: ${JSON.stringify({ allocate: sourceAllocated.body, confirm: sourceConfirmed.body })}`);
+    return;
+  }
+
+  const shrinkPreview = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(sourceAllotmentId)}/rework-preview`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ rooms_blocked: 1 }),
+  });
+  if (!shrinkPreview.response.ok || !shrinkPreview.body?.policy?.can_apply || Number(shrinkPreview.body?.impact?.released_allocations) !== 1) {
+    fail(`Allotment rework preview did not expose shrink impact correctly: ${shrinkPreview.response.status} ${JSON.stringify(shrinkPreview.body)}`);
+    return;
+  }
+  pass('Allotment rework preview exposes room-level shrink impact before apply');
+
+  const shrinkApply = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(sourceAllotmentId)}/rework-apply`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({ rooms_blocked: 1 }),
+  });
+  if (!shrinkApply.response.ok || Number(shrinkApply.body?.allocations?.length || 0) !== 1 || Number(shrinkApply.body?.preview?.impact?.released_allocations || 0) !== 1) {
+    fail(`Allotment rework apply did not reduce the confirmed block in place: ${shrinkApply.response.status} ${JSON.stringify(shrinkApply.body)}`);
+    return;
+  }
+  pass('Allotment rework apply preserves and releases concrete lanes correctly');
+
+  const splitCheckIn = '2026-12-14';
+  const splitCheckOut = '2026-12-16';
+  const splitSource = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({
+      operator_name: `Split Operator ${fixtureKey}`,
+      operator_code: `SP-${fixtureKey}`,
+      room_type_id: deluxeType.body.room_type.id,
+      rooms_blocked: 2,
+      check_in: splitCheckIn,
+      check_out: splitCheckOut,
+      release_date: '2026-12-12',
+      notes: 'split smoke',
+    }),
+  });
+  if (!splitSource.response.ok || !splitSource.body?.allotment?.id) {
+    fail(`Allotment split smoke could not create split source: ${splitSource.response.status} ${JSON.stringify(splitSource.body)}`);
+    return;
+  }
+  const splitSourceId = splitSource.body.allotment.id;
+  const splitAllocated = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(splitSourceId)}/allocate`, {
+    method: 'POST', headers: authHeaders, body: JSON.stringify({ allocation_source: 'manual_allocate' }),
+  });
+  const splitConfirmed = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(splitSourceId)}/confirm`, {
+    method: 'POST', headers: authHeaders,
+  });
+  if (!splitAllocated.response.ok || !splitConfirmed.response.ok || splitConfirmed.body?.allotment?.status !== 'confirmed') {
+    fail(`Allotment split smoke could not prepare confirmed split source: ${JSON.stringify({ allocate: splitAllocated.body, confirm: splitConfirmed.body })}`);
+    return;
+  }
+
+  const splitApply = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments/${encodeURIComponent(splitSourceId)}/split`, {
+    method: 'POST', headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: suiteType.body.room_type.id,
+      rooms_blocked: 1,
+      check_in: splitCheckIn,
+      check_out: splitCheckOut,
+      release_date: '2026-12-12',
+      notes: 'split child smoke',
+    }),
+  });
+  if (!splitApply.response.ok || splitApply.body?.child_allotment?.status !== 'confirmed' || Number(splitApply.body?.child_allocations?.length || 0) !== 1) {
+    fail(`Allotment split did not create a confirmed child commitment: ${splitApply.response.status} ${JSON.stringify(splitApply.body)}`);
+    return;
+  }
+
+  const sourceAfterSplit = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments?status=all&from_date=2026-12-13&days=5`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID },
+  });
+  const sourceRow = Array.isArray(sourceAfterSplit.body?.allotments)
+    ? sourceAfterSplit.body.allotments.find((item) => String(item.id) === String(splitSourceId))
+    : null;
+  if (!sourceAfterSplit.response.ok || !sourceRow || Number(sourceRow.rooms_blocked || 0) !== 1) {
+    fail(`Allotment split did not reduce the source commitment correctly: ${sourceAfterSplit.response.status} ${JSON.stringify(sourceAfterSplit.body)}`);
+    return;
+  }
+  pass('Allotment split creates a confirmed child commitment and reduces the source block');
 }
 
 async function runPropertyPricingProfileSmoke(baseUrl, token) {
@@ -2252,6 +2530,7 @@ async function main() {
     await runDomainVerifySmoke(baseUrl, freshToken);
     await runPropertyReservationPlannerSmoke(baseUrl, freshToken);
     await runPropertyRohCommitmentSmoke(baseUrl, freshToken);
+    await runPropertyAllotmentReworkSmoke(baseUrl, freshToken);
     await runPropertyPricingProfileSmoke(baseUrl, freshToken);
     await runPropertyWeekdayPricingSmoke(baseUrl, freshToken);
     await runAdminTenantSmoke(baseUrl, adminSecret);

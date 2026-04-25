@@ -90,7 +90,10 @@ import {
   handlePostPropertyAllotmentCharge,
   handleCreatePropertyAllotment,
   handleAllocatePropertyAllotment,
+  handleApplyPropertyAllotmentRework,
   handleConfirmPropertyAllotment,
+  handlePreviewPropertyAllotmentRework,
+  handleSplitPropertyAllotment,
   handleUpdatePropertyAllotmentMasterFolio,
   handleUpdatePropertyAllotmentRoomingListEntry,
   handleUpdatePropertyAllotment,
@@ -856,6 +859,21 @@ const patterns = [
     method: 'PATCH',
     pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId' }),
     handler: (req, env, match) => handleUpdatePropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/rework-preview' }),
+    handler: (req, env, match) => handlePreviewPropertyAllotmentRework(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/rework-apply' }),
+    handler: (req, env, match) => handleApplyPropertyAllotmentRework(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/properties/:propertyId/allotments/:allotmentId/split' }),
+    handler: (req, env, match) => handleSplitPropertyAllotment(req, env, { propertyId: match.pathname.groups.propertyId, allotmentId: match.pathname.groups.allotmentId })
   },
   {
     method: 'POST',

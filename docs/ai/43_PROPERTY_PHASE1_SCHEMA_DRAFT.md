@@ -2,7 +2,8 @@
 
 > RUNTIME NOTE:
 > This document records the target schema draft for property-engine phase 1.
-> The current rescue runtime does **not** implement this schema yet.
+> The current rescue runtime already ships part of this availability-first schema family (`properties`, `room_types`, `room_units`, `property_reservations`, `inventory_holds`, `reservation_stay_plans`, `reservation_stay_plan_segments`, `reservation_allocations`) plus later extensions.
+> Treat this file as the phase-1 target schema reference, not as the authoritative list of what is currently shipped.
 > This is a planning document aligned with the approved availability-first property roadmap.
 
 ## Purpose

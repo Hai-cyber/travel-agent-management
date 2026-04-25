@@ -37,6 +37,53 @@ function countAllocatedUnitsByNight(allocationRows, roomUnitMap, stayDates) {
   return { roomTypeNightCounts };
 }
 
+function countAllotmentAllocationUnitsByNight(allotmentAllocationRows, roomUnitMap, stayDates) {
+  const allowedDates = new Set(stayDates);
+  const roomTypeNightCounts = new Map();
+  const allotmentNightCounts = new Map();
+
+  for (const row of allotmentAllocationRows || []) {
+    const roomUnit = roomUnitMap.get(String(row.room_unit_id));
+    if (!roomUnit) continue;
+    const allotmentId = String(row.allotment_id || '').trim();
+    const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
+    for (const stayDate of allotmentDates) {
+      if (!allowedDates.has(stayDate)) continue;
+
+      const roomTypeCounts = getOrCreateMap(roomTypeNightCounts, String(roomUnit.room_type_id));
+      const roomTypeUnits = getOrCreateMap(roomTypeCounts, stayDate, () => new Set());
+      roomTypeUnits.add(String(row.room_unit_id));
+
+      const allotmentCounts = getOrCreateMap(allotmentNightCounts, allotmentId);
+      const allotmentUnits = getOrCreateMap(allotmentCounts, stayDate, () => new Set());
+      allotmentUnits.add(String(row.room_unit_id));
+    }
+  }
+
+  const normalizedRoomTypeNightCounts = new Map();
+  for (const [roomTypeId, byNight] of roomTypeNightCounts.entries()) {
+    const normalized = new Map();
+    for (const [stayDate, units] of byNight.entries()) {
+      normalized.set(stayDate, units.size);
+    }
+    normalizedRoomTypeNightCounts.set(roomTypeId, normalized);
+  }
+
+  const normalizedAllotmentNightCounts = new Map();
+  for (const [allotmentId, byNight] of allotmentNightCounts.entries()) {
+    const normalized = new Map();
+    for (const [stayDate, units] of byNight.entries()) {
+      normalized.set(stayDate, units.size);
+    }
+    normalizedAllotmentNightCounts.set(allotmentId, normalized);
+  }
+
+  return {
+    roomTypeNightCounts: normalizedRoomTypeNightCounts,
+    allotmentNightCounts: normalizedAllotmentNightCounts,
+  };
+}
+
 function countHoldsByNight(holdRows, stayDates) {
   const holdCounts = new Map();
   const dateSet = new Set(stayDates);
@@ -68,19 +115,26 @@ function countAllotmentsByNight(allotmentRows, stayDates, options = {}) {
   const todayIso = options.todayIso || formatDateUtc(new Date());
   const allotmentCounts = new Map();
   const dateSet = new Set(stayDates);
+  const allotmentAllocationCounts = options.allotmentAllocationCountsByAllotmentNight || new Map();
 
   for (const row of allotmentRows || []) {
-    if (String(row.status || 'active') !== 'active') continue;
-    if (row.release_date && String(row.release_date) < todayIso) continue;
+    const status = String(row.status || 'active');
+    const inventoryBlocking = row.inventory_blocking == null ? status === 'active' : Boolean(row.inventory_blocking);
+    if (!inventoryBlocking) continue;
+    if (row.release_date && String(row.release_date) < todayIso && !['confirmed', 'in_house'].includes(status)) continue;
     if (!row.room_type_id) continue;
     const effectiveRoomsBlocked = effectiveAllotmentRoomsBlocked(row, options);
     if (effectiveRoomsBlocked < 1) continue;
     const roomTypeId = String(row.room_type_id);
     const perNight = getOrCreateMap(allotmentCounts, roomTypeId);
     const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
+    const concreteCounts = allotmentAllocationCounts.get(String(row.id || '')) || new Map();
     for (const stayDate of allotmentDates) {
       if (!dateSet.has(stayDate)) continue;
-      perNight.set(stayDate, (perNight.get(stayDate) || 0) + effectiveRoomsBlocked);
+      const concreteBlocked = Number(concreteCounts.get(stayDate) || 0);
+      const remainingBlocked = Math.max(effectiveRoomsBlocked - concreteBlocked, 0);
+      if (remainingBlocked < 1) continue;
+      perNight.set(stayDate, (perNight.get(stayDate) || 0) + remainingBlocked);
     }
   }
 
@@ -91,19 +145,26 @@ function countRohAllotmentsByNight(allotmentRows, stayDates, options = {}) {
   const todayIso = options.todayIso || formatDateUtc(new Date());
   const rohCounts = new Map();
   const dateSet = new Set(stayDates);
+  const allotmentAllocationCounts = options.allotmentAllocationCountsByAllotmentNight || new Map();
 
   for (const row of allotmentRows || []) {
-    if (String(row.status || 'active') !== 'active') continue;
-    if (row.release_date && String(row.release_date) < todayIso) continue;
+    const status = String(row.status || 'active');
+    const inventoryBlocking = row.inventory_blocking == null ? status === 'active' : Boolean(row.inventory_blocking);
+    if (!inventoryBlocking) continue;
+    if (row.release_date && String(row.release_date) < todayIso && !['confirmed', 'in_house'].includes(status)) continue;
     if (row.room_type_id) continue;
     const effectiveRoomsBlocked = effectiveAllotmentRoomsBlocked(row, options);
     if (effectiveRoomsBlocked < 1) continue;
-    const rohCapacityFilter = String(row.roh_capacity_filter || '').trim() || 'max_2';
+    const rohCapacityFilter = String(row.roh_capacity_filter || '').trim() || 'gte_2';
     const allotmentDates = enumerateStayDates(row.check_in, row.check_out);
+    const concreteCounts = allotmentAllocationCounts.get(String(row.id || '')) || new Map();
     for (const stayDate of allotmentDates) {
       if (!dateSet.has(stayDate)) continue;
+      const concreteBlocked = Number(concreteCounts.get(stayDate) || 0);
+      const remainingBlocked = Math.max(effectiveRoomsBlocked - concreteBlocked, 0);
+      if (remainingBlocked < 1) continue;
       const filtersForDate = rohCounts.get(stayDate) || new Map();
-      filtersForDate.set(rohCapacityFilter, (filtersForDate.get(rohCapacityFilter) || 0) + effectiveRoomsBlocked);
+      filtersForDate.set(rohCapacityFilter, (filtersForDate.get(rohCapacityFilter) || 0) + remainingBlocked);
       rohCounts.set(stayDate, filtersForDate);
     }
   }
@@ -111,7 +172,7 @@ function countRohAllotmentsByNight(allotmentRows, stayDates, options = {}) {
   return rohCounts;
 }
 
-function rankRohRoomTypes(roomTypes, roomRateByType, rohCapacityFilter = 'max_2') {
+function rankRohRoomTypes(roomTypes, roomRateByType, rohCapacityFilter = 'gte_2') {
   const eligibleRoomTypes = (roomTypes || []).filter((roomType) => {
     const maxOccupancy = Number(roomType?.max_occupancy || 0);
     if (rohCapacityFilter === 'gte_2') return maxOccupancy >= 2;
@@ -590,25 +651,58 @@ async function loadAvailabilityInputs(env, tenantId, propertyId, startDate, endD
     .bind(tenantId, propertyId, startDate, endDate)
     .all();
 
+  const allotmentAllocationsResult = await env.DB
+    .prepare(
+      `SELECT paa.id, paa.allotment_id, paa.room_type_id, paa.room_unit_id, paa.check_in, paa.check_out, paa.allocation_status,
+              pa.status AS allotment_status,
+              CASE
+                WHEN pa.status IN ('draft', 'active', 'allocated') AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
+                WHEN pa.status IN ('confirmed', 'in_house') THEN 1
+                ELSE 0
+              END AS inventory_blocking
+         FROM property_allotment_allocations paa
+         JOIN property_allotments pa
+           ON pa.id = paa.allotment_id
+          AND pa.tenant_id = paa.tenant_id
+          AND pa.property_id = paa.property_id
+        WHERE paa.tenant_id = ?
+          AND paa.property_id = ?
+          AND paa.allocation_status = 'allocated'
+          AND paa.check_in < ?
+          AND paa.check_out > ?`
+    )
+    .bind(todayIso, tenantId, propertyId, endDate, startDate)
+    .all();
+
   const allotmentsResult = await env.DB
     .prepare(
       `SELECT id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
-              check_in, check_out, rooms_blocked, roh_capacity_filter, release_date, status, notes, created_at, updated_at
+              check_in, check_out, rooms_blocked, roh_capacity_filter, release_date, status, notes, created_at, updated_at,
+              CASE
+                WHEN status IN ('draft', 'active', 'allocated') AND (release_date IS NULL OR release_date >= ?) THEN 1
+                WHEN status IN ('confirmed', 'in_house') THEN 1
+                ELSE 0
+              END AS inventory_blocking
          FROM property_allotments
         WHERE tenant_id = ?
           AND property_id = ?
-          AND status = 'active'
+          AND status IN ('active', 'allocated', 'confirmed', 'in_house')
           AND check_in < ?
           AND check_out > ?
-          AND (release_date IS NULL OR release_date >= ?)`
+          AND (
+            status IN ('confirmed', 'in_house')
+            OR release_date IS NULL
+            OR release_date >= ?
+          )`
     )
-    .bind(tenantId, propertyId, endDate, startDate, todayIso)
+    .bind(todayIso, tenantId, propertyId, endDate, startDate, todayIso)
     .all();
 
   return {
     roomUnits: roomUnitsResult.results || [],
     holds: (holdsResult.results || []).filter((row) => !excludeHoldId || String(row.id) !== excludeHoldId),
     allocations: (allocationsResult.results || []).filter((row) => !excludeReservationId || String(row.reservation_id) !== excludeReservationId),
+    allotmentAllocations: allotmentAllocationsResult.results || [],
     allotments: allotmentsResult.results || [],
   };
 }
@@ -631,7 +725,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     return { error: { status: 404, payload: { error: 'Room type not found for this property.' } } };
   }
 
-  const { roomUnits, holds, allocations, allotments } = await loadAvailabilityInputs(env, tenantId, propertyId, rangeStart, rangeEndExclusive, options);
+  const { roomUnits, holds, allocations, allotmentAllocations, allotments } = await loadAvailabilityInputs(env, tenantId, propertyId, rangeStart, rangeEndExclusive, options);
   const roomUnitMap = new Map((roomUnits || []).map((roomUnit) => [String(roomUnit.id), roomUnit]));
   const preferredRoomUnitId = options.preferredRoomUnitId ? String(options.preferredRoomUnitId).trim() : null;
   const preferredRoomUnit = preferredRoomUnitId ? (roomUnitMap.get(preferredRoomUnitId) || null) : null;
@@ -648,11 +742,28 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
     occupiedDates.add(allocation.stay_date);
     occupiedDatesByUnit.set(String(allocation.room_unit_id), occupiedDates);
   }
+  for (const allocation of allotmentAllocations || []) {
+    const occupiedDates = occupiedDatesByUnit.get(String(allocation.room_unit_id)) || new Set();
+    for (const stayDate of enumerateStayDates(allocation.check_in, allocation.check_out)) {
+      if (!windowDates.includes(stayDate)) continue;
+      occupiedDates.add(stayDate);
+    }
+    occupiedDatesByUnit.set(String(allocation.room_unit_id), occupiedDates);
+  }
 
-  const { roomTypeNightCounts } = countAllocatedUnitsByNight(allocations, roomUnitMap, windowDates);
+  const { roomTypeNightCounts: reservationNightCounts } = countAllocatedUnitsByNight(allocations, roomUnitMap, windowDates);
+  const { roomTypeNightCounts: allotmentAllocationNightCounts, allotmentNightCounts } = countAllotmentAllocationUnitsByNight(allotmentAllocations, roomUnitMap, windowDates);
+  const roomTypeNightCounts = new Map(reservationNightCounts);
+  for (const [roomTypeId, perNight] of allotmentAllocationNightCounts.entries()) {
+    const target = getOrCreateMap(roomTypeNightCounts, roomTypeId);
+    for (const [stayDate, count] of perNight.entries()) {
+      target.set(stayDate, Number(target.get(stayDate) || 0) + Number(count || 0));
+    }
+  }
   const holdCounts = countHoldsByNight(holds, windowDates);
-  const allotmentCounts = countAllotmentsByNight(allotments, windowDates, options);
-  const rohCountsByNight = countRohAllotmentsByNight(allotments, windowDates, options);
+  const countOptions = { ...options, allotmentAllocationCountsByAllotmentNight: allotmentNightCounts };
+  const allotmentCounts = countAllotmentsByNight(allotments, windowDates, countOptions);
+  const rohCountsByNight = countRohAllotmentsByNight(allotments, windowDates, countOptions);
   const baseNightlyRemainingByType = buildNightlyRemaining(roomTypes, roomUnitsByType, roomTypeNightCounts, holdCounts, allotmentCounts, windowDates);
   const rohApplied = applyRohAllotments(baseNightlyRemainingByType, roomTypes, rohCountsByNight, windowDates, roomRateByType);
   const nightlyRemainingByType = rohApplied.nightlyRemainingByType;
@@ -665,7 +776,7 @@ async function calculateAvailability(env, tenantId, propertyId, roomTypeId, chec
   const totalGuests = Math.max(1, Number(options.adults || 1) + Number(options.children || 0));
 
   if (isRohAllotmentRequest) {
-    const rohCapacityFilter = String(activeAllotment.roh_capacity_filter || '').trim() || 'max_2';
+    const rohCapacityFilter = String(activeAllotment.roh_capacity_filter || '').trim() || 'gte_2';
     const rohPlan = buildRohMultiRoomSegments(
       roomTypes,
       roomUnitsByType,

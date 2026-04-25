@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-23 (synced after CHK-R120 weekday pricing rules landed; local `npm test` now covers preferred-lane fallback, allotment consumption, pricing-profile quote overlays, frozen night-audit parity, and deterministic weekday pricing)
+Last updated: 2026-04-26 (synced after B2B allotment rework preview/apply/split and the planner-side block editor shipped)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -190,6 +190,12 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/domains/stripe-webhook` — Stripe webhook for paid domain purchases; on success it continues into Cloudflare Registrar provisioning and D1 purchase-state updates
 
 **Property Availability Baseline (CHK-R83)**
+- Availability invariants in current runtime:
+  - inventory is night-based and consumes `[check_in, ..., check_out - 1]`
+  - sellable supply starts from active `room_units` whose `operational_status` is not `maintenance` or `out_of_order`
+  - nightly remaining inventory is current sellable room-unit count minus overlapping `reservation_allocations` (`soft_allocated`, `locked`), minus active unexpired `inventory_holds`, minus active blocking `property_allotments`
+  - `reservation_allocations` is the lane-level occupancy source of truth for rack/planning confidence; reservation headers alone do not decide room occupancy
+  - pricing layers (`room_rates`, seasons, weekday rules, pricing profiles, `pricing_snapshot`) do not define availability; they are commercial overlays on top of inventory truth
 - These routes belong to the standalone property engine and are intentionally separate from universal hotel/catalog/storefront surfaces such as `tenant_universal_hotels` or `public/product-modules.html`.
 - `GET /api/properties` — lists tenant-scoped property builder records with room-type and room-unit counts
 - `POST /api/properties` — creates a property builder record with availability policy defaults and tenant-scoped property identity (`name`, `slug`, timezone/currency, check-in/out defaults, split/upgrade policy flags)
@@ -295,6 +301,7 @@ Property builder scope note:
 - Backend planning now also has a non-mutating reservation planner at `POST /api/properties/:propertyId/reservations/plan`. It reuses the allocation engine to return candidate stay plans, shortage dates, overlap conflicts, hold conflicts, maintenance conflicts, preferred-room conflict/fallback metadata, and recommendation buckets without committing inventory yet. When the request includes `allotment_id`, the same preview also returns `allotment_consumption` so the desk can see blocked-room decrement/release consequences before commit.
 - The guest-sheet reservation form now consumes that planner directly. Reservation mode exposes a `Rooms` field, planner-only `Pricing Profile` selector, and a planner preview panel so staff can see candidate plans, selected-plan nightly commercial totals, preferred-lane conflicts, blocking overlaps, allotment-consumption summaries, and alternate recommendations before creating the reservation. It now also supports a manual scarcity-preview overlay with explicit threshold, surcharge-per-night, and total-cap inputs; this surcharge is preview-only and does not flow into reservation commit or night-audit freeze. Walk-in mode stays single-room only and bypasses the bulk-planning semantics.
 - Property allotments now exist as a first-class runtime concept through `property_allotments` plus `GET/POST/PATCH /api/properties/:propertyId/allotments` and `POST /api/properties/:propertyId/allotments/:allotmentId/release`. Active, unexpired operator blocks now reduce room-type availability directly, show up in planning conflicts as `operator_allotment`, render as dedicated overlay rows plus releaseable pills directly in the Plan tab, and can now be intentionally consumed into guest reservations through `allotment_id` on the planner/create path instead of only blocking generic free-sell supply.
+- B2B allotment rework now has a first rescue-runtime workflow in addition to baseline `PATCH`: `POST /api/properties/:propertyId/allotments/:allotmentId/rework-preview`, `POST /api/properties/:propertyId/allotments/:allotmentId/rework-apply`, and `POST /api/properties/:propertyId/allotments/:allotmentId/split`. The planner-side block ledger now reuses the Plan form as a compact `create / edit / split` editor so managers can preview and apply ROH/non-ROH block reshapes without leaving the Plan tab. The approved policy remains documented in `docs/ai/45_PROPERTY_B2B_ALLOTMENT_REWORK_POLICY.md`.
 - Plan-triggered reservation creation now treats the clicked room lane as a soft preference rather than a hard assignment. The preview reports whether the preferred lane is honored, why it conflicts when it is not, and which fallback lanes the planner selected so staff can stage a reservation without accidentally force-binding the blocked room.
 - Active, blocking allotment pills in the Plan tab now also expose a `Reserve` entry point that opens an allotment-backed reservation draft. The staff desk submits `allotment_id` on final create, and successful responses now surface the post-commit `allotment_consumption` summary so operators can see whether blocked rooms were decremented or fully released.
 - `Extend / Change Stay` now also has a non-mutating preview path at `POST /api/properties/:propertyId/reservations/:reservationId/extend-plan`. The guest sheet shows whether the guest can remain in place, what room-date conflicts block the extension, and which planner recommendations remain viable before the desk commits the rebook mutation.

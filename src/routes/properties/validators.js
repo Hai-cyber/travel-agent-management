@@ -366,7 +366,7 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
   return {
     propertyId: property,
     roomTypeId,
-    rohCapacityFilter: roomTypeId == null ? (rohCapacityFilter || 'max_2') : null,
+    rohCapacityFilter: roomTypeId == null ? (rohCapacityFilter || 'gte_2') : null,
     operatorName,
     operatorCode,
     sourceRef,
@@ -431,6 +431,97 @@ function validatePropertyAllotmentPatchRequest(body) {
     updates.status = value;
   }
   return { updates };
+}
+
+function validatePropertyAllotmentReworkPreviewRequest(body) {
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'roh_capacity_filter']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for preview.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const updates = {};
+  if ('operator_name' in body) {
+    const value = String(body.operator_name || '').trim();
+    if (!value) return { error: 'operator_name cannot be empty.' };
+    updates.operator_name = value;
+  }
+  if ('operator_code' in body) updates.operator_code = body.operator_code ? String(body.operator_code).trim() : null;
+  if ('source_ref' in body) updates.source_ref = body.source_ref ? String(body.source_ref).trim() : null;
+  if ('room_type_id' in body) updates.room_type_id = body.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  if ('check_in' in body) {
+    const value = String(body.check_in || '').trim();
+    if (!isIsoDate(value)) return { error: 'check_in must use YYYY-MM-DD format.' };
+    updates.check_in = value;
+  }
+  if ('check_out' in body) {
+    const value = String(body.check_out || '').trim();
+    if (!isIsoDate(value)) return { error: 'check_out must use YYYY-MM-DD format.' };
+    updates.check_out = value;
+  }
+  if ('release_date' in body) {
+    const value = body.release_date ? String(body.release_date).trim() : null;
+    if (value && !isIsoDate(value)) return { error: 'release_date must use YYYY-MM-DD format.' };
+    updates.release_date = value;
+  }
+  if (('check_in' in updates || 'check_out' in updates) && updates.check_in && updates.check_out && parseDateUtc(updates.check_in) >= parseDateUtc(updates.check_out)) {
+    return { error: 'check_out must be after check_in.' };
+  }
+  if ('rooms_blocked' in body) {
+    const value = Number(body.rooms_blocked);
+    if (!Number.isInteger(value) || value < 1 || value > 100) return { error: 'rooms_blocked must be an integer between 1 and 100.' };
+    updates.rooms_blocked = value;
+  }
+  if ('roh_capacity_filter' in body) {
+    const value = body.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
+    if (value && !PROPERTY_ALLOTMENT_ROH_CAPACITY_FILTERS.has(value)) {
+      return { error: 'roh_capacity_filter is invalid. Use max_2 or gte_2.' };
+    }
+    updates.roh_capacity_filter = value;
+  }
+  if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
+  return { updates };
+}
+
+function validatePropertyAllotmentSplitRequest(body) {
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes']);
+  const keys = Object.keys(body || {});
+  if (!keys.length) return { error: 'No fields provided for split.' };
+  const unknown = keys.filter((key) => !allowed.has(key));
+  if (unknown.length) return { error: `Unknown fields: ${unknown.join(', ')}.` };
+
+  const roomTypeId = String(body?.room_type_id || '').trim();
+  if (!roomTypeId) return { error: 'room_type_id is required for split.' };
+
+  const roomsBlocked = Number(body?.rooms_blocked ?? 0);
+  if (!Number.isInteger(roomsBlocked) || roomsBlocked < 1 || roomsBlocked > 99) {
+    return { error: 'rooms_blocked must be an integer between 1 and 99.' };
+  }
+
+  const checkIn = body?.check_in == null ? null : String(body.check_in || '').trim();
+  const checkOut = body?.check_out == null ? null : String(body.check_out || '').trim();
+  if (checkIn && !isIsoDate(checkIn)) return { error: 'check_in must use YYYY-MM-DD format.' };
+  if (checkOut && !isIsoDate(checkOut)) return { error: 'check_out must use YYYY-MM-DD format.' };
+  if (checkIn && checkOut && parseDateUtc(checkIn) >= parseDateUtc(checkOut)) {
+    return { error: 'check_out must be after check_in.' };
+  }
+
+  const releaseDate = body?.release_date ? String(body.release_date).trim() : null;
+  if (releaseDate && !isIsoDate(releaseDate)) return { error: 'release_date must use YYYY-MM-DD format.' };
+
+  return {
+    child: {
+      operator_name: body?.operator_name ? String(body.operator_name).trim() : null,
+      operator_code: body?.operator_code ? String(body.operator_code).trim() : null,
+      source_ref: body?.source_ref ? String(body.source_ref).trim() : null,
+      room_type_id: roomTypeId,
+      check_in: checkIn,
+      check_out: checkOut,
+      release_date: releaseDate,
+      rooms_blocked: roomsBlocked,
+      notes: body?.notes ? String(body.notes).trim() : null,
+    },
+  };
 }
 
 function validatePropertyAllotmentAllocateRequest(body) {
@@ -1418,8 +1509,10 @@ export {
   validatePropertyAllotmentAllocateRequest,
   validatePropertyAllotmentChargeRoutingRequest,
   validatePropertyAllotmentMasterFolioPatchRequest,
+  validatePropertyAllotmentReworkPreviewRequest,
   validatePropertyAllotmentRoomingListPatchRequest,
   validatePropertyAllotmentPatchRequest,
+  validatePropertyAllotmentSplitRequest,
   validatePropertyCreateRequest,
   validatePropertyPatchRequest,
   validatePropertyPricingProfileConfiguration,

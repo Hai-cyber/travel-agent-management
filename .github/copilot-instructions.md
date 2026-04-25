@@ -15,6 +15,16 @@ Always follow the "Rescue Rebuild" rules defined in:
 - **IDs**: Use `nanoid` for all new record IDs.
 - **Tenant Isolation**: EVERY query (SELECT, UPDATE, DELETE) MUST include `WHERE tenant_id = ?`.
 
+## 1A. Property Availability Truth (Strict)
+- **Runtime truth order**: For property availability, trust `src/routes/properties/availability.js` first, then `docs/ai/01_CURRENT_STATE.md`, then the planning docs such as `docs/ai/31_PROPERTY_AVAILABILITY_AND_ALLOCATION.md` and `docs/ai/43_PROPERTY_PHASE1_SCHEMA_DRAFT.md`.
+- **Do not drift to planning docs**: `31_PROPERTY_AVAILABILITY_AND_ALLOCATION.md` and `43_PROPERTY_PHASE1_SCHEMA_DRAFT.md` describe the approved model, but they are not enough to claim current runtime behavior by themselves.
+- **Night model**: Availability is night-based. A stay consumes `[check_in, ..., check_out - 1]`; `check_in` and `check_out` are not themselves consumed as standalone inventory events.
+- **Inventory truth**: Current runtime availability is computed from active sellable `room_units`, minus overlapping `reservation_allocations` (`soft_allocated` and `locked`), minus active unexpired `inventory_holds`, minus active blocking `property_allotments`.
+- **Allocation truth**: `reservation_allocations` is the lane-level source of truth for occupancy and rack/planning confidence. Do not substitute reservation headers for allocation truth when availability or room occupancy is being decided.
+- **Commercial separation**: Pricing does not decide availability. Price resolution, pricing profiles, weekday rules, and `pricing_snapshot` are commercial overlays on top of availability; they must not mutate sellable inventory logic.
+- **Recheck before commit**: Hold creation, reservation create, rebook, and planning flows must rerun the shared availability calculation rather than trusting a previously returned availability payload.
+- **When changing the model**: If property availability behavior changes, update the implementation, `01_CURRENT_STATE.md`, and the relevant property ledger entry together so future agents do not inherit stale assumptions.
+
 ## 2. Pricing Module Logic
 - **Hierarchy**: Seasons -> Segments -> Pax Bands -> Tour Prices.
 - **Validation**: 

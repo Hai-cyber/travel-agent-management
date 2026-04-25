@@ -1,8 +1,9 @@
 # PROPERTY AVAILABILITY AND ALLOCATION
 
 > RUNTIME NOTE:
-> This document defines the approved target model for the future property availability engine.
-> The current rescue runtime does **not** implement this engine yet.
+> This document defines the approved target model for the property availability engine.
+> The current rescue runtime implements a narrower but real availability engine in `src/routes/properties/availability.js` and documents shipped behavior in `docs/ai/01_CURRENT_STATE.md`.
+> Use this file for target-model direction and gap analysis, not as the sole proof that a behavior already exists in runtime.
 
 ## Purpose
 

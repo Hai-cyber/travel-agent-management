@@ -56,8 +56,10 @@ import {
   validatePropertyAllotmentChargeRoutingRequest,
   validatePropertyAllotmentCreateRequest,
   validatePropertyAllotmentMasterFolioPatchRequest,
+  validatePropertyAllotmentReworkPreviewRequest,
   validatePropertyAllotmentRoomingListPatchRequest,
   validatePropertyAllotmentPatchRequest,
+  validatePropertyAllotmentSplitRequest,
   validatePropertyCreateRequest,
   validatePropertyPatchRequest,
   validatePropertyPricingProfileConfiguration,
@@ -609,7 +611,7 @@ async function listPropertyAllotmentAllocationsInRange(env, tenantId, propertyId
                     paa.released_reason, paa.created_by, paa.updated_by, paa.created_at, paa.updated_at,
                     ru.room_number, ru.floor_label,
                     rt.code AS room_type_code, rt.name AS room_type_name,
-                    pa.roh_capacity_filter
+                    pa.roh_capacity_filter, pa.status AS allotment_status
                FROM property_allotment_allocations paa
                JOIN property_allotments pa
                  ON pa.id = paa.allotment_id
@@ -902,7 +904,7 @@ function filterEligibleRoomTypesForAllotment(allotment, roomTypes, roomRateMap) 
   if (allotment.room_type_id) {
     return roomTypes.filter((roomType) => String(roomType.id) === String(allotment.room_type_id));
   }
-  const rohCapacityFilter = String(allotment.roh_capacity_filter || 'max_2').trim() || 'max_2';
+  const rohCapacityFilter = String(allotment.roh_capacity_filter || 'gte_2').trim() || 'gte_2';
   return [...roomTypes]
     .filter((roomType) => {
       const maxOccupancy = Number(roomType.max_occupancy || 0);
@@ -919,15 +921,7 @@ function filterEligibleRoomTypesForAllotment(allotment, roomTypes, roomRateMap) 
     });
 }
 
-async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotment, actorUserId, allocationSource = 'manual_allocate') {
-  const existingAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotment.id);
-  if (existingAllocations.length) {
-    if (existingAllocations.length === Number(allotment.rooms_blocked || 0)) {
-      return { allocations: existingAllocations, alreadyAllocated: true };
-    }
-    return { error: 'This operator block already has partial room allocations. Release it first before reallocating.' };
-  }
-
+async function collectAllocatableUnitsForAllotment(env, tenantId, propertyId, allotment, options = {}) {
   const roomTypesResult = await env.DB
     .prepare(
       `SELECT id, code, name, max_occupancy, sort_order
@@ -974,6 +968,7 @@ async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotme
     )
     .bind(tenantId, propertyId, allotment.check_in, allotment.check_out)
     .all();
+  const excludeAllotmentId = options.excludeAllotmentId ? String(options.excludeAllotmentId).trim() : null;
   const allotmentOverlapResult = await env.DB
     .prepare(
       `SELECT DISTINCT room_unit_id
@@ -982,9 +977,10 @@ async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotme
           AND property_id = ?
           AND allocation_status = 'allocated'
           AND check_in < ?
-          AND check_out > ?`
+          AND check_out > ?
+          AND (? IS NULL OR allotment_id != ?)`
     )
-    .bind(tenantId, propertyId, allotment.check_out, allotment.check_in)
+    .bind(tenantId, propertyId, allotment.check_out, allotment.check_in, excludeAllotmentId, excludeAllotmentId)
     .all();
 
   const roomTypes = roomTypesResult.results || [];
@@ -992,31 +988,64 @@ async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotme
   const blockedRoomUnitIds = new Set([
     ...(reservationOverlapResult.results || []).map((row) => String(row.room_unit_id || '')),
     ...(allotmentOverlapResult.results || []).map((row) => String(row.room_unit_id || '')),
+    ...((options.blockedRoomUnitIds || []).map((value) => String(value || ''))),
   ]);
   const eligibleRoomTypes = filterEligibleRoomTypesForAllotment(allotment, roomTypes, roomRateMap);
   if (!eligibleRoomTypes.length) {
     return { error: 'No eligible room types match this operator block.' };
   }
 
-  const candidateUnits = [];
-  for (const roomType of eligibleRoomTypes) {
-    const matchingUnits = (roomUnitsResult.results || []).filter((roomUnit) => String(roomUnit.room_type_id) === String(roomType.id));
-    for (const roomUnit of matchingUnits) {
-      if (blockedRoomUnitIds.has(String(roomUnit.id))) continue;
-      candidateUnits.push({ roomType, roomUnit });
+  const requiredRooms = Math.max(0, Number((options.requiredRooms ?? allotment.rooms_blocked) || 0));
+  const collectCandidateUnits = (roomTypesForAllocation) => {
+    const units = [];
+    for (const roomType of roomTypesForAllocation) {
+      const matchingUnits = (roomUnitsResult.results || []).filter((roomUnit) => String(roomUnit.room_type_id) === String(roomType.id));
+      for (const roomUnit of matchingUnits) {
+        if (blockedRoomUnitIds.has(String(roomUnit.id))) continue;
+        units.push({ roomType, roomUnit });
+      }
+    }
+    return units;
+  };
+
+  let candidateUnits = collectCandidateUnits(eligibleRoomTypes);
+  let effectiveRohCapacityFilter = allotment.room_type_id
+    ? null
+    : (String(allotment.roh_capacity_filter || 'gte_2').trim() || 'gte_2');
+
+  if (!allotment.room_type_id && effectiveRohCapacityFilter === 'max_2' && candidateUnits.length < requiredRooms) {
+    const broadenedEligibleRoomTypes = filterEligibleRoomTypesForAllotment(
+      { ...allotment, roh_capacity_filter: 'gte_2' },
+      roomTypes,
+      roomRateMap,
+    );
+    const broadenedCandidateUnits = collectCandidateUnits(broadenedEligibleRoomTypes);
+    if (broadenedCandidateUnits.length >= requiredRooms) {
+      candidateUnits = broadenedCandidateUnits;
+      effectiveRohCapacityFilter = 'gte_2';
     }
   }
 
-  const requiredRooms = Number(allotment.rooms_blocked || 0);
   if (candidateUnits.length < requiredRooms) {
+    const filterLabel = !allotment.room_type_id
+      ? (effectiveRohCapacityFilter === 'gte_2' ? 'ROH rooms with max occupancy >= 2' : 'ROH rooms with max occupancy = 2')
+      : 'the selected room type';
     return {
-      error: `Only ${candidateUnits.length} free room(s) are currently available to allocate against this operator block.`,
+      error: `Only ${candidateUnits.length} free room(s) matching ${filterLabel} are currently available to allocate against this operator block.`,
       availableRooms: candidateUnits.length,
+      effectiveRohCapacityFilter,
     };
   }
 
+  return {
+    candidateUnits,
+    effectiveRohCapacityFilter,
+    availableRooms: candidateUnits.length,
+  };
+}
+
+async function insertPropertyAllotmentAllocations(env, tenantId, propertyId, allotment, chosenUnits, actorUserId, allocationSource = 'manual_allocate') {
   const now = currentUnixSeconds();
-  const chosenUnits = candidateUnits.slice(0, requiredRooms);
   const batchStatements = chosenUnits.map(({ roomType, roomUnit }) => env.DB.prepare(
     `INSERT INTO property_allotment_allocations
       (id, tenant_id, property_id, allotment_id, room_type_id, room_unit_id, operator_name,
@@ -1038,16 +1067,171 @@ async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotme
     now,
     now,
   ));
-  await env.DB.batch(batchStatements);
+  if (batchStatements.length) await env.DB.batch(batchStatements);
+  return now;
+}
+
+async function buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, updates = {}) {
+  const proposed = {
+    ...existing,
+    ...updates,
+  };
+  if (proposed.room_type_id) proposed.roh_capacity_filter = null;
+
+  const roomTypesResult = await env.DB
+    .prepare(
+      `SELECT id, code, name, max_occupancy, sort_order
+         FROM room_types
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1`
+    )
+    .bind(tenantId, propertyId)
+    .all();
+  const roomTypesById = new Map((roomTypesResult.results || []).map((row) => [String(row.id || ''), row]));
+  const activeAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, existing.id);
+
+  const inventoryShapeKeys = ['room_type_id', 'check_in', 'check_out', 'rooms_blocked', 'roh_capacity_filter'];
+  const inventoryShapeChanged = inventoryShapeKeys.some((key) => Object.prototype.hasOwnProperty.call(updates, key));
+  const currentState = String(existing.status || '').trim();
+  const blockKind = existing.room_type_id ? 'non_roh' : 'roh';
+  const proposedBlockKind = proposed.room_type_id ? 'non_roh' : 'roh';
+  const metadataOnly = !inventoryShapeChanged;
+  const inventoryLocked = currentState === 'in_house' && inventoryShapeChanged;
+
+  const existingRoomType = existing.room_type_id ? roomTypesById.get(String(existing.room_type_id)) || null : null;
+  const proposedRoomType = proposed.room_type_id ? roomTypesById.get(String(proposed.room_type_id)) || null : null;
+  const sameRoomType = String(existing.room_type_id || '') === String(proposed.room_type_id || '');
+  const isUpgrade = Boolean(existingRoomType && proposedRoomType && !sameRoomType && Number(proposedRoomType.sort_order || 0) > Number(existingRoomType.sort_order || 0));
+  const isDowngrade = Boolean(existingRoomType && proposedRoomType && !sameRoomType && Number(proposedRoomType.sort_order || 0) < Number(existingRoomType.sort_order || 0));
+  const requiresSplit = currentState === 'confirmed' && blockKind === 'non_roh' && !sameRoomType && !isUpgrade;
+
+  const proposedCheckIn = String(proposed.check_in || '').trim();
+  const proposedCheckOut = String(proposed.check_out || '').trim();
+  const proposedRoomsBlocked = Number(proposed.rooms_blocked || 0);
+  const eligiblePreservedAllocations = activeAllocations.filter((allocation) => {
+    if (!proposedCheckIn || !proposedCheckOut) return false;
+    if (String(allocation.check_in || '') < proposedCheckIn || String(allocation.check_out || '') > proposedCheckOut) return false;
+    if (proposed.room_type_id) {
+      return String(allocation.room_type_id || '') === String(proposed.room_type_id || '');
+    }
+    const allocationRoomType = roomTypesById.get(String(allocation.room_type_id || '')) || null;
+    const maxOccupancy = Number(allocationRoomType?.max_occupancy || 0);
+    if (String(proposed.roh_capacity_filter || 'gte_2') === 'max_2') return maxOccupancy === 2;
+    return maxOccupancy >= 2;
+  });
+  const preservedAllocations = eligiblePreservedAllocations.slice(0, proposedRoomsBlocked);
+  const releasedAllocations = activeAllocations.filter((allocation) => !preservedAllocations.some((item) => String(item.id) === String(allocation.id)));
+  const additionalAllocationsNeeded = Math.max(proposedRoomsBlocked - preservedAllocations.length, 0);
+
+  let candidateSummary = { candidateUnits: [], effectiveRohCapacityFilter: proposed.roh_capacity_filter || null, availableRooms: 0 };
+  if (!inventoryLocked && inventoryShapeChanged && additionalAllocationsNeeded > 0) {
+    candidateSummary = await collectAllocatableUnitsForAllotment(env, tenantId, propertyId, proposed, {
+      excludeAllotmentId: existing.id,
+      blockedRoomUnitIds: preservedAllocations.map((allocation) => allocation.room_unit_id),
+      requiredRooms: additionalAllocationsNeeded,
+    });
+  }
+
+  const warnings = [];
+  if (currentState === 'confirmed' && inventoryShapeChanged) warnings.push('Confirmed allotment changes must use rework preview/apply semantics rather than naive PATCH.');
+  if (isUpgrade) warnings.push('This change is a full-block upgrade candidate and should recheck availability before apply.');
+  if (requiresSplit) warnings.push('This non-ROH confirmed change should use a split/reshape flow instead of in-place mutation.');
+  if (isDowngrade) warnings.push('Downgrade behavior is not approved for naive in-place mutation and may require manual override policy.');
+  if (candidateSummary.error) warnings.push(candidateSummary.error);
+
+  const mapAllocationSummary = (allocation) => ({
+    allocation_id: allocation.id,
+    room_unit_id: allocation.room_unit_id,
+    room_number: allocation.room_number || null,
+    room_type_id: allocation.room_type_id || null,
+    room_type_code: allocation.room_type_code || null,
+  });
+  const mapCandidateSummary = ({ roomType, roomUnit }) => ({
+    room_unit_id: roomUnit.id,
+    room_number: roomUnit.room_number || null,
+    room_type_id: roomType.id,
+    room_type_code: roomType.code || null,
+  });
+
+  return {
+    existing_allotment: existing,
+    proposed_allotment: {
+      ...proposed,
+      roh_capacity_filter: proposed.room_type_id ? null : (candidateSummary.effectiveRohCapacityFilter || proposed.roh_capacity_filter || null),
+    },
+    policy: {
+      current_state: currentState,
+      block_kind: blockKind,
+      proposed_block_kind: proposedBlockKind,
+      metadata_only: metadataOnly,
+      inventory_shape_changed: inventoryShapeChanged,
+      inventory_locked: inventoryLocked,
+      editable: !inventoryLocked,
+      requires_preview: currentState === 'allocated' || currentState === 'confirmed',
+      same_room_type: sameRoomType,
+      full_upgrade_candidate: isUpgrade,
+      downgrade_detected: isDowngrade,
+      requires_split: requiresSplit,
+      can_apply: !inventoryLocked && !requiresSplit && !isDowngrade && !candidateSummary.error,
+    },
+    impact: {
+      active_allocations: activeAllocations.length,
+      preserved_allocations: preservedAllocations.length,
+      released_allocations: releasedAllocations.length,
+      additional_allocations_needed: additionalAllocationsNeeded,
+      additional_allocations_available: candidateSummary.availableRooms || 0,
+    },
+    room_diff: {
+      preserved: preservedAllocations.map(mapAllocationSummary),
+      released: releasedAllocations.map(mapAllocationSummary),
+      to_allocate: (candidateSummary.candidateUnits || []).slice(0, additionalAllocationsNeeded).map(mapCandidateSummary),
+    },
+    warnings,
+    _internal: {
+      preservedAllocations,
+      releasedAllocations,
+      candidateUnits: candidateSummary.candidateUnits || [],
+      effectiveRohCapacityFilter: candidateSummary.effectiveRohCapacityFilter || null,
+    },
+  };
+}
+
+function sanitizePropertyAllotmentReworkPreview(preview) {
+  if (!preview || typeof preview !== 'object') return preview;
+  const { _internal, ...safePreview } = preview;
+  return safePreview;
+}
+
+async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotment, actorUserId, allocationSource = 'manual_allocate') {
+  const existingAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotment.id);
+  if (existingAllocations.length) {
+    if (existingAllocations.length === Number(allotment.rooms_blocked || 0)) {
+      return { allocations: existingAllocations, alreadyAllocated: true };
+    }
+    return { error: 'This operator block already has partial room allocations. Release it first before reallocating.' };
+  }
+
+  const candidateSummary = await collectAllocatableUnitsForAllotment(env, tenantId, propertyId, allotment, {
+    requiredRooms: Number(allotment.rooms_blocked || 0),
+  });
+  if (candidateSummary.error) {
+    return { error: candidateSummary.error, availableRooms: candidateSummary.availableRooms ?? null };
+  }
+
+  const chosenUnits = (candidateSummary.candidateUnits || []).slice(0, Number(allotment.rooms_blocked || 0));
+  await insertPropertyAllotmentAllocations(env, tenantId, propertyId, allotment, chosenUnits, actorUserId, allocationSource);
+  const now = currentUnixSeconds();
   await env.DB
     .prepare(
       `UPDATE property_allotments
           SET status = CASE WHEN status IN ('draft', 'active') THEN 'allocated' ELSE status END,
+              roh_capacity_filter = COALESCE(?, roh_capacity_filter),
               updated_by = ?,
               updated_at = ?
         WHERE id = ? AND tenant_id = ? AND property_id = ?`
     )
-    .bind(actorUserId || null, now, allotment.id, tenantId, propertyId)
+      .bind(candidateSummary.effectiveRohCapacityFilter, actorUserId || null, now, allotment.id, tenantId, propertyId)
     .run();
   const allocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotment.id);
   await recordPropertyAllotmentEvent(
@@ -1060,6 +1244,7 @@ async function allocatePropertyAllotmentRooms(env, tenantId, propertyId, allotme
     allotment.status === 'draft' || allotment.status === 'active' ? 'allocated' : allotment.status,
     {
       allocation_source: allocationSource,
+      effective_roh_capacity_filter: candidateSummary.effectiveRohCapacityFilter,
       allocated_rooms: allocations.length,
       room_unit_ids: allocations.map((allocation) => allocation.room_unit_id),
     },
@@ -1208,8 +1393,8 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
             AND pr.property_id = ra.property_id
           WHERE ra.tenant_id = ?
             AND ra.property_id = ?
-            AND ra.allocation_status = 'locked'
-            AND pr.status IN ('confirmed', 'checked_in')
+            AND ra.allocation_status IN ('soft_allocated', 'locked')
+            AND pr.status IN ('pending_payment', 'confirmed', 'checked_in')
             AND ra.stay_date >= ?
             AND ra.stay_date < ?
           GROUP BY ra.room_unit_id, ra.reservation_id, pr.guest_name, pr.check_in, pr.check_out, pr.status
@@ -1316,10 +1501,12 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
       return {
         room_unit_id: roomUnit.id,
         current_reservation_id: current?.reservation_id || null,
+        current_reservation_status: current?.status || null,
         current_guest_name: current?.guest_name || currentAllotment?.guest_name || currentAllotment?.display_name || currentAllotment?.operator_name || null,
         current_check_out: current?.check_out || currentAllotment?.check_out || null,
         departure_today: departureToday || false,
         next_reservation_id: next?.reservation_id || null,
+        next_reservation_status: next?.status || null,
         next_reservation_start: next?.first_alloc_date || null,
         next_reservation_guest_name: next?.guest_name || null,
         current_allotment_id: currentAllotment?.allotment_id || null,
@@ -1475,6 +1662,26 @@ export async function handleGetPropertyPlanningGrid(request, env, params) {
     for (const row of (assignedReservationsResult.results || [])) {
       const ps = row.pricing_snapshot ? parseJsonSafe(row.pricing_snapshot) : null;
       upsertReservation(row, row.room_unit_id, ps);
+    }
+
+    for (const allocation of (allotmentAllocations || [])) {
+      const allotmentDates = enumerateStayDates(allocation.check_in, allocation.check_out).filter((date) => date >= fromDate && date < toDate);
+      const normalizedStatus = String(allocation.allotment_status || '').trim();
+      const slotStatus = normalizedStatus === 'in_house' ? 'checked_in' : 'confirmed';
+      for (const stayDate of allotmentDates) {
+        const key = `${allocation.room_unit_id}::${stayDate}`;
+        if (occupancyMap.has(key)) continue;
+        occupancyMap.set(key, {
+          state: 'booked',
+          status: slotStatus,
+          reservation_status: slotStatus,
+          guest_name: allocation.operator_name || 'Operator block',
+          check_in: allocation.check_in,
+          check_out: allocation.check_out,
+          allotment_id: allocation.allotment_id,
+          operator_name: allocation.operator_name || 'Operator block',
+        });
+      }
     }
 
     const units = roomUnits.map((unit) => {
@@ -1909,6 +2116,251 @@ export async function handleUpdatePropertyAllotment(request, env, params) {
     return jsonResponse({ ok: true, allotment: updated });
   } catch (error) {
     console.error('[PROPERTY_ALLOTMENT_UPDATE]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handlePreviewPropertyAllotmentRework(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentReworkPreviewRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const preview = await buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, parsed.updates);
+    return jsonResponse({ ok: true, ...sanitizePropertyAllotmentReworkPreview(preview) });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_REWORK_PREVIEW]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleApplyPropertyAllotmentRework(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentReworkPreviewRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const preview = await buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, parsed.updates);
+    if (preview.policy.inventory_locked) return jsonResponse({ error: 'In-house allotments cannot change inventory shape.' }, 409);
+    if (preview.policy.requires_split) return jsonResponse({ error: 'This confirmed non-ROH change requires the split flow.', preview }, 409);
+    if (preview.policy.downgrade_detected) return jsonResponse({ error: 'Downgrade rework is not approved for naive in-place mutation.', preview }, 409);
+    if (!preview.policy.can_apply) return jsonResponse({ error: preview.warnings[preview.warnings.length - 1] || 'Rework preview cannot be applied.', preview }, 409);
+
+    const proposed = preview.proposed_allotment;
+    const sqlParts = [];
+    const bindValues = [];
+    for (const [key, value] of Object.entries({
+      operator_name: proposed.operator_name,
+      operator_code: proposed.operator_code,
+      source_ref: proposed.source_ref,
+      room_type_id: proposed.room_type_id,
+      check_in: proposed.check_in,
+      check_out: proposed.check_out,
+      release_date: proposed.release_date,
+      rooms_blocked: proposed.rooms_blocked,
+      notes: proposed.notes,
+      roh_capacity_filter: proposed.roh_capacity_filter,
+    })) {
+      if (existing[key] === value) continue;
+      sqlParts.push(`${key} = ?`);
+      bindValues.push(value);
+    }
+
+    const now = currentUnixSeconds();
+    if (sqlParts.length) {
+      sqlParts.push('updated_by = ?');
+      bindValues.push(actor.session.user_id || null);
+      sqlParts.push('updated_at = ?');
+      bindValues.push(now);
+      await env.DB
+        .prepare(`UPDATE property_allotments SET ${sqlParts.join(', ')} WHERE id = ? AND tenant_id = ? AND property_id = ?`)
+        .bind(...bindValues, allotmentId, tenantId, propertyId)
+        .run();
+    }
+
+    const releasedAllocations = preview._internal.releasedAllocations || [];
+    if (releasedAllocations.length) {
+      await env.DB.batch(releasedAllocations.map((allocation) => env.DB.prepare(
+        `UPDATE property_allotment_allocations
+            SET allocation_status = 'released',
+                released_reason = 'allotment_reworked',
+                updated_by = ?,
+                updated_at = ?
+          WHERE id = ? AND tenant_id = ? AND property_id = ?`
+      ).bind(actor.session.user_id || null, now, allocation.id, tenantId, propertyId)));
+      await env.DB.batch(releasedAllocations.map((allocation) => env.DB.prepare(
+        `UPDATE property_allotment_rooming_list_entries
+            SET rooming_status = CASE WHEN rooming_status = 'checked_in' THEN rooming_status ELSE 'cancelled' END,
+                updated_by = ?,
+                updated_at = ?
+          WHERE allotment_allocation_id = ? AND tenant_id = ? AND property_id = ? AND allotment_id = ?`
+      ).bind(actor.session.user_id || null, now, allocation.id, tenantId, propertyId, allotmentId)));
+    }
+
+    const updated = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    const additionalNeeded = Number(preview.impact.additional_allocations_needed || 0);
+    if (additionalNeeded > 0) {
+      const chosenUnits = (preview._internal.candidateUnits || []).slice(0, additionalNeeded);
+      await insertPropertyAllotmentAllocations(env, tenantId, propertyId, updated, chosenUnits, actor.session.user_id || null, 'manual_reallocate');
+    }
+
+    const allocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, allotmentId);
+    if (String(updated.status || '') === 'confirmed') {
+      await ensurePropertyAllotmentRoomingListEntries(env, tenantId, propertyId, updated, allocations, actor.session.user_id || null);
+      await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, updated, actor.session.user_id || null);
+    }
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_reworked', existing.status, updated.status, {
+      updates: parsed.updates,
+      preserved_allocations: Number(preview.impact.preserved_allocations || 0),
+      released_allocations: Number(preview.impact.released_allocations || 0),
+      additional_allocations_needed: Number(preview.impact.additional_allocations_needed || 0),
+      resulting_allocations: allocations.length,
+      resulting_room_unit_ids: allocations.map((allocation) => allocation.room_unit_id),
+    }, actor.session.user_id || null);
+    return jsonResponse({ ok: true, allotment: updated, allocations, preview: sanitizePropertyAllotmentReworkPreview(preview) });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_REWORK_APPLY]', error);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
+  }
+}
+
+export async function handleSplitPropertyAllotment(request, env, params) {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
+  const propertyId = String(params?.propertyId || '').trim();
+  const allotmentId = String(params?.allotmentId || '').trim();
+  const actor = await requireManagerActor(request, env, tenantId);
+  if (actor.error) return actor.error;
+
+  let body;
+  try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
+  const parsed = validatePropertyAllotmentSplitRequest(body);
+  if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+  try {
+    const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+    if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    if (String(existing.status || '') !== 'confirmed') return jsonResponse({ error: 'Only confirmed allotments can be split.' }, 409);
+    if (!existing.room_type_id) return jsonResponse({ error: 'ROH allotments should use rework instead of split.' }, 409);
+    if (Number(parsed.child.rooms_blocked || 0) >= Number(existing.rooms_blocked || 0)) return jsonResponse({ error: 'Split rooms must be less than the current rooms_blocked.' }, 409);
+    if (String(parsed.child.room_type_id || '') === String(existing.room_type_id || '')) return jsonResponse({ error: 'Split child must use a different room type.' }, 409);
+
+    const roomTypesResult = await env.DB
+      .prepare(`SELECT id, sort_order FROM room_types WHERE tenant_id = ? AND property_id = ? AND active = 1`)
+      .bind(tenantId, propertyId)
+      .all();
+    const roomTypesById = new Map((roomTypesResult.results || []).map((row) => [String(row.id || ''), row]));
+    const existingRoomType = roomTypesById.get(String(existing.room_type_id || '')) || null;
+    const childRoomType = roomTypesById.get(String(parsed.child.room_type_id || '')) || null;
+    if (!childRoomType) return jsonResponse({ error: 'Split room_type_id was not found.' }, 404);
+    if (existingRoomType && Number(childRoomType.sort_order || 0) < Number(existingRoomType.sort_order || 0)) {
+      return jsonResponse({ error: 'Split downgrade is not approved in this slice.' }, 409);
+    }
+
+    const childCheckIn = parsed.child.check_in || existing.check_in;
+    const childCheckOut = parsed.child.check_out || existing.check_out;
+    if (childCheckIn < existing.check_in || childCheckOut > existing.check_out) {
+      return jsonResponse({ error: 'Split child dates must remain inside the source allotment window.' }, 409);
+    }
+
+    const remainingRooms = Number(existing.rooms_blocked || 0) - Number(parsed.child.rooms_blocked || 0);
+    const originalPreview = await buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, { rooms_blocked: remainingRooms });
+    if (!originalPreview.policy.can_apply) return jsonResponse({ error: 'Source allotment cannot be reduced for split.', preview: originalPreview }, 409);
+
+    const preservedOriginalRoomIds = (originalPreview._internal.preservedAllocations || []).map((allocation) => allocation.room_unit_id);
+    const childAllotmentShape = {
+      ...existing,
+      operator_name: parsed.child.operator_name || existing.operator_name,
+      operator_code: parsed.child.operator_code || existing.operator_code,
+      source_ref: parsed.child.source_ref || existing.source_ref,
+      room_type_id: parsed.child.room_type_id,
+      check_in: childCheckIn,
+      check_out: childCheckOut,
+      release_date: parsed.child.release_date || existing.release_date,
+      rooms_blocked: parsed.child.rooms_blocked,
+      notes: parsed.child.notes || existing.notes,
+      roh_capacity_filter: null,
+    };
+    const childCandidateSummary = await collectAllocatableUnitsForAllotment(env, tenantId, propertyId, childAllotmentShape, {
+      excludeAllotmentId: existing.id,
+      blockedRoomUnitIds: preservedOriginalRoomIds,
+      requiredRooms: Number(parsed.child.rooms_blocked || 0),
+    });
+    if (childCandidateSummary.error) return jsonResponse({ error: childCandidateSummary.error }, 409);
+
+    const applyRequest = new Request(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify({ rooms_blocked: remainingRooms }) });
+    const applyResponse = await handleApplyPropertyAllotmentRework(applyRequest, env, params);
+    if (applyResponse.status && applyResponse.status >= 400) return applyResponse;
+
+    const childAllotmentId = nanoid();
+    const now = currentUnixSeconds();
+    await env.DB.prepare(
+      `INSERT INTO property_allotments
+        (id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref, check_in, check_out, release_date,
+         rooms_blocked, status, notes, roh_capacity_filter, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'allocated', ?, NULL, ?, ?, ?, ?)`
+    ).bind(
+      childAllotmentId,
+      tenantId,
+      propertyId,
+      parsed.child.room_type_id,
+      parsed.child.operator_name || existing.operator_name,
+      parsed.child.operator_code || existing.operator_code || null,
+      parsed.child.source_ref || existing.source_ref || null,
+      childCheckIn,
+      childCheckOut,
+      parsed.child.release_date || existing.release_date || null,
+      parsed.child.rooms_blocked,
+      parsed.child.notes || existing.notes || null,
+      actor.session.user_id || null,
+      actor.session.user_id || null,
+      now,
+      now,
+    ).run();
+    const childAllotment = await loadPropertyAllotmentById(env, tenantId, propertyId, childAllotmentId);
+    await insertPropertyAllotmentAllocations(env, tenantId, propertyId, childAllotment, (childCandidateSummary.candidateUnits || []).slice(0, Number(parsed.child.rooms_blocked || 0)), actor.session.user_id || null, 'manual_split');
+    await env.DB.prepare(
+      `UPDATE property_allotments SET status = 'confirmed', updated_by = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    ).bind(actor.session.user_id || null, now, childAllotmentId, tenantId, propertyId).run();
+    const confirmedChild = await loadPropertyAllotmentById(env, tenantId, propertyId, childAllotmentId);
+    const childAllocations = await listActivePropertyAllotmentAllocations(env, tenantId, propertyId, childAllotmentId);
+    const childRoomingList = await ensurePropertyAllotmentRoomingListEntries(env, tenantId, propertyId, confirmedChild, childAllocations, actor.session.user_id || null);
+    const childMasterFolio = await ensurePropertyAllotmentMasterFolio(env, tenantId, propertyId, confirmedChild, actor.session.user_id || null);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, childAllotmentId, 'allotment_confirmed', 'allocated', 'confirmed', {
+      confirmed_rooms: childAllocations.length,
+      room_unit_ids: childAllocations.map((allocation) => allocation.room_unit_id),
+      split_from_allotment_id: allotmentId,
+      rooming_list_entries_created: childRoomingList.length,
+      master_folio_id: childMasterFolio.folio?.id || null,
+    }, actor.session.user_id || null);
+    await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_split', existing.status, existing.status, {
+      child_allotment_id: childAllotmentId,
+      child_room_type_id: parsed.child.room_type_id,
+      child_rooms_blocked: parsed.child.rooms_blocked,
+    }, actor.session.user_id || null);
+    return jsonResponse({ ok: true, source_allotment_id: allotmentId, child_allotment: confirmedChild, child_allocations: childAllocations });
+  } catch (error) {
+    console.error('[PROPERTY_ALLOTMENT_SPLIT]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
   }
 }
