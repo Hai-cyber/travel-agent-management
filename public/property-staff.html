@@ -1126,6 +1126,7 @@
                   <div class="section-body stack">
                     <div id="frontdesk-detail" class="empty">Select a reservation from the board or load one by id.</div>
                     <div class="action-row" id="reservation-action-row">
+                      <button class="button small secondary" id="btn-open-frontdesk-profile" type="button">Open Guest Profile</button>
                       <button class="button small primary" type="button" data-reservation-action="check-in">Check In</button>
                       <button class="button small primary" type="button" data-reservation-action="check-out">Check Out</button>
                       <button class="button small secondary" type="button" data-reservation-action="early-check-out">Early Check-out</button>
@@ -1971,6 +1972,7 @@
           rooming_status: entry.rooming_status,
           payer_scope: entry.payer_scope,
           reservation_id: entry.reservation_id || null,
+          display_name: entry.display_name || null,
           check_in: allotment.check_in,
           check_out: allotment.check_out,
           arrival_today: arrivalToday,
@@ -1978,6 +1980,16 @@
           stayover,
           special_requests: entry.note || null,
           pricing_snapshot: null,
+          allotment_snapshot: {
+            id: allotment.id,
+            operator_name: allotment.operator_name,
+            room_type_id: allotment.room_type_id || null,
+            room_type_code: allotment.room_type_code || null,
+            room_type_name: allotment.room_type_name || null,
+            check_in: allotment.check_in,
+            check_out: allotment.check_out,
+            rooms_blocked: allotment.rooms_blocked,
+          },
         };
       }
 
@@ -2025,8 +2037,7 @@
               <div class="pill-row">
                 <span class="tag">${escapeHtml(lane)}</span>
                 <span class="tag">${escapeHtml(typeTag)}</span>
-                <span class="tag">${Number(reservation.adults || 0)}A/${Number(reservation.children || 0)}C</span>
-                <span class="tag">${Number(reservation.rooms_requested || 0)} room(s)</span>
+                ${reservation.assigned_room_number ? `<span class="tag">room ${escapeHtml(reservation.assigned_room_number)}</span>` : ''}
               </div>
             </button>
           `;
@@ -4181,6 +4192,10 @@
         const createContext = String(options.context || 'plan').trim() || 'plan';
         const activeAllotment = options.allotment || null;
         const roomsRequested = Math.max(1, Number(options.roomsRequested || activeAllotment?.rooms_blocked || 1));
+        const prefillGuestName = String(options.prefillGuestName || '').trim();
+        const prefillGuestPhone = String(options.prefillGuestPhone || '').trim();
+        const prefillGuestEmail = String(options.prefillGuestEmail || '').trim();
+        const initialTab = String(options.initialTab || 'actions').trim() || 'actions';
         await openProfile(unitId, null, 'actions');
         const unit = state.sheetRoomUnit;
         if (!unit) return;
@@ -4204,10 +4219,46 @@
         state.sheetReservationPlanPreview = null;
         state.sheetExtendPlanPreview = null;
         document.getElementById('sh-pricing').textContent = '';
+        document.getElementById('sf-walkin-name').value = prefillGuestName;
+        document.getElementById('sf-walkin-phone').value = prefillGuestPhone;
+        document.getElementById('sf-walkin-email').value = prefillGuestEmail;
         updateCreateReservationValidation();
         refreshReservationPlannerPreview().catch(() => {});
-        switchSheetTab('actions');
+        switchSheetTab(initialTab);
         document.getElementById('sf-walkin-name').focus();
+      }
+
+      function frontdeskEntryForUnit(unitId) {
+        return (Array.isArray(state.frontdeskEntries) ? state.frontdeskEntries : []).find((entry) =>
+          String(entry.assigned_room_unit_id || entry.room_unit_id || '') === String(unitId || '')
+          && ['confirmed', 'checked_in'].includes(String(entry.status || ''))
+        ) || null;
+      }
+
+      async function openFrontdeskEntryProfile(entry) {
+        if (!entry || !state.selectedPropertyId) return;
+        const unitId = String(entry.assigned_room_unit_id || entry.room_unit_id || '').trim();
+        if (!unitId) return setFlash('No room unit is linked to this entry.', 'err');
+        if (entry.entry_type === 'reservation') {
+          await openProfile(unitId, entry.id, 'profile');
+          return;
+        }
+        if (entry.reservation_id) {
+          await openProfile(unitId, entry.reservation_id, 'profile');
+          return;
+        }
+        await createReservation(unitId, {
+          checkIn: entry.check_in,
+          checkOut: entry.check_out,
+          context: 'allotment',
+          allotment: entry.allotment_snapshot || { id: entry.allotment_id, operator_name: entry.operator_name, room_type_id: entry.room_type_id, check_in: entry.check_in, check_out: entry.check_out },
+          requestedRoomTypeId: entry.room_type_id || null,
+          roomsRequested: 1,
+          prefillGuestName: entry.guest_name || entry.display_name || '',
+          prefillGuestPhone: '',
+          prefillGuestEmail: '',
+          initialTab: 'profile',
+        });
       }
 
       async function openGuestSheet(unitId, reservationId = null) {
@@ -4570,6 +4621,15 @@
           };
           renderReservations();
           renderReservationDetail();
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
+      });
+
+      document.getElementById('btn-open-frontdesk-profile').addEventListener('click', async () => {
+        if (!state.currentFrontdeskEntry) return setFlash('Select a room entry first.', 'err');
+        try {
+          await openFrontdeskEntryProfile(state.currentFrontdeskEntry);
         } catch (error) {
           setFlash(error.message, 'err');
         }
@@ -5017,7 +5077,15 @@
       document.getElementById('rack-grid-container').addEventListener('click', async (e) => {
         const cell = e.target.closest('[data-unit-id]');
         if (!cell || !state.selectedPropertyId) return;
-        try { await openProfile(cell.getAttribute('data-unit-id'), null, 'stay'); }
+        try {
+          const unitId = cell.getAttribute('data-unit-id');
+          const entry = frontdeskEntryForUnit(unitId);
+          if (entry?.entry_type === 'allotment_rooming') {
+            await openFrontdeskEntryProfile(entry);
+            return;
+          }
+          await openProfile(unitId, null, 'stay');
+        }
         catch (err) { setFlash(err.message, 'err'); }
       });
 
