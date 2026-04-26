@@ -316,6 +316,7 @@ async function loadPropertyReservation(env, tenantId, propertyId, reservationId)
 function buildReservationPayload(record) {
   const allocatedRoomUnitIds = Array.from(new Set((record.segments || []).map((segment) => String(segment.room_unit_id || '').trim()).filter(Boolean)));
   const allocatedRoomNumbers = Array.from(new Set((record.segments || []).map((segment) => String(segment.room_unit_number || '').trim()).filter(Boolean)));
+  const sourcePayload = record.reservation.source_payload ? parseJsonSafe(record.reservation.source_payload) : null;
   return {
     ok: true,
     reservation: {
@@ -323,10 +324,12 @@ function buildReservationPayload(record) {
       property_id: record.reservation.property_id,
       source: record.reservation.source,
       source_ref: record.reservation.source_ref,
+      source_payload: sourcePayload,
       status: record.reservation.status,
       guest_name: record.reservation.guest_name,
       guest_email: record.reservation.guest_email,
       guest_phone: record.reservation.guest_phone,
+      guest_profile: sourcePayload?.guest_profile || null,
       check_in: record.reservation.check_in,
       check_out: record.reservation.check_out,
       room_type_id: record.reservation.room_type_id,

@@ -1399,6 +1399,68 @@ function validateReservationRoomAssignmentRequest(body) {
   };
 }
 
+function validateReservationPatchRequest(body, existingReservation = null) {
+  const payload = body || {};
+  const hasAssignment = Object.prototype.hasOwnProperty.call(payload, 'assigned_room_unit_id');
+  const hasProfileField = [
+    'guest_name',
+    'guest_email',
+    'guest_phone',
+    'special_requests',
+    'nationality',
+    'passport_number',
+    'date_of_birth',
+  ].some((key) => Object.prototype.hasOwnProperty.call(payload, key));
+  if (!hasAssignment && !hasProfileField) {
+    return { error: 'No supported reservation fields were provided for update.' };
+  }
+
+  const updates = {};
+  if (hasAssignment) {
+    updates.assignedRoomUnitId = payload.assigned_room_unit_id ? String(payload.assigned_room_unit_id).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'guest_name')) {
+    const guestName = payload.guest_name ? String(payload.guest_name).trim() : '';
+    if (!guestName) return { error: 'guest_name cannot be empty.' };
+    updates.guestName = guestName;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'guest_email')) {
+    updates.guestEmail = payload.guest_email ? String(payload.guest_email).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'guest_phone')) {
+    updates.guestPhone = payload.guest_phone ? String(payload.guest_phone).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'special_requests')) {
+    updates.specialRequests = payload.special_requests ? String(payload.special_requests).trim() : null;
+  }
+
+  const existingSourcePayload = parseJsonSafe(existingReservation?.source_payload) || {};
+  const existingGuestProfile = existingSourcePayload?.guest_profile && typeof existingSourcePayload.guest_profile === 'object'
+    ? existingSourcePayload.guest_profile
+    : {};
+  const nextGuestProfile = { ...existingGuestProfile };
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'nationality')) {
+    nextGuestProfile.nationality = payload.nationality ? String(payload.nationality).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'passport_number')) {
+    nextGuestProfile.passport_number = payload.passport_number ? String(payload.passport_number).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'date_of_birth')) {
+    const dateOfBirth = payload.date_of_birth ? String(payload.date_of_birth).trim() : null;
+    if (dateOfBirth && !isIsoDate(dateOfBirth)) return { error: 'date_of_birth must use YYYY-MM-DD format.' };
+    nextGuestProfile.date_of_birth = dateOfBirth;
+  }
+
+  if (['nationality', 'passport_number', 'date_of_birth'].some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
+    const nextSourcePayload = { ...existingSourcePayload };
+    nextSourcePayload.guest_profile = nextGuestProfile;
+    updates.sourcePayload = JSON.stringify(nextSourcePayload);
+  }
+
+  return { updates };
+}
+
 function validateReservationRebookRequest(body, propertyId, existingReservation) {
   const availability = validateAvailabilityRequest({
     propertyId,
@@ -1525,6 +1587,7 @@ export {
   validateRateSeasonCreateRequest,
   validateRateSeasonPatchRequest,
   validateReservationCreateRequest,
+  validateReservationPatchRequest,
   validateReservationRebookRequest,
   validateReservationRoomAssignmentRequest,
   validateRoomRateCreateRequest,

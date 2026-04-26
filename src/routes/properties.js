@@ -71,6 +71,7 @@ import {
   validateRateSeasonCreateRequest,
   validateRateSeasonPatchRequest,
   validateReservationCreateRequest,
+  validateReservationPatchRequest,
   validateReservationRebookRequest,
   validateReservationRoomAssignmentRequest,
   validateRoomRateCreateRequest,
@@ -217,6 +218,7 @@ const reservationHandlers = createReservationHandlers({
   validateAllotmentConsumptionRequest,
   validateEarlyCheckoutRequest,
   validateReservationCreateRequest,
+  validateReservationPatchRequest,
   validateReservationRebookRequest,
   validateReservationRoomAssignmentRequest,
 });

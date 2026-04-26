@@ -44,6 +44,7 @@ function createReservationHandlers(deps) {
     validateAllotmentConsumptionRequest,
     validateEarlyCheckoutRequest,
     validateReservationCreateRequest,
+    validateReservationPatchRequest,
     validateReservationRebookRequest,
     validateReservationRoomAssignmentRequest,
   } = deps;
@@ -514,23 +515,71 @@ function createReservationHandlers(deps) {
 
     let body;
     try { body = await parseJsonBody(request); } catch { return jsonResponse({ error: 'Request body is not valid JSON.' }, 400); }
-    const parsed = validateReservationRoomAssignmentRequest(body);
-    if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
 
     try {
       const record = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
       if (!record) return jsonResponse({ error: 'Reservation not found.' }, 404);
-      if (!['confirmed', 'checked_in'].includes(String(record.reservation.status))) {
-        return jsonResponse({ error: 'Room assignment is only supported for confirmed or checked_in reservations.' }, 409);
+      const parsed = validateReservationPatchRequest(body, record.reservation);
+      if (parsed.error) return jsonResponse({ error: parsed.error }, 400);
+
+      const actorUserId = request.headers.get('X-User-ID')?.trim() || null;
+      const updateSqlParts = [];
+      const updateValues = [];
+
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'guestName')) {
+        updateSqlParts.push('guest_name = ?');
+        updateValues.push(parsed.updates.guestName);
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'guestEmail')) {
+        updateSqlParts.push('guest_email = ?');
+        updateValues.push(parsed.updates.guestEmail);
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'guestPhone')) {
+        updateSqlParts.push('guest_phone = ?');
+        updateValues.push(parsed.updates.guestPhone);
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'specialRequests')) {
+        updateSqlParts.push('special_requests = ?');
+        updateValues.push(parsed.updates.specialRequests);
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'sourcePayload')) {
+        updateSqlParts.push('source_payload = ?');
+        updateValues.push(parsed.updates.sourcePayload);
       }
 
-      const assignment = await assignReservationToRoomUnit(env, tenantId, propertyId, reservationId, record, parsed.assignedRoomUnitId, request.headers.get('X-User-ID')?.trim() || null);
-      if (assignment.error) return jsonResponse({ error: assignment.error }, 409);
+      if (updateSqlParts.length) {
+        updateSqlParts.push('updated_at = ?');
+        updateValues.push(currentUnixSeconds());
+        await env.DB
+          .prepare(
+            `UPDATE property_reservations
+                SET ${updateSqlParts.join(', ')}
+              WHERE id = ? AND tenant_id = ? AND property_id = ?`
+          )
+          .bind(...updateValues, reservationId, tenantId, propertyId)
+          .run();
+        await recordPropertyReservationEvent(env, tenantId, propertyId, reservationId, 'guest_profile_updated', record.reservation.status, record.reservation.status, {
+          guest_name: Object.prototype.hasOwnProperty.call(parsed.updates, 'guestName') ? parsed.updates.guestName : undefined,
+          guest_email: Object.prototype.hasOwnProperty.call(parsed.updates, 'guestEmail') ? parsed.updates.guestEmail : undefined,
+          guest_phone: Object.prototype.hasOwnProperty.call(parsed.updates, 'guestPhone') ? parsed.updates.guestPhone : undefined,
+          special_requests: Object.prototype.hasOwnProperty.call(parsed.updates, 'specialRequests') ? parsed.updates.specialRequests : undefined,
+          guest_profile: Object.prototype.hasOwnProperty.call(parsed.updates, 'sourcePayload') ? JSON.parse(parsed.updates.sourcePayload || '{}').guest_profile || null : undefined,
+        }, actorUserId);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(parsed.updates, 'assignedRoomUnitId')) {
+        if (!['confirmed', 'checked_in'].includes(String(record.reservation.status))) {
+          return jsonResponse({ error: 'Room assignment is only supported for confirmed or checked_in reservations.' }, 409);
+        }
+        const assignment = await assignReservationToRoomUnit(env, tenantId, propertyId, reservationId, record, parsed.updates.assignedRoomUnitId, actorUserId);
+        if (assignment.error) return jsonResponse({ error: assignment.error }, 409);
+      }
 
       const updatedRecord = await loadPropertyReservation(env, tenantId, propertyId, reservationId);
       return jsonResponse({
         ...buildReservationPayload(updatedRecord),
-        assignment_updated: true,
+        assignment_updated: Object.prototype.hasOwnProperty.call(parsed.updates, 'assignedRoomUnitId'),
+        profile_updated: updateSqlParts.length > 0,
       });
     } catch (error) {
       console.error('[PROPERTY_RESERVATION_ASSIGNMENT_UPDATE]', error);

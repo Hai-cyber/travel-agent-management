@@ -4103,9 +4103,9 @@
         document.getElementById('sf-name').value        = res?.guest_name  || '';
         document.getElementById('sf-email').value       = res?.guest_email || '';
         document.getElementById('sf-phone').value       = res?.guest_phone || '';
-        document.getElementById('sf-nationality').value = '';
-        document.getElementById('sf-passport').value    = '';
-        document.getElementById('sf-dob').value         = '';
+        document.getElementById('sf-nationality').value = res?.guest_profile?.nationality || '';
+        document.getElementById('sf-passport').value    = res?.guest_profile?.passport_number || '';
+        document.getElementById('sf-dob').value         = res?.guest_profile?.date_of_birth || '';
         document.getElementById('sf-requests').value    = res?.special_requests || '';
         walkinBox.hidden = Boolean(res);
         document.getElementById('sf-walkin-name').value = '';
@@ -5162,11 +5162,46 @@
       });
 
       // Profile save
-      document.getElementById('btn-save-profile').addEventListener('click', () => {
-        setFlash('Profile saved in session (backend PATCH endpoint for guest details coming soon).');
+      document.getElementById('btn-save-profile').addEventListener('click', async () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res?.id || !state.selectedPropertyId) return setFlash('Create or load a reservation first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              guest_name: document.getElementById('sf-name').value.trim(),
+              guest_email: document.getElementById('sf-email').value.trim() || null,
+              guest_phone: document.getElementById('sf-phone').value.trim() || null,
+              nationality: document.getElementById('sf-nationality').value.trim() || null,
+              passport_number: document.getElementById('sf-passport').value.trim() || null,
+              date_of_birth: document.getElementById('sf-dob').value || null,
+            }),
+          });
+          state.sheetReservation = payload;
+          await loadWorkspace();
+          if (state.sheetRoomUnit?.id) await openProfile(state.sheetRoomUnit.id, res.id, 'profile');
+          setFlash('Guest profile saved.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
       });
-      document.getElementById('btn-save-requests').addEventListener('click', () => {
-        setFlash('Notes saved in session.');
+      document.getElementById('btn-save-requests').addEventListener('click', async () => {
+        const res = state.sheetReservation?.reservation;
+        if (!res?.id || !state.selectedPropertyId) return setFlash('Create or load a reservation first.', 'err');
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${res.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              special_requests: document.getElementById('sf-requests').value.trim() || null,
+            }),
+          });
+          state.sheetReservation = payload;
+          await loadWorkspace();
+          if (state.sheetRoomUnit?.id) await openProfile(state.sheetRoomUnit.id, res.id, 'profile');
+          setFlash('Guest notes saved.');
+        } catch (error) {
+          setFlash(error.message, 'err');
+        }
       });
       ['sf-walkin-ci', 'sf-walkin-co', 'sf-walkin-rooms', 'sf-walkin-adults', 'sf-walkin-children', 'sf-walkin-pricing-profile'].forEach((id) => {
         document.getElementById(id).addEventListener('change', () => {
