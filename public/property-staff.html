@@ -852,6 +852,18 @@
     .plan-allotment-preview { display:none; gap:4px; padding:8px 10px; border-radius:10px; background:#f8fafc; border:1px solid rgba(148,163,184,0.32); font-size:11px; color:#334155; }
     .plan-allotment-preview.active { display:grid; }
     .plan-allotment-preview.err { border-color:rgba(239,68,68,0.35); background:#fff1f2; color:#991b1b; }
+    .plan-allotment-history { display:grid; gap:4px; padding:8px 10px; border-radius:10px; background:#fff; border:1px solid rgba(148,163,184,0.22); font-size:11px; color:#334155; }
+    .plan-allotment-history:empty { display:none; }
+    .plan-allotment-history-item { display:grid; gap:2px; padding:4px 0; border-top:1px dashed rgba(148,163,184,0.22); }
+    .plan-allotment-history-item:first-child { border-top:none; padding-top:0; }
+    .plan-allotment-rooming { display:grid; gap:8px; padding:8px 10px; border-radius:10px; background:#fff; border:1px solid rgba(148,163,184,0.22); }
+    .plan-allotment-rooming:empty { display:none; }
+    .plan-allotment-rooming-row { display:grid; gap:6px; padding-top:8px; border-top:1px dashed rgba(148,163,184,0.22); }
+    .plan-allotment-rooming-row:first-child { border-top:none; padding-top:0; }
+    .plan-allotment-rooming-grid { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)) auto; gap:6px; align-items:end; }
+    .plan-allotment-rooming-grid label { display:grid; gap:3px; font-size:10px; font-weight:700; color:#64748b; }
+    .plan-allotment-rooming-grid input, .plan-allotment-rooming-grid select { height:26px; padding:2px 6px; font:inherit; font-size:11px; border:1px solid rgba(120,113,108,0.22); border-radius:6px; background:#fff; color:#0f172a; }
+    .plan-allotment-rooming-meta { font-size:11px; color:#64748b; }
     .plan-legend { display:flex; gap:4px; flex-wrap:nowrap; align-items:center; font-size:9px; font-weight:800; overflow:hidden; }
     .plan-leg { padding:2px 6px; border-radius:999px; white-space:nowrap; }
     .plan-leg.checked_in  { background:#dbeafe; color:#1d4ed8; }
@@ -1062,6 +1074,8 @@
                     </div>
                     <div id="plan-allotment-editor-note" class="plan-allotment-editor-note">Create a new operator block.</div>
                     <div id="plan-allotment-preview" class="plan-allotment-preview"></div>
+                    <div id="plan-allotment-history" class="plan-allotment-history"></div>
+                    <div id="plan-allotment-rooming" class="plan-allotment-rooming"></div>
                     <div id="plan-allotment-list" class="plan-allotment-list"></div>
                   </div>
                   <div id="planning-cal" class="plan-cal">
@@ -1597,6 +1611,9 @@
         planEditingAllotmentId: null,
         planSplitSourceAllotmentId: null,
         planAllotmentPreview: null,
+        planAllotmentHistory: [],
+        planAllotmentRoomingEntries: [],
+        planAllotmentDeferredGuestCharges: [],
         housekeepingTasks: [],
         roomStatesByUnit: {},
         actorRole: '',
@@ -3341,6 +3358,9 @@
         state.planEditingAllotmentId = null;
         state.planSplitSourceAllotmentId = null;
         state.planAllotmentPreview = null;
+        state.planAllotmentHistory = [];
+        state.planAllotmentRoomingEntries = [];
+        state.planAllotmentDeferredGuestCharges = [];
         document.getElementById('plan-allotment-operator').value = '';
         document.getElementById('plan-allotment-code').value = '';
         document.getElementById('plan-allotment-room-type').value = '';
@@ -3358,6 +3378,9 @@
         state.planEditingAllotmentId = mode === 'edit' ? String(allotment.id) : null;
         state.planSplitSourceAllotmentId = mode === 'split' ? String(allotment.id) : null;
         state.planAllotmentPreview = null;
+        state.planAllotmentHistory = [];
+        state.planAllotmentRoomingEntries = [];
+        state.planAllotmentDeferredGuestCharges = [];
         document.getElementById('plan-allotment-operator').value = allotment.operator_name || '';
         document.getElementById('plan-allotment-code').value = allotment.operator_code || '';
         document.getElementById('plan-allotment-room-type').value = mode === 'split'
@@ -3374,6 +3397,42 @@
         renderPlanAllotmentEditor();
       }
 
+      async function loadPlanAllotmentHistory(allotmentId) {
+        if (!state.selectedPropertyId || !allotmentId) {
+          state.planAllotmentHistory = [];
+          renderPlanAllotmentEditor();
+          return;
+        }
+        try {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${allotmentId}/events?limit=8`);
+          state.planAllotmentHistory = Array.isArray(payload.events) ? payload.events : [];
+        } catch (error) {
+          state.planAllotmentHistory = [{ action: 'history_unavailable', created_at: null, payload_json: null, error: error.message }];
+        }
+        renderPlanAllotmentEditor();
+      }
+
+      async function loadPlanAllotmentExecutionData(allotmentId) {
+        if (!state.selectedPropertyId || !allotmentId) {
+          state.planAllotmentRoomingEntries = [];
+          state.planAllotmentDeferredGuestCharges = [];
+          renderPlanAllotmentEditor();
+          return;
+        }
+        try {
+          const [roomingPayload, folioPayload] = await Promise.all([
+            api(`/api/properties/${state.selectedPropertyId}/allotments/${allotmentId}/rooming-list`),
+            api(`/api/properties/${state.selectedPropertyId}/allotments/${allotmentId}/master-folio`),
+          ]);
+          state.planAllotmentRoomingEntries = Array.isArray(roomingPayload.entries) ? roomingPayload.entries : [];
+          state.planAllotmentDeferredGuestCharges = Array.isArray(folioPayload.deferred_guest_charges) ? folioPayload.deferred_guest_charges : [];
+        } catch (error) {
+          state.planAllotmentRoomingEntries = [];
+          state.planAllotmentDeferredGuestCharges = [{ id: 'error', routing_status: 'history_unavailable', note: error.message }];
+        }
+        renderPlanAllotmentEditor();
+      }
+
       function renderPlanAllotmentEditor() {
         const mode = state.planAllotmentEditorMode || 'create';
         const createBtn = document.getElementById('btn-create-allotment');
@@ -3383,6 +3442,8 @@
         const cancelBtn = document.getElementById('btn-cancel-allotment-editor');
         const noteEl = document.getElementById('plan-allotment-editor-note');
         const previewEl = document.getElementById('plan-allotment-preview');
+        const historyEl = document.getElementById('plan-allotment-history');
+        const roomingEl = document.getElementById('plan-allotment-rooming');
         createBtn.style.display = mode === 'create' ? '' : 'none';
         previewBtn.style.display = mode === 'edit' ? '' : 'none';
         applyBtn.style.display = mode === 'edit' ? '' : 'none';
@@ -3395,6 +3456,50 @@
         if (!state.planAllotmentPreview) {
           previewEl.className = 'plan-allotment-preview';
           previewEl.innerHTML = '';
+        }
+        const historyItems = Array.isArray(state.planAllotmentHistory) ? state.planAllotmentHistory : [];
+        historyEl.innerHTML = historyItems.length
+          ? historyItems.map((event) => `<div class="plan-allotment-history-item"><strong>${escapeHtml(String(event.action || 'event').replace(/_/g, ' '))}</strong><span>${event.from_status || event.to_status ? escapeHtml(`${event.from_status || '-'} -> ${event.to_status || '-'}`) : 'No status change'}</span><span>${event.created_at ? escapeHtml(new Date(Number(event.created_at) * 1000).toLocaleString()) : escapeHtml(event.error || 'No timestamp')}</span></div>`).join('')
+          : '';
+        const roomingEntries = Array.isArray(state.planAllotmentRoomingEntries) ? state.planAllotmentRoomingEntries : [];
+        const deferredGuestCharges = Array.isArray(state.planAllotmentDeferredGuestCharges) ? state.planAllotmentDeferredGuestCharges : [];
+        const deferredByEntry = new Map();
+        for (const charge of deferredGuestCharges) {
+          const roomingEntryId = String(charge.rooming_entry_id || '').trim();
+          if (!roomingEntryId) continue;
+          const bucket = deferredByEntry.get(roomingEntryId) || [];
+          bucket.push(charge);
+          deferredByEntry.set(roomingEntryId, bucket);
+        }
+        roomingEl.innerHTML = (mode === 'edit' && roomingEntries.length)
+          ? roomingEntries.map((entry) => {
+              const matchingReservations = (Array.isArray(state.reservations) ? state.reservations : []).filter((reservation) => {
+                const allocatedRoomIds = Array.isArray(reservation.allocated_room_unit_ids) ? reservation.allocated_room_unit_ids : [];
+                return allocatedRoomIds.includes(String(entry.room_unit_id || '')) || String(reservation.assigned_room_unit_id || '') === String(entry.room_unit_id || '');
+              });
+              const linkedReservationMissing = entry.reservation_id && !matchingReservations.some((reservation) => String(reservation.id) === String(entry.reservation_id));
+              const reservationOptions = [
+                '<option value="">— Unlinked —</option>',
+                linkedReservationMissing ? `<option value="${escapeHtml(entry.reservation_id)}">${escapeHtml(entry.reservation_id)} · linked outside current board</option>` : '',
+                ...matchingReservations.map((reservation) => `<option value="${escapeHtml(reservation.id)}" ${String(reservation.id) === String(entry.reservation_id || '') ? 'selected' : ''}>${escapeHtml(reservation.guest_name || reservation.id)} · ${escapeHtml(reservation.check_in || '')} -> ${escapeHtml(reservation.check_out || '')}</option>`),
+              ].join('');
+              const pendingCharges = (deferredByEntry.get(String(entry.id)) || []).filter((charge) => String(charge.routing_status || '') === 'pending_guest_folio');
+              const consumedCharges = (deferredByEntry.get(String(entry.id)) || []).filter((charge) => String(charge.routing_status || '') === 'posted_to_guest_folio');
+              return `<div class="plan-allotment-rooming-row" data-rooming-entry-id="${escapeHtml(entry.id)}">
+                <div><strong>${escapeHtml(entry.display_name || entry.guest_name || 'Rooming entry')}</strong> · ${escapeHtml(entry.room_number || entry.room_unit_id || '')} · ${escapeHtml(entry.room_type_code || entry.room_type_name || '')}</div>
+                <div class="plan-allotment-rooming-grid">
+                  <label>Display Name<input type="text" data-rooming-field="display_name" value="${escapeHtml(entry.display_name || '')}" /></label>
+                  <label>Guest Name<input type="text" data-rooming-field="guest_name" value="${escapeHtml(entry.guest_name || '')}" /></label>
+                  <label>Status<select data-rooming-field="rooming_status"><option value="pending" ${entry.rooming_status === 'pending' ? 'selected' : ''}>pending</option><option value="named" ${entry.rooming_status === 'named' ? 'selected' : ''}>named</option><option value="checked_in" ${entry.rooming_status === 'checked_in' ? 'selected' : ''}>checked_in</option><option value="checked_out" ${entry.rooming_status === 'checked_out' ? 'selected' : ''}>checked_out</option><option value="cancelled" ${entry.rooming_status === 'cancelled' ? 'selected' : ''}>cancelled</option></select></label>
+                  <label>Payer Scope<select data-rooming-field="payer_scope"><option value="guest" ${entry.payer_scope === 'guest' ? 'selected' : ''}>guest</option><option value="master" ${entry.payer_scope === 'master' ? 'selected' : ''}>master</option></select></label>
+                  <label>Reservation<select data-rooming-field="reservation_id">${reservationOptions}</select></label>
+                  <button type="button" class="button small secondary" data-save-rooming-entry="${escapeHtml(entry.id)}">Save</button>
+                </div>
+                <div class="plan-allotment-rooming-meta">Pending guest charges: ${pendingCharges.length} · Posted to folio: ${consumedCharges.length}${entry.reservation_id ? ` · Linked reservation: ${escapeHtml(entry.reservation_id)}` : ''}</div>
+              </div>`;
+            }).join('')
+          : '';
+        if (!state.planAllotmentPreview) {
           return;
         }
         const preview = state.planAllotmentPreview;
@@ -4609,6 +4714,7 @@
             const allotment = getPlanAllotmentById(editButton.getAttribute('data-edit-allotment'));
             if (!allotment) return setFlash('Operator block not found in the current planning window.', 'err');
             populatePlanAllotmentEditor(allotment, 'edit');
+            await Promise.all([loadPlanAllotmentHistory(allotment.id), loadPlanAllotmentExecutionData(allotment.id)]);
             return;
           }
 
@@ -4617,6 +4723,7 @@
             const allotment = getPlanAllotmentById(splitSourceButton.getAttribute('data-split-source-allotment'));
             if (!allotment) return setFlash('Operator block not found in the current planning window.', 'err');
             populatePlanAllotmentEditor(allotment, 'split');
+            await Promise.all([loadPlanAllotmentHistory(allotment.id), loadPlanAllotmentExecutionData(allotment.id)]);
             return;
           }
 
@@ -4664,6 +4771,36 @@
             }
             await loadPlanningGrid();
             setFlash('Operator block released.');
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+        });
+
+        document.getElementById('plan-allotment-rooming').addEventListener('click', async (e) => {
+          const saveButton = e.target.closest('[data-save-rooming-entry]');
+          if (!saveButton || !state.selectedPropertyId || !state.planEditingAllotmentId) return;
+          const row = saveButton.closest('[data-rooming-entry-id]');
+          if (!row) return;
+          const entryId = row.getAttribute('data-rooming-entry-id');
+          const payload = {};
+          row.querySelectorAll('[data-rooming-field]').forEach((field) => {
+            const key = field.getAttribute('data-rooming-field');
+            payload[key] = field.value || null;
+          });
+          try {
+            const result = await api(`/api/properties/${state.selectedPropertyId}/allotments/${state.planEditingAllotmentId}/rooming-list/${entryId}`, {
+              method: 'PATCH',
+              body: JSON.stringify(payload),
+            });
+            await loadWorkspace();
+            const refreshedAllotment = getPlanAllotmentById(state.planEditingAllotmentId);
+            if (refreshedAllotment) populatePlanAllotmentEditor(refreshedAllotment, 'edit');
+            await Promise.all([
+              loadPlanAllotmentHistory(state.planEditingAllotmentId),
+              loadPlanAllotmentExecutionData(state.planEditingAllotmentId),
+            ]);
+            const consumedCount = Array.isArray(result.consumed_guest_charges) ? result.consumed_guest_charges.length : 0;
+            setFlash(consumedCount ? `Rooming entry saved. ${consumedCount} guest charge(s) moved into the linked folio.` : 'Rooming entry saved.');
           } catch (error) {
             setFlash(error.message, 'err');
           }

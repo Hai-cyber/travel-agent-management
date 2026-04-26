@@ -695,7 +695,7 @@ async function listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId
   const result = await env.DB
     .prepare(
       `SELECT prle.id, prle.tenant_id, prle.property_id, prle.allotment_id, prle.allotment_allocation_id,
-              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.display_name, prle.guest_name,
+              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.reservation_id, prle.display_name, prle.guest_name,
               prle.note, prle.created_by, prle.updated_by, prle.created_at, prle.updated_at,
               ru.room_number, ru.floor_label,
               rt.code AS room_type_code, rt.name AS room_type_name
@@ -722,7 +722,7 @@ async function loadPropertyAllotmentRoomingListEntryById(env, tenantId, property
   const row = await env.DB
     .prepare(
       `SELECT prle.id, prle.tenant_id, prle.property_id, prle.allotment_id, prle.allotment_allocation_id,
-              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.display_name, prle.guest_name,
+              prle.room_type_id, prle.room_unit_id, prle.rooming_status, prle.payer_scope, prle.reservation_id, prle.display_name, prle.guest_name,
               prle.note, prle.created_by, prle.updated_by, prle.created_at, prle.updated_at,
               ru.room_number, ru.floor_label,
               rt.code AS room_type_code, rt.name AS room_type_name
@@ -840,8 +840,9 @@ async function loadPropertyAllotmentMasterFolioLines(env, tenantId, propertyId, 
 async function loadPropertyAllotmentDeferredGuestCharges(env, tenantId, propertyId, allotmentId) {
   const result = await env.DB
     .prepare(
-      `SELECT id, tenant_id, property_id, allotment_id, rooming_entry_id, line_type, source_type, category,
-              description, quantity, unit_amount, total_amount, currency, routing_status, note, created_by, created_at, updated_at
+      `SELECT id, tenant_id, property_id, allotment_id, rooming_entry_id, reservation_id, line_type, source_type, category,
+              description, quantity, unit_amount, total_amount, currency, routing_status, note, created_by, consumed_folio_id,
+              consumed_folio_line_id, consumed_at, created_at, updated_at
          FROM property_allotment_deferred_guest_charges
         WHERE tenant_id = ?
           AND property_id = ?
@@ -1481,7 +1482,7 @@ export async function handleGetPropertyRoomRackSummary(request, env, params) {
           : `Occupied until ${current.check_out} · ${current.guest_name || 'Guest'}`;
       } else if (currentAllotment) {
         const roomingLabel = currentAllotment.guest_name || currentAllotment.display_name || currentAllotment.operator_name || 'Operator block';
-        const occupiedLabel = currentAllotment.rooming_status === 'checked_in' || currentAllotment.allotment_status === 'in_house'
+        const occupiedLabel = currentAllotment.rooming_status === 'checked_in'
           ? 'Occupied'
           : 'Reserved';
         whyNotAssignable = departureToday
@@ -1980,6 +1981,30 @@ export async function handleUpdatePropertyAllotmentRoomingListEntry(request, env
     const existingEntry = await loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, entryId);
     if (!existingEntry) return jsonResponse({ error: 'Rooming list entry not found.' }, 404);
 
+    const nextReservationId = Object.prototype.hasOwnProperty.call(parsed.updates, 'reservation_id')
+      ? parsed.updates.reservation_id
+      : existingEntry.reservation_id;
+    const nextRoomingStatus = Object.prototype.hasOwnProperty.call(parsed.updates, 'rooming_status')
+      ? parsed.updates.rooming_status
+      : existingEntry.rooming_status;
+    let reservationRecord = null;
+    if (nextReservationId) {
+      reservationRecord = await reservationLoadPropertyReservation(env, tenantId, propertyId, nextReservationId);
+      if (!reservationRecord) return jsonResponse({ error: 'reservation_id was not found for this property.' }, 404);
+      if (!reservationMatchesRoomingEntry(reservationRecord, existingEntry)) {
+        return jsonResponse({ error: 'reservation_id does not match the rooming entry room lane.' }, 409);
+      }
+      if (['cancelled', 'no_show'].includes(String(reservationRecord.reservation.status || ''))) {
+        return jsonResponse({ error: 'reservation_id is not active enough for rooming execution.' }, 409);
+      }
+      if (nextRoomingStatus === 'checked_in' && String(reservationRecord.reservation.status || '') !== 'checked_in') {
+        return jsonResponse({ error: 'rooming_status checked_in requires a checked-in reservation.' }, 409);
+      }
+      if (nextRoomingStatus === 'checked_out' && String(reservationRecord.reservation.status || '') !== 'checked_out') {
+        return jsonResponse({ error: 'rooming_status checked_out requires a checked-out reservation.' }, 409);
+      }
+    }
+
     const sqlParts = [];
     const bindValues = [];
     for (const [key, value] of Object.entries(parsed.updates)) {
@@ -1997,7 +2022,23 @@ export async function handleUpdatePropertyAllotmentRoomingListEntry(request, env
       .run();
 
     const updated = await loadPropertyAllotmentRoomingListEntryById(env, tenantId, propertyId, allotmentId, entryId);
-    return jsonResponse({ ok: true, entry: updated });
+    let consumedGuestCharges = [];
+    let guestFolioSummary = null;
+    if (reservationRecord && updated) {
+      const consumed = await consumeDeferredGuestChargesForReservation(env, tenantId, propertyId, allotmentId, updated, reservationRecord, actor.session.user_id || null);
+      consumedGuestCharges = consumed.consumedCharges || [];
+      guestFolioSummary = consumed.summary || null;
+      if (consumedGuestCharges.length) {
+        await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_guest_charges_consumed', existingAllotment.status, existingAllotment.status, {
+          rooming_entry_id: updated.id,
+          reservation_id: reservationRecord.reservation.id,
+          deferred_guest_charge_ids: consumedGuestCharges.map((item) => item.id),
+          consumed_folio_id: consumed.folio?.id || null,
+        }, actor.session.user_id || null);
+      }
+    }
+    const syncedAllotment = await syncPropertyAllotmentExecutionStatus(env, tenantId, propertyId, allotmentId, actor.session.user_id || null);
+    return jsonResponse({ ok: true, entry: updated, allotment: syncedAllotment, consumed_guest_charges: consumedGuestCharges, guest_folio_summary: guestFolioSummary });
   } catch (error) {
     console.error('[PROPERTY_ALLOTMENT_ROOMING_LIST_PATCH]', error);
     return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500);
@@ -3507,6 +3548,117 @@ async function buildReservationFolioPayload(env, tenantId, propertyId, reservati
     lines,
     summary,
   };
+}
+
+function reservationMatchesRoomingEntry(reservationRecord, roomingEntry) {
+  const expectedRoomUnitId = String(roomingEntry?.room_unit_id || '').trim();
+  if (!expectedRoomUnitId) return false;
+  const assignedRoomUnitId = String(reservationRecord?.reservation?.assigned_room_unit_id || '').trim();
+  if (assignedRoomUnitId && assignedRoomUnitId === expectedRoomUnitId) return true;
+  return Boolean((reservationRecord?.segments || []).some((segment) => String(segment.room_unit_id || '').trim() === expectedRoomUnitId));
+}
+
+async function syncPropertyAllotmentExecutionStatus(env, tenantId, propertyId, allotmentId, actorUserId = null) {
+  const allotment = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+  if (!allotment) return null;
+  const entries = await listPropertyAllotmentRoomingListEntries(env, tenantId, propertyId, allotmentId);
+  const hasCheckedIn = entries.some((entry) => String(entry.rooming_status || '') === 'checked_in');
+  const targetStatus = hasCheckedIn
+    ? 'in_house'
+    : (String(allotment.status || '') === 'in_house' ? 'confirmed' : String(allotment.status || ''));
+  if (targetStatus === String(allotment.status || '')) return allotment;
+
+  await env.DB
+    .prepare(
+      `UPDATE property_allotments
+          SET status = ?,
+              updated_by = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    )
+    .bind(targetStatus, actorUserId || null, currentUnixSeconds(), allotmentId, tenantId, propertyId)
+    .run();
+  await recordPropertyAllotmentEvent(env, tenantId, propertyId, allotmentId, 'allotment_execution_status_updated', allotment.status, targetStatus, {
+    has_checked_in_rooming_entries: hasCheckedIn,
+  }, actorUserId || null);
+  return loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
+}
+
+async function consumeDeferredGuestChargesForReservation(env, tenantId, propertyId, allotmentId, roomingEntry, reservationRecord, actorUserId = null) {
+  const reservationId = String(reservationRecord?.reservation?.id || '').trim();
+  if (!reservationId || !roomingEntry?.id) {
+    return { consumedCharges: [], folio: null, summary: null };
+  }
+
+  const pendingResult = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, allotment_id, rooming_entry_id, reservation_id, line_type, source_type, category,
+              description, quantity, unit_amount, total_amount, currency, routing_status, note, created_by, consumed_folio_id,
+              consumed_folio_line_id, consumed_at, created_at, updated_at
+         FROM property_allotment_deferred_guest_charges
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND allotment_id = ?
+          AND rooming_entry_id = ?
+          AND routing_status = 'pending_guest_folio'
+        ORDER BY created_at ASC`
+    )
+    .bind(tenantId, propertyId, allotmentId, roomingEntry.id)
+    .all();
+  const pendingCharges = (pendingResult.results || []).map(mapPropertyAllotmentDeferredGuestChargeRow);
+  if (!pendingCharges.length) {
+    return { consumedCharges: [], folio: null, summary: null };
+  }
+
+  const folio = await ensureReservationFolio(env, tenantId, propertyId, reservationRecord);
+  const now = currentUnixSeconds();
+  const insertStatements = [];
+  const updateStatements = [];
+  const consumedCharges = [];
+
+  for (const charge of pendingCharges) {
+    const folioLineId = nanoid();
+    insertStatements.push(env.DB.prepare(
+      `INSERT INTO folio_lines
+        (id, tenant_id, property_id, folio_id, line_type, source_type, category, description,
+         quantity, unit_amount, total_amount, currency, status, posted_at, posted_by, note, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, ?)`
+    ).bind(
+      folioLineId,
+      tenantId,
+      propertyId,
+      folio.id,
+      charge.line_type,
+      'allotment_guest_charge',
+      charge.category,
+      charge.description,
+      charge.quantity,
+      charge.unit_amount,
+      charge.total_amount,
+      charge.currency,
+      now,
+      actorUserId || null,
+      charge.note,
+      now,
+      now,
+    ));
+    updateStatements.push(env.DB.prepare(
+      `UPDATE property_allotment_deferred_guest_charges
+          SET reservation_id = ?,
+              routing_status = 'posted_to_guest_folio',
+              consumed_folio_id = ?,
+              consumed_folio_line_id = ?,
+              consumed_at = ?,
+              updated_at = ?
+        WHERE id = ? AND tenant_id = ? AND property_id = ?`
+    ).bind(reservationId, folio.id, folioLineId, now, now, charge.id, tenantId, propertyId));
+    consumedCharges.push({ ...charge, reservation_id: reservationId, consumed_folio_id: folio.id, consumed_folio_line_id: folioLineId, consumed_at: now, routing_status: 'posted_to_guest_folio' });
+  }
+
+  if (insertStatements.length) await env.DB.batch(insertStatements);
+  if (updateStatements.length) await env.DB.batch(updateStatements);
+  const summary = await recalculateFolioStatus(env, tenantId, propertyId, folio.id);
+  return { consumedCharges, folio, summary };
 }
 
 async function loadLatestRoomStatesByUnitIds(env, tenantId, propertyId, roomUnitIds) {

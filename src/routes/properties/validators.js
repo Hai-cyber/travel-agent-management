@@ -533,7 +533,7 @@ function validatePropertyAllotmentAllocateRequest(body) {
 }
 
 function validatePropertyAllotmentRoomingListPatchRequest(body) {
-  const allowed = new Set(['display_name', 'guest_name', 'note', 'rooming_status', 'payer_scope']);
+  const allowed = new Set(['display_name', 'guest_name', 'note', 'rooming_status', 'payer_scope', 'reservation_id']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -557,6 +557,7 @@ function validatePropertyAllotmentRoomingListPatchRequest(body) {
     if (!PROPERTY_ALLOTMENT_PAYER_SCOPES.has(value)) return { error: 'payer_scope is invalid.' };
     updates.payer_scope = value;
   }
+  if ('reservation_id' in body) updates.reservation_id = body.reservation_id ? String(body.reservation_id).trim() : null;
   return { updates };
 }
 

@@ -142,6 +142,7 @@ function mapPropertyAllotmentAllocationRow(row) {
 function mapPropertyAllotmentRoomingListEntryRow(row) {
   return {
     ...row,
+    reservation_id: row.reservation_id || null,
     guest_name: row.guest_name || null,
     note: row.note || null,
   };
@@ -164,6 +165,9 @@ function mapPropertyAllotmentMasterFolioLineRow(row) {
 function mapPropertyAllotmentDeferredGuestChargeRow(row) {
   return {
     ...row,
+    reservation_id: row.reservation_id || null,
+    consumed_folio_id: row.consumed_folio_id || null,
+    consumed_folio_line_id: row.consumed_folio_line_id || null,
     note: row.note || null,
   };
 }
