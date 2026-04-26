@@ -1590,6 +1590,9 @@
         boardDate: new Date().toISOString().slice(0, 10),
         boardStatus: 'all',
         reservations: [],
+        frontdeskEntries: [],
+        selectedFrontdeskEntryKey: '',
+        currentFrontdeskEntry: null,
         selectedReservationId: '',
         currentReservation: null,
         roomUnits: [],
@@ -1916,9 +1919,12 @@
       }
 
       function renderMetrics() {
-        const arrivals = state.reservations.filter((item) => item.arrival_today).length;
-        const departures = state.reservations.filter((item) => item.departure_today).length;
-        const stayovers = state.reservations.filter((item) => item.stayover).length;
+        const frontdeskEntries = Array.isArray(state.frontdeskEntries) && state.frontdeskEntries.length
+          ? state.frontdeskEntries
+          : state.reservations;
+        const arrivals = frontdeskEntries.filter((item) => item.arrival_today).length;
+        const departures = frontdeskEntries.filter((item) => item.departure_today).length;
+        const stayovers = frontdeskEntries.filter((item) => item.stayover).length;
         const maintenance = state.roomUnits.filter((unit) => ['maintenance', 'out_of_order'].includes(unit.operational_status)).length;
         els.metricArrivals.textContent = String(arrivals);
         els.metricDepartures.textContent = String(departures);
@@ -1926,24 +1932,99 @@
         els.metricMaintenance.textContent = String(maintenance);
       }
 
+      function frontdeskEntryKey(entry) {
+        const entryType = String(entry?.entry_type || 'reservation').trim() || 'reservation';
+        const id = String(entry?.id || entry?.reservation_id || entry?.rooming_entry_id || '').trim();
+        return id ? `${entryType}:${id}` : '';
+      }
+
+      function buildAllotmentFrontdeskEntry(entry, allotment) {
+        const status = entry.rooming_status === 'checked_in'
+          ? 'checked_in'
+          : entry.rooming_status === 'checked_out'
+            ? 'checked_out'
+            : 'confirmed';
+        const arrivalToday = String(allotment.check_in || '') === String(state.boardDate || '');
+        const departureToday = String(allotment.check_out || '') === String(state.boardDate || '');
+        const stayover = String(allotment.check_in || '') < String(state.boardDate || '') && String(allotment.check_out || '') > String(state.boardDate || '');
+        return {
+          entry_type: 'allotment_rooming',
+          id: entry.id,
+          rooming_entry_id: entry.id,
+          allotment_id: allotment.id,
+          operator_name: allotment.operator_name,
+          guest_name: entry.guest_name || entry.display_name || allotment.operator_name || 'Operator Guest',
+          guest_email: null,
+          guest_phone: null,
+          room_type_id: entry.room_type_id || allotment.room_type_id || null,
+          room_type_code: entry.room_type_code || allotment.room_type_code || allotment.room_type_name || 'ROH',
+          room_type_name: entry.room_type_name || allotment.room_type_name || null,
+          room_unit_id: entry.room_unit_id,
+          assigned_room_unit_id: entry.room_unit_id,
+          assigned_room_number: entry.room_number || null,
+          allocated_room_unit_ids: entry.room_unit_id ? [String(entry.room_unit_id)] : [],
+          allocated_room_numbers: entry.room_number ? [String(entry.room_number)] : [],
+          rooms_requested: 1,
+          adults: 0,
+          children: 0,
+          status,
+          rooming_status: entry.rooming_status,
+          payer_scope: entry.payer_scope,
+          reservation_id: entry.reservation_id || null,
+          check_in: allotment.check_in,
+          check_out: allotment.check_out,
+          arrival_today: arrivalToday,
+          departure_today: departureToday,
+          stayover,
+          special_requests: entry.note || null,
+          pricing_snapshot: null,
+        };
+      }
+
+      async function buildFrontdeskEntries() {
+        if (!state.selectedPropertyId) return [];
+        const allotmentPayload = await api(`/api/properties/${state.selectedPropertyId}/allotments?status=all&from_date=${encodeURIComponent(state.boardDate)}&days=1`);
+        const allotments = Array.isArray(allotmentPayload.allotments)
+          ? allotmentPayload.allotments.filter((item) => ['confirmed', 'in_house'].includes(String(item.status || '')))
+          : [];
+        const roomingPayloads = await Promise.all(allotments.map(async (allotment) => {
+          const payload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${allotment.id}/rooming-list`);
+          return { allotment, entries: Array.isArray(payload.entries) ? payload.entries : [] };
+        }));
+        const allotmentEntries = roomingPayloads.flatMap(({ allotment, entries }) => entries.map((entry) => buildAllotmentFrontdeskEntry(entry, allotment)));
+        const filteredAllotmentEntries = allotmentEntries.filter((entry) => {
+          if (state.boardStatus === 'all') return true;
+          return String(entry.status || '') === String(state.boardStatus || '');
+        });
+        const combined = [
+          ...(Array.isArray(state.reservations) ? state.reservations.map((reservation) => ({ ...reservation, entry_type: 'reservation' })) : []),
+          ...filteredAllotmentEntries,
+        ];
+        return combined.sort((a, b) => String(a.check_in || '').localeCompare(String(b.check_in || '')) || String(a.guest_name || '').localeCompare(String(b.guest_name || '')));
+      }
+
       function renderReservations() {
-        if (!state.reservations.length) {
+        const entries = Array.isArray(state.frontdeskEntries) ? state.frontdeskEntries : [];
+        if (!entries.length) {
           els.reservationList.innerHTML = '<div class="empty">No reservations match this board date and status.</div>';
           return;
         }
-        els.reservationList.innerHTML = state.reservations.map((reservation) => {
+        els.reservationList.innerHTML = entries.map((reservation) => {
           const lane = reservation.arrival_today ? 'arrival' : (reservation.departure_today ? 'departure' : 'stayover');
+          const activeKey = frontdeskEntryKey(reservation);
+          const typeTag = reservation.entry_type === 'allotment_rooming' ? 'operator' : 'reservation';
           return `
-            <button class="reservation-item ${reservation.id === state.selectedReservationId ? 'active' : ''}" data-reservation-id="${reservation.id}">
+            <button class="reservation-item ${activeKey === state.selectedFrontdeskEntryKey ? 'active' : ''}" data-frontdesk-entry-key="${escapeHtml(activeKey)}">
               <div class="list-card-head">
                 <div>
                   <strong>${escapeHtml(reservation.guest_name || 'Unknown Guest')}</strong>
-                  <div class="muted">${escapeHtml(reservation.room_type_code || reservation.room_type_id || 'room')} · ${escapeHtml(reservation.check_in)} -> ${escapeHtml(reservation.check_out)}</div>
+                  <div class="muted">${escapeHtml(reservation.room_type_code || reservation.room_type_id || 'room')} · ${escapeHtml(reservation.check_in)} -> ${escapeHtml(reservation.check_out)}${reservation.assigned_room_number ? ` · ${escapeHtml(reservation.assigned_room_number)}` : ''}</div>
                 </div>
                 <span class="tag ${reservation.status === 'checked_in' ? 'ok' : reservation.status === 'cancelled' || reservation.status === 'no_show' ? 'danger' : 'warn'}">${escapeHtml(reservation.status)}</span>
               </div>
               <div class="pill-row">
                 <span class="tag">${escapeHtml(lane)}</span>
+                <span class="tag">${escapeHtml(typeTag)}</span>
                 <span class="tag">${Number(reservation.adults || 0)}A/${Number(reservation.children || 0)}C</span>
                 <span class="tag">${Number(reservation.rooms_requested || 0)} room(s)</span>
               </div>
@@ -1953,12 +2034,40 @@
       }
 
       function renderReservationDetail() {
+        const frontdeskEntry = state.currentFrontdeskEntry;
         const record = state.currentReservation;
         const reservation = record?.reservation || null;
-        if (!reservation) {
+        if (!frontdeskEntry) {
           els.frontdeskDetail.innerHTML = 'Select a reservation from the board or load one by id.';
           els.reservationTimeline.innerHTML = '<div class="empty">Load a reservation to inspect its lifecycle timeline.</div>';
           els.supportResponse.textContent = 'Support actions will render here.';
+          Array.from(els.reservationActionRow.querySelectorAll('[data-reservation-action]')).forEach((button) => { button.hidden = false; button.disabled = false; });
+          return;
+        }
+        if (frontdeskEntry.entry_type === 'allotment_rooming') {
+          els.frontdeskDetail.innerHTML = `
+            <div class="list-card-head">
+              <div>
+                <strong>${escapeHtml(frontdeskEntry.guest_name || 'Operator Guest')}</strong>
+                <div class="muted">${escapeHtml(frontdeskEntry.operator_name || 'Operator block')} · ${escapeHtml(frontdeskEntry.assigned_room_number || frontdeskEntry.room_unit_id || 'room')}</div>
+              </div>
+              <span class="tag ${frontdeskEntry.status === 'checked_in' ? 'ok' : frontdeskEntry.status === 'checked_out' ? 'secondary' : 'warn'}">${escapeHtml(frontdeskEntry.status)}</span>
+            </div>
+            <div class="stack">
+              <div>${escapeHtml(frontdeskEntry.check_in)} -> ${escapeHtml(frontdeskEntry.check_out)}</div>
+              <div>${escapeHtml(frontdeskEntry.room_type_code || frontdeskEntry.room_type_id || 'ROH')} · 1 room</div>
+              <div>Rooming status: ${escapeHtml(frontdeskEntry.rooming_status || 'pending')} · Payer scope: ${escapeHtml(frontdeskEntry.payer_scope || 'guest')}</div>
+              <div>Linked reservation: ${escapeHtml(frontdeskEntry.reservation_id || 'none')}</div>
+            </div>
+          `;
+          els.effectiveCheckoutDate.value = frontdeskEntry.check_out || '';
+          renderTimeline(frontdeskEntry.events || []);
+          els.supportResponse.textContent = JSON.stringify(frontdeskEntry, null, 2);
+          Array.from(els.reservationActionRow.querySelectorAll('[data-reservation-action]')).forEach((button) => {
+            const action = button.getAttribute('data-reservation-action');
+            button.hidden = !['check-in', 'check-out', 'undo-status'].includes(action);
+            button.disabled = false;
+          });
           return;
         }
         els.frontdeskDetail.innerHTML = `
@@ -1979,6 +2088,7 @@
         els.effectiveCheckoutDate.value = reservation.check_out || '';
         renderTimeline(record.events || []);
         els.supportResponse.textContent = JSON.stringify(record, null, 2);
+        Array.from(els.reservationActionRow.querySelectorAll('[data-reservation-action]')).forEach((button) => { button.hidden = false; button.disabled = false; });
       }
 
       function renderTimeline(events) {
@@ -4174,6 +4284,9 @@
           state.activeHolds = [];
           state.shiftHandover = null;
           state.currentReservation = null;
+          state.frontdeskEntries = [];
+          state.currentFrontdeskEntry = null;
+          state.selectedFrontdeskEntryKey = '';
           renderMetrics();
           renderReservations();
           renderReservationDetail();
@@ -4202,6 +4315,7 @@
           api(`/api/properties/${state.selectedPropertyId}/shift-handover`),
         ]);
         state.reservations = reservationPayload.reservations || [];
+        state.frontdeskEntries = await buildFrontdeskEntries();
         state.roomUnits = roomUnitsPayload.room_units || [];
         state.addonServicePresets = addonPresetsPayload.addon_service_presets || [];
         state.roomTypes = roomTypesPayload.room_types || [];
@@ -4214,6 +4328,10 @@
         state.activeHolds = holdsPayload.holds || [];
         state.shiftHandover = shiftHandoverPayload.shift_handover || null;
         for (const reservation of state.reservations) hydrateGuestPhotoCacheFromReservation(reservation);
+        if (state.selectedFrontdeskEntryKey) {
+          const selectedFrontdeskEntry = state.frontdeskEntries.find((entry) => frontdeskEntryKey(entry) === state.selectedFrontdeskEntryKey) || null;
+          state.currentFrontdeskEntry = selectedFrontdeskEntry;
+        }
         if (state.selectedReservationId) {
           try {
             const detail = await api(`/api/properties/${state.selectedPropertyId}/reservations/${state.selectedReservationId}`);
@@ -4223,6 +4341,15 @@
             state.currentReservation = null;
             state.selectedReservationId = '';
           }
+        }
+        if (state.currentFrontdeskEntry?.entry_type === 'allotment_rooming') {
+          try {
+            const eventsPayload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${state.currentFrontdeskEntry.allotment_id}/events?limit=12`);
+            state.currentFrontdeskEntry = {
+              ...state.currentFrontdeskEntry,
+              events: Array.isArray(eventsPayload.events) ? eventsPayload.events : [],
+            };
+          } catch {}
         }
         renderSelectedPropertySummary();
         renderMetrics();
@@ -4242,7 +4369,9 @@
         if (!state.selectedPropertyId || !reservationId) return;
         const payload = await api(`/api/properties/${state.selectedPropertyId}/reservations/${reservationId}`);
         state.selectedReservationId = reservationId;
+        state.selectedFrontdeskEntryKey = `reservation:${reservationId}`;
         state.currentReservation = payload;
+        state.currentFrontdeskEntry = { ...(payload.reservation || {}), entry_type: 'reservation' };
         renderReservations();
         renderReservationDetail();
       }
@@ -4416,10 +4545,31 @@
       });
 
       els.reservationList.addEventListener('click', async (event) => {
-        const button = event.target.closest('[data-reservation-id]');
+        const button = event.target.closest('[data-frontdesk-entry-key]');
         if (!button) return;
+        const entryKey = button.getAttribute('data-frontdesk-entry-key');
+        const entry = state.frontdeskEntries.find((item) => frontdeskEntryKey(item) === entryKey) || null;
+        if (!entry) return;
+        state.selectedFrontdeskEntryKey = entryKey;
+        state.currentFrontdeskEntry = entry;
+        if (entry.entry_type === 'reservation') {
+          try {
+            await loadReservation(entry.id);
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+          return;
+        }
         try {
-          await loadReservation(button.getAttribute('data-reservation-id'));
+          const eventsPayload = await api(`/api/properties/${state.selectedPropertyId}/allotments/${entry.allotment_id}/events?limit=12`);
+          state.currentReservation = null;
+          state.selectedReservationId = '';
+          state.currentFrontdeskEntry = {
+            ...entry,
+            events: Array.isArray(eventsPayload.events) ? eventsPayload.events : [],
+          };
+          renderReservations();
+          renderReservationDetail();
         } catch (error) {
           setFlash(error.message, 'err');
         }
@@ -4427,8 +4577,30 @@
 
       els.reservationActionRow.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-reservation-action]');
-        if (!button || !state.selectedPropertyId || !state.selectedReservationId) return;
+        if (!button || !state.selectedPropertyId || !state.currentFrontdeskEntry) return;
         const action = button.getAttribute('data-reservation-action');
+        if (state.currentFrontdeskEntry.entry_type === 'allotment_rooming') {
+          const roomingStatus = action === 'check-in'
+            ? 'checked_in'
+            : action === 'check-out'
+              ? 'checked_out'
+              : 'named';
+          try {
+            await api(`/api/properties/${state.selectedPropertyId}/allotments/${state.currentFrontdeskEntry.allotment_id}/rooming-list/${state.currentFrontdeskEntry.rooming_entry_id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ rooming_status: roomingStatus }),
+            });
+            await loadWorkspace();
+            const refreshedEntry = state.frontdeskEntries.find((entry) => frontdeskEntryKey(entry) === state.selectedFrontdeskEntryKey) || null;
+            state.currentFrontdeskEntry = refreshedEntry;
+            renderReservations();
+            renderReservationDetail();
+            setFlash(`Operator room ${action} completed.`);
+          } catch (error) {
+            setFlash(error.message, 'err');
+          }
+          return;
+        }
         try {
           let payload;
           if (action === 'early-check-out') {
