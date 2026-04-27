@@ -123,6 +123,9 @@ function mapPropertyAllotmentRow(row) {
   return {
     ...row,
     rooms_blocked: Number(row.rooms_blocked || 0),
+    pricing_profile_id: row.pricing_profile_id || null,
+    pricing_profile_code: row.pricing_profile_code || null,
+    pricing_profile_name: row.pricing_profile_name || null,
     roh_capacity_filter: rohCapacityFilter,
     inventory_blocking: Boolean(row.inventory_blocking),
     commitment_blocking: Boolean(row.inventory_blocking),

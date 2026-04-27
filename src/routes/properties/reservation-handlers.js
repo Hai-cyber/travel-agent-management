@@ -175,6 +175,9 @@ function createReservationHandlers(deps) {
         if (allotmentError) {
           return jsonResponse({ error: allotmentError }, activeAllotment ? 409 : 404);
         }
+        if (!parsedRequest.pricingProfileId && activeAllotment?.pricing_profile_id) {
+          parsedRequest.pricingProfileId = String(activeAllotment.pricing_profile_id).trim() || null;
+        }
       }
 
       let activeHold = null;

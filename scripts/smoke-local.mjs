@@ -1387,11 +1387,32 @@ async function runPropertyReservationPlannerSmoke(baseUrl, token) {
 
   const allotmentCheckIn = '2026-09-20';
   const allotmentCheckOut = '2026-09-22';
+  const allotmentPricingProfileCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/pricing-profiles`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      code: `B2B-${uniqueSuffix.slice(-4)}`,
+      name: 'Allotment B2B Contract',
+      visibility: 'planner_only',
+      pricing_mode: 'fixed_nightly_amount',
+      fixed_nightly_amount: 79,
+      notes: 'Smoke allotment pricing profile',
+      active: 1,
+    }),
+  });
+  if (!allotmentPricingProfileCreate.response.ok || !allotmentPricingProfileCreate.body?.pricing_profile?.id) {
+    fail(`Property planner smoke could not create the allotment pricing profile: ${allotmentPricingProfileCreate.response.status} ${JSON.stringify(allotmentPricingProfileCreate.body)}`);
+    return;
+  }
+  const allotmentPricingProfileId = allotmentPricingProfileCreate.body.pricing_profile.id;
+
   const allotmentCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/allotments`, {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
       room_type_id: roomTypeId,
+      pricing_profile_id: allotmentPricingProfileId,
       operator_name: `Smoke Operator ${uniqueSuffix.slice(-4)}`,
       operator_code: 'SMOKE',
       source_ref: `ALLOT-${uniqueSuffix}`,
@@ -1404,6 +1425,10 @@ async function runPropertyReservationPlannerSmoke(baseUrl, token) {
   });
   if (!allotmentCreate.response.ok || !allotmentCreate.body?.allotment?.id) {
     fail(`Property planner smoke could not create the allotment: ${allotmentCreate.response.status} ${JSON.stringify(allotmentCreate.body)}`);
+    return;
+  }
+  if (String(allotmentCreate.body?.allotment?.pricing_profile_id || '') !== String(allotmentPricingProfileId)) {
+    fail(`Property planner smoke did not persist pricing_profile_id on the allotment: ${JSON.stringify(allotmentCreate.body)}`);
     return;
   }
   const allotmentId = allotmentCreate.body.allotment.id;
@@ -1468,7 +1493,22 @@ async function runPropertyReservationPlannerSmoke(baseUrl, token) {
     fail(`First allotment-backed reservation did not decrement the block as expected: ${allotmentReservationOne.response.status} ${JSON.stringify(allotmentReservationOne.body)}`);
     return;
   }
-  pass('First allotment-backed reservation decrements blocked inventory');
+  const allotmentReservationOneId = String(allotmentReservationOne.body?.reservation?.id || '').trim();
+  const allotmentReservationOneDetail = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations/${encodeURIComponent(allotmentReservationOneId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+  if (
+    !allotmentReservationOneId
+    || !allotmentReservationOneDetail.response.ok
+    || String(allotmentReservationOneDetail.body?.reservation?.pricing_snapshot?.pricing_profile_id || '') !== String(allotmentPricingProfileId)
+  ) {
+    fail(`First allotment-backed reservation did not inherit the allotment pricing profile: ${allotmentReservationOneDetail.response.status} ${JSON.stringify(allotmentReservationOneDetail.body)}`);
+    return;
+  }
+  pass('First allotment-backed reservation decrements blocked inventory and inherits allotment pricing profile');
 
   const allotmentReservationTwo = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/reservations`, {
     method: 'POST',

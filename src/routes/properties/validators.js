@@ -341,6 +341,7 @@ function validateRoomUnitFlagPatchRequest(body) {
 function validatePropertyAllotmentCreateRequest(body, propertyId) {
   const property = String(propertyId || '').trim();
   const roomTypeId = body?.room_type_id == null ? null : (String(body.room_type_id || '').trim() || null);
+  const pricingProfileId = body?.pricing_profile_id == null ? null : (String(body.pricing_profile_id || '').trim() || null);
   const rohCapacityFilter = body?.roh_capacity_filter == null ? null : (String(body.roh_capacity_filter || '').trim() || null);
   const operatorName = String(body?.operator_name || '').trim();
   const operatorCode = body?.operator_code ? String(body.operator_code).trim() : null;
@@ -366,6 +367,7 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
   return {
     propertyId: property,
     roomTypeId,
+    pricingProfileId,
     rohCapacityFilter: roomTypeId == null ? (rohCapacityFilter || 'gte_2') : null,
     operatorName,
     operatorCode,
@@ -380,7 +382,7 @@ function validatePropertyAllotmentCreateRequest(body, propertyId) {
 }
 
 function validatePropertyAllotmentPatchRequest(body) {
-  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'status', 'roh_capacity_filter']);
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'status', 'roh_capacity_filter', 'pricing_profile_id']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for update.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -424,6 +426,7 @@ function validatePropertyAllotmentPatchRequest(body) {
     }
     updates.roh_capacity_filter = value;
   }
+  if ('pricing_profile_id' in body) updates.pricing_profile_id = body.pricing_profile_id ? String(body.pricing_profile_id).trim() : null;
   if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
   if ('status' in body) {
     const value = String(body.status || '').trim();
@@ -434,7 +437,7 @@ function validatePropertyAllotmentPatchRequest(body) {
 }
 
 function validatePropertyAllotmentReworkPreviewRequest(body) {
-  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'roh_capacity_filter']);
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'roh_capacity_filter', 'pricing_profile_id']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for preview.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -479,12 +482,13 @@ function validatePropertyAllotmentReworkPreviewRequest(body) {
     }
     updates.roh_capacity_filter = value;
   }
+  if ('pricing_profile_id' in body) updates.pricing_profile_id = body.pricing_profile_id ? String(body.pricing_profile_id).trim() : null;
   if ('notes' in body) updates.notes = body.notes ? String(body.notes).trim() : null;
   return { updates };
 }
 
 function validatePropertyAllotmentSplitRequest(body) {
-  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes']);
+  const allowed = new Set(['operator_name', 'operator_code', 'source_ref', 'room_type_id', 'check_in', 'check_out', 'release_date', 'rooms_blocked', 'notes', 'pricing_profile_id']);
   const keys = Object.keys(body || {});
   if (!keys.length) return { error: 'No fields provided for split.' };
   const unknown = keys.filter((key) => !allowed.has(key));
@@ -519,6 +523,7 @@ function validatePropertyAllotmentSplitRequest(body) {
       check_out: checkOut,
       release_date: releaseDate,
       rooms_blocked: roomsBlocked,
+      pricing_profile_id: body?.pricing_profile_id ? String(body.pricing_profile_id).trim() : null,
       notes: body?.notes ? String(body.notes).trim() : null,
     },
   };

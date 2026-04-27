@@ -473,9 +473,10 @@ async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId)
   const row = await env.DB
     .prepare(
             `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
-              pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.roh_capacity_filter, pa.release_date, pa.status,
+              pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.pricing_profile_id, pa.roh_capacity_filter, pa.release_date, pa.status,
               pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
               rt.code AS room_type_code, rt.name AS room_type_name,
+              ppp.code AS pricing_profile_code, ppp.name AS pricing_profile_name,
               CASE
                 WHEN pa.status IN ('draft', 'active', 'allocated') AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
                 WHEN pa.status IN ('confirmed', 'in_house') THEN 1
@@ -499,6 +500,10 @@ async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId)
            ON rt.id = pa.room_type_id
           AND rt.tenant_id = pa.tenant_id
           AND rt.property_id = pa.property_id
+         LEFT JOIN property_pricing_profiles ppp
+           ON ppp.id = pa.pricing_profile_id
+          AND ppp.tenant_id = pa.tenant_id
+          AND ppp.property_id = pa.property_id
         WHERE pa.id = ? AND pa.tenant_id = ? AND pa.property_id = ?`
     )
     .bind(todayIso, todayIso, todayIso, allotmentId, tenantId, propertyId)
@@ -509,9 +514,10 @@ async function loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId)
 async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate, toDate, status = 'all') {
   const todayIso = formatDateUtc(new Date());
   let sql = `SELECT pa.id, pa.tenant_id, pa.property_id, pa.room_type_id, pa.operator_name, pa.operator_code,
-                    pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.roh_capacity_filter, pa.release_date, pa.status,
+                    pa.source_ref, pa.check_in, pa.check_out, pa.rooms_blocked, pa.pricing_profile_id, pa.roh_capacity_filter, pa.release_date, pa.status,
                     pa.notes, pa.created_by, pa.updated_by, pa.created_at, pa.updated_at,
                     rt.code AS room_type_code, rt.name AS room_type_name,
+                    ppp.code AS pricing_profile_code, ppp.name AS pricing_profile_name,
                     CASE
                       WHEN pa.status IN ('draft', 'active', 'allocated') AND (pa.release_date IS NULL OR pa.release_date >= ?) THEN 1
                       WHEN pa.status IN ('confirmed', 'in_house') THEN 1
@@ -535,6 +541,10 @@ async function listPropertyAllotmentsInRange(env, tenantId, propertyId, fromDate
                  ON rt.id = pa.room_type_id
                 AND rt.tenant_id = pa.tenant_id
                 AND rt.property_id = pa.property_id
+               LEFT JOIN property_pricing_profiles ppp
+                 ON ppp.id = pa.pricing_profile_id
+                AND ppp.tenant_id = pa.tenant_id
+                AND ppp.property_id = pa.property_id
               WHERE pa.tenant_id = ?
                 AND pa.property_id = ?
                 AND pa.check_in < ?
@@ -1161,6 +1171,7 @@ async function buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, ex
     existing_allotment: existing,
     proposed_allotment: {
       ...proposed,
+      pricing_profile_id: proposed.pricing_profile_id || null,
       roh_capacity_filter: proposed.room_type_id ? null : (candidateSummary.effectiveRohCapacityFilter || proposed.roh_capacity_filter || null),
     },
     policy: {
@@ -1198,6 +1209,29 @@ async function buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, ex
       effectiveRohCapacityFilter: candidateSummary.effectiveRohCapacityFilter || null,
     },
   };
+}
+
+function pricingProfileAppliesToAllotment(pricingProfile, allotmentLike) {
+  if (!pricingProfile) return false;
+  if (!pricingProfile.active) return false;
+  if (String(pricingProfile.visibility || '') !== 'planner_only') return false;
+  const allotmentRoomTypeId = String(allotmentLike?.room_type_id || '').trim();
+  const profileRoomTypeId = String(pricingProfile.room_type_id || '').trim();
+  if (!allotmentRoomTypeId) {
+    return !profileRoomTypeId;
+  }
+  return !profileRoomTypeId || profileRoomTypeId === allotmentRoomTypeId;
+}
+
+async function assertAllotmentPricingProfile(env, tenantId, propertyId, allotmentLike) {
+  const pricingProfileId = String(allotmentLike?.pricing_profile_id || '').trim();
+  if (!pricingProfileId) return { pricingProfile: null };
+  const pricingProfile = await loadPropertyPricingProfileById(env, tenantId, propertyId, pricingProfileId);
+  if (!pricingProfile) return { error: { status: 404, payload: { error: 'pricing_profile_id not found for this property.' } } };
+  if (!pricingProfileAppliesToAllotment(pricingProfile, allotmentLike)) {
+    return { error: { status: 409, payload: { error: 'pricing_profile_id does not apply to this allotment shape.' } } };
+  }
+  return { pricingProfile };
 }
 
 function sanitizePropertyAllotmentReworkPreview(preview) {
@@ -2064,14 +2098,19 @@ export async function handleCreatePropertyAllotment(request, env, params) {
       const roomType = await loadRoomTypeById(env, tenantId, propertyId, parsed.roomTypeId);
       if (!roomType) return jsonResponse({ error: 'room_type_id not found for this property.' }, 404);
     }
+    const pricingProfileCheck = await assertAllotmentPricingProfile(env, tenantId, propertyId, {
+      room_type_id: parsed.roomTypeId,
+      pricing_profile_id: parsed.pricingProfileId,
+    });
+    if (pricingProfileCheck.error) return jsonResponse(pricingProfileCheck.error.payload, pricingProfileCheck.error.status);
     const now = currentUnixSeconds();
     const allotmentId = nanoid();
     await env.DB
       .prepare(
         `INSERT INTO property_allotments
           (id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref,
-           check_in, check_out, rooms_blocked, roh_capacity_filter, release_date, status, notes, created_by, updated_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
+           check_in, check_out, rooms_blocked, pricing_profile_id, roh_capacity_filter, release_date, status, notes, created_by, updated_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
       )
       .bind(
         allotmentId,
@@ -2084,6 +2123,7 @@ export async function handleCreatePropertyAllotment(request, env, params) {
         parsed.checkIn,
         parsed.checkOut,
         parsed.roomsBlocked,
+        parsed.pricingProfileId,
         parsed.rohCapacityFilter,
         parsed.releaseDate,
         parsed.notes,
@@ -2099,6 +2139,7 @@ export async function handleCreatePropertyAllotment(request, env, params) {
       check_in: parsed.checkIn,
       check_out: parsed.checkOut,
       rooms_blocked: parsed.roomsBlocked,
+      pricing_profile_id: parsed.pricingProfileId,
       release_date: parsed.releaseDate,
       roh_capacity_filter: parsed.rohCapacityFilter,
     }, actor.session.user_id || null);
@@ -2129,6 +2170,12 @@ export async function handleUpdatePropertyAllotment(request, env, params) {
     if (existing.room_type_id && 'roh_capacity_filter' in parsed.updates) {
       parsed.updates.roh_capacity_filter = null;
     }
+
+    const pricingProfileCheck = await assertAllotmentPricingProfile(env, tenantId, propertyId, {
+      ...existing,
+      ...parsed.updates,
+    });
+    if (pricingProfileCheck.error) return jsonResponse(pricingProfileCheck.error.payload, pricingProfileCheck.error.status);
 
     const mergedCheckIn = parsed.updates.check_in || existing.check_in;
     const mergedCheckOut = parsed.updates.check_out || existing.check_out;
@@ -2179,6 +2226,11 @@ export async function handlePreviewPropertyAllotmentRework(request, env, params)
   try {
     const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
     if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const pricingProfileCheck = await assertAllotmentPricingProfile(env, tenantId, propertyId, {
+      ...existing,
+      ...parsed.updates,
+    });
+    if (pricingProfileCheck.error) return jsonResponse(pricingProfileCheck.error.payload, pricingProfileCheck.error.status);
     const preview = await buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, parsed.updates);
     return jsonResponse({ ok: true, ...sanitizePropertyAllotmentReworkPreview(preview) });
   } catch (error) {
@@ -2203,6 +2255,11 @@ export async function handleApplyPropertyAllotmentRework(request, env, params) {
   try {
     const existing = await loadPropertyAllotmentById(env, tenantId, propertyId, allotmentId);
     if (!existing) return jsonResponse({ error: 'Allotment not found.' }, 404);
+    const pricingProfileCheck = await assertAllotmentPricingProfile(env, tenantId, propertyId, {
+      ...existing,
+      ...parsed.updates,
+    });
+    if (pricingProfileCheck.error) return jsonResponse(pricingProfileCheck.error.payload, pricingProfileCheck.error.status);
     const preview = await buildPropertyAllotmentReworkPreview(env, tenantId, propertyId, existing, parsed.updates);
     if (preview.policy.inventory_locked) return jsonResponse({ error: 'In-house allotments cannot change inventory shape.' }, 409);
     if (preview.policy.requires_split) return jsonResponse({ error: 'This confirmed non-ROH change requires the split flow.', preview }, 409);
@@ -2221,6 +2278,7 @@ export async function handleApplyPropertyAllotmentRework(request, env, params) {
       check_out: proposed.check_out,
       release_date: proposed.release_date,
       rooms_blocked: proposed.rooms_blocked,
+      pricing_profile_id: proposed.pricing_profile_id,
       notes: proposed.notes,
       roh_capacity_filter: proposed.roh_capacity_filter,
     })) {
@@ -2341,9 +2399,12 @@ export async function handleSplitPropertyAllotment(request, env, params) {
       check_out: childCheckOut,
       release_date: parsed.child.release_date || existing.release_date,
       rooms_blocked: parsed.child.rooms_blocked,
+      pricing_profile_id: parsed.child.pricing_profile_id || existing.pricing_profile_id || null,
       notes: parsed.child.notes || existing.notes,
       roh_capacity_filter: null,
     };
+    const pricingProfileCheck = await assertAllotmentPricingProfile(env, tenantId, propertyId, childAllotmentShape);
+    if (pricingProfileCheck.error) return jsonResponse(pricingProfileCheck.error.payload, pricingProfileCheck.error.status);
     const childCandidateSummary = await collectAllocatableUnitsForAllotment(env, tenantId, propertyId, childAllotmentShape, {
       excludeAllotmentId: existing.id,
       blockedRoomUnitIds: preservedOriginalRoomIds,
@@ -2360,8 +2421,8 @@ export async function handleSplitPropertyAllotment(request, env, params) {
     await env.DB.prepare(
       `INSERT INTO property_allotments
         (id, tenant_id, property_id, room_type_id, operator_name, operator_code, source_ref, check_in, check_out, release_date,
-         rooms_blocked, status, notes, roh_capacity_filter, created_by, updated_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'allocated', ?, NULL, ?, ?, ?, ?)`
+         rooms_blocked, pricing_profile_id, status, notes, roh_capacity_filter, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'allocated', ?, NULL, ?, ?, ?, ?)`
     ).bind(
       childAllotmentId,
       tenantId,
@@ -2374,6 +2435,7 @@ export async function handleSplitPropertyAllotment(request, env, params) {
       childCheckOut,
       parsed.child.release_date || existing.release_date || null,
       parsed.child.rooms_blocked,
+      parsed.child.pricing_profile_id || existing.pricing_profile_id || null,
       parsed.child.notes || existing.notes || null,
       actor.session.user_id || null,
       actor.session.user_id || null,
