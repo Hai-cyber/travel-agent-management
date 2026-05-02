@@ -2,7 +2,7 @@
 
 > RUNTIME NOTE:
 > This document records the recommended build order for the future property engine.
-> The current rescue runtime does **not** implement this engine yet.
+> The current rescue runtime already implements a large part of this engine; use this roadmap as ship-order guidance for what remains and for how the hotel/public product should now evolve.
 
 ## Purpose
 
@@ -212,6 +212,127 @@ That means:
 - simple folio and checkout work
 
 This is already sellable.
+
+## Rescue runtime ship order from the current repo state
+
+The current rescue runtime is already materially beyond the early Phase-4 baseline.
+For the next shipping cycle, the team should not restart from the abstract phase map above.
+It should instead follow this commercial completion order:
+
+1. tenant experience modes
+2. hotel-first public layout scaffold
+3. hotel public content model
+4. hotel stay search + availability results
+5. hotel booking commit path
+6. property staff authorization hardening
+7. close the remaining B2B/operator guest-folio execution gap (`CHK-R132`)
+8. hotel publish/content package using the existing shell/runtime stack
+9. hotel packaging / pricing / productization docs
+10. only then decide whether deeper visual forks are truly necessary
+
+## Tenant experience modes
+
+The current rescue repo now serves more than one commercial tenant shape.
+For public product work, the team should treat tenant experience mode as a first-class product decision.
+
+### Locked modes
+
+- `tour_operator`
+- `hotel_operator`
+- `hybrid_operator`
+
+### Why this matters
+
+These modes do not differ only by styling.
+They differ by:
+
+- homepage information architecture
+- primary search intent
+- listing entity model
+- CTA behavior
+- publish defaults
+- onboarding defaults
+
+The hotel product must not be implemented as a temporary tour-shell variation once room-selling becomes a first-class product line.
+
+## Refined hotel-first completion order
+
+`NEXT-P18` should now be treated as a structured hotel-first track, not a single storefront task.
+
+### `NEXT-P18A` — tenant experience modes
+
+Goal:
+- lock `tour-only`, `hotel-only`, and `hybrid` public product modes
+
+Required outputs:
+- mode-aware onboarding defaults
+- mode-aware navigation and homepage defaults
+- mode-aware publish scaffolds
+
+### `NEXT-P18B` — hotel public layout scaffold
+
+Goal:
+- build a true hotel-first public layout
+
+Required outputs:
+- hero stay search
+- room-category sections
+- hotel-first navigation and CTA structure
+- property/gallery/amenity/policy blocks in hotel order
+
+### `NEXT-P18C` — hotel public content model
+
+Goal:
+- make room-selling content first-class
+
+Required outputs:
+- room-type imagery
+- room-type descriptions
+- amenity and policy presentation model
+- property/location presentation model
+
+### `NEXT-P18D` — hotel stay search + availability results
+
+Goal:
+- place availability-first discovery inside the hotel layout
+
+Required outputs:
+- stay-search UI inside hotel mode
+- room-option results from shared property availability/pricing truth
+- no drift into parallel hotel booking logic
+
+### `NEXT-P18E` — hotel booking commit path
+
+Goal:
+- close the hotel revenue loop only after the layout and content model are correct
+
+Required outputs:
+- hold/commit flow
+- guest booking form
+- custom-domain commerce gating
+- canonical reservation creation
+
+### Why this order now
+
+- The product-shape gap is now larger than the engine gap: the property runtime is already strong internally, but hotel tenants need a first-class public experience rather than a patched tour-shell accommodation page.
+- Operational trust is the next constraint after public booking: the current tenant-admin-heavy gate is enough for development, but not strong enough for a real property team.
+- B2B/operator execution should be closed before visual expansion: `CHK-R132` is now a strong rescue slice, but not yet the final enough-to-sell execution model.
+- Hotel-specific visual forks should come last: first solve the hotel-first layout and information architecture problem inside the current shared runtime before deciding whether an additional skin split is justified.
+
+### Current ship rule
+
+Do not continue deeper hotel booking work before:
+
+- tenant experience modes are locked
+- the hotel-first layout scaffold exists
+- the hotel public content model exists
+
+Do not open a parallel hotel-only skin project before:
+
+- `NEXT-P18A` through `NEXT-P18E` are materially complete
+- property staff permissions are hardened
+- `CHK-R132` is operationally closed enough to sell
+- the hotel offer is documented clearly enough to price and present externally
 
 ## Recommended staffing mindset
 

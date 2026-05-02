@@ -81,6 +81,14 @@ AI behavior / guardrails:
 - `42_DB_MIGRATION_PROPOSAL_SHARED_TOUR_PROPERTY.md` -> Migration-safe DB proposal for shared kernel, tour stabilization, and property phase-1 tables
 - `43_PROPERTY_PHASE1_SCHEMA_DRAFT.md` -> Concrete phase-1 property schema for availability, reservations, stay plans, allocations, and holds
 - `44_FIRST_ACTUAL_MIGRATION_SET_PROPOSAL.md` -> Concrete first migration batch proposal with names from 0057 to 0065
+- `46_TENANT_EXPERIENCE_MODES.md` -> Public product-mode truth for tour-only, hotel-only, and hybrid tenants
+- `47_HOTEL_PUBLIC_LAYOUT_SCAFFOLD.md` -> Hotel-first homepage/navigation/block-order truth for `NEXT-P18B`
+- `48_HOTEL_PUBLIC_CONTENT_MODEL.md` -> Hotel public content truth for room-type imagery, amenities, policies, and media ownership in `NEXT-P18C`
+- `49_HOTEL_STAY_SEARCH_AND_RESULTS.md` -> Hotel stay-search/result behavior truth for `NEXT-P18D`
+- `50_HOTEL_BOOKING_COMMIT_PATH.md` -> Hotel public booking commit truth for `NEXT-P18E`
+- `51_PROPERTY_STAFF_AUTHORIZATION_MODEL.md` -> Property staff role and backend-authorization truth for `NEXT-P19`
+- `52_B2B_GUEST_FOLIO_EXECUTION_MODEL.md` -> Enough-to-sell execution truth for `CHK-R132` / `NEXT-P20`
+- `53_HOTEL_PRODUCT_PACKAGE.md` -> Commercial packaging truth for `hotel_pro` / `NEXT-P21` and `NEXT-P22`
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary

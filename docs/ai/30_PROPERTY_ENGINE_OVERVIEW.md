@@ -2,12 +2,12 @@
 
 > RUNTIME NOTE:
 > This document records the approved target direction for the standalone property engine.
-> The current rescue runtime does **not** implement this engine yet.
+> The current rescue runtime now implements a substantial part of this engine already, including availability, reservations, room operations, folios, housekeeping, allotments, and the first public-hotel bridge slices.
 > Actual implemented runtime slices remain listed in `01_CURRENT_STATE.md`.
 
 ## Purpose
 
-This document defines the **simple-to-ship, commercially strong** direction for the future property engine.
+This document defines the **simple-to-ship, commercially strong** direction for the standalone property engine and the next commercial steps beyond the runtime that already exists.
 
 The goal is not to build a full PMS in v1.
 The goal is to ship a property operating system that can:
@@ -69,6 +69,26 @@ The property engine should ship in three layers.
 - OTA/email booking draft intake
 - listing/export helpers
 - future external platform/channel support
+
+## Tenant product modes
+
+The property engine now sits inside a platform that can serve more than one tenant shape.
+Public product work should therefore recognize three tenant product modes:
+
+- `tour-only`
+- `hotel-only`
+- `hybrid tour + hotel`
+
+These are not only styling differences.
+They imply different:
+
+- homepage structures
+- navigation defaults
+- search intent
+- listing blocks
+- booking CTAs
+
+For hotel-mode tenants, the public surface must become hotel-first rather than a temporary extension of the tour shell.
 
 ## V1 scope
 

@@ -34,7 +34,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 - Routing: Hono `app.route()` for entity management + URLPattern `patterns[]` for stop/pricing routes in `index.js`
 - All IDs: `nanoid()`, all queries: `prepare().bind()` with `WHERE tenant_id = ?`
 
-### D1 Tables (repo migrations 0001–0093 present in repo; later migrations now add shared-kernel/property foundation, property availability core, room operations, folio core, guest-photo + shift-handover support, hot-path property indexes, housekeeping task kind/service-date support, property allotments, planner-only pricing profiles, and deterministic weekday pricing rules in addition to domain purchase, richer booking todo fields/threads, promo codes, and tenant calendar secrets)
+### D1 Tables (repo migrations 0001–0103 present in repo; later migrations now add shared-kernel/property foundation, property availability core, room operations, folio core, guest-photo + shift-handover support, hot-path property indexes, housekeeping task kind/service-date support, property allotments, planner-only pricing profiles, deterministic weekday pricing rules, B2B guest-folio execution metadata, allotment pricing-profile binding, and the exploratory universal-hotel to property link in addition to domain purchase, richer booking todo fields/threads, promo codes, and tenant calendar secrets)
 `tours`, `destinations`, `tour_destinations`, `destination_texts`, `tenants`,
 `tour_stops`, `stop_accommodations`, `stop_meals`, `stop_guides`,
 `stop_local_transports`, `stop_intercity_legs`, `stop_service_tasks`, `tasks`,
@@ -53,6 +53,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 
 Hotel/property boundary note:
 - `tenant_universal_hotels` belongs to the universal storefront/catalog layer and remains transitional presentation/runtime support.
+- `tenant_universal_hotels.property_id` now acts as the exploratory bridge from the universal hotel/catalog layer into the standalone property engine for hotel-mode stay search and booking-commit flows.
 - The standalone property engine starts at `properties`, `room_types`, `room_units`, `property_reservations`, `inventory_holds`, `reservation_stay_plans`, and `reservation_allocations`.
 - Do not treat `tenant_universal_hotels` as the canonical hospitality engine just because the word `hotel` appears in the table name.
 
@@ -143,6 +144,9 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 
 **Universal Site / Taxonomy Discovery (CHK-R35 to R45)**
 - `GET /api/universal/site/config` — returns current universal site bundle, including runtime theme/menu/page data
+- `GET /api/universal/public/hotels/:hotelKey` — host-resolved public hotel read endpoint; returns one active `tenant_universal_hotels` record for the current host plus its explicitly linked `properties` summary (`property_id`, address/timezone/currency defaults, room-type count, sellable room-unit count) and the resolved commercial policy for the current host.
+- `POST /api/universal/public/hotels/:hotelKey/stay-search` — host-resolved public hotel stay-search endpoint; reuses the shared property availability and pricing engines against the linked `property_id`, then returns room-type options with availability payload, best-plan fit, shortage dates, and frozen quote totals for the requested stay. New hotel links and first-class hotel-mode rendering now point to the dedicated universal `hotels` page, where `public/property-stay-search.js` mounts when `?hotel=<hotelKey>` is present; the older `accommodation` query-param path remains only as a transitional compatibility surface. Public hotel routes now bypass the global authenticated API gate correctly, prefer `X-Forwarded-Host` before `Host` for host resolution, and resolve hotel keys case-insensitively so canonical lowercase URLs still match older mixed-case catalog rows.
+- `POST /api/universal/public/hotels/:hotelKey/booking-commit` — host-resolved public hotel booking wrapper; allowed only when `public_booking_enabled` is true for the current host, then reuses the shared property hold and reservation handlers to create a short `soft_hold` and immediately commit a canonical `property_reservation` with source `direct_web`. `resolveTenantByHost()` now also carries `terms_accepted` into the public commercial-policy calculation so verified custom-domain commerce can actually unlock when the tenant has accepted terms.
 - `GET /api/universal/taxonomy/catalog` — returns the canonical top-level interest taxonomy (`adventure`, `culture`, `beach`, `sport`, `food`, `nature`) plus planned sub-interests
 - `GET /api/universal/taxonomy/interest-pages` — lists tenant-scoped auto-generated interest collection pages and their publication rules
 - `GET|PUT /api/universal/taxonomy/tours/:tourId` — reads or replaces tenant-scoped taxonomy tags and discovery profile metadata for a tour
@@ -259,6 +263,7 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/properties/:propertyId/reservations/:reservationId/early-check-out` — authenticated admin exit path from `checked_in`; shortens `check_out`, releases future room-night allocations, and trims future stay-plan segments
 - `POST /api/properties/:propertyId/reservations/:reservationId/no-show` — authenticated admin status transition from `confirmed` to `no_show`; discards the selected stay plan and releases active allocations
 - `POST /api/properties/:propertyId/reservations/:reservationId/undo-status` — authenticated admin undo baseline for `checked_in -> confirmed`, `checked_out -> checked_in`, and `no_show -> confirmed`; the checked-out restore path can now rebuild the stay after an early check-out when inventory is still available
+- Property-engine authenticated guards now reject tenant `provider` seats at the backend boundary; planning, reservation, folio, and housekeeping handler families run through an operational staff gate instead of allowing every tenant-scoped session through the old broad `requireTenantActor` path. Pricing configuration surfaces are now further hardened: pricing profile, weekday-rule, room-rate, addon-preset, season, and seasonal-room-rate listing endpoints require manager-or-owner access, while live rate quoting remains on the operational path.
 
 Property builder scope note:
 - This builder layer is intentionally inventory-first: property identity, room types, and room-unit quantity/configuration are now part of the availability backbone.
