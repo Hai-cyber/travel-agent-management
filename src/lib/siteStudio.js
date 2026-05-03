@@ -76,7 +76,7 @@ export async function resolveTenantByHost(host, db) {
   // 1. Exact custom_domain lookup
   const byDomain = await db
     .prepare(
-            `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+            `SELECT id, subscription_status, template_id, site_config, payment_methods, terms_accepted, default_locale, booking_currency, market_skin_key, primary_market,
               'custom_domain' AS resolved_host_type,
               trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain, promo_activated
          FROM tenants
@@ -97,7 +97,7 @@ export async function resolveTenantByHost(host, db) {
   const subLabel = labels[0];
   return db
     .prepare(
-      `SELECT id, subscription_status, template_id, site_config, payment_methods, default_locale, booking_currency, market_skin_key, primary_market,
+      `SELECT id, subscription_status, template_id, site_config, payment_methods, terms_accepted, default_locale, booking_currency, market_skin_key, primary_market,
               'platform_subdomain' AS resolved_host_type,
               trust_status, public_indexing_enabled, custom_domain_verified_at, subdomain, custom_domain, promo_activated
          FROM tenants

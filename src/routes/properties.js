@@ -168,12 +168,25 @@ async function requireTenantActor(request, env, tenantId) {
     return { error: jsonResponse({ error: 'Forbidden for this tenant.' }, 403) };
   }
 
+  if (String(session.role || '').trim() === 'provider') {
+    return { error: jsonResponse({ error: 'Provider seats cannot access property operations.' }, 403) };
+  }
+
   return { session };
 }
 
 // Manager+ required for property/room configuration (not operational use).
 // owner=4, manager=3, staff=2, provider=1
 const PROPERTY_ROLE_RANK = { owner: 4, manager: 3, staff: 2, provider: 1 };
+
+async function requireOperationalActor(request, env, tenantId) {
+  const result = await requireTenantActor(request, env, tenantId);
+  if (result.error) return result;
+  if ((PROPERTY_ROLE_RANK[result.session.role] ?? 0) < 2) {
+    return { error: jsonResponse({ error: 'Operational staff access required.' }, 403) };
+  }
+  return result;
+}
 
 async function requireManagerActor(request, env, tenantId) {
   const result = await requireTenantActor(request, env, tenantId);
@@ -193,7 +206,7 @@ const planningHandlers = createPlanningHandlers({
   loadRoomUnitById,
   parseJsonBody,
   pricingDeps,
-  requireTenantActor,
+  requireTenantActor: requireOperationalActor,
   resolveTenantId,
   validateAllotmentConsumptionRequest,
   validateAvailabilityRequest,
@@ -213,7 +226,7 @@ const reservationHandlers = createReservationHandlers({
   parseJsonBody,
   pricingDeps,
   recordRoomStateEvent,
-  requireTenantActor,
+  requireTenantActor: requireOperationalActor,
   resolveTenantId,
   validateAllotmentConsumptionRequest,
   validateEarlyCheckoutRequest,
@@ -237,7 +250,7 @@ const folioHousekeepingHandlers = createFolioHousekeepingHandlers({
   parseJsonBody,
   recordRoomStateEvent,
   requireManagerActor,
-  requireTenantActor,
+  requireTenantActor: requireOperationalActor,
   reservationLoadPropertyReservation,
   resolveEffectiveHousekeepingRoomState,
   resolveReservationNightlyRate,
@@ -4194,6 +4207,7 @@ export const handleCancelPropertyReservation = reservationHandlers.handleCancelP
 export const handleRebookPropertyReservation = reservationHandlers.handleRebookPropertyReservation;
 export const handleCheckInPropertyReservation = reservationHandlers.handleCheckInPropertyReservation;
 export const handleCheckOutPropertyReservation = reservationHandlers.handleCheckOutPropertyReservation;
+export { requireOperationalActor };
 export const handleEarlyCheckOutPropertyReservation = reservationHandlers.handleEarlyCheckOutPropertyReservation;
 export const handleNoShowPropertyReservation = reservationHandlers.handleNoShowPropertyReservation;
 export const handleUndoPropertyReservationStatus = reservationHandlers.handleUndoPropertyReservationStatus;

@@ -24,6 +24,7 @@
 
 import { Hono } from 'hono';
 import { dispatchBillingPaymentEmail, dispatchBillingActivationEmail, dispatchBillingStatusEmail, dispatchAdminAlertEmail } from '../lib/bookingEmails.js';
+import { getAllowedMembershipUpgradeTargets } from '../lib/membershipBilling.js';
 
 const billing = new Hono();
 
@@ -631,7 +632,7 @@ billing.get('/status', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, subscription_status, stripe_customer_id, created_at, extra_property_slots, extra_staff_slots FROM tenants WHERE id = ?')
+    .prepare('SELECT id, subscription_status, stripe_customer_id, created_at, extra_property_slots, extra_staff_slots, product_tier_key FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
@@ -642,11 +643,14 @@ billing.get('/status', async (c) => {
   const trialEndsAt  = createdAt + TRIAL_DAYS * 86400;
   const nowS         = Math.floor(Date.now() / 1000);
   const trialDaysLeft = Math.max(0, Math.ceil((trialEndsAt - nowS) / 86400));
+  const productTierKey = String(tenant.product_tier_key || 'starter_landing').trim() || 'starter_landing';
 
   return c.json({
     ok:                  true,
     subscription_status: tenant.subscription_status,
     stripe_customer_id:  tenant.stripe_customer_id ?? null,
+    product_tier_key:    productTierKey,
+    available_membership_targets: getAllowedMembershipUpgradeTargets(productTierKey, tenant.subscription_status),
     trial_info: {
       trial_days_total: TRIAL_DAYS,
       trial_ends_at:    trialEndsAt,

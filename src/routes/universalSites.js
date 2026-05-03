@@ -40,6 +40,10 @@ import {
 } from '../lib/interestTaxonomy.js';
 import { resolveUniversalTheme } from '../lib/themes/index.js';
 import { buildTenantCommercialPolicy, parseTenantPaymentMethods } from '../lib/publishGuard.js';
+import { resolveTenantByHost } from '../lib/siteStudio.js';
+import { buildAvailabilityPayload, calculateAvailability, selectBestPlan } from './properties/availability.js';
+import { resolveFrozenReservationPricingSnapshot } from './properties/pricing.js';
+import { handleCreatePropertyAvailabilityHold, handleCreatePropertyReservation } from './properties.js';
 
 const router = new Hono();
 
@@ -147,6 +151,7 @@ function normalizeHotel(row) {
     id: row.id,
     tenant_id: row.tenant_id,
     hotel_key: row.hotel_key,
+    property_id: row.property_id || '',
     tour_id: row.tour_id || '',
     name: row.name,
     description: row.description || '',
@@ -160,6 +165,117 @@ function normalizeHotel(row) {
     created_at: Number(row.created_at || 0),
     updated_at: Number(row.updated_at || 0),
   };
+}
+
+function buildHotelSearchHref(tenantId, hotelKey) {
+  const normalizedHotelKey = slugify(hotelKey || '');
+  return normalizedHotelKey
+    ? `${buildUniversalPublicPath(tenantId, 'hotels')}?hotel=${encodeURIComponent(normalizedHotelKey)}`
+    : buildUniversalPublicPath(tenantId, 'hotels');
+}
+
+function validatePublicHotelStaySearchRequest(body = {}) {
+  const checkIn = String(body?.check_in || '').trim();
+  const checkOut = String(body?.check_out || '').trim();
+  const adults = Number(body?.adults ?? 2);
+  const children = Number(body?.children ?? 0);
+  const roomsRequested = Number(body?.rooms_requested ?? 1);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut)) {
+    return { error: 'check_in and check_out must use YYYY-MM-DD format.' };
+  }
+  if (!(checkIn < checkOut)) {
+    return { error: 'check_out must be later than check_in.' };
+  }
+  if (!Number.isInteger(adults) || adults < 1) {
+    return { error: 'adults must be an integer greater than or equal to 1.' };
+  }
+  if (!Number.isInteger(children) || children < 0) {
+    return { error: 'children must be an integer greater than or equal to 0.' };
+  }
+  if (!Number.isInteger(roomsRequested) || roomsRequested < 1 || roomsRequested > 20) {
+    return { error: 'rooms_requested must be an integer between 1 and 20.' };
+  }
+
+  return {
+    checkIn,
+    checkOut,
+    adults,
+    children,
+    roomsRequested,
+  };
+}
+
+function buildHostTypeForTenant(host, tenant) {
+  return tenant?.custom_domain && host === tenant.custom_domain ? 'custom_domain' : 'platform_subdomain';
+}
+
+function buildTenantScopedJsonRequest(url, tenantId, body) {
+  return new Request(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': tenantId,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function resolvePublicHostHeader(request) {
+  return String(
+    request.header('x-forwarded-host')
+      || request.header('X-Forwarded-Host')
+      || request.header('host')
+      || ''
+  ).trim();
+}
+
+async function loadPublicPropertyForQuote(env, tenantId, propertyId) {
+  return await env.DB
+    .prepare(
+      `SELECT id, tenant_id, currency
+         FROM properties
+        WHERE tenant_id = ? AND id = ?
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId)
+    .first();
+}
+
+async function loadPublicRoomTypeForQuote(env, tenantId, propertyId, roomTypeId) {
+  return await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, max_occupancy
+         FROM room_types
+        WHERE tenant_id = ? AND property_id = ? AND id = ?
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, roomTypeId)
+    .first();
+}
+
+async function loadPublicPricingProfileForQuote(env, tenantId, propertyId, pricingProfileId) {
+  return await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, room_type_id, active, code, name,
+              pricing_mode, fixed_nightly_amount, delta_amount, delta_percent
+         FROM property_pricing_profiles
+        WHERE tenant_id = ? AND property_id = ? AND id = ?
+        LIMIT 1`
+    )
+    .bind(tenantId, propertyId, pricingProfileId)
+    .first();
+}
+
+const PUBLIC_HOTEL_PRICING_DEPS = {
+  loadPropertyById: loadPublicPropertyForQuote,
+  loadRoomTypeById: loadPublicRoomTypeForQuote,
+  loadPropertyPricingProfileById: loadPublicPricingProfileForQuote,
+};
+
+async function parseJsonResponse(response) {
+  const payload = await response.clone().json().catch(() => null);
+  return { response, payload };
 }
 
 function normalizeTourCanonical(row) {
@@ -478,11 +594,12 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
         title: hotel.name || '',
         body: truncateSentences(hotel.description || 'Design-led rooms, calmer pacing, and hotel partnerships tuned to the route.', 3),
         image,
-        href: linkedTour?.href || buildUniversalPublicPath(tenantId, 'accommodation'),
+        href: buildHotelSearchHref(tenantId, hotel.hotel_key) || linkedTour?.href || buildUniversalPublicPath(tenantId, 'accommodation'),
         image_layout: 'portrait',
         address: hotel.address || '',
         entity_id: hotel.id,
         entity_type: 'hotel',
+        hotel_key: hotel.hotel_key || '',
         entity_label: hotel.name || '',
         entity_title: hotel.name || '',
         entity_body: hotel.description || '',
@@ -518,11 +635,12 @@ function buildTourRuntimeCollections(tenantId, tours, syncedRows, hotels = [], p
       item.gallery_images[1]?.src,
       LUXURY_SAMPLE_ACCOMMODATION_IMAGES[index % LUXURY_SAMPLE_ACCOMMODATION_IMAGES.length]
     ),
-    href: item.href,
+    href: item.hotel?.hotel_key ? buildHotelSearchHref(tenantId, item.hotel.hotel_key) : item.href,
     image_layout: 'portrait',
     address: normalizeStringValue(item.hotel?.address),
     entity_id: item.hotel?.id || item.tour_id,
     entity_type: 'hotel',
+    hotel_key: item.hotel?.hotel_key || '',
     entity_label: normalizeStringValue(item.hotel?.name, item.override?.accommodation_title, item.override?.hotel_name, deriveAccommodationTitle(item, index)),
     entity_title: normalizeStringValue(item.hotel?.name, item.override?.accommodation_title, item.override?.hotel_name, deriveAccommodationTitle(item, index)),
     entity_body: normalizeStringValue(
@@ -1076,6 +1194,7 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     requestUrlObject = null;
   }
   const requestedBookingTourId = normalizeStringValue(requestUrlObject?.searchParams.get('tour'));
+  const requestedHotelKey = normalizeStringValue(requestUrlObject?.searchParams.get('hotel'));
   const activeTheme = resolveUniversalTheme(site, runtime, {
     escapeHtml,
     buildUniversalPublicPath,
@@ -1169,7 +1288,7 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       return applySearchFilter(tourRuntime.tour_listing?.length ? tourRuntime.tour_listing : buildFallbackListingCards(source, targetPage), searchState);
     }
 
-    if (targetPage.page_key === 'accommodation') {
+    if (targetPage.page_key === 'accommodation' || targetPage.page_key === 'hotels') {
       return applySearchFilter(tourRuntime.accommodation_listing?.length ? tourRuntime.accommodation_listing : buildFallbackListingCards(source, targetPage), searchState);
     }
 
@@ -1199,7 +1318,7 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
           return resolveListingCards(listingBlock.data_bindings?.cards?.source, linkedPage).length > 0;
         }
 
-        if (linkedPage.page_key === 'accommodation') {
+        if (linkedPage.page_key === 'accommodation' || linkedPage.page_key === 'hotels') {
           return (tourRuntime.accommodation_listing?.length || 0) > 0;
         }
 
@@ -1504,9 +1623,12 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       systemCopy,
     });
     if (themedRich) return themedRich;
-    if (isLuxuryShell && targetPage.page_key === 'accommodation') {
+    if (isLuxuryShell && targetPage.page_key === 'hotels') {
       const cards = resolveListingCards('tour_runtime.accommodation_listing', targetPage);
-      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(block.label || 'Accommodation')}</p><h2>${escapeHtml(block.content?.heading || 'Accommodation')}</h2></div><p>${escapeHtml(block.content?.body || getPageDescription(targetPage))}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>` })).join('')}</div></section>`;
+      const searchMarkup = requestedHotelKey
+        ? `<div data-public-hotel-search data-hotel-key="${escapeHtml(requestedHotelKey)}" class="mb-8"></div>`
+        : '';
+      return `${searchMarkup}<section class="luxury-collection" style="--luxury-accent:${escapeHtml(normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73'))}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(block.label || 'Hotels')}</p><h2>${escapeHtml(block.content?.heading || 'Hotels')}</h2></div><p>${escapeHtml(block.content?.body || getPageDescription(targetPage))}</p></div><div class="luxury-collection-grid luxury-collection-grid-portrait">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media is-portrait">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 24vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Stay')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p></div></a>` })).join('')}</div></section>`;
     }
 
     return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><p class="text-xs uppercase tracking-[0.24em] text-slate-500">${escapeHtml(block.label || '')}</p><h2 class="mt-3 text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || block.label || '')}</h2><div class="mt-4 text-base leading-8 text-slate-700">${renderRichText(block.content?.body || getPageDescription(targetPage))}</div></section>`;
@@ -1601,8 +1723,11 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
 
   const renderListing = (block, targetPage = page) => {
     const cards = resolveListingCards(block.data_bindings?.cards?.source, targetPage);
+    const hotelSearchMarkup = requestedHotelKey && targetPage.page_key === 'hotels'
+      ? `<div data-public-hotel-search data-hotel-key="${escapeHtml(requestedHotelKey)}" class="mb-8"></div>`
+      : '';
     if (searchState.q && !cards.length) {
-      return buildSearchEmptyState(targetPage, block);
+      return `${hotelSearchMarkup}${buildSearchEmptyState(targetPage, block)}`;
     }
 
     const themedListing = activeTheme.renderListing?.({
@@ -1617,13 +1742,13 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
       cards,
       systemCopy,
     });
-    if (themedListing) return themedListing;
+    if (themedListing) return `${hotelSearchMarkup}${themedListing}`;
     if (isLuxuryShell) {
       const accentColor = normalizeStringValue(block.content?.accent_color, theme.colorAccent, '#7f3f73');
-      return `<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>` })).join('')}</div></section>`;
+      return `${hotelSearchMarkup}<section class="luxury-collection" style="--luxury-accent:${escapeHtml(accentColor)}"><div class="luxury-collection-head"><div><p class="luxury-section-kicker">${escapeHtml(targetPage.title || block.label || 'Collection')}</p><h2>${escapeHtml(block.content?.heading || 'Collection')}</h2></div><p>${escapeHtml(block.content?.body || '')}</p></div><div class="luxury-collection-grid">${cards.map((card) => wrapEditableEntityCard({ block, card, targetPage, className: 'universal-entity-card luxury-entity-shell', contentHtml: `<a href="${escapeHtml(card.href || buildUniversalPublicPath(site.tenant_id, targetPage.slug || targetPage.page_key || homeSlug))}" class="luxury-collection-card"><div class="luxury-collection-media ${card.image_layout === 'portrait' ? 'is-portrait' : ''}">${buildResponsiveImageMarkup(card.image, card.title, 'luxury-collection-image', 'cover', '(min-width: 1024px) 30vw, 100vw')}</div><div class="luxury-collection-copy"><p class="luxury-card-kicker">${escapeHtml(card.eyebrow || block.content?.card_label || 'Collection')}</p><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.body)}</p>${card.meta ? `<span class="luxury-card-meta">${escapeHtml(card.meta)}</span>` : ''}</div></a>` })).join('')}</div></section>`;
     }
 
-    return `<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
+    return `${hotelSearchMarkup}<section class="rounded-[26px] bg-white p-6 shadow-sm"><h2 class="text-3xl font-semibold text-slate-950">${escapeHtml(block.content?.heading || 'Collection')}</h2><p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(block.content?.body || '')}</p><div class="mt-6 rounded-[20px] border border-dashed border-slate-300 p-6 text-sm text-slate-500">Listing data binding placeholder: ${escapeHtml(block.data_bindings?.cards?.source || 'runtime collection')}</div></section>`;
   };
   const renderBookingSlot = () => '';
 
@@ -1741,7 +1866,7 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     const homeHotelCards = tourRuntime.home_accommodation_listing || [];
     const featuredToursPage = pageMap.get('featured-tours') || pageMap.get('tours') || { page_key: 'tours', slug: 'tours', title: 'Tours', blocks: [], seo: {} };
     const destinationsPage = pageMap.get('destinations') || { page_key: 'destinations', slug: 'destinations', title: 'Destinations', blocks: [], seo: {} };
-    const accommodationPage = pageMap.get('accommodation') || { page_key: 'accommodation', slug: 'accommodation', title: 'Accommodation', blocks: [], seo: {} };
+    const hotelsPage = pageMap.get('hotels') || pageMap.get('accommodation') || { page_key: 'hotels', slug: 'hotels', title: 'Hotels', blocks: [], seo: {} };
 
     // Inject featured tours only if the operator has explicitly toggled tours as featured
     // Use title:'' on fake pages so the theme kicker falls back to block.label (preventing kicker == heading duplication)
@@ -1778,12 +1903,12 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
         id: 'home-accommodation',
         type: 'listing',
         label: 'Where we stay',
-        content: { heading: 'Accommodation', body: '' },
+        content: { heading: 'Hotels', body: '' },
         data_bindings: { cards: { source: 'tour_runtime.accommodation_listing' } },
       };
-      const hotelSection = renderListing(fakeHotelBlock, { page_key: 'accommodation', slug: 'accommodation', title: '', blocks: [], seo: {} });
+      const hotelSection = renderListing(fakeHotelBlock, { page_key: hotelsPage.page_key || 'hotels', slug: hotelsPage.slug || 'hotels', title: hotelsPage.title || '', blocks: [], seo: {} });
       if (hotelSection) {
-        luxuryHomeCatalogSections += `<div id="section-accommodation" class="scroll-mt-28">${hotelSection}</div>`;
+        luxuryHomeCatalogSections += `<div id="section-hotels" class="scroll-mt-28">${hotelSection}</div>`;
       }
     }
   }
@@ -1816,6 +1941,9 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
   const bookingViewMarkup = site.group_key === 'tour_operator' && activeBookingTourId && publicBookingEnabled
     ? `<div data-public-booking-host="drawer" data-tour-id="${escapeHtml(activeBookingTourId)}" data-tenant-id="${escapeHtml(site.tenant_id)}" data-currency="${escapeHtml(site.booking_currency || 'USD')}" data-tour-type="${escapeHtml(activeTourType)}"></div>
   <script src="/tour-booking-view.js"></script>`
+    : '';
+  const hotelSearchViewMarkup = requestedHotelKey
+    ? `<script src="/property-stay-search.js"></script>`
     : '';
   const shellScript = isLuxuryShell
     ? activeTheme.buildScript?.({ theme, systemCopy })
@@ -2775,6 +2903,7 @@ export function renderPublicHtml(siteBundle, page, tourPreview, options = {}) {
     })();
   </script>
   ${bookingViewMarkup}
+  ${hotelSearchViewMarkup}
   ${adminPreviewScript}
   <!-- Powered by Tours Market -->
   <div style="position:fixed;bottom:12px;right:14px;z-index:9999;pointer-events:auto">
@@ -2822,6 +2951,255 @@ async function listHotels(tenantId, db) {
     .all();
 
   return (results || []).map(normalizeHotel);
+}
+
+async function loadPublicHotelBundleByKey(host, hotelKey, db) {
+  const tenant = await resolveTenantByHost(host, db);
+  if (!tenant) return null;
+  const normalizedHotelKey = String(hotelKey || '').trim().toLowerCase();
+
+  const row = await db
+    .prepare(
+      `SELECT h.*, p.id AS linked_property_id, p.name AS linked_property_name, p.slug AS linked_property_slug,
+              p.status AS linked_property_status, p.timezone AS linked_property_timezone, p.currency AS linked_property_currency,
+              p.default_check_in_time AS linked_property_check_in_time, p.default_check_out_time AS linked_property_check_out_time,
+              p.address_line_1 AS linked_property_address_line_1, p.address_line_2 AS linked_property_address_line_2,
+              p.city AS linked_property_city, p.state_province AS linked_property_state_province,
+              p.postal_code AS linked_property_postal_code, p.country_code AS linked_property_country_code,
+              (SELECT COUNT(*) FROM room_types rt WHERE rt.tenant_id = p.tenant_id AND rt.property_id = p.id AND rt.active = 1) AS linked_property_room_type_count,
+              (SELECT COUNT(*) FROM room_units ru WHERE ru.tenant_id = p.tenant_id AND ru.property_id = p.id AND ru.active = 1 AND ru.operational_status NOT IN ('maintenance', 'out_of_order')) AS linked_property_sellable_room_unit_count
+         FROM tenant_universal_hotels h
+         LEFT JOIN properties p
+           ON p.id = h.property_id
+          AND p.tenant_id = h.tenant_id
+        WHERE h.tenant_id = ?
+          AND LOWER(h.hotel_key) = ?
+          AND h.status = 'active'
+        LIMIT 1`
+    )
+    .bind(tenant.id, normalizedHotelKey)
+    .first();
+
+  if (!row) return { tenant, hotel: null };
+
+  return {
+    tenant,
+    hotel: {
+      ...normalizeHotel(row),
+      property: row.linked_property_id ? {
+        id: row.linked_property_id,
+        name: row.linked_property_name || '',
+        slug: row.linked_property_slug || '',
+        status: row.linked_property_status || '',
+        timezone: row.linked_property_timezone || '',
+        currency: row.linked_property_currency || '',
+        default_check_in_time: row.linked_property_check_in_time || '',
+        default_check_out_time: row.linked_property_check_out_time || '',
+        address_line_1: row.linked_property_address_line_1 || '',
+        address_line_2: row.linked_property_address_line_2 || '',
+        city: row.linked_property_city || '',
+        state_province: row.linked_property_state_province || '',
+        postal_code: row.linked_property_postal_code || '',
+        country_code: row.linked_property_country_code || '',
+        room_type_count: Number(row.linked_property_room_type_count || 0),
+        sellable_room_unit_count: Number(row.linked_property_sellable_room_unit_count || 0),
+      } : null,
+    },
+  };
+}
+
+async function buildPublicHotelStaySearchResponse(env, host, hotelKey, requestBody) {
+  const bundle = await loadPublicHotelBundleByKey(host, hotelKey, env.DB);
+  if (!bundle?.tenant) return { error: { status: 404, payload: { ok: false, error: 'Tenant not found for host' } } };
+  if (!bundle.hotel) return { error: { status: 404, payload: { ok: false, error: 'Hotel not found' } } };
+  if (!bundle.hotel.property?.id) {
+    return { error: { status: 409, payload: { ok: false, error: 'Hotel is not linked to a live property engine record yet.' } } };
+  }
+
+  const parsed = validatePublicHotelStaySearchRequest(requestBody);
+  if (parsed.error) return { error: { status: 400, payload: { ok: false, error: parsed.error } } };
+
+  const propertyId = String(bundle.hotel.property.id);
+  const roomTypesResult = await env.DB
+    .prepare(
+      `SELECT id, tenant_id, property_id, code, name, description, base_capacity, max_occupancy, sort_order, active
+         FROM room_types
+        WHERE tenant_id = ?
+          AND property_id = ?
+          AND active = 1
+        ORDER BY sort_order ASC, name ASC`
+    )
+    .bind(bundle.tenant.id, propertyId)
+    .all();
+
+  const roomOptions = [];
+  for (const roomType of roomTypesResult.results || []) {
+    const availability = await calculateAvailability(
+      env,
+      bundle.tenant.id,
+      propertyId,
+      String(roomType.id),
+      parsed.checkIn,
+      parsed.checkOut,
+      parsed.roomsRequested,
+      {
+        adults: parsed.adults,
+        children: parsed.children,
+      }
+    );
+    if (availability.error) continue;
+
+    const pricing = await resolveFrozenReservationPricingSnapshot(
+      env,
+      bundle.tenant.id,
+      propertyId,
+      {
+        roomTypeId: String(roomType.id),
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut,
+        adults: parsed.adults,
+        children: parsed.children,
+        roomsRequested: parsed.roomsRequested,
+        roomGuestAssignments: null,
+        pricingProfileId: null,
+      },
+      {},
+      PUBLIC_HOTEL_PRICING_DEPS
+    );
+
+    const selectedPlan = selectBestPlan(availability);
+    roomOptions.push({
+      room_type: {
+        id: roomType.id,
+        code: roomType.code,
+        name: roomType.name,
+        description: roomType.description || '',
+        base_capacity: Number(roomType.base_capacity || 0),
+        max_occupancy: Number(roomType.max_occupancy || 0),
+        sort_order: Number(roomType.sort_order || 0),
+        active: Boolean(roomType.active),
+      },
+      available: !availability.shortageDates.length && Boolean(selectedPlan),
+      availability: buildAvailabilityPayload(availability).availability,
+      selected_plan: selectedPlan,
+      warnings: availability.warnings || [],
+      pricing: pricing?.error ? null : {
+        currency: pricing.snapshot?.currency || bundle.hotel.property.currency || null,
+        total_amount: pricing.snapshot?.total_amount ?? null,
+        nightly_amount: pricing.snapshot?.nightly_amount ?? null,
+        missing_rate_dates: pricing.snapshot?.missing_rate_dates || [],
+      },
+    });
+  }
+
+  roomOptions.sort((left, right) => {
+    if (left.available !== right.available) return left.available ? -1 : 1;
+    const leftTotal = Number(left.pricing?.total_amount ?? Number.MAX_SAFE_INTEGER);
+    const rightTotal = Number(right.pricing?.total_amount ?? Number.MAX_SAFE_INTEGER);
+    if (leftTotal !== rightTotal) return leftTotal - rightTotal;
+    return Number(left.room_type.sort_order || 0) - Number(right.room_type.sort_order || 0);
+  });
+
+  const commercialPolicy = buildTenantCommercialPolicy(bundle.tenant, {
+    paymentMethods: parseTenantPaymentMethods(bundle.tenant.payment_methods),
+    hostType: buildHostTypeForTenant(host, bundle.tenant),
+  });
+
+  return {
+    payload: {
+      ok: true,
+      hotel: bundle.hotel,
+      property: bundle.hotel.property,
+      commercial_policy: commercialPolicy,
+      request: {
+        check_in: parsed.checkIn,
+        check_out: parsed.checkOut,
+        adults: parsed.adults,
+        children: parsed.children,
+        rooms_requested: parsed.roomsRequested,
+      },
+      room_options: roomOptions,
+    },
+  };
+}
+
+async function buildPublicHotelBookingCommitResponse(env, host, hotelKey, requestBody, requestUrl) {
+  const bundle = await loadPublicHotelBundleByKey(host, hotelKey, env.DB);
+  if (!bundle?.tenant) return { error: { status: 404, payload: { ok: false, error: 'Tenant not found for host' } } };
+  if (!bundle.hotel) return { error: { status: 404, payload: { ok: false, error: 'Hotel not found' } } };
+  if (!bundle.hotel.property?.id) {
+    return { error: { status: 409, payload: { ok: false, error: 'Hotel is not linked to a live property engine record yet.' } } };
+  }
+
+  const commercialPolicy = buildTenantCommercialPolicy(bundle.tenant, {
+    paymentMethods: parseTenantPaymentMethods(bundle.tenant.payment_methods),
+    hostType: buildHostTypeForTenant(host, bundle.tenant),
+  });
+  if (!commercialPolicy.public_booking_enabled) {
+    return {
+      error: {
+        status: 403,
+        payload: {
+          ok: false,
+          error: 'Public booking is not enabled for this host.',
+          commercial_policy: commercialPolicy,
+        },
+      },
+    };
+  }
+
+  const propertyId = String(bundle.hotel.property.id);
+  const holdRequestBody = {
+    room_type_id: requestBody?.room_type_id,
+    check_in: requestBody?.check_in,
+    check_out: requestBody?.check_out,
+    rooms_requested: requestBody?.rooms_requested,
+    adults: requestBody?.adults,
+    children: requestBody?.children,
+    hold_type: 'soft_hold',
+    source_type: 'direct_web',
+    source_id: `public-hotel-${hotelKey}`,
+    ttl_seconds: 900,
+  };
+  const holdRequest = buildTenantScopedJsonRequest(requestUrl, bundle.tenant.id, holdRequestBody);
+  const holdResult = await parseJsonResponse(await handleCreatePropertyAvailabilityHold(holdRequest, env, { propertyId }));
+  if (!holdResult.response.ok) {
+    return { error: { status: holdResult.response.status, payload: holdResult.payload || { ok: false, error: 'Unable to protect availability for this booking.' } } };
+  }
+
+  const reservationRequestBody = {
+    room_type_id: requestBody?.room_type_id,
+    check_in: requestBody?.check_in,
+    check_out: requestBody?.check_out,
+    rooms_requested: requestBody?.rooms_requested,
+    adults: requestBody?.adults,
+    children: requestBody?.children,
+    guest_name: requestBody?.guest_name,
+    guest_email: requestBody?.guest_email,
+    guest_phone: requestBody?.guest_phone,
+    special_requests: requestBody?.special_requests || null,
+    expected_arrival_time: requestBody?.expected_arrival_time || null,
+    expected_flight_ref: requestBody?.expected_flight_ref || null,
+    airport_transfer_requested: Boolean(requestBody?.airport_transfer_requested),
+    source: 'direct_web',
+    hold_id: holdResult.payload?.hold?.id,
+  };
+  const reservationRequest = buildTenantScopedJsonRequest(requestUrl, bundle.tenant.id, reservationRequestBody);
+  const reservationResult = await parseJsonResponse(await handleCreatePropertyReservation(reservationRequest, env, { propertyId }));
+  if (!reservationResult.response.ok) {
+    return { error: { status: reservationResult.response.status, payload: reservationResult.payload || { ok: false, error: 'Unable to create booking.' } } };
+  }
+
+  return {
+    payload: {
+      ok: true,
+      commercial_policy: commercialPolicy,
+      hotel: bundle.hotel,
+      property: bundle.hotel.property,
+      hold: holdResult.payload?.hold || null,
+      reservation: reservationResult.payload?.reservation || null,
+    },
+  };
 }
 
 async function ensureUniversalHotelsInitialized(tenantId, db, tours, syncedRows) {
@@ -3770,6 +4148,67 @@ router.get('/site/hotels', async (c) => {
   return c.json({ ok: true, hotels: await listHotels(ctx.tenantId, c.env.DB) });
 });
 
+router.get('/public/hotels/:hotelKey', async (c) => {
+  const host = resolvePublicHostHeader(c.req);
+  if (!host) return jsonError(c, 400, 'Host header is required');
+
+  const hotelKey = slugify(c.req.param('hotelKey') || '');
+  if (!hotelKey) return jsonError(c, 400, 'hotelKey is required');
+
+  const bundle = await loadPublicHotelBundleByKey(host, hotelKey, c.env.DB);
+  if (!bundle?.tenant) return jsonError(c, 404, 'Tenant not found for host');
+  if (!bundle.hotel) return jsonError(c, 404, 'Hotel not found');
+
+  const commercialPolicy = buildTenantCommercialPolicy(bundle.tenant, {
+    paymentMethods: parseTenantPaymentMethods(bundle.tenant.payment_methods),
+    hostType: bundle.tenant.custom_domain && host === bundle.tenant.custom_domain ? 'custom_domain' : 'platform_subdomain',
+  });
+
+  return c.json({
+    ok: true,
+    hotel: bundle.hotel,
+    commercial_policy: commercialPolicy,
+  });
+});
+
+router.post('/public/hotels/:hotelKey/stay-search', async (c) => {
+  const host = resolvePublicHostHeader(c.req);
+  if (!host) return jsonError(c, 400, 'Host header is required');
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const hotelKey = slugify(c.req.param('hotelKey') || '');
+  if (!hotelKey) return jsonError(c, 400, 'hotelKey is required');
+
+  const result = await buildPublicHotelStaySearchResponse(c.env, host, hotelKey, body);
+  if (result.error) return c.json(result.error.payload, result.error.status);
+  return c.json(result.payload);
+});
+
+router.post('/public/hotels/:hotelKey/booking-commit', async (c) => {
+  const host = resolvePublicHostHeader(c.req);
+  if (!host) return jsonError(c, 400, 'Host header is required');
+
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, 'Invalid JSON body');
+  }
+
+  const hotelKey = slugify(c.req.param('hotelKey') || '');
+  if (!hotelKey) return jsonError(c, 400, 'hotelKey is required');
+
+  const result = await buildPublicHotelBookingCommitResponse(c.env, host, hotelKey, body, c.req.url);
+  if (result.error) return c.json(result.error.payload, result.error.status);
+  return c.json(result.payload);
+});
+
 router.post('/site/hotels', async (c) => {
   const ctx = await requireTenant(c);
   if (ctx.error) return ctx.error;
@@ -3783,6 +4222,7 @@ router.post('/site/hotels', async (c) => {
   }
 
   const tourId = String(body.tour_id || '').trim();
+  const propertyId = String(body.property_id || '').trim();
   const name = String(body.name || '').trim();
   const address = String(body.address || '').trim();
   const region = String(body.region || '').trim();
@@ -3801,6 +4241,14 @@ router.post('/site/hotels', async (c) => {
     if (!linkedTour) return jsonError(c, 404, 'Linked tour not found');
   }
 
+  if (propertyId) {
+    const linkedProperty = await c.env.DB
+      .prepare('SELECT id FROM properties WHERE tenant_id = ? AND id = ?')
+      .bind(ctx.tenantId, propertyId)
+      .first();
+    if (!linkedProperty) return jsonError(c, 404, 'Linked property not found');
+  }
+
   const now = Math.floor(Date.now() / 1000);
   const hotelId = nanoid();
   const hotelKey = slugify(body.hotel_key || name) || `hotel-${hotelId}`;
@@ -3808,13 +4256,14 @@ router.post('/site/hotels', async (c) => {
   await c.env.DB
     .prepare(
       `INSERT INTO tenant_universal_hotels
-        (id, tenant_id, hotel_key, tour_id, name, description, address, region, star_rating, gallery_json, status, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (id, tenant_id, hotel_key, property_id, tour_id, name, description, address, region, star_rating, gallery_json, status, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       hotelId,
       ctx.tenantId,
       hotelKey,
+      propertyId || null,
       tourId || null,
       name,
       description,
@@ -3907,6 +4356,19 @@ router.patch('/hotels/:hotelId', async (c) => {
       setValue('tour_id', nextTourId);
     } else {
       setValue('tour_id', null);
+    }
+  }
+  if ('property_id' in body) {
+    const nextPropertyId = String(body.property_id || '').trim();
+    if (nextPropertyId) {
+      const linkedProperty = await c.env.DB
+        .prepare('SELECT id FROM properties WHERE tenant_id = ? AND id = ?')
+        .bind(ctx.tenantId, nextPropertyId)
+        .first();
+      if (!linkedProperty) return jsonError(c, 404, 'Linked property not found');
+      setValue('property_id', nextPropertyId);
+    } else {
+      setValue('property_id', null);
     }
   }
   if ('status' in body) {

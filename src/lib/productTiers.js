@@ -1,5 +1,11 @@
 import { getLocaleMessages, normalizeLocale } from '../utils/formatter.js';
 
+const PRODUCT_TIER_KEY_ALIASES = Object.freeze({
+  tours_pro: 'tour_operator_pro',
+  hotel_pro: 'hotel_operator_pro',
+  all_in_one: 'tour_hotel_suite',
+});
+
 const PRODUCT_TIERS = [
   {
     key: 'starter_landing',
@@ -58,8 +64,8 @@ const PRODUCT_TIERS = [
   {
     key: 'hotel_operator_pro',
     family: 'hotel',
-    availability: 'future',
-    available_for_signup: false,
+    availability: 'active',
+    available_for_signup: true,
     price_eur_monthly: 9.98,
     billing_model: 'per_user_month',
     capabilities: {
@@ -87,8 +93,8 @@ const PRODUCT_TIERS = [
   {
     key: 'tour_hotel_suite',
     family: 'bundle',
-    availability: 'future',
-    available_for_signup: false,
+    availability: 'active',
+    available_for_signup: true,
     price_eur_monthly: 19,
     billing_model: 'per_user_month',
     capabilities: {
@@ -127,15 +133,26 @@ export function getDefaultSignupTierKey() {
   return PRODUCT_TIERS.find((tier) => tier.available_for_signup)?.key || PRODUCT_TIERS[0].key;
 }
 
+export function normalizeProductTierKey(rawTierKey) {
+  const tierKey = String(rawTierKey || '').trim();
+  if (!tierKey) return '';
+  return PRODUCT_TIER_KEY_ALIASES[tierKey] || tierKey;
+}
+
+export function getProductTierByKey(rawTierKey) {
+  const tierKey = normalizeProductTierKey(rawTierKey);
+  return PRODUCT_TIERS.find((tier) => tier.key === tierKey) || null;
+}
+
 export function isValidProductTierKey(tierKey) {
-  return PRODUCT_TIERS.some((tier) => tier.key === tierKey);
+  return Boolean(getProductTierByKey(tierKey));
 }
 
 export function resolveSignupTierKey(rawTierKey) {
-  const tierKey = String(rawTierKey || '').trim();
+  const tierKey = normalizeProductTierKey(rawTierKey);
   if (!tierKey) return getDefaultSignupTierKey();
 
-  const tier = PRODUCT_TIERS.find((item) => item.key === tierKey);
+  const tier = getProductTierByKey(tierKey);
   if (!tier) return null;
   if (!tier.available_for_signup) return null;
   return tier.key;

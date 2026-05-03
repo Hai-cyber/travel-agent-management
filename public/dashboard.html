@@ -766,6 +766,7 @@
           <li class="current"><a href="dashboard.html" data-i18n="nav.dashboard">Dashboard</a></li>
           <li><a href="#" id="nav-logout" data-i18n="nav.logout">Logout</a></li>
           <li style="display:flex;align-items:center">
+            <button id="btn-membership-upgrade-trigger" type="button" style="display:none;align-items:center;gap:8px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:10px">Upgrade</button>
             <div class="lang-switcher">
               <span class="lang-label">Lang</span>
               <select id="lang-select" class="lang-select" aria-label="Dashboard language selector"></select>
@@ -812,12 +813,12 @@
             <div class="sidebar-section">
               <h4 data-i18n="sidebar.manage">Manage</h4>
               <ul class="nav-list">
-                <li><a href="/ops.html"><span class="icon">🗂️</span> <span>Operations Board</span></a></li>
-                <li><a id="sidebar-tours" href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours">Tours</span></a></li>
-                <li><a id="sidebar-destinations" href="#"><span class="icon">📍</span> <span data-i18n="sidebar.destinations">Destinations</span></a></li>
-                <li><a id="sidebar-accommodations" href="#"><span class="icon">🏨</span> <span data-i18n="sidebar.accommodations">Accommodations</span></a></li>
-                <li><a id="sidebar-gallery" href="#"><span class="icon">🖼️</span> <span data-i18n="sidebar.gallery">Gallery</span></a></li>
-                <li><a id="sidebar-properties" href="#"><span class="icon">🏠</span> <span data-i18n="sidebar.properties">Properties</span></a></li>
+                <li data-tier="tours"><a id="sidebar-ops" href="/ops.html"><span class="icon">🗂️</span> <span>Operations Board</span></a></li>
+                <li data-tier="tours"><a id="sidebar-tours" href="#"><span class="icon">🗺️</span> <span data-i18n="sidebar.tours">Tours</span></a></li>
+                <li data-tier="tours"><a id="sidebar-destinations" href="#"><span class="icon">📍</span> <span data-i18n="sidebar.destinations">Destinations</span></a></li>
+                <li data-tier="tours"><a id="sidebar-accommodations" href="#"><span class="icon">🏨</span> <span data-i18n="sidebar.accommodations">Accommodations</span></a></li>
+                <li data-tier="tours"><a id="sidebar-gallery" href="#"><span class="icon">🖼️</span> <span data-i18n="sidebar.gallery">Gallery</span></a></li>
+                <li data-tier="hotel"><a id="sidebar-properties" href="#"><span class="icon">🏠</span> <span data-i18n="sidebar.properties">Properties</span></a></li>
               </ul>
             </div>
 
@@ -862,6 +863,26 @@
               <a href="#" id="btn-tour-config"     class="button icon solid fa-map" data-i18n="dashboard.action.tour_config">Configure Tours</a>
               <a href="#" id="btn-universal-admin" class="button alt icon solid fa-layer-group">Website Design</a>
               <a href="#" id="btn-payment-settings" class="button alt icon solid fa-credit-card" data-i18n="dashboard.action.payment_settings">Payment Settings</a>
+            </div>
+
+            <div id="membership-upgrade-hub" style="display:none"></div>
+
+            <div id="membership-upgrade-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.52);z-index:10000;align-items:center;justify-content:center;padding:20px">
+              <div style="width:min(560px,100%);background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 30px 80px rgba(15,23,42,.28);padding:22px 22px 18px">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px">
+                  <div>
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#b45309;margin-bottom:6px">Membership upgrade</div>
+                    <h3 style="margin:0;font-size:22px;color:#0f172a">Choose your next plan</h3>
+                  </div>
+                  <button id="btn-membership-upgrade-close" type="button" style="border:none;background:transparent;font-size:22px;line-height:1;color:#64748b;cursor:pointer">×</button>
+                </div>
+                <p id="membership-upgrade-modal-message" style="margin:0 0 16px;font-size:13px;color:#475569"></p>
+                <div id="membership-upgrade-options" style="display:grid;gap:10px"></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+                  <button id="btn-membership-upgrade-cancel" type="button" class="button alt">Cancel</button>
+                  <button id="btn-membership-upgrade-next" type="button" class="button">Next</button>
+                </div>
+              </div>
             </div>
 
             <section class="launch-guide" id="launch-guide">
@@ -1431,6 +1452,9 @@ window.addEventListener('dashboard:langchange', () => {
     applied: false,
   };
   let tenantId = '';
+  let pendingBillingNotice = '';
+  let pendingMembershipTargetKey = '';
+  let pendingUpgradeModalOpen = false;
   let tenantName = '';
   const onboardingState = {
     settings: null,
@@ -1671,6 +1695,183 @@ window.addEventListener('dashboard:langchange', () => {
     if (sidebarUniversal) sidebarUniversal.href = withTenant('universal-admin.html');
     if (sidebarSystemSettings) sidebarSystemSettings.href = withTenant('universal-admin.html?panel=system&onboarding=system');
     if (sidebarPayment) sidebarPayment.href = '#billing';
+  }
+
+  function getTierDisplayName(tierKey) {
+    const key = String(tierKey || 'starter_landing').trim();
+    if (key === 'tour_operator_pro') return 'Tours Pro';
+    if (key === 'hotel_operator_pro') return 'Hotel Pro';
+    if (key === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+    return 'Landing Only';
+  }
+
+  function getTierAccessState(rawTierKey) {
+    const tierKey = String(rawTierKey || 'starter_landing').trim() || 'starter_landing';
+    return {
+      tierKey,
+      isStarter: tierKey === 'starter_landing',
+      isTour: tierKey === 'tour_operator_pro',
+      isHotel: tierKey === 'hotel_operator_pro',
+      isSuite: tierKey === 'tour_hotel_suite',
+    };
+  }
+
+  function getFallbackMembershipTargets(rawTierKey) {
+    const tierKey = String(rawTierKey || 'starter_landing').trim() || 'starter_landing';
+    if (tierKey === 'starter_landing') return ['tour_operator_pro', 'hotel_operator_pro', 'tour_hotel_suite'];
+    if (tierKey === 'tour_operator_pro' || tierKey === 'hotel_operator_pro') return ['tour_hotel_suite'];
+    return [];
+  }
+
+  function getMembershipTargetDescription(targetKey) {
+    if (targetKey === 'tour_hotel_suite') return 'Unlock both tour and hotel operations under one tenant membership.';
+    if (targetKey === 'hotel_operator_pro') return 'Unlock the property engine and hotel operations.';
+    return 'Unlock the tour engine and operational booking workflow.';
+  }
+
+  function getAvailableMembershipTargets(billingSummary) {
+    const currentTierKey = String(billingSummary?.product_tier_key || onboardingState.settings?.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+    return orderMembershipTargets(
+      Array.isArray(billingSummary?.available_membership_targets) && billingSummary.available_membership_targets.length
+        ? billingSummary.available_membership_targets
+        : getFallbackMembershipTargets(currentTierKey)
+    );
+  }
+
+  function orderMembershipTargets(targets) {
+    const list = Array.from(new Set((targets || []).filter(Boolean)));
+    if (!pendingMembershipTargetKey) return list;
+    return list.sort((left, right) => {
+      if (left === pendingMembershipTargetKey) return -1;
+      if (right === pendingMembershipTargetKey) return 1;
+      return 0;
+    });
+  }
+
+  function openBillingPaneWithNotice(message, targetKey) {
+    pendingBillingNotice = String(message || '').trim();
+    pendingMembershipTargetKey = String(targetKey || '').trim();
+    pendingUpgradeModalOpen = false;
+    showPane('billing');
+    loadBillingPane();
+  }
+
+  function closeMembershipUpgradeModal() {
+    const modal = document.getElementById('membership-upgrade-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    pendingUpgradeModalOpen = false;
+  }
+
+  function openMembershipUpgradeModal(message = '', preferredTarget = '') {
+    const modal = document.getElementById('membership-upgrade-modal');
+    const messageEl = document.getElementById('membership-upgrade-modal-message');
+    const optionsEl = document.getElementById('membership-upgrade-options');
+    const nextBtn = document.getElementById('btn-membership-upgrade-next');
+    const billingSummary = onboardingState.billingSummary || { product_tier_key: onboardingState.settings?.product_tier_key || 'starter_landing' };
+    const currentTierKey = String(billingSummary.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+    const currentTierLabel = getTierDisplayName(currentTierKey);
+    const targets = getAvailableMembershipTargets(billingSummary);
+    if (!modal || !messageEl || !optionsEl || !nextBtn) return;
+    if (!targets.length) {
+      openBillingPaneWithNotice(message || 'No self-serve upgrade target is currently available from this plan.', preferredTarget);
+      return;
+    }
+
+    const preferred = String(preferredTarget || pendingMembershipTargetKey || targets[0] || '').trim();
+    const selectedTarget = targets.includes(preferred) ? preferred : (targets[0] || '');
+    messageEl.textContent = message || `${currentTierLabel} is active. Choose the next membership path, then continue to settlement.`;
+    optionsEl.innerHTML = `
+      <div data-membership-current="1" style="display:flex;align-items:flex-start;gap:12px;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;background:#f8fafc;opacity:.78">
+        <span style="display:inline-flex;width:18px;height:18px;border-radius:999px;border:1px solid #cbd5e1;align-items:center;justify-content:center;margin-top:2px;color:#64748b;font-size:11px">•</span>
+        <span><strong style="display:block;color:#0f172a">${escHtml(currentTierLabel)} · Current</strong><span style="display:block;font-size:12px;color:#64748b;margin-top:4px">This is your current active membership tier.</span></span>
+      </div>
+      ${targets.map((targetKey) => `<label data-membership-option="${escHtml(targetKey)}" style="display:flex;align-items:flex-start;gap:12px;border:1px solid #cbd5e1;border-radius:14px;padding:14px 16px;cursor:pointer;transition:border-color .15s, box-shadow .15s, background .15s"><input type="radio" name="membership-upgrade-target" value="${escHtml(targetKey)}" ${targetKey === selectedTarget ? 'checked' : ''} style="margin-top:3px" /><span><strong style="display:block;color:#0f172a">${escHtml(getTierDisplayName(targetKey))}</strong><span style="display:block;font-size:12px;color:#64748b;margin-top:4px">${escHtml(getMembershipTargetDescription(targetKey))}</span></span></label>`).join('')}
+    `;
+    const syncSelectionUi = () => {
+      const selected = optionsEl.querySelector('input[name="membership-upgrade-target"]:checked')?.value || '';
+      optionsEl.querySelectorAll('[data-membership-option]').forEach((node) => {
+        const active = node.getAttribute('data-membership-option') === selected;
+        node.style.borderColor = active ? '#2563eb' : '#cbd5e1';
+        node.style.background = active ? '#eff6ff' : '#ffffff';
+        node.style.boxShadow = active ? '0 0 0 3px rgba(37,99,235,.12)' : 'none';
+      });
+      nextBtn.disabled = !selected;
+      nextBtn.style.opacity = selected ? '1' : '.55';
+      nextBtn.style.pointerEvents = selected ? 'auto' : 'none';
+      return selected;
+    };
+    optionsEl.querySelectorAll('input[name="membership-upgrade-target"]').forEach((input) => {
+      input.addEventListener('change', syncSelectionUi);
+    });
+    nextBtn.onclick = () => {
+      const selected = syncSelectionUi();
+      if (!selected) return;
+      closeMembershipUpgradeModal();
+      openBillingPaneWithNotice(`Continue with ${getTierDisplayName(selected)} from the billing pane.`, selected);
+    };
+    syncSelectionUi();
+    modal.style.display = 'flex';
+    pendingUpgradeModalOpen = true;
+  }
+
+  function renderMembershipUpgradeHub(billingSummary) {
+    const wrap = document.getElementById('membership-upgrade-hub');
+    const trigger = document.getElementById('btn-membership-upgrade-trigger');
+    if (!wrap || !trigger) return;
+
+    const targets = getAvailableMembershipTargets(billingSummary);
+
+    if (!targets.length) {
+      wrap.style.display = 'none';
+      trigger.style.display = 'none';
+      return;
+    }
+    trigger.onclick = () => openMembershipUpgradeModal('', pendingMembershipTargetKey);
+    wrap.style.display = 'block';
+    trigger.style.display = 'inline-flex';
+  }
+
+  document.getElementById('btn-membership-upgrade-close')?.addEventListener('click', closeMembershipUpgradeModal);
+  document.getElementById('btn-membership-upgrade-cancel')?.addEventListener('click', closeMembershipUpgradeModal);
+  document.getElementById('membership-upgrade-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'membership-upgrade-modal') closeMembershipUpgradeModal();
+  });
+
+  function applyDashboardTierAccess(settings) {
+    const access = getTierAccessState(settings?.product_tier_key);
+    const featureLinks = document.querySelectorAll('#sidebar [data-tier] > a');
+
+    featureLinks.forEach((anchor) => {
+      const tierType = String(anchor.parentElement?.dataset.tier || '').trim();
+      let locked = false;
+      let message = '';
+
+      if (access.isStarter && (tierType === 'tours' || tierType === 'hotel')) {
+        locked = true;
+        message = 'Landing Only can preview the workspace, but activating this feature requires a paid membership tier.';
+      } else if (access.isTour && tierType === 'hotel') {
+        locked = true;
+        message = 'Hotel features require upgrading from Tours Pro to the Tour + Hotel Suite.';
+      } else if (access.isHotel && tierType === 'tours') {
+        locked = true;
+        message = 'Tour features require upgrading from Hotel Pro to the Tour + Hotel Suite.';
+      }
+
+      anchor.dataset.tierLocked = locked ? '1' : '0';
+      anchor.dataset.tierLockMessage = locked ? message : '';
+      anchor.style.opacity = locked ? '0.72' : '';
+      anchor.style.cursor = locked ? 'not-allowed' : '';
+
+      if (locked && !anchor.dataset.tierLockBound) {
+        anchor.dataset.tierLockBound = '1';
+        anchor.addEventListener('click', (event) => {
+          if (anchor.dataset.tierLocked !== '1') return;
+          event.preventDefault();
+          openMembershipUpgradeModal(anchor.dataset.tierLockMessage || 'Upgrade your membership to use this feature.');
+        });
+      }
+    });
   }
 
   function getSuggestedSubdomain() {
@@ -2592,17 +2793,19 @@ window.addEventListener('dashboard:langchange', () => {
       renderMarketSkinControl();
       renderLaunchGuide();
       renderCommerceWizard(onboardingState.settings);
+      applyDashboardTierAccess(onboardingState.settings);
+      renderMembershipUpgradeHub(onboardingState.billingSummary);
+      if (pendingUpgradeModalOpen) openMembershipUpgradeModal(pendingBillingNotice, pendingMembershipTargetKey);
       renderDashboardStats();
       loadCustomDomainStatus();
       loadOrders(); // ← live bookings
       setTimeout(() => { void loadReviewStatusLazy(); }, 0);
 
       let daysLeft = Number(onboardingState.billingSummary?.trial_info?.trial_days_left || NaN);
-      const hasStripeSubscription = Boolean(onboardingState.billingSummary?.stripe_customer_id);
       const billingStatusForBanner = onboardingState.billingSummary?.subscription_status || null;
+      const currentTierForBanner = onboardingState.billingSummary?.product_tier_key || onboardingState.settings?.product_tier_key || 'starter_landing';
 
-      // Show trial banner if: (a) explicitly TRIAL status, OR (b) no real Stripe payment yet
-      const isTrialState = onboardingState.settings.subscription_status === 'TRIAL' || !hasStripeSubscription;
+      const isTrialState = onboardingState.settings.subscription_status === 'TRIAL';
       if (isTrialState) {
         if (!Number.isFinite(daysLeft)) {
           if (onboardingState.settings.created_at) {
@@ -2650,25 +2853,9 @@ window.addEventListener('dashboard:langchange', () => {
         if (btnUpgrade) {
           btnUpgrade.addEventListener('click', async (event) => {
             event.preventDefault();
-            btnUpgrade.textContent = 'Redirecting...';
-            btnUpgrade.style.pointerEvents = 'none';
-            try {
-              const res = await fetch('/api/billing/checkout', {
-                method: 'POST',
-                headers: buildTenantHeaders(),
-              });
-              const payload = await res.json().catch(() => null);
-              if (res.ok && payload?.ok && payload?.checkout_url) {
-                window.location.href = payload.checkout_url;
-              } else if (payload?.already_active) {
-                btnUpgrade.textContent = '✅ Already Active';
-              } else {
-                throw new Error(payload?.error || 'Could not start checkout.');
-              }
-            } catch (err) {
-              btnUpgrade.textContent = err.message || 'Upgrade →';
-              btnUpgrade.style.pointerEvents = '';
-            }
+            openMembershipUpgradeModal(`Choose a paid membership path for ${getTierDisplayName(currentTierForBanner)}.`, pendingMembershipTargetKey);
+            btnUpgrade.textContent = i18n.t('trial_banner.upgrade');
+            btnUpgrade.style.pointerEvents = '';
           });
         }
       }
@@ -2911,6 +3098,23 @@ window.addEventListener('dashboard:langchange', () => {
     if (urlParams.get('domain_purchase') === 'cancelled') {
       history.replaceState({}, '', window.location.pathname);
     }
+    if (urlParams.get('pane') === 'billing') {
+      pendingBillingNotice = String(urlParams.get('billing_notice') || '').trim();
+      pendingMembershipTargetKey = String(urlParams.get('membership_target') || '').trim();
+      pendingUpgradeModalOpen = urlParams.get('upgrade') === '1';
+      if (pendingUpgradeModalOpen) {
+        showPane('start-here');
+      } else {
+        showPane('billing');
+        loadBillingPane();
+      }
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('pane');
+      nextUrl.searchParams.delete('billing_notice');
+      nextUrl.searchParams.delete('membership_target');
+      nextUrl.searchParams.delete('upgrade');
+      history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    }
 
     async function searchDomain() {
       const q = inputEl.value.trim();
@@ -3039,55 +3243,229 @@ window.addEventListener('dashboard:langchange', () => {
     wrap.innerHTML = '<p style="color:#94a3b8;font-size:13px">Loading…</p>';
 
     try {
-      const res = await fetch('/api/billing/status', {
-        credentials: 'include',
-        headers: { 'X-Tenant-ID': tenantId },
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load billing info.');
-      renderBillingPane(data);
+      const headers = { 'X-Tenant-ID': tenantId };
+      const [billingRes, intentRes] = await Promise.all([
+        fetch('/api/billing/status', {
+          credentials: 'include',
+          headers,
+        }),
+        fetch('/api/membership-billing/intents/current', {
+          credentials: 'include',
+          headers,
+        }),
+      ]);
+
+      const billingData = await billingRes.json().catch(() => null);
+      const intentData = await intentRes.json().catch(() => null);
+
+      if (!billingRes.ok || !billingData?.ok) {
+        throw new Error(billingData?.error || 'Failed to load billing info.');
+      }
+      if (!intentRes.ok && intentRes.status !== 404) {
+        console.warn('[billing-pane] membership intent state unavailable:', intentData?.error || intentRes.status);
+      }
+
+      let membershipIntent = intentRes.ok ? (intentData?.intent || null) : null;
+      const availableTargets = getAvailableMembershipTargets(billingData);
+      const needsPreferredIntent = pendingMembershipTargetKey
+        && availableTargets.includes(pendingMembershipTargetKey)
+        && (
+          !membershipIntent
+          || membershipIntent.product_tier_key !== pendingMembershipTargetKey
+          || ['failed', 'void', 'expired'].includes(String(membershipIntent.status || '').trim())
+        );
+
+      if (needsPreferredIntent) {
+        wrap.innerHTML = '<p style="color:#94a3b8;font-size:13px">Preparing membership payment step…</p>';
+        const createRes = await fetch('/api/membership-billing/intents', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID': tenantId,
+          },
+          body: JSON.stringify({
+            product_tier_key: pendingMembershipTargetKey,
+            provider_key: 'manual_bank_transfer',
+          }),
+        });
+        const createPayload = await createRes.json().catch(() => null);
+        if (!createRes.ok || !createPayload?.ok || !createPayload?.intent) {
+          throw new Error(createPayload?.error || 'Could not prepare the selected membership payment step.');
+        }
+        membershipIntent = createPayload.intent;
+      }
+
+      renderBillingPane(billingData, membershipIntent);
     } catch (err) {
       wrap.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:12px 0">${escHtml(err.message)}</div>`;
     }
   }
 
-  function renderBillingPane(data) {
+  function renderMembershipSettlementBlock(intent, billingData) {
+    const status = String(billingData?.subscription_status || 'TRIAL').toUpperCase();
+    const currentTierKey = String(billingData?.product_tier_key || onboardingState.settings?.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+    const availableTargets = getAvailableMembershipTargets(billingData);
+    const intentStatus = String(intent?.status || '').trim();
+    const targetTierKey = String(intent?.product_tier_key || '').trim() || (availableTargets[0] || currentTierKey);
+    const currentTierLabel = getTierDisplayName(currentTierKey);
+    const targetTierLabel = getTierDisplayName(targetTierKey);
+    const referenceCode = intent?.reference_code ? escHtml(intent.reference_code) : '—';
+    const instructions = intent?.instructions || {};
+    const paymentNote = escHtml(instructions.payment_note || intent?.reference_code || '');
+    const providerLabel = escHtml(instructions.provider_label || 'Bank transfer');
+    const accountHolder = instructions.account_holder ? `<div><strong>Account holder:</strong> ${escHtml(instructions.account_holder)}</div>` : '';
+    const bankName = instructions.bank_name ? `<div><strong>Bank:</strong> ${escHtml(instructions.bank_name)}</div>` : '';
+    const iban = instructions.iban ? `<div><strong>IBAN:</strong> ${escHtml(instructions.iban)}</div>` : '';
+    const bic = instructions.swift_bic ? `<div><strong>Swift/BIC:</strong> ${escHtml(instructions.swift_bic)}</div>` : '';
+    const address = instructions.address ? `<div><strong>Address:</strong> ${escHtml(instructions.address)}</div>` : '';
+    const helpText = instructions.help_text ? `<p style="font-size:12px;color:#64748b;margin:10px 0 0">${escHtml(instructions.help_text)}</p>` : '';
+    const persistenceUnavailable = String(intent?.meta?.persistence || '').trim() === 'unavailable';
+    const targetButtons = availableTargets.map((targetKey) => {
+      const label = getTierDisplayName(targetKey);
+      const description = targetKey === 'tour_hotel_suite'
+        ? 'Unlock both tour and hotel operations under one tenant membership.'
+        : targetKey === 'hotel_operator_pro'
+          ? 'Unlock the property engine and hotel operations.'
+          : 'Unlock the tour engine and operational booking workflow.';
+      return `<button class="button ${targetKey === 'tour_hotel_suite' ? '' : 'alt'}" data-membership-target-tier="${escHtml(targetKey)}" style="text-align:left">${label}<span style="display:block;font-size:11px;font-weight:400;opacity:.82">${escHtml(description)}</span></button>`;
+    }).join('');
+
+    if (!intent) {
+      if (status === 'ACTIVE') {
+        const upgradeBlock = availableTargets.length ? `
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid #bfdbfe">
+            <div style="font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:10px">Available upgrade path</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">${targetButtons}</div>
+          </div>
+        ` : '';
+        return `
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#dcfce7;color:#166534;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase">ACTIVE</span>
+              <span style="font-size:13px;color:#1e3a8a">Membership settlement</span>
+            </div>
+            <p style="margin:0;font-size:13px;color:#334155">${currentTierLabel} is active. This unlocks the platform plan only. Guest-facing commerce still depends on a real electronic payment gateway.</p>
+            ${upgradeBlock}
+          </div>
+        `;
+      }
+
+      const intro = currentTierKey === 'starter_landing'
+        ? 'Landing Only can preview the workspace, but operational features require a paid membership. Choose the path that matches your business now, then complete settlement from this pane.'
+        : `Choose how to activate or upgrade from ${currentTierLabel}.`;
+      return `
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase">${escHtml(currentTierLabel)}</span>
+            <span style="font-size:13px;color:#1e3a8a">Manual membership settlement</span>
+          </div>
+          <p style="margin:0 0 14px;font-size:13px;color:#334155">${escHtml(intro)}</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">${targetButtons || '<span style="font-size:12px;color:#64748b">No self-serve membership target is currently available from this tier.</span>'}</div>
+        </div>
+      `;
+    }
+
+    if (intentStatus === 'awaiting_review') {
+      return `
+        <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#ffedd5;color:#9a3412;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase">AWAITING REVIEW</span>
+            <span style="font-size:13px;color:#9a3412">${targetTierLabel} membership settlement</span>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;color:#7c2d12">Your transfer was marked as submitted. Admin review is pending.</p>
+          <div style="font-size:12px;color:#7c2d12"><strong>Reference:</strong> ${referenceCode}</div>
+        </div>
+      `;
+    }
+
+    if (intentStatus === 'failed' || intentStatus === 'void' || intentStatus === 'expired') {
+      return `
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#fee2e2;color:#991b1b;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase">${escHtml(intentStatus.toUpperCase())}</span>
+            <span style="font-size:13px;color:#991b1b">${targetTierLabel} membership settlement</span>
+          </div>
+          <p style="margin:0 0 14px;font-size:13px;color:#7f1d1d">This manual settlement intent is no longer open. Create a new one to restart activation.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">${targetButtons || ''}</div>
+        </div>
+      `;
+    }
+
+    return `
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase">AWAITING PAYMENT</span>
+          <span style="font-size:13px;color:#1e3a8a">${targetTierLabel} via ${providerLabel}</span>
+        </div>
+        <p style="margin:0 0 14px;font-size:13px;color:#334155">Use the transfer details below and include the exact reference in your payment note. Once sent, mark it as paid so admin can review it.</p>
+        <div style="font-size:12px;color:#1e3a8a;line-height:1.7;background:#ffffff;border:1px dashed #bfdbfe;border-radius:12px;padding:12px 14px">
+          <div><strong>Amount:</strong> EUR ${Number(intent.amount || 0).toFixed(2)}</div>
+          ${accountHolder}
+          ${bankName}
+          ${iban}
+          ${bic}
+          ${address}
+          <div><strong>Reference:</strong> ${referenceCode}</div>
+          <div><strong>Payment note:</strong> ${paymentNote}</div>
+        </div>
+        ${helpText}
+        ${persistenceUnavailable
+          ? `<p style="font-size:12px;color:#92400e;margin:14px 0 0">Automatic review submission is not available on this production database yet. Complete the payment using the reference above, then email support so the platform team can confirm it manually.</p>
+             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+               <a class="button" href="mailto:info@tours-market.com?subject=${encodeURIComponent(`Membership payment ${referenceCode}`)}">Contact support</a>
+               <button id="btn-membership-copy-reference" class="button alt" type="button">Copy reference</button>
+             </div>`
+          : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+               <button id="btn-membership-mark-submitted" class="button">I have paid</button>
+               <button id="btn-membership-copy-reference" class="button alt" type="button">Copy reference</button>
+             </div>`}
+      </div>
+    `;
+  }
+
+  function renderBillingPane(data, membershipIntent) {
     const wrap = document.getElementById('billing-pane-content');
     if (!wrap) return;
 
     const status   = data.subscription_status || 'TRIAL';
     const trial    = data.trial_info || {};
     const hasSub   = !!data.stripe_customer_id;
+    const currentTierLabel = getTierDisplayName(data.product_tier_key || onboardingState.settings?.product_tier_key || 'starter_landing');
 
     const statusColor = { ACTIVE: '#166534', TRIAL: '#713f12', SUSPENDED: '#991b1b', CANCELLED: '#475569' };
     const statusBg    = { ACTIVE: '#dcfce7', TRIAL: '#fef9c3', SUSPENDED: '#fee2e2', CANCELLED: '#f1f5f9' };
+    const billingNotice = pendingBillingNotice ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#92400e">${escHtml(pendingBillingNotice)}</div>` : '';
+    pendingBillingNotice = '';
 
     const trialEndDate = trial.trial_ends_at
       ? new Date(trial.trial_ends_at * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       : '—';
 
     let actionBlock = '';
-    if (status === 'TRIAL' || !hasSub) {
+    if (status === 'TRIAL') {
       actionBlock = `
-        <button id="btn-billing-checkout" class="button" style="margin-top:8px">Upgrade — activate subscription</button>
-        <p style="font-size:12px;color:#94a3b8;margin-top:8px">You won't be charged until your trial ends or you choose to upgrade early.</p>
+        <button id="btn-billing-checkout" class="button" style="margin-top:8px">Open legacy card-billing flow</button>
+        <p style="font-size:12px;color:#94a3b8;margin-top:8px">This optional path uses the older card-billing setup. Your primary membership activation path is shown above.</p>
       `;
-    } else if (hasSub) {
+    } else if (hasSub && (status === 'ACTIVE' || status === 'SUSPENDED' || status === 'CANCELLED')) {
       actionBlock = `
-        <button id="btn-billing-portal" class="button alt" style="margin-top:8px">Manage billing (invoices, payment method, cancel)</button>
+        <button id="btn-billing-portal" class="button alt" style="margin-top:8px">Manage legacy card billing</button>
       `;
     }
 
     wrap.innerHTML = `
+      ${billingNotice}
+      ${renderMembershipSettlementBlock(membershipIntent, data)}
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:20px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
           <span style="display:inline-block;padding:4px 12px;border-radius:999px;font:700 11px/1 'Segoe UI',sans-serif;letter-spacing:.08em;text-transform:uppercase;background:${statusBg[status]||'#f1f5f9'};color:${statusColor[status]||'#475569'}">${status}</span>
-          <span style="font-size:13px;color:#64748b">Tours Market Pro</span>
+          <span style="font-size:13px;color:#64748b">Legacy card-billing controls</span>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:9px 0;color:#64748b;width:45%">Plan</td>
-            <td style="padding:9px 0;font-weight:600">Tour Operator Pro — €9.98 / month</td>
+            <td style="padding:9px 0;font-weight:600">${escHtml(currentTierLabel)}</td>
           </tr>
           <tr style="border-bottom:1px solid #e2e8f0">
             <td style="padding:9px 0;color:#64748b">Status</td>
@@ -3096,20 +3474,95 @@ window.addEventListener('dashboard:langchange', () => {
           ${status === 'TRIAL' ? `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:9px 0;color:#64748b">Trial ends</td><td style="padding:9px 0">${escHtml(trialEndDate)}</td></tr>` : ''}
           <tr>
             <td style="padding:9px 0;color:#64748b">Billing</td>
-            <td style="padding:9px 0">${hasSub ? 'Monthly · Managed by Stripe' : 'No payment method on file'}</td>
+            <td style="padding:9px 0">${hasSub ? 'Monthly card billing account on file' : 'No legacy card-billing account on file'}</td>
           </tr>
         </table>
         ${actionBlock}
       </div>
       <div style="font-size:12px;color:#94a3b8;line-height:1.6">
-        Questions about your invoice or subscription? Email <a href="mailto:info@tours-market.com?subject=Billing%20question" style="color:#2563eb">info@tours-market.com</a>.
+        Questions about your membership settlement or invoice? Email <a href="mailto:info@tours-market.com?subject=Billing%20question" style="color:#2563eb">info@tours-market.com</a>.
       </div>
     `;
+
+    document.querySelectorAll('[data-membership-target-tier]').forEach((button) => {
+      button.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const targetTierKey = btn.dataset.membershipTargetTier || '';
+        if (!targetTierKey) return;
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = 'Preparing transfer instructions…';
+        try {
+          const res = await fetch('/api/membership-billing/intents', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Tenant-ID': tenantId,
+            },
+            body: JSON.stringify({
+              product_tier_key: targetTierKey,
+              provider_key: 'manual_bank_transfer',
+            }),
+          });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not create membership settlement request.');
+          await loadBillingPane();
+        } catch (err) {
+          btn.disabled = false;
+          btn.innerHTML = original;
+          wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
+        }
+      });
+    });
+
+    document.getElementById('btn-membership-mark-submitted')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      if (!membershipIntent?.id) return;
+      btn.disabled = true;
+      btn.textContent = 'Submitting for review…';
+      try {
+        const res = await fetch(`/api/membership-billing/intents/${encodeURIComponent(membershipIntent.id)}/mark-submitted`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID': tenantId,
+          },
+          body: JSON.stringify({}),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || 'Could not submit settlement for review.');
+        await loadBillingPane();
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'I have paid';
+        wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
+      }
+    });
+
+    document.getElementById('btn-membership-copy-reference')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const reference = membershipIntent?.reference_code || '';
+      if (!reference) return;
+      try {
+        await navigator.clipboard.writeText(reference);
+        btn.textContent = 'Reference copied';
+        setTimeout(() => {
+          btn.textContent = 'Copy reference';
+        }, 1600);
+      } catch (_) {
+        btn.textContent = 'Copy failed';
+        setTimeout(() => {
+          btn.textContent = 'Copy reference';
+        }, 1600);
+      }
+    });
 
     document.getElementById('btn-billing-checkout')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
-      btn.textContent = 'Redirecting to Stripe…';
+      btn.textContent = 'Opening legacy card-billing flow…';
       try {
         const res = await fetch('/api/billing/checkout', {
           method: 'POST',
@@ -3126,7 +3579,7 @@ window.addEventListener('dashboard:langchange', () => {
         }
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = 'Upgrade — activate subscription';
+        btn.textContent = 'Open legacy card-billing flow';
         wrap.innerHTML += `<p style="color:#dc2626;font-size:13px;margin-top:8px">${escHtml(err.message)}</p>`;
       }
     });
@@ -3134,7 +3587,7 @@ window.addEventListener('dashboard:langchange', () => {
     document.getElementById('btn-billing-portal')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
-      btn.textContent = 'Opening billing portal…';
+      btn.textContent = 'Opening legacy billing portal…';
       try {
         const res = await fetch('/api/billing/portal', {
           method: 'POST',

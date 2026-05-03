@@ -24,6 +24,7 @@ import registerPaymentRoutes, { checkTenantCompliance } from './routes/payments.
 import registerAdminRoutes from './routes/admin.js';
 import registerOnboardingRoutes from './routes/onboarding.js';
 import registerBillingRoutes from './routes/billing.js';
+import registerMembershipBillingRoutes from './routes/membershipBilling.js';
 import { dispatchTrialReminderEmail, dispatchAdminAlertEmail } from './lib/bookingEmails.js';
 import registerDomainRoutes from './routes/domains.js';
 import registerMarketingRoutes from './routes/marketing.js';
@@ -357,10 +358,13 @@ app.use('*', async (c, next) => {
 });
 
 const PROTECTED_API_PREFIXES = [
+  '/api/bookings',
   '/api/categories',
   '/api/payments',
   '/api/pricing',
+  '/api/properties',
   '/api/stops',
+  '/api/staff',
   '/api/tasks',
   '/api/tenants',
   '/api/tenant/pages',   // pages.js routes — all require an authenticated session
@@ -376,6 +380,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/marketing',
   '/api/seo',
   '/api/distribution',
+  '/api/email',
   '/api/suppliers',
   '/api/calendar',
   '/api/bookingcal',
@@ -385,7 +390,7 @@ const PROTECTED_API_PREFIXES = [
 app.use('/api/*', async (c, next) => {
   const pathname = new URL(c.req.url).pathname;
   // Public endpoints nested under otherwise-protected prefixes
-  const PUBLIC_EXCEPTIONS = ['/api/universal/search', '/api/pay'];
+  const PUBLIC_EXCEPTIONS = ['/api/universal/search', '/api/universal/public', '/api/pay', '/api/bookings/public'];
   if (PUBLIC_EXCEPTIONS.some(p => pathname.startsWith(p))) { await next(); return; }
   const needsAuth = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (!needsAuth) {
@@ -421,6 +426,21 @@ app.use('/api/*', async (c, next) => {
   const ROLE_RANK_MAP = { owner: 4, manager: 3, staff: 2, provider: 1 };
   const sessionRole = session.role ?? 'staff';
   const roleRank    = ROLE_RANK_MAP[sessionRole] ?? 0;
+  const productTierKey = String(session.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+
+  const isPaidMembershipTier = productTierKey !== 'starter_landing';
+  const hasTourPackageAccess = productTierKey === 'tour_operator_pro' || productTierKey === 'tour_hotel_suite';
+  const hasHotelPackageAccess = productTierKey === 'hotel_operator_pro' || productTierKey === 'tour_hotel_suite';
+
+  function packageGateResponse(message, requiredTier) {
+    return c.json({
+      error: message,
+      upgrade_required: true,
+      current_tier: productTierKey,
+      required_tier: requiredTier,
+      billing_url: '/dashboard.html?pane=billing',
+    }, 403);
+  }
 
   // Owner-only: billing mutations (money / subscription management)
   const OWNER_ONLY_PATHS = [
@@ -438,6 +458,37 @@ app.use('/api/*', async (c, next) => {
   const MANAGER_PLUS_ALL_PATHS = ['/api/billing/status', '/api/reports'];
   if (MANAGER_PLUS_ALL_PATHS.some(p => pathname.startsWith(p)) && roleRank < 3) {
     return c.json({ error: 'Manager or owner access required.' }, 403);
+  }
+
+  const PAID_MEMBERSHIP_PATHS = [
+    '/api/staff',
+  ];
+  if (PAID_MEMBERSHIP_PATHS.some(p => pathname.startsWith(p)) && !isPaidMembershipTier) {
+    return packageGateResponse('This workspace requires a paid membership tier.', 'tour_operator_pro|hotel_operator_pro|tour_hotel_suite');
+  }
+
+  const TOUR_PACKAGE_PATHS = [
+    '/api/bookings',
+    '/api/calendar',
+    '/api/bookingcal',
+    '/api/categories',
+    '/api/distribution',
+    '/api/email',
+    '/api/pricing',
+    '/api/stops',
+    '/api/suppliers',
+    '/api/tasks',
+    '/api/tours',
+  ];
+  if (TOUR_PACKAGE_PATHS.some(p => pathname.startsWith(p)) && !hasTourPackageAccess) {
+    return packageGateResponse('This workflow requires Tours Pro or the Tour + Hotel Suite.', 'tour_operator_pro|tour_hotel_suite');
+  }
+
+  const HOTEL_PACKAGE_PATHS = [
+    '/api/properties',
+  ];
+  if (HOTEL_PACKAGE_PATHS.some(p => pathname.startsWith(p)) && !hasHotelPackageAccess) {
+    return packageGateResponse('This workflow requires Hotel Pro or the Tour + Hotel Suite.', 'hotel_operator_pro|tour_hotel_suite');
   }
 
   // Manager+ required for write operations on configuration routes
@@ -505,6 +556,7 @@ registerCategoryRoutes && registerCategoryRoutes(app);
 registerPaymentRoutes && registerPaymentRoutes(app);
 registerAdminRoutes && registerAdminRoutes(app);
 registerBillingRoutes && registerBillingRoutes(app);
+registerMembershipBillingRoutes && registerMembershipBillingRoutes(app);
 registerDomainRoutes && registerDomainRoutes(app);
 registerMarketingRoutes && registerMarketingRoutes(app);
 registerUniversalSiteRoutes && registerUniversalSiteRoutes(app);
@@ -1387,6 +1439,9 @@ export default {
     // For Workers static assets, let the Worker run first and explicitly fall back
     // to ASSETS only when Hono/manual routes do not handle the request.
     const appResponse = await app.fetch(request, env, ctx);
+    if (url.pathname.startsWith('/api/')) {
+      return withPrivateBetaBadge(request, appResponse);
+    }
     if (appResponse.status !== 404 || !env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
       return withPrivateBetaBadge(request, appResponse);
     }

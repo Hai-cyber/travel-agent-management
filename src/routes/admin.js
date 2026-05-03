@@ -69,6 +69,12 @@ import {
   dispatchProofUploadedEmail,
   dispatchBookingConfirmedEmail,
 } from '../lib/bookingEmails.js';
+import {
+  approveMembershipIntent,
+  listMembershipBillingIntents,
+  rejectMembershipIntent,
+  voidMembershipIntent,
+} from '../lib/membershipBilling.js';
 
 const admin = new Hono();
 
@@ -1098,6 +1104,79 @@ admin.post('/tenants/:id/set-subscription', async (c) => {
 
   console.info(`[ADMIN_SET_SUBSCRIPTION] tenant=${tenantId} ${oldStatus}→${newStatus} note=${note}`);
   return c.json({ ok: true, tenant_id: tenantId, status: newStatus, previous_status: oldStatus, note });
+});
+
+// ── Membership billing review queue ─────────────────────────────────────────
+
+admin.get('/membership-billing/intents', async (c) => {
+  const status = c.req.query('status') || null;
+  const productTierKey = c.req.query('product_tier_key') || null;
+  const limit = c.req.query('limit') || 50;
+
+  const intents = await listMembershipBillingIntents(c.env, {
+    status,
+    productTierKey,
+    limit,
+  });
+
+  return c.json({ ok: true, intents, count: intents.length });
+});
+
+admin.post('/membership-billing/intents/:intentId/approve', async (c) => {
+  const intentId = c.req.param('intentId')?.trim();
+  if (!intentId) return c.json({ error: 'Intent ID is required.' }, 400);
+
+  let body = {};
+  try { body = await c.req.json(); } catch { /* optional */ }
+
+  try {
+    const intent = await approveMembershipIntent(c.env, {
+      intentId,
+      actor: 'platform_admin',
+      note: body?.note || null,
+    });
+    return c.json({ ok: true, intent });
+  } catch (err) {
+    return c.json({ error: err.message || 'Failed to approve membership billing intent.' }, 400);
+  }
+});
+
+admin.post('/membership-billing/intents/:intentId/reject', async (c) => {
+  const intentId = c.req.param('intentId')?.trim();
+  if (!intentId) return c.json({ error: 'Intent ID is required.' }, 400);
+
+  let body = {};
+  try { body = await c.req.json(); } catch { /* optional */ }
+
+  try {
+    const intent = await rejectMembershipIntent(c.env, {
+      intentId,
+      actor: 'platform_admin',
+      note: body?.note || null,
+    });
+    return c.json({ ok: true, intent });
+  } catch (err) {
+    return c.json({ error: err.message || 'Failed to reject membership billing intent.' }, 400);
+  }
+});
+
+admin.post('/membership-billing/intents/:intentId/void', async (c) => {
+  const intentId = c.req.param('intentId')?.trim();
+  if (!intentId) return c.json({ error: 'Intent ID is required.' }, 400);
+
+  let body = {};
+  try { body = await c.req.json(); } catch { /* optional */ }
+
+  try {
+    const intent = await voidMembershipIntent(c.env, {
+      intentId,
+      actor: 'platform_admin',
+      note: body?.note || null,
+    });
+    return c.json({ ok: true, intent });
+  } catch (err) {
+    return c.json({ error: err.message || 'Failed to void membership billing intent.' }, 400);
+  }
 });
 
 // ── Promo code helpers ────────────────────────────────────────────────────────

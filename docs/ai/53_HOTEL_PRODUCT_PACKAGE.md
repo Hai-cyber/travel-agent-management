@@ -161,11 +161,21 @@ Do not promise:
 
 - hotel/property engine unlocked
 - direct-booking and room operations focus
+- membership activation should still run through the shared provider-agnostic tenant membership flow, not a separate hotel-only billing stack
 
 ### `all_in_one`
 
 - combined tour + hotel suite
 - for operators who genuinely run both sides
+- membership should be activated as one deliberate suite-level tenant membership, not as two unrelated subscriptions glued together
+
+## Membership completion dependency
+
+`Hotel Pro` packaging is not commercially complete until the shared platform membership flow can activate `hotel_pro` without requiring Stripe as the only path.
+
+`all_in_one` packaging is not commercially complete until that same shared flow can activate the combined suite as one tenant membership.
+
+The checkpoint track for that work belongs to the shared platform ledger because it is a platform billing concern, not a hotel-only runtime concern.
 
 ## Relationship to hybrid tenants
 

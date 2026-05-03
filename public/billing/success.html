@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Subscription Activated — Tours Market</title>
+  <title>Billing Activated — Tours Market</title>
   <style>
     :root { --ink: #0f172a; --muted: #475569; --accent: #2563eb; --border: #e2e8f0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,7 +64,7 @@
       display: flex; align-items: center; justify-content: center; gap: 10px;
       margin-top: 24px; color: var(--muted); font-size: 12px;
     }
-    .stripe-text { font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: 0.05em; color: #635bff; }
+    .provider-text { font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: 0.05em; color: #2563eb; }
   </style>
   <!-- MS Clarity -->
   <script type="text/javascript">
@@ -79,17 +79,17 @@
   <div class="card">
     <div class="icon">✓</div>
     <h1>You're all set!</h1>
-    <p class="sub">Your subscription is now active. Your storefront is ready — publish tours, accept bookings, and manage your operations.</p>
-    <div class="plan-badge" id="plan-badge">Tours Market Pro</div>
+    <p class="sub">Your billing activation is complete. If this came from the legacy card-billing path, your dashboard is ready for the next membership and storefront steps.</p>
+    <div class="plan-badge" id="plan-badge">Billing active</div>
     <div class="actions">
       <a class="btn btn-primary" href="/dashboard.html">Go to dashboard</a>
       <a class="btn btn-secondary" href="/pricing.html">View your plan</a>
     </div>
     <hr class="divider" />
-    <p class="note">A confirmation email will be sent to your registered address. You can manage your subscription, update your payment method, or download invoices at any time from your dashboard.</p>
+    <p class="note">A confirmation email will be sent to your registered address. You can review membership status, settlement guidance, or legacy billing details from your dashboard.</p>
     <div class="pay-row">
       <span>⚡</span>
-      <span class="stripe-text">Secured by Stripe</span>
+      <span class="provider-text">Legacy card-billing confirmation</span>
     </div>
   </div>
 
@@ -103,10 +103,17 @@
       // Even if this fails, the page is still useful
       if (sessionId) {
         try {
-          const res = await fetch('/api/billing/status', { credentials: 'include' });
+          const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+          const sessionData = await sessionRes.json().catch(() => null);
+          const tenantId = sessionData?.session?.tenant_id;
+          if (!tenantId) return;
+          const res = await fetch('/api/billing/status', {
+            credentials: 'include',
+            headers: { 'X-Tenant-ID': tenantId },
+          });
           const data = await res.json().catch(() => null);
           if (data?.ok && data.subscription_status === 'ACTIVE') {
-            document.getElementById('plan-badge').textContent = 'Tours Market Pro — Active';
+            document.getElementById('plan-badge').textContent = 'Legacy billing path — active';
           }
         } catch { /* non-critical */ }
       }

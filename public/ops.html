@@ -454,6 +454,11 @@
     <p id="error-msg"></p>
     <a href="/dashboard.html" style="color:var(--blue-l);margin-top:16px;display:inline-block">← Back to dashboard</a>
   </div>
+  <div id="tier-gate-banner" style="display:none;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:10px;padding:12px 14px;margin:14px 16px 0;align-items:center;gap:12px;font-size:13px">
+    <strong>Upgrade required</strong>
+    <span id="tier-gate-message" style="flex:1"></span>
+    <button id="tier-gate-upgrade" type="button" class="back-btn" style="background:#c2410c">Open billing</button>
+  </div>
   <div id="order-list-view" class="hidden">
     <div class="top-bar">
       <h1>🗂️ Operations Board</h1>
@@ -593,6 +598,8 @@
 const API = '';
 let TENANT_ID = '';
 let TENANT_NAME = '';
+let TENANT_TIER_KEY = '';
+let TIER_ACCESS_LOCKED = false;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -618,6 +625,68 @@ function unixToTimeStr(unix) {
   if (!unix) return '';
   const d = new Date(unix * 1000);
   return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+}
+function openBillingForOps(message) {
+  const url = new URL('/dashboard.html', window.location.origin);
+  if (TENANT_ID) url.searchParams.set('tid', TENANT_ID);
+  url.searchParams.set('pane', 'billing');
+  url.searchParams.set('upgrade', '1');
+  if (message) url.searchParams.set('billing_notice', message);
+  window.location.href = `${url.pathname}${url.search}${url.hash}`;
+}
+function tierLabel(tierKey) {
+  if (tierKey === 'tour_operator_pro') return 'Tours Pro';
+  if (tierKey === 'hotel_operator_pro') return 'Hotel Pro';
+  if (tierKey === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+  return 'Landing Only';
+}
+function getUpgradeTargetsForTier() {
+  if (TENANT_TIER_KEY === 'starter_landing') return ['tour_operator_pro', 'hotel_operator_pro', 'tour_hotel_suite'];
+  if (TENANT_TIER_KEY === 'tour_operator_pro' || TENANT_TIER_KEY === 'hotel_operator_pro') return ['tour_hotel_suite'];
+  return [];
+}
+function getTierGateMessage() {
+  if (TENANT_TIER_KEY === 'hotel_operator_pro') {
+    return 'Operations Board belongs to the tour workflow. Upgrade to the Tour + Hotel Suite to use it.';
+  }
+  return 'Landing Only can preview this operations board, but managing bookings and service tasks requires Tours Pro or the Tour + Hotel Suite.';
+}
+async function resolveTenantTier() {
+  const response = await fetch('/api/tenants/settings', {
+    headers: { 'X-Tenant-ID': TENANT_ID },
+    credentials: 'include',
+  });
+  const payload = await response.json().catch(() => null);
+  if (response.ok && payload?.settings) {
+    TENANT_TIER_KEY = String(payload.settings.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+  }
+  TIER_ACCESS_LOCKED = !(TENANT_TIER_KEY === 'tour_operator_pro' || TENANT_TIER_KEY === 'tour_hotel_suite');
+  const banner = $('tier-gate-banner');
+  const message = $('tier-gate-message');
+  if (banner && message) {
+    if (TIER_ACCESS_LOCKED) {
+      message.textContent = getTierGateMessage();
+      const upgradeBtn = $('tier-gate-upgrade');
+      $('tier-gate-actions')?.remove();
+      if (upgradeBtn) {
+        upgradeBtn.style.display = '';
+        upgradeBtn.textContent = 'Upgrade';
+        upgradeBtn.onclick = (event) => {
+          event.preventDefault();
+          const url = new URL('/dashboard.html', window.location.origin);
+          if (TENANT_ID) url.searchParams.set('tid', TENANT_ID);
+          url.searchParams.set('pane', 'billing');
+          url.searchParams.set('upgrade', '1');
+          url.searchParams.set('billing_notice', getTierGateMessage());
+          if (TENANT_TIER_KEY === 'hotel_operator_pro') url.searchParams.set('membership_target', 'tour_hotel_suite');
+          window.location.href = `${url.pathname}${url.search}${url.hash}`;
+        };
+      }
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
 }
 function unixToDateTimeLocal(unix) {
   if (!unix) return '';
@@ -750,8 +819,16 @@ async function init() {
     }
     TENANT_ID   = sess.session.tenant_id;
     TENANT_NAME = sess.session.tenant_name || '';
+    await resolveTenantTier();
     $('tenant-label').textContent = TENANT_NAME;
     $('board-tenant').textContent  = TENANT_NAME;
+
+    if (TIER_ACCESS_LOCKED) {
+      $('loading').classList.add('hidden');
+      $('order-list-view').classList.remove('hidden');
+      $('orders-container').innerHTML = '<div class="empty-list">Preview only. Upgrade in the Billing pane to load operational bookings and service tasks.</div>';
+      return;
+    }
 
     const params = new URLSearchParams(location.search);
     const orderId = params.get('order');
@@ -767,6 +844,20 @@ async function init() {
     showError(e.message || 'Unknown error');
   }
 }
+
+document.addEventListener('click', (event) => {
+  if (!TIER_ACCESS_LOCKED) return;
+  const target = event.target.closest('button, input, select, textarea, .filter-btn, .status-radio, .card-action-btn');
+  if (!target) return;
+  if (target.id === 'back-btn' || target.id === 'tier-gate-upgrade') return;
+  event.preventDefault();
+  event.stopPropagation();
+  openBillingForOps(getTierGateMessage());
+}, true);
+
+$('tier-gate-upgrade')?.addEventListener('click', () => {
+  openBillingForOps(getTierGateMessage());
+});
 
 function showError(msg) {
   $('loading').classList.add('hidden');

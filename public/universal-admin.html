@@ -599,6 +599,22 @@
       return { 'X-Tenant-ID': tenantId };
     }
 
+    function getTierLabel(tierKey) {
+      if (tierKey === 'tour_operator_pro') return 'Tours Pro';
+      if (tierKey === 'hotel_operator_pro') return 'Hotel Pro';
+      if (tierKey === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+      return 'Landing Only';
+    }
+
+    function applyTierContextNote() {
+      const tierKey = String(state.tenantSettings?.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+      const tierName = getTierLabel(tierKey);
+      const note = tierKey === 'starter_landing'
+        ? `${tierName} keeps access to the website editor. Operational engines unlock through a paid membership tier.`
+        : `${tierName} is active. This editor remains available for website and brand work across tiers.`;
+      setStatus(note, false);
+    }
+
     function esc(value) {
       return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -2468,6 +2484,7 @@
       updateTenantAdminLink();
       try {
         await loadBundle();
+        applyTierContextNote();
         const requestedPage = getRequestedPageSlug();
         const defaultPage = findPageBySlug(state.bundle?.site?.home_page_key || 'home') || getPages()[0];
         const initialPage = findPageBySlug(requestedPage) || defaultPage;

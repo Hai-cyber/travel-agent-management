@@ -21,13 +21,17 @@ Record major technical and product decisions.
 
 ## 2026-04-15 — Revenue model for Stripe review
 
+> Legacy scope note:
+> This decision only describes how to answer Stripe review questions when Stripe is used as one provider.
+> It must not be read as the current architectural rule for tenant membership activation, which is now provider-agnostic.
+
 **Decision:** Revenue model cần mô tả rõ với Stripe như sau:
 
 > "Monthly SaaS subscription. End-of-month commission invoice is a separate B2B invoice, not processed through Stripe."
 
 **Rationale:**
 
-1. **Stripe chỉ xử lý subscription** — €4.98/tháng (Starter) hoặc €9.98/tháng (Tour Operator Pro). Đây là Stripe Payments / Stripe Billing thông thường.
+1. **Nếu Stripe được dùng cho SaaS billing** — Stripe chỉ xử lý subscription. Đây là Stripe Payments / Stripe Billing thông thường, không phải kiến trúc membership duy nhất.
 2. **Commission (0–2% threshold) được thu qua invoice B2B riêng** — cuối tháng, Tours Market LLC gửi invoice cho operator dựa trên tổng doanh thu được ghi nhận trong hệ thống. Khoản này *không* đi qua Stripe. Không cần khai báo với Stripe.
 3. **Nếu sau này muốn Stripe xử lý cả commission invoice** → cần bật **Stripe Invoicing** (khác với Stripe Payments). Đây là quyết định tương lai, chưa thực hiện.
 

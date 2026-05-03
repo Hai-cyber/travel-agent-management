@@ -123,7 +123,7 @@ Checkpoint: CHK-R77 — Billing safety: enforcement middleware, lifecycle emails
   - Removed duplicate billing pane JS block (fix for CHK-R76 regression)
 
 ### What is still not done
-- Stripe secrets must be configured: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_DOMAIN_WEBHOOK_SECRET`
+- Membership note: provider-agnostic tenant membership settlement now exists in runtime; Stripe secrets are no longer a blocker for activating tenant membership. Stripe secrets still matter only for the legacy Stripe subscription path and Stripe-based domain purchase flow.
 - `[COMPANY ADDRESS]` placeholder in terms.html, privacy.html, contact.html — fill after Wyoming LLC formation
 - `CF_ACCOUNT_ID` and `CF_REGISTRAR_API_TOKEN` show `REPLACE_ME` — non-blocking for current features
 - Stripe webhook events to register in Stripe Dashboard: `checkout.session.completed`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.payment_succeeded`
@@ -442,16 +442,20 @@ Suggested next prompt:
 Date: 2026-04-14
 Checkpoint: CHK-R58 — Trial countdown banner + Upgrade button restored + fully localized
 
+> Legacy note:
+> This handoff describes the older Stripe-first subscription banner behavior.
+> Current runtime no longer uses Stripe checkout as the default upgrade path for tenant membership; the dashboard upgrade CTA now routes into the provider-agnostic membership billing pane.
+
 ### What was completed
 
 **Trial banner root cause analysis:**
 1. Settings API `SELECT` never included `created_at` → old condition `subscription_status === 'TRIAL' && created_at` always `false`
 2. All dev tenants were manually set `ACTIVE` (no `stripe_customer_id`) → banner condition never triggered regardless
 
-**Fixes applied:**
+**Fixes applied at that time:**
 - Removed `created_at` gate entirely; `daysLeft` now driven from `/api/billing/status` server-side `trial_info.trial_days_left` (with `created_at` as local fallback only when billing API is unavailable)
-- Upgraded banner condition: `subscription_status === 'TRIAL' || !hasStripeSubscription` — shows for any tenant without a real Stripe payment
-- Wired `#btn-upgrade` click handler → `POST /api/billing/checkout` → redirects to Stripe `checkout_url` on success; shows `✅ Already Active` if tenant is already subscribed; restores label on error
+- Upgraded banner condition: `subscription_status === 'TRIAL' || !hasStripeSubscription` — this was later superseded by the provider-agnostic membership billing rollout
+- Wired `#btn-upgrade` click handler → `POST /api/billing/checkout` — this was later superseded by routing the CTA into the billing pane instead of assuming Stripe first
 
 **i18n localization:**
 - Added `trial_banner.active`, `trial_banner.expired`, `trial_banner.upgrade` keys to all 11 locale files: `en`, `en-GB`, `en-AU`, `vi`, `zh`, `ja`, `ko`, `de`, `fr`, `es`, `th`
@@ -481,7 +485,7 @@ docs/ai/04_SESSION_HANDOFF.md                        (this handoff)
 - SEO/public indexing: `public_indexing_enabled` column exists but `<meta robots>` not injected
 
 ### Known risks / TODOs
-- `STRIPE_PRICE_ID` env var is `price_REPLACE_ME` — Stripe checkout will fail until replaced with a real price ID
+- Legacy Stripe path only: `STRIPE_PRICE_ID` env var is `price_REPLACE_ME` — the old Stripe subscription checkout will fail until replaced with a real price ID
 - Terminal cwd bug: use absolute `--cwd`/`--config` flags with wrangler; `cd` does not reliably persist
 
 ### Recommended next checkpoints

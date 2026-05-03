@@ -51,7 +51,7 @@ function createPricingHandlers(deps) {
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
 
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {
@@ -215,7 +215,7 @@ function createPricingHandlers(deps) {
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
 
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {
@@ -372,7 +372,7 @@ function createPricingHandlers(deps) {
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
 
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {
@@ -405,7 +405,7 @@ function createPricingHandlers(deps) {
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
 
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {
@@ -681,7 +681,7 @@ function createPricingHandlers(deps) {
     const tenantId = resolveTenantId(request);
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {
@@ -772,7 +772,7 @@ function createPricingHandlers(deps) {
     const tenantId = resolveTenantId(request);
     if (!tenantId) return jsonResponse({ error: 'X-Tenant-ID header is required' }, 400);
     const propertyId = String(params?.propertyId || '').trim();
-    const actor = await requireTenantActor(request, env, tenantId);
+    const actor = await requireManagerActor(request, env, tenantId);
     if (actor.error) return actor.error;
 
     try {

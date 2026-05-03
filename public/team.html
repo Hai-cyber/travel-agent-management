@@ -215,6 +215,81 @@ const S = {
   tierKey: '',
 };
 
+function tierLabel(tierKey) {
+  if (tierKey === 'tour_operator_pro') return 'Tours Pro';
+  if (tierKey === 'hotel_operator_pro') return 'Hotel Pro';
+  if (tierKey === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+  return 'Landing Only';
+}
+
+function isTeamReadOnlyTier() {
+  return String(S.tierKey || '').trim() === 'starter_landing';
+}
+
+function getUpgradeTargetsForTier() {
+  if (S.tierKey === 'starter_landing') return ['tour_operator_pro', 'hotel_operator_pro', 'tour_hotel_suite'];
+  if (S.tierKey === 'tour_operator_pro' || S.tierKey === 'hotel_operator_pro') return ['tour_hotel_suite'];
+  return [];
+}
+
+function goToBilling(message, targetKey = '') {
+  const url = new URL('/dashboard.html', window.location.origin);
+  if (S.tenantId) url.searchParams.set('tid', S.tenantId);
+  url.searchParams.set('pane', 'billing');
+  url.searchParams.set('upgrade', '1');
+  if (message) url.searchParams.set('billing_notice', message);
+  if (targetKey) url.searchParams.set('membership_target', targetKey);
+  window.location.href = `${url.pathname}${url.search}${url.hash}`;
+}
+
+function ensureTeamFeatureAccess() {
+  if (!isTeamReadOnlyTier()) return true;
+  goToBilling('Landing Only can preview team settings, but adding or managing team members requires a paid membership tier.');
+  return false;
+}
+
+function syncTeamTierAccess() {
+  const banner = document.getElementById('upgrade-banner');
+  const upgradeMsg = document.getElementById('upgrade-msg');
+  const inviteOpen = document.getElementById('btn-invite-open');
+  const inviteForm = document.getElementById('team-invite-form');
+  if (!banner || !upgradeMsg || !inviteOpen) return;
+
+  if (isTeamReadOnlyTier()) {
+    banner.style.display = 'flex';
+    upgradeMsg.textContent = `Your current plan (${tierLabel(S.tierKey).toLowerCase()}) can view this page, but team management unlocks only after an upgrade.`;
+    inviteOpen.disabled = false;
+    inviteOpen.textContent = 'Upgrade';
+    inviteOpen.classList.remove('btn-primary');
+    inviteOpen.classList.add('btn-ghost');
+    inviteOpen.style.background = '#fef3c7';
+    inviteOpen.style.borderColor = '#f59e0b';
+    inviteOpen.style.color = '#92400e';
+    if (inviteForm) inviteForm.style.display = 'none';
+    banner.onclick = () => goToBilling('Upgrade your membership to unlock team management.');
+    banner.style.cursor = 'pointer';
+    return;
+  }
+
+  banner.onclick = null;
+  banner.style.cursor = '';
+  inviteOpen.disabled = false;
+  inviteOpen.textContent = ti('team.btn_invite');
+  inviteOpen.classList.add('btn-primary');
+  inviteOpen.classList.remove('btn-ghost');
+  inviteOpen.style.background = '';
+  inviteOpen.style.borderColor = '';
+  inviteOpen.style.color = '';
+}
+
+async function resolveTeamTier() {
+  const res = await fetch('/api/tenants/settings', { headers: h(), credentials: 'same-origin' });
+  const payload = await res.json().catch(() => null);
+  if (res.ok && payload?.settings) {
+    S.tierKey = String(payload.settings.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+  }
+}
+
 let toastTimer;
 function toast(msg, type = 'ok') {
   const el = document.getElementById('toast');
@@ -287,6 +362,7 @@ async function loadTeam() {
         banner.style.display = 'none';
       }
     }
+    syncTeamTierAccess();
     renderTeamMembers(data.members || []);
     renderPendingInvites(data.pending_invites || []);
   } catch (e) {
@@ -336,6 +412,7 @@ function renderPendingInvites(invites) {
 }
 
 async function changeTeamRole(userId, role) {
+  if (!ensureTeamFeatureAccess()) return;
   try {
     await api(`/api/staff/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) });
     toast(ti('team.toast_role_updated'));
@@ -347,6 +424,7 @@ async function changeTeamRole(userId, role) {
 }
 
 async function removeTeamMember(userId, email) {
+  if (!ensureTeamFeatureAccess()) return;
   if (!confirm(ti('team.confirm_remove', { email }))) return;
   try {
     await api(`/api/staff/${userId}`, { method: 'DELETE' });
@@ -358,6 +436,7 @@ async function removeTeamMember(userId, email) {
 }
 
 async function revokeInvite(inviteId) {
+  if (!ensureTeamFeatureAccess()) return;
   if (!confirm(ti('team.confirm_revoke'))) return;
   try {
     await api(`/api/staff/invites/${inviteId}`, { method: 'DELETE' });
@@ -369,6 +448,7 @@ async function revokeInvite(inviteId) {
 }
 
 document.getElementById('btn-invite-open').addEventListener('click', () => {
+  if (!ensureTeamFeatureAccess()) return;
   const form = document.getElementById('team-invite-form');
   form.style.display = form.style.display === 'none' ? '' : 'none';
 });
@@ -377,6 +457,7 @@ document.getElementById('btn-invite-cancel').addEventListener('click', () => {
   document.getElementById('invite-email').value = '';
 });
 document.getElementById('btn-invite-send').addEventListener('click', async () => {
+  if (!ensureTeamFeatureAccess()) return;
   const email = document.getElementById('invite-email')?.value?.trim();
   const role  = document.getElementById('invite-role')?.value || 'staff';
   if (!email) { toast(ti('team.error_email_required'), 'err'); return; }
@@ -402,6 +483,9 @@ document.getElementById('btn-invite-send').addEventListener('click', async () =>
   await loadUiLocale();
   const tenantId = await resolveTenantContext();
   if (!tenantId) return;
+  await resolveTeamTier();
+  syncTeamTierAccess();
+  if (isTeamReadOnlyTier()) return;
   await loadTeam();
 })();
 </script>

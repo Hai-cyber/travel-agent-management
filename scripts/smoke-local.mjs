@@ -814,6 +814,189 @@ async function runBookingSmoke(baseUrl, token, adminSecret) {
   pass('Verified booking confirm audit row');
 }
 
+async function runPublicHotelSmoke(baseUrl, token) {
+  info('Running public hotel smoke flow');
+
+  const customDomain = 'travel-smoke.example.com';
+  const uniqueSuffix = String(Date.now());
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-ID': TENANT_ID,
+    'Content-Type': 'application/json',
+  };
+  const hotelRow = runD1Json(
+    `SELECT id, hotel_key
+       FROM tenant_universal_hotels
+      WHERE tenant_id = '${TENANT_ID}'
+      ORDER BY updated_at DESC
+      LIMIT 1;`
+  )[0];
+  if (!hotelRow?.id || !hotelRow?.hotel_key) {
+    fail('Public hotel smoke could not find a tenant hotel row fixture');
+    return;
+  }
+
+  const propertyId = `prop-public-hotel-smoke-${uniqueSuffix}`;
+  runD1Json(
+    `INSERT INTO properties (
+        id, tenant_id, name, slug, status, timezone, currency,
+        default_check_in_time, default_check_out_time,
+        split_stay_enabled, split_stay_public_visible,
+        allow_upgrade_to_preserve_stay, upgrade_mode,
+        max_room_moves_per_reservation, max_upgrade_segments_per_stay,
+        max_upgrade_level_jump, same_day_turnover_sellable,
+        created_at, updated_at
+      ) VALUES (
+        '${propertyId}', '${TENANT_ID}', 'Public Hotel Smoke ${uniqueSuffix}', 'public-hotel-smoke-${uniqueSuffix}',
+        'active', 'Asia/Ho_Chi_Minh', 'USD',
+        '14:00', '11:00',
+        1, 0,
+        1, 'suggest_only',
+        1, 1,
+        1, 0,
+        strftime('%s','now'), strftime('%s','now')
+      );`
+  );
+
+  const roomTypeCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-types`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      code: `PH${uniqueSuffix.slice(-6)}`,
+      name: `Public Hotel Type ${uniqueSuffix.slice(-4)}`,
+      base_capacity: 2,
+      max_occupancy: 2,
+      sort_order: 9997,
+    }),
+  });
+  if (!roomTypeCreate.response.ok || !roomTypeCreate.body?.room_type?.id) {
+    fail(`Public hotel smoke could not create a room type: ${roomTypeCreate.response.status} ${roomTypeCreate.text}`);
+    return;
+  }
+  const roomTypeId = roomTypeCreate.body.room_type.id;
+
+  const roomUnitCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-units`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      room_number: `PH-${uniqueSuffix.slice(-4)}-1`,
+      floor_label: 'Public Hotel Smoke',
+      sort_order: 9998,
+    }),
+  });
+  if (!roomUnitCreate.response.ok || !roomUnitCreate.body?.room_unit?.id) {
+    fail(`Public hotel smoke could not create a room unit: ${roomUnitCreate.response.status} ${roomUnitCreate.text}`);
+    return;
+  }
+
+  const roomRateCreate = await requestJson(`${baseUrl}/api/properties/${encodeURIComponent(propertyId)}/room-rates`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      room_type_id: roomTypeId,
+      rate_name: 'Public Hotel BAR',
+      currency: 'USD',
+      nightly_amount: 135,
+      included_adults: 2,
+      included_children: 0,
+      extra_adult_amount: 0,
+      extra_child_amount: 0,
+      active: 1,
+    }),
+  });
+  if (!roomRateCreate.response.ok || !roomRateCreate.body?.room_rate?.id) {
+    fail(`Public hotel smoke could not create a room rate: ${roomRateCreate.response.status} ${roomRateCreate.text}`);
+    return;
+  }
+
+  runD1Json(
+    `UPDATE tenants
+        SET subscription_status = 'ACTIVE',
+            trust_status = 'TRUSTED',
+            custom_domain = '${customDomain}',
+            custom_domain_verified_at = COALESCE(custom_domain_verified_at, strftime('%s','now')),
+            terms_accepted = 1,
+            terms_accepted_at = COALESCE(terms_accepted_at, strftime('%s','now'))
+      WHERE id = '${TENANT_ID}';
+     UPDATE tenant_universal_hotels
+        SET property_id = '${propertyId}',
+            status = 'active',
+            updated_at = strftime('%s','now')
+      WHERE id = '${hotelRow.id}';`
+  );
+
+  const canonicalHotelKey = String(hotelRow.hotel_key).trim().toLowerCase();
+  const publicHeaders = { 'X-Forwarded-Host': customDomain };
+
+  const publicHotel = await requestJson(`${baseUrl}/api/universal/public/hotels/${encodeURIComponent(canonicalHotelKey)}`, {
+    headers: publicHeaders,
+  });
+  if (
+    !publicHotel.response.ok
+    || !publicHotel.body?.ok
+    || String(publicHotel.body?.hotel?.property?.id || '') !== String(propertyId)
+  ) {
+    fail(`Public hotel smoke read failed: ${publicHotel.response.status} ${publicHotel.text}`);
+    return;
+  }
+  pass('Resolved a host-scoped public hotel with linked property data');
+
+  const staySearch = await requestJson(`${baseUrl}/api/universal/public/hotels/${encodeURIComponent(canonicalHotelKey)}/stay-search`, {
+    method: 'POST',
+    headers: {
+      ...publicHeaders,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      check_in: '2026-11-20',
+      check_out: '2026-11-22',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+    }),
+  });
+  const roomOptions = Array.isArray(staySearch.body?.room_options) ? staySearch.body.room_options : [];
+  const selectedOption = roomOptions.find((option) => option?.available) || null;
+  if (!staySearch.response.ok || !staySearch.body?.ok || !roomOptions.length || !selectedOption?.room_type?.id) {
+    fail(`Public hotel smoke stay-search failed: ${staySearch.response.status} ${staySearch.text}`);
+    return;
+  }
+  pass('Returned public hotel stay-search room options through the shared property engine');
+
+  const bookingCommit = await requestJson(`${baseUrl}/api/universal/public/hotels/${encodeURIComponent(canonicalHotelKey)}/booking-commit`, {
+    method: 'POST',
+    headers: {
+      ...publicHeaders,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      room_type_id: selectedOption.room_type.id,
+      check_in: '2026-11-20',
+      check_out: '2026-11-22',
+      adults: 2,
+      children: 0,
+      rooms_requested: 1,
+      guest_name: `Public Hotel Smoke ${Date.now()}`,
+      guest_email: `public.hotel.smoke.${Date.now()}@example.com`,
+      guest_phone: '+49123456789',
+      special_requests: 'Late arrival from smoke test',
+    }),
+  });
+
+  if (
+    !bookingCommit.response.ok
+    || bookingCommit.body?.ok !== true
+    || bookingCommit.body?.reservation?.status !== 'confirmed'
+    || bookingCommit.body?.reservation?.source !== 'direct_web'
+    || bookingCommit.body?.hold?.hold_type !== 'soft_hold'
+  ) {
+    fail(`Public hotel smoke booking-commit failed: ${bookingCommit.response.status} ${bookingCommit.text}`);
+    return;
+  }
+  pass('Committed a public hotel booking into shared hold + reservation runtime successfully');
+}
+
 async function runPricingSmoke(baseUrl, token) {
   info('Running pricing calculate smoke flow');
   const pricingSmokeDate = resolvePricingSmokeDate();
@@ -2562,6 +2745,7 @@ async function main() {
     await runTaskSmoke(baseUrl, token);
     await runPricingSmoke(baseUrl, token);
     await runBookingSmoke(baseUrl, token, adminSecret);
+    await runPublicHotelSmoke(baseUrl, token);
     await runPasswordResetSmoke(baseUrl, token);
     // Password reset invalidates the previous session — mint a fresh token for
     // tests that run after the password-reset smoke.

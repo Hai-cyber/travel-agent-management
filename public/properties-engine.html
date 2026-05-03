@@ -89,6 +89,13 @@
 
   <!-- Flash -->
   <div id="flash" class="hidden fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-lg border"></div>
+  <div id="tier-gate-banner" class="hidden max-w-4xl mx-auto mt-4 px-4">
+    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm flex items-center gap-3">
+      <span class="font-semibold">Tier notice</span>
+      <span id="tier-gate-message" class="flex-1"></span>
+      <button id="tier-gate-upgrade" type="button" class="bg-amber-600 hover:bg-amber-700 text-white rounded px-3 py-1.5 text-xs font-bold">Open billing</button>
+    </div>
+  </div>
 
   <!-- App layout -->
   <div class="flex" style="min-height: calc(100vh - 52px)">
@@ -1134,6 +1141,8 @@
     (() => {
       const state = {
         tenantId: '',
+        tierKey: '',
+        propertiesAccessLocked: false,
         properties: [],
         selectedPropertyId: '',
         roomTypes: [],
@@ -1150,6 +1159,9 @@
 
       const els = {
         flash: document.getElementById('flash'),
+        tierGateBanner: document.getElementById('tier-gate-banner'),
+        tierGateMessage: document.getElementById('tier-gate-message'),
+        tierGateUpgrade: document.getElementById('tier-gate-upgrade'),
         tenantForm: document.getElementById('tenant-form'),
         tenantId: document.getElementById('tenant-id'),
         connectStatus: document.getElementById('connect-status'),
@@ -1264,6 +1276,73 @@
           : 'fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-lg border bg-green-50 border-green-300 text-green-700';
         clearTimeout(flashTimer);
         flashTimer = setTimeout(() => { els.flash.className = 'hidden'; }, 3600);
+      }
+
+      function tierLabel(tierKey) {
+        if (tierKey === 'tour_operator_pro') return 'Tours Pro';
+        if (tierKey === 'hotel_operator_pro') return 'Hotel Pro';
+        if (tierKey === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+        return 'Landing Only';
+      }
+
+      function propertiesAccessAllowed() {
+        return state.tierKey === 'hotel_operator_pro' || state.tierKey === 'tour_hotel_suite';
+      }
+
+      function getUpgradeTargetsForTier() {
+        if (state.tierKey === 'starter_landing') return ['tour_operator_pro', 'hotel_operator_pro', 'tour_hotel_suite'];
+        if (state.tierKey === 'tour_operator_pro' || state.tierKey === 'hotel_operator_pro') return ['tour_hotel_suite'];
+        return [];
+      }
+
+      function openBillingForProperties(message, targetKey = '') {
+        const url = new URL('/dashboard.html', window.location.origin);
+        if (state.tenantId) url.searchParams.set('tid', state.tenantId);
+        url.searchParams.set('pane', 'billing');
+        url.searchParams.set('upgrade', '1');
+        if (message) url.searchParams.set('billing_notice', message);
+        if (targetKey) url.searchParams.set('membership_target', targetKey);
+        window.location.href = `${url.pathname}${url.search}${url.hash}`;
+      }
+
+      function applyPropertiesTierGate() {
+        state.propertiesAccessLocked = !propertiesAccessAllowed();
+        if (!state.propertiesAccessLocked) {
+          if (els.tierGateBanner) els.tierGateBanner.classList.add('hidden');
+          return;
+        }
+
+        const message = state.tierKey === 'tour_operator_pro'
+          ? 'Properties are available after upgrading from Tours Pro to the Tour + Hotel Suite.'
+          : 'Landing Only can preview the admin workspace, but the property engine unlocks only after upgrading to Hotel Pro or the Tour + Hotel Suite.';
+        if (els.tierGateMessage) els.tierGateMessage.textContent = message;
+        if (els.tierGateBanner) els.tierGateBanner.classList.remove('hidden');
+        document.getElementById('tier-gate-actions')?.remove();
+        if (els.tierGateUpgrade) {
+          els.tierGateUpgrade.classList.remove('hidden');
+          els.tierGateUpgrade.textContent = 'Upgrade';
+          els.tierGateUpgrade.onclick = () => openBillingForProperties(message, state.tierKey === 'tour_operator_pro' ? 'tour_hotel_suite' : '');
+        }
+
+        document.querySelectorAll('main button, main input, main select, main textarea').forEach((node) => {
+          node.disabled = true;
+        });
+        document.querySelectorAll('.sidebar-item[data-tab]').forEach((node) => {
+          node.disabled = true;
+        });
+      }
+
+      async function loadTenantTier(tenantId) {
+        const response = await fetch('/api/tenants/settings', {
+          headers: { 'X-Tenant-ID': tenantId },
+          credentials: 'include',
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.settings) {
+          throw new Error(payload?.error || 'Failed to load tenant tier.');
+        }
+        state.tierKey = String(payload.settings.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+        applyPropertiesTierGate();
       }
 
       async function api(path, options) {
@@ -1718,7 +1797,13 @@
         e.preventDefault();
         const id = String(els.tenantId.value || '').trim();
         if (!id) return setFlash('Tenant ID is required.', 'err');
-        try { await bootTenant(id); } catch (err) { setFlash(err.message || 'Failed to load tenant.', 'err'); }
+        try {
+          await loadTenantTier(id);
+          if (!propertiesAccessAllowed()) return;
+          await bootTenant(id);
+        } catch (err) {
+          setFlash(err.message || 'Failed to load tenant.', 'err');
+        }
       });
 
       els.propertyList.addEventListener('click', async (e) => {
@@ -2111,7 +2196,12 @@
         const tenantId = String(urlTenant || storedTenant || '').trim();
         if (!tenantId) return;
         els.tenantId.value = tenantId;
-        bootTenant(tenantId).catch((err) => setFlash(err.message, 'err'));
+        loadTenantTier(tenantId)
+          .then(() => {
+            if (!propertiesAccessAllowed()) return;
+            return bootTenant(tenantId);
+          })
+          .catch((err) => setFlash(err.message, 'err'));
       }
 
       lockTabs();
@@ -2132,6 +2222,10 @@
         } catch { /* network error — fall through and let restoreTenant handle 401s */ }
         restoreTenant();
       })();
+
+      els.tierGateUpgrade?.addEventListener('click', () => {
+        openBillingForProperties('Upgrade your membership to unlock the property engine.');
+      });
     })();
 
     // Cancel-edit button wiring

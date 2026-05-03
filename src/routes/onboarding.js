@@ -611,7 +611,10 @@ async function maybeInitializeSandbox(c, tenantId, tmplId) {
   }
 }
 
-async function maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey) {
+async function maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey, productTierKey) {
+  if (String(productTierKey || '').trim() === 'hotel_operator_pro') {
+    return { ok: true, skipped: true, reason: 'hotel_tier_skips_tour_starter_seed' };
+  }
   try {
     return await bootstrapTenantStarterContent(c.env, tenantId, tenantName, { marketSkinKey });
   } catch (seedErr) {
@@ -676,7 +679,7 @@ async function finishEmailSignup(c, { db, kv, emailClean, nameClean, password, t
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
-    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey, productTierKey);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, emailClean, now);
@@ -809,7 +812,7 @@ async function finishGoogleAuth(c, { mode }) {
 
   if (createdNewTenant) {
     sandbox = await maybeInitializeSandbox(c, tenantId, tmplId);
-    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey);
+    starter_content = await maybeSeedStarterContent(c, tenantId, tenantName, marketSkinKey, productTierKey);
   }
 
   const setupToken = await createSetupToken(kv, tenantId, profile.email, now);

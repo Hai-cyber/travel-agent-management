@@ -140,6 +140,24 @@ Tiering should change:
 
 It should not create different product truths.
 
+## Membership activation rule
+
+Commercial tiering must not assume one payment provider.
+
+The platform should support provider-agnostic tenant membership settlement for:
+
+- `tours_pro`
+- `hotel_pro`
+- `all_in_one`
+
+This means:
+
+- Stripe is allowed as one provider, not the architectural center
+- manual settlement is allowed as a business-continuity path for platform membership
+- public end-customer commerce policy remains separate from membership settlement
+
+Completing a tenant membership does not by itself satisfy the electronic-gateway requirement for public booking.
+
 ## Practical positioning guidance
 
 The platform should be sold as:
@@ -208,3 +226,4 @@ No DB migration needed — the column already exists.
 - `30_PROPERTY_ENGINE_OVERVIEW.md` — property engine scope
 - `37_TOUR_ENGINE_DISTRIBUTION_AND_BOOKING_INGEST.md` — tour-side distribution and booking ingest direction
 - `39_SHARED_KERNEL_BETWEEN_TOUR_AND_PROPERTY.md` — shared kernel direction between the two engines
+- `54_MEMBERSHIP_SETTLEMENT_AND_PROVIDER_MODEL.md` — membership settlement and provider abstraction direction

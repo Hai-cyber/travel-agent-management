@@ -119,6 +119,11 @@
   </nav>
 
   <div class="main-content">
+    <div id="tier-gate-banner" style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#7c2d12;align-items:center;gap:12px">
+      <strong>Upgrade required</strong>
+      <span id="tier-gate-message" style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="tier-gate-upgrade" type="button">Open billing</button>
+    </div>
     <div class="card" style="max-width:900px">
       <div class="card-header">
         <h2 data-i18n="suppliers.card_title">Supplier Library</h2>
@@ -214,7 +219,70 @@ const pageParams = new URLSearchParams(window.location.search);
 const S = {
   tenantId: pageParams.get('tid')?.trim() || localStorage.getItem('tam_tenant_id') || localStorage.getItem('tc_tenant') || '',
   baseUrl: window.location.origin,
+  tierKey: '',
 };
+
+function tourSurfaceAllowed() {
+  return S.tierKey === 'tour_operator_pro' || S.tierKey === 'tour_hotel_suite';
+}
+
+function getUpgradeTargetsForTier() {
+  if (S.tierKey === 'starter_landing') return ['tour_operator_pro', 'hotel_operator_pro', 'tour_hotel_suite'];
+  if (S.tierKey === 'hotel_operator_pro' || S.tierKey === 'tour_operator_pro') return ['tour_hotel_suite'];
+  return [];
+}
+
+function tierLabel(tierKey) {
+  if (tierKey === 'tour_operator_pro') return 'Tours Pro';
+  if (tierKey === 'hotel_operator_pro') return 'Hotel Pro';
+  if (tierKey === 'tour_hotel_suite') return 'Tour + Hotel Suite';
+  return 'Landing Only';
+}
+
+function goToBilling(message, targetKey = '') {
+  const url = new URL('/dashboard.html', window.location.origin);
+  if (S.tenantId) url.searchParams.set('tid', S.tenantId);
+  url.searchParams.set('pane', 'billing');
+  url.searchParams.set('upgrade', '1');
+  if (message) url.searchParams.set('billing_notice', message);
+  if (targetKey) url.searchParams.set('membership_target', targetKey);
+  window.location.href = `${url.pathname}${url.search}${url.hash}`;
+}
+
+function ensureTourSurfaceAccess(message) {
+  if (tourSurfaceAllowed()) return true;
+  goToBilling(message || 'This supplier workflow unlocks with Tours Pro or the Tour + Hotel Suite.');
+  return false;
+}
+
+async function resolveTenantTier() {
+  const res = await fetch('/api/tenants/settings', { headers: { 'X-Tenant-ID': S.tenantId }, credentials: 'same-origin' });
+  const payload = await res.json().catch(() => null);
+  if (res.ok && payload?.settings) {
+    S.tierKey = String(payload.settings.product_tier_key || 'starter_landing').trim() || 'starter_landing';
+  }
+}
+
+function applyTierGateBanner() {
+  const banner = document.getElementById('tier-gate-banner');
+  const msg = document.getElementById('tier-gate-message');
+  const upgradeBtn = document.getElementById('tier-gate-upgrade');
+  if (!banner || !msg) return;
+  if (tourSurfaceAllowed()) {
+    banner.style.display = 'none';
+    return;
+  }
+  msg.textContent = S.tierKey === 'hotel_operator_pro'
+    ? 'Suppliers is part of the tour-business workflow. Upgrade to the Tour + Hotel Suite to use it.'
+    : 'Landing Only can preview this library, but creating or managing suppliers requires Tours Pro or the Tour + Hotel Suite.';
+  document.getElementById('tier-gate-actions')?.remove();
+  if (upgradeBtn) {
+    upgradeBtn.style.display = '';
+    upgradeBtn.textContent = 'Upgrade';
+    upgradeBtn.onclick = () => goToBilling('Upgrade your membership to use the supplier library.', S.tierKey === 'hotel_operator_pro' ? 'tour_hotel_suite' : '');
+  }
+  banner.style.display = 'flex';
+}
 
 let toastTimer;
 function toast(msg, type = 'ok') {
@@ -308,6 +376,7 @@ async function deleteSupplier(id) {
 
 // ── Event bindings ─────────────────────────────────────────────────────────
 document.getElementById('btn-new-supplier').addEventListener('click', () => {
+  if (!ensureTourSurfaceAccess('Upgrade your membership to create and manage suppliers.')) return;
   const form = document.getElementById('supplier-add-form');
   form.style.display = form.style.display === 'none' ? '' : 'none';
 });
@@ -315,6 +384,7 @@ document.getElementById('btn-cancel-supplier').addEventListener('click', () => {
   document.getElementById('supplier-add-form').style.display = 'none';
 });
 document.getElementById('btn-submit-supplier').addEventListener('click', async () => {
+  if (!ensureTourSurfaceAccess('Upgrade your membership to create and manage suppliers.')) return;
   const name = document.getElementById('saf-name')?.value?.trim();
   const type = document.getElementById('saf-type')?.value;
   if (!name) { toast(ti('suppliers.error_name_required'), 'err'); return; }
@@ -346,12 +416,16 @@ document.getElementById('btn-submit-supplier').addEventListener('click', async (
 document.getElementById('btn-supplier-search').addEventListener('click', loadSuppliers);
 document.getElementById('supplier-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadSuppliers(); });
 document.getElementById('supplier-type-filter').addEventListener('change', loadSuppliers);
+document.getElementById('tier-gate-upgrade')?.addEventListener('click', () => goToBilling('Upgrade your membership to use the supplier library.'));
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 (async () => {
   await loadUiLocale();
   const tenantId = await resolveTenantContext();
   if (!tenantId) return;
+  await resolveTenantTier();
+  applyTierGateBanner();
+  if (!tourSurfaceAllowed()) return;
   await loadSuppliers();
 })();
 </script>

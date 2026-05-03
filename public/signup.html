@@ -352,7 +352,7 @@
           <path d="M13 3.1a6 6 0 0 1 0 9.8A6 6 0 0 1 13 3.1z" fill="#ff5f00"/>
         </svg>
       </span>
-      <span class="pay-badge pay-badge-stripe">⚡ Secured by Stripe</span>
+      <span class="pay-badge pay-badge-stripe">⚡ Flexible billing options</span>
     </div>
     <div class="footer-links">
       <a href="/terms.html">Terms of Service</a>
@@ -419,6 +419,19 @@
     return text ? text.charAt(0).toLowerCase() + text.slice(1) : '';
   }
 
+  function getRequestedSignupTierKey() {
+    return String(new URLSearchParams(window.location.search).get('tier') || '').trim();
+  }
+
+  function enforceRequestedTierSelection() {
+    const requestedTierKey = getRequestedSignupTierKey();
+    if (!requestedTierKey) return;
+    const requestedCard = tierGrid.querySelector(`[data-tier-key="${requestedTierKey}"]`);
+    if (!requestedCard || requestedCard.disabled) return;
+    selectedProductTierKey = requestedTierKey;
+    syncTierSelection();
+  }
+
   document.title = page('meta_title', 'Sign Up - Tours Market');
   document.getElementById('signup-title').textContent = launchOffer?.signup_title || 'Create your travel platform. Free for 6 months.';
   document.getElementById('label-email').textContent = shared('email_label', 'Email');
@@ -468,7 +481,7 @@
   if (tierCatalog?.ok && Array.isArray(tierCatalog?.tiers)) {
     document.getElementById('tier-title').textContent = tierCatalog.title || 'Choose your product tier';
     document.getElementById('tier-hint').textContent = page('tier_hint', 'Pick one tier now. Free for 6 months, no card required. Your selected monthly plan starts after that — cancel any time.');
-    const requestedTierKey = new URLSearchParams(window.location.search).get('tier');
+    const requestedTierKey = getRequestedSignupTierKey();
     const availableTierKeys = new Set(tierCatalog.tiers.filter((tier) => tier.available_for_signup).map((tier) => tier.key));
     const defaultTierKey = 'tour_operator_pro';
     selectedProductTierKey = availableTierKeys.has(requestedTierKey) ? requestedTierKey : (availableTierKeys.has(defaultTierKey) ? defaultTierKey : '');
@@ -501,9 +514,11 @@
       tierGrid.appendChild(button);
     });
     syncTierSelection();
+    enforceRequestedTierSelection();
   }
 
   await initTurnstile();
+  enforceRequestedTierSelection();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

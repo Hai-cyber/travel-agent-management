@@ -89,6 +89,9 @@ AI behavior / guardrails:
 - `51_PROPERTY_STAFF_AUTHORIZATION_MODEL.md` -> Property staff role and backend-authorization truth for `NEXT-P19`
 - `52_B2B_GUEST_FOLIO_EXECUTION_MODEL.md` -> Enough-to-sell execution truth for `CHK-R132` / `NEXT-P20`
 - `53_HOTEL_PRODUCT_PACKAGE.md` -> Commercial packaging truth for `hotel_pro` / `NEXT-P21` and `NEXT-P22`
+- `54_MEMBERSHIP_SETTLEMENT_AND_PROVIDER_MODEL.md` -> Provider-agnostic tenant membership settlement truth for `tours_pro`, `hotel_pro`, and `all_in_one`
+- `55_MEMBERSHIP_SETTLEMENT_PHASE1_IMPLEMENTATION_SPEC.md` -> concrete phase-1 runtime spec for `CHK-R134` and `CHK-R135`
+- `56_MEMBERSHIP_SETTLEMENT_PHASE1_CODE_PLAN.md` -> file-by-file execution plan for the first implementation slice
 - `29_EMAIL_INGESTION_AND_BOOKING_DRAFT.md` -> Email → Draft → Confirm booking ingestion (Phase 2, not implemented)
 - `23_SUPPLIER_SYSTEM.md` -> supplier abstraction principles
 - `24_MOBILE_STRATEGY.md` -> desktop vs mobile product boundary
