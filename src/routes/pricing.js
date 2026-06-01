@@ -1,9 +1,470 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
+import QRCode from 'qrcode';
 import { enrichPrice, enrichPricesObject, formatMoney, toUserDate, translate, dualPrice } from '../utils/formatter.js';
 import { syncUniversalTourPage } from '../lib/universalSiteSync.js';
 
 const pricing = new Hono();
+
+const GIFT_CARD_STATUSES = new Set(['active', 'redeemed', 'cancelled']);
+const DISCOUNT_COUPON_STATUSES = new Set(['active', 'paused']);
+const DISCOUNT_COUPON_TYPES = new Set(['amount', 'percent']);
+const SAFE_DISCOUNT_COUPON_CODE_RE = /^[A-Z0-9_-]{4,32}$/;
+
+function generateGiftCardIdCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'GC-';
+  for (let index = 0; index < 8; index += 1) {
+    if (index === 4) code += '-';
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+async function generateUniqueGiftCardIdCode(env, tenantId) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const idCode = generateGiftCardIdCode();
+    const existing = await env.DB
+      .prepare('SELECT id FROM tour_gift_cards WHERE tenant_id = ? AND id_code = ?')
+      .bind(tenantId, idCode)
+      .first();
+    if (!existing) return idCode;
+  }
+  throw new Error('Could not generate a unique gift card ID code');
+}
+
+function generateDiscountCouponCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'OFF-';
+  for (let index = 0; index < 8; index += 1) {
+    if (index === 4) code += '-';
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+async function generateUniqueDiscountCouponCode(env, tenantId) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = generateDiscountCouponCode();
+    const existing = await env.DB
+      .prepare('SELECT id FROM tenant_discount_coupons WHERE tenant_id = ? AND code = ?')
+      .bind(tenantId, code)
+      .first();
+    if (!existing) return code;
+  }
+  throw new Error('Could not generate a unique discount coupon code');
+}
+
+function sanitizeGiftCardCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function sanitizeDiscountCouponCode(value) {
+  return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
+}
+
+function getGiftCardStatus(row) {
+  if (!row) return 'cancelled';
+  if (row.status === 'cancelled') return 'cancelled';
+  return Number(row.remaining_value ?? 0) > 0 ? 'active' : 'redeemed';
+}
+
+function getDiscountCouponAvailability(row, now = Math.floor(Date.now() / 1000)) {
+  if (!row) return 'paused';
+  if (row.status !== 'active') return 'paused';
+  if (row.starts_at && Number(row.starts_at) > now) return 'scheduled';
+  if (row.expires_at && Number(row.expires_at) < now) return 'expired';
+  if (row.max_uses !== null && row.max_uses !== undefined && Number(row.uses_count ?? 0) >= Number(row.max_uses)) return 'exhausted';
+  return 'active';
+}
+
+function buildGiftCardQrPayload(card) {
+  return [
+    'TOURS MARKET GIFT CARD',
+    `ID Code: ${card.id_code}`,
+    `Tour ID: ${card.tour_id}`,
+    `Email: ${card.recipient_email}`,
+    `Phone: ${card.recipient_phone}`,
+    `Value: ${Number(card.face_value ?? 0).toFixed(2)} ${card.currency || 'USD'}`,
+    `Remaining: ${Number(card.remaining_value ?? 0).toFixed(2)} ${card.currency || 'USD'}`,
+  ].join('\n');
+}
+
+async function buildGiftCardQrSvg(card) {
+  return QRCode.toString(buildGiftCardQrPayload(card), {
+    type: 'svg',
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 180,
+  });
+}
+
+async function mapGiftCardRow(row, options = {}) {
+  const includeQr = options.includeQr === true;
+  const mapped = {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    tour_id: row.tour_id,
+    tour_title: row.tour_title ?? null,
+    id_code: row.id_code,
+    recipient_email: row.recipient_email,
+    recipient_phone: row.recipient_phone,
+    currency: row.currency,
+    face_value: Number(row.face_value ?? 0),
+    remaining_value: Number(row.remaining_value ?? 0),
+    status: getGiftCardStatus(row),
+    notes: row.notes ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+
+  if (includeQr) {
+    mapped.qr_svg = await buildGiftCardQrSvg(mapped);
+  }
+
+  return mapped;
+}
+
+function toOptionalNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+async function mapDiscountCouponRow(row) {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    tour_id: row.tour_id ?? null,
+    tour_title: row.tour_title ?? null,
+    code: row.code,
+    label: row.label ?? null,
+    discount_type: row.discount_type,
+    discount_value: Number(row.discount_value ?? 0),
+    currency: row.currency ?? null,
+    min_order_total: Number(row.min_order_total ?? 0),
+    max_uses: row.max_uses ?? null,
+    uses_count: Number(row.uses_count ?? 0),
+    starts_at: row.starts_at ?? null,
+    expires_at: row.expires_at ?? null,
+    status: row.status,
+    availability_status: getDiscountCouponAvailability(row, now),
+    notes: row.notes ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+async function resolveGiftCardForQuote(env, tenantId, tourId, idCode, expectedCurrency = null) {
+  const safeCode = sanitizeGiftCardCode(idCode);
+  if (!safeCode) return { ok: true, giftCard: null };
+
+  const row = await env.DB
+    .prepare(`SELECT gc.*, t.title AS tour_title
+                FROM tour_gift_cards gc
+                LEFT JOIN tours t ON t.id = gc.tour_id AND t.tenant_id = gc.tenant_id
+               WHERE gc.tenant_id = ? AND gc.id_code = ?`)
+    .bind(tenantId, safeCode)
+    .first();
+
+  if (!row) {
+    return { ok: false, error: 'Gift card not found for this tenant.' };
+  }
+
+  const status = getGiftCardStatus(row);
+  if (status === 'cancelled') {
+    return { ok: false, error: 'Gift card is cancelled and cannot be used.' };
+  }
+  if (status === 'redeemed') {
+    return { ok: false, error: 'Gift card has already been fully redeemed.' };
+  }
+  if (row.tour_id !== tourId) {
+    return { ok: false, error: 'Gift card is issued for a different tour.' };
+  }
+  if (expectedCurrency && row.currency && row.currency !== expectedCurrency) {
+    return { ok: false, error: `Gift card currency ${row.currency} does not match quoted currency ${expectedCurrency}.` };
+  }
+
+  return { ok: true, giftCard: row };
+}
+
+async function resolveDiscountCouponForQuote(env, tenantId, tourId, code, currentGrandTotal, expectedCurrency = null) {
+  const safeCode = sanitizeDiscountCouponCode(code);
+  if (!safeCode) return { ok: true, discountCoupon: null };
+
+  const row = await env.DB
+    .prepare(`SELECT dc.*, t.title AS tour_title
+                FROM tenant_discount_coupons dc
+                LEFT JOIN tours t ON t.id = dc.tour_id AND t.tenant_id = dc.tenant_id
+               WHERE dc.tenant_id = ? AND dc.code = ?`)
+    .bind(tenantId, safeCode)
+    .first();
+
+  if (!row) {
+    return { ok: false, error: 'Discount coupon not found for this tenant.' };
+  }
+
+  const availability = getDiscountCouponAvailability(row);
+  if (availability === 'paused') {
+    return { ok: false, error: 'Discount coupon is paused.' };
+  }
+  if (availability === 'scheduled') {
+    return { ok: false, error: 'Discount coupon is not active yet.' };
+  }
+  if (availability === 'expired') {
+    return { ok: false, error: 'Discount coupon has expired.' };
+  }
+  if (availability === 'exhausted') {
+    return { ok: false, error: 'Discount coupon has reached its usage limit.' };
+  }
+  if (row.tour_id && row.tour_id !== tourId) {
+    return { ok: false, error: 'Discount coupon is scoped to a different tour.' };
+  }
+  if (Number(row.min_order_total ?? 0) > Number(currentGrandTotal ?? 0)) {
+    return { ok: false, error: 'Discount coupon minimum order total is not met.' };
+  }
+  if (row.discount_type === 'amount' && expectedCurrency && row.currency && row.currency !== expectedCurrency) {
+    return { ok: false, error: `Discount coupon currency ${row.currency} does not match quoted currency ${expectedCurrency}.` };
+  }
+
+  return { ok: true, discountCoupon: row };
+}
+
+function applyGiftCardToPriceResult(priceResult, giftCardRow) {
+  if (!giftCardRow) return priceResult;
+
+  const originalGrandTotal = Number(priceResult?.totals?.original_grand_total ?? priceResult?.totals?.grand_total ?? 0);
+  const currentGrandTotal = Number(priceResult?.totals?.grand_total ?? 0);
+  const remainingValue = Number(giftCardRow.remaining_value ?? 0);
+  const appliedAmount = Math.min(currentGrandTotal, remainingValue);
+  const amountDue = Math.max(0, currentGrandTotal - appliedAmount);
+
+  return {
+    ...priceResult,
+    totals: {
+      ...priceResult.totals,
+      original_grand_total: originalGrandTotal,
+      gift_card_applied: appliedAmount,
+      grand_total: amountDue,
+    },
+    gift_card: {
+      id: giftCardRow.id,
+      id_code: giftCardRow.id_code,
+      tour_id: giftCardRow.tour_id,
+      tour_title: giftCardRow.tour_title ?? null,
+      recipient_email: giftCardRow.recipient_email,
+      recipient_phone: giftCardRow.recipient_phone,
+      currency: giftCardRow.currency,
+      face_value: Number(giftCardRow.face_value ?? 0),
+      remaining_value: remainingValue,
+      applied_amount: appliedAmount,
+      status: getGiftCardStatus(giftCardRow),
+    },
+  };
+}
+
+function applyDiscountCouponToPriceResult(priceResult, discountCouponRow) {
+  if (!discountCouponRow) return priceResult;
+
+  const currentGrandTotal = Number(priceResult?.totals?.grand_total ?? 0);
+  const originalGrandTotal = Number(priceResult?.totals?.original_grand_total ?? currentGrandTotal);
+  const discountValue = Number(discountCouponRow.discount_value ?? 0);
+  const appliedAmount = discountCouponRow.discount_type === 'percent'
+    ? Math.min(currentGrandTotal, Number((currentGrandTotal * (discountValue / 100)).toFixed(2)))
+    : Math.min(currentGrandTotal, discountValue);
+  const amountDue = Math.max(0, currentGrandTotal - appliedAmount);
+
+  return {
+    ...priceResult,
+    totals: {
+      ...priceResult.totals,
+      original_grand_total: originalGrandTotal,
+      discount_coupon_applied: appliedAmount,
+      grand_total: amountDue,
+    },
+    discount_coupon: {
+      id: discountCouponRow.id,
+      code: discountCouponRow.code,
+      label: discountCouponRow.label ?? null,
+      tour_id: discountCouponRow.tour_id ?? null,
+      tour_title: discountCouponRow.tour_title ?? null,
+      discount_type: discountCouponRow.discount_type,
+      discount_value: discountValue,
+      currency: discountCouponRow.currency ?? null,
+      min_order_total: Number(discountCouponRow.min_order_total ?? 0),
+      applied_amount: appliedAmount,
+      max_uses: discountCouponRow.max_uses ?? null,
+      uses_count: Number(discountCouponRow.uses_count ?? 0),
+      availability_status: getDiscountCouponAvailability(discountCouponRow),
+    },
+  };
+}
+
+export async function applyDiscountCouponCodeToPriceResult(env, tenantId, tourId, code, priceResult) {
+  const safeCode = sanitizeDiscountCouponCode(code);
+  if (!safeCode) return { ok: true, priceResult, discountCoupon: null };
+
+  const currentGrandTotal = Number(priceResult?.totals?.grand_total ?? 0);
+  const resolved = await resolveDiscountCouponForQuote(env, tenantId, tourId, safeCode, currentGrandTotal, priceResult.base_currency ?? 'USD');
+  if (!resolved.ok) return resolved;
+
+  return {
+    ok: true,
+    discountCoupon: resolved.discountCoupon,
+    priceResult: applyDiscountCouponToPriceResult(priceResult, resolved.discountCoupon),
+  };
+}
+
+export async function applyGiftCardCodeToPriceResult(env, tenantId, tourId, idCode, priceResult) {
+  const safeCode = sanitizeGiftCardCode(idCode);
+  if (!safeCode) return { ok: true, priceResult, giftCard: null };
+
+  const resolved = await resolveGiftCardForQuote(env, tenantId, tourId, safeCode, priceResult.base_currency ?? 'USD');
+  if (!resolved.ok) return resolved;
+
+  return {
+    ok: true,
+    giftCard: resolved.giftCard,
+    priceResult: applyGiftCardToPriceResult(priceResult, resolved.giftCard),
+  };
+}
+
+export function buildGiftCardCompensationStatements(env, tenantId, giftCardRow, appliedAmount, now) {
+  if (!giftCardRow || !(appliedAmount > 0)) return null;
+
+  const remainingAfterApply = Math.max(0, Number(giftCardRow.remaining_value ?? 0) - appliedAmount);
+  const nextStatus = remainingAfterApply > 0 ? 'active' : 'redeemed';
+
+  return {
+    appliedAmount,
+    giftCardId: giftCardRow.id,
+    idCode: giftCardRow.id_code,
+    update: env.DB
+      .prepare(`UPDATE tour_gift_cards
+                   SET remaining_value = ?,
+                       status = ?,
+                       updated_at = ?
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND status = 'active'
+                   AND remaining_value >= ?`)
+      .bind(remainingAfterApply, nextStatus, now, giftCardRow.id, tenantId, appliedAmount),
+    restore: env.DB
+      .prepare(`UPDATE tour_gift_cards
+                   SET remaining_value = remaining_value + ?,
+                       status = 'active',
+                       updated_at = ?
+                 WHERE id = ? AND tenant_id = ?`)
+      .bind(appliedAmount, now, giftCardRow.id, tenantId),
+  };
+}
+
+export function buildDiscountCouponCompensationStatements(env, tenantId, discountCouponRow, now) {
+  if (!discountCouponRow) return null;
+
+  return {
+    couponId: discountCouponRow.id,
+    code: discountCouponRow.code,
+    update: env.DB
+      .prepare(`UPDATE tenant_discount_coupons
+                   SET uses_count = uses_count + 1,
+                       updated_at = ?
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND status = 'active'
+                   AND (starts_at IS NULL OR starts_at <= ?)
+                   AND (expires_at IS NULL OR expires_at >= ?)
+                   AND (max_uses IS NULL OR uses_count < max_uses)`)
+      .bind(now, discountCouponRow.id, tenantId, now, now),
+    restore: env.DB
+      .prepare(`UPDATE tenant_discount_coupons
+                   SET uses_count = CASE WHEN uses_count > 0 THEN uses_count - 1 ELSE 0 END,
+                       updated_at = ?
+                 WHERE id = ? AND tenant_id = ?`)
+      .bind(now, discountCouponRow.id, tenantId),
+  };
+}
+
+function parseGiftCardBody(body) {
+  return {
+    tour_id: String(body?.tour_id || '').trim(),
+    recipient_email: String(body?.recipient_email || '').trim().toLowerCase(),
+    recipient_phone: String(body?.recipient_phone || '').trim(),
+    currency: String(body?.currency || '').trim().toUpperCase() || null,
+    face_value: body?.face_value != null ? Number(body.face_value) : null,
+    notes: String(body?.notes || '').trim().slice(0, 500) || null,
+  };
+}
+
+function validateGiftCardCreatePayload(payload) {
+  const missing = [];
+  if (!payload.tour_id) missing.push('tour_id');
+  if (!payload.recipient_email) missing.push('recipient_email');
+  if (!payload.recipient_phone) missing.push('recipient_phone');
+  if (!(payload.face_value > 0)) missing.push('face_value');
+  if (missing.length) {
+    return `Missing or invalid required fields: ${missing.join(', ')}`;
+  }
+  return null;
+}
+
+function parseGiftCardPatchBody(body) {
+  const patch = {};
+  if (body?.recipient_email !== undefined) patch.recipient_email = String(body.recipient_email || '').trim().toLowerCase();
+  if (body?.recipient_phone !== undefined) patch.recipient_phone = String(body.recipient_phone || '').trim();
+  if (body?.notes !== undefined) patch.notes = String(body.notes || '').trim().slice(0, 500) || null;
+  if (body?.status !== undefined) patch.status = String(body.status || '').trim().toLowerCase();
+  return patch;
+}
+
+function parseDiscountCouponBody(body) {
+  return {
+    tour_id: String(body?.tour_id || '').trim() || null,
+    code: sanitizeDiscountCouponCode(body?.code || ''),
+    label: String(body?.label || '').trim().slice(0, 120) || null,
+    discount_type: String(body?.discount_type || '').trim().toLowerCase(),
+    discount_value: toOptionalNumber(body?.discount_value),
+    currency: String(body?.currency || '').trim().toUpperCase() || null,
+    min_order_total: toOptionalNumber(body?.min_order_total),
+    max_uses: toOptionalNumber(body?.max_uses),
+    starts_at: toOptionalNumber(body?.starts_at),
+    expires_at: toOptionalNumber(body?.expires_at),
+    status: String(body?.status || 'active').trim().toLowerCase(),
+    notes: String(body?.notes || '').trim().slice(0, 500) || null,
+  };
+}
+
+function validateDiscountCouponCreatePayload(payload) {
+  const missing = [];
+  if (!DISCOUNT_COUPON_TYPES.has(payload.discount_type)) missing.push('discount_type');
+  if (!(payload.discount_value > 0)) missing.push('discount_value');
+  if (!DISCOUNT_COUPON_STATUSES.has(payload.status)) missing.push('status');
+  if (payload.discount_type === 'amount' && !payload.currency) missing.push('currency');
+  if (payload.discount_type === 'percent' && (!(payload.discount_value > 0) || payload.discount_value > 100)) missing.push('discount_value(1-100 for percent)');
+  if (payload.code && !SAFE_DISCOUNT_COUPON_CODE_RE.test(payload.code)) missing.push('code');
+  if (payload.max_uses !== null && (!(payload.max_uses >= 1) || !Number.isInteger(payload.max_uses))) missing.push('max_uses');
+  if (payload.min_order_total !== null && !(payload.min_order_total >= 0)) missing.push('min_order_total');
+  if (payload.starts_at !== null && !Number.isInteger(payload.starts_at)) missing.push('starts_at');
+  if (payload.expires_at !== null && !Number.isInteger(payload.expires_at)) missing.push('expires_at');
+  if (payload.starts_at !== null && payload.expires_at !== null && payload.expires_at < payload.starts_at) missing.push('expires_at(after starts_at)');
+  if (missing.length) {
+    return `Missing or invalid required fields: ${missing.join(', ')}`;
+  }
+  return null;
+}
+
+function parseDiscountCouponPatchBody(body) {
+  const patch = {};
+  if (body?.label !== undefined) patch.label = String(body.label || '').trim().slice(0, 120) || null;
+  if (body?.status !== undefined) patch.status = String(body.status || '').trim().toLowerCase();
+  if (body?.notes !== undefined) patch.notes = String(body.notes || '').trim().slice(0, 500) || null;
+  if (body?.min_order_total !== undefined) patch.min_order_total = toOptionalNumber(body.min_order_total) ?? 0;
+  if (body?.max_uses !== undefined) patch.max_uses = toOptionalNumber(body.max_uses);
+  if (body?.starts_at !== undefined) patch.starts_at = toOptionalNumber(body.starts_at);
+  if (body?.expires_at !== undefined) patch.expires_at = toOptionalNumber(body.expires_at);
+  return patch;
+}
 
 const TABLE_MAP = {
   'tenant-seasons': 'tenant_seasons',
@@ -190,6 +651,10 @@ function buildPriceResponse(result, tenantConfig, tourType) {
   const tripleCount  = adult_triple_room_count;
 
   const grandTotal = totals?.grand_total ?? (prices.adult_shared_room ?? 0);
+  const originalGrandTotal = totals?.original_grand_total ?? grandTotal;
+  const discountCouponApplied = totals?.discount_coupon_applied ?? 0;
+  const giftCardApplied = totals?.gift_card_applied ?? 0;
+  const totalDiscountApplied = discountCouponApplied + giftCardApplied;
 
   // Line items — only include types with qty > 0; labels from locale files
   const line_items = [];
@@ -246,6 +711,19 @@ function buildPriceResponse(result, tenantConfig, tourType) {
     grand_total_display: dualPrice(grandTotal, cfg),
   };
 
+  if (discountCouponApplied > 0 || giftCardApplied > 0) {
+    invoice.original_grand_total = originalGrandTotal;
+    invoice.original_grand_total_display = dualPrice(originalGrandTotal, cfg);
+    if (discountCouponApplied > 0) {
+      invoice.discount_coupon_applied = discountCouponApplied;
+      invoice.discount_coupon_applied_display = dualPrice(discountCouponApplied, cfg);
+    }
+    invoice.gift_card_applied = giftCardApplied;
+    invoice.gift_card_applied_display = dualPrice(giftCardApplied, cfg);
+    invoice.amount_due = grandTotal;
+    invoice.amount_due_display = dualPrice(grandTotal, cfg);
+  }
+
   const unit_prices = {
     adult_shared_room: prices.adult_shared_room ?? 0,
     adult_triple_room: prices.adult_triple_room ?? 0,
@@ -264,7 +742,9 @@ function buildPriceResponse(result, tenantConfig, tourType) {
     invoice,
     // price_summary kept for backward compatibility
     price_summary: {
-      original: { amount: grandTotal, currency: base_currency ?? 'USD' },
+      original: { amount: originalGrandTotal, currency: base_currency ?? 'USD' },
+      amount_due: { amount: grandTotal, currency: base_currency ?? 'USD' },
+      discount: totalDiscountApplied > 0 ? { amount: totalDiscountApplied, currency: base_currency ?? 'USD' } : null,
       display:  dualPrice(grandTotal, cfg),
     },
     unit_prices,
@@ -298,6 +778,28 @@ function buildPriceResponse(result, tenantConfig, tourType) {
       .map((line) => line.trim())
       .filter(Boolean);
     if (notes.length) response.pricing_notes = notes;
+  }
+
+  if (result.gift_card) {
+    response.gift_card = {
+      ...result.gift_card,
+      face_value_display: dualPrice(result.gift_card.face_value ?? 0, cfg),
+      remaining_value_display: dualPrice(result.gift_card.remaining_value ?? 0, cfg),
+      applied_amount_display: dualPrice(result.gift_card.applied_amount ?? 0, cfg),
+      amount_due_after_apply_display: dualPrice(grandTotal, cfg),
+    };
+  }
+
+  if (result.discount_coupon) {
+    response.discount_coupon = {
+      ...result.discount_coupon,
+      discount_value_display: result.discount_coupon.discount_type === 'percent'
+        ? `${Number(result.discount_coupon.discount_value ?? 0)}%`
+        : dualPrice(result.discount_coupon.discount_value ?? 0, cfg),
+      applied_amount_display: dualPrice(result.discount_coupon.applied_amount ?? 0, cfg),
+      amount_due_after_apply_display: dualPrice(grandTotal, cfg),
+      min_order_total_display: dualPrice(result.discount_coupon.min_order_total ?? 0, cfg),
+    };
   }
 
   return response;
@@ -478,6 +980,409 @@ export async function handleGetPricing(req, env, { group }) {
   }
 }
 
+export async function handleCreateGiftCard(req, env) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Request body is not valid JSON.' }, { status: 400 });
+  }
+
+  const payload = parseGiftCardBody(body);
+  const validationError = validateGiftCardCreatePayload(payload);
+  if (validationError) {
+    return Response.json({ error: validationError }, { status: 400 });
+  }
+
+  const tour = await env.DB
+    .prepare('SELECT id, title FROM tours WHERE id = ? AND tenant_id = ?')
+    .bind(payload.tour_id, tenantId)
+    .first();
+  if (!tour) {
+    return Response.json({ error: 'Tour not found for this tenant.' }, { status: 404 });
+  }
+
+  try {
+    const id = nanoid();
+    const now = Math.floor(Date.now() / 1000);
+    const idCode = await generateUniqueGiftCardIdCode(env, tenantId);
+    const currency = payload.currency || 'USD';
+
+    await env.DB
+      .prepare(`INSERT INTO tour_gift_cards
+                  (id, tenant_id, tour_id, id_code, recipient_email, recipient_phone, currency,
+                   face_value, remaining_value, status, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`)
+      .bind(
+        id,
+        tenantId,
+        payload.tour_id,
+        idCode,
+        payload.recipient_email,
+        payload.recipient_phone,
+        currency,
+        payload.face_value,
+        payload.face_value,
+        payload.notes,
+        now,
+        now,
+      )
+      .run();
+
+    const item = await mapGiftCardRow({
+      id,
+      tenant_id: tenantId,
+      tour_id: payload.tour_id,
+      tour_title: tour.title,
+      id_code: idCode,
+      recipient_email: payload.recipient_email,
+      recipient_phone: payload.recipient_phone,
+      currency,
+      face_value: payload.face_value,
+      remaining_value: payload.face_value,
+      status: 'active',
+      notes: payload.notes,
+      created_at: now,
+      updated_at: now,
+    }, { includeQr: true });
+
+    return Response.json({ ok: true, item }, { status: 201 });
+  } catch (err) {
+    return dbError(err, 'handleCreateGiftCard');
+  }
+}
+
+export async function handleListGiftCards(req, env) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  const url = new URL(req.url);
+  const tourId = String(url.searchParams.get('tour_id') || '').trim();
+  const includeQr = url.searchParams.get('include_qr') === '1';
+  const status = String(url.searchParams.get('status') || '').trim().toLowerCase();
+  const clauses = ['gc.tenant_id = ?'];
+  const binds = [tenantId];
+
+  if (tourId) {
+    clauses.push('gc.tour_id = ?');
+    binds.push(tourId);
+  }
+
+  if (status && GIFT_CARD_STATUSES.has(status)) {
+    if (status === 'active') {
+      clauses.push(`gc.status = 'active' AND gc.remaining_value > 0`);
+    } else if (status === 'redeemed') {
+      clauses.push(`(gc.status = 'redeemed' OR gc.remaining_value <= 0)`);
+    } else {
+      clauses.push('gc.status = ?');
+      binds.push(status);
+    }
+  }
+
+  try {
+    const { results } = await env.DB
+      .prepare(`SELECT gc.*, t.title AS tour_title
+                  FROM tour_gift_cards gc
+                  LEFT JOIN tours t ON t.id = gc.tour_id AND t.tenant_id = gc.tenant_id
+                 WHERE ${clauses.join(' AND ')}
+                 ORDER BY gc.created_at DESC`)
+      .bind(...binds)
+      .all();
+
+    const items = [];
+    for (const row of results || []) {
+      items.push(await mapGiftCardRow(row, { includeQr }));
+    }
+
+    return Response.json({ ok: true, items });
+  } catch (err) {
+    return dbError(err, 'handleListGiftCards');
+  }
+}
+
+export async function handleCreateDiscountCoupon(req, env) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Request body is not valid JSON.' }, { status: 400 });
+  }
+
+  const payload = parseDiscountCouponBody(body);
+  const validationError = validateDiscountCouponCreatePayload(payload);
+  if (validationError) {
+    return Response.json({ error: validationError }, { status: 400 });
+  }
+
+  let tour = null;
+  if (payload.tour_id) {
+    tour = await env.DB
+      .prepare('SELECT id, title FROM tours WHERE id = ? AND tenant_id = ?')
+      .bind(payload.tour_id, tenantId)
+      .first();
+    if (!tour) {
+      return Response.json({ error: 'Tour not found for this tenant.' }, { status: 404 });
+    }
+  }
+
+  try {
+    const id = nanoid();
+    const now = Math.floor(Date.now() / 1000);
+    const code = payload.code || await generateUniqueDiscountCouponCode(env, tenantId);
+    const existing = await env.DB
+      .prepare('SELECT id FROM tenant_discount_coupons WHERE tenant_id = ? AND code = ?')
+      .bind(tenantId, code)
+      .first();
+    if (existing) {
+      return Response.json({ error: 'Discount coupon code already exists for this tenant.' }, { status: 409 });
+    }
+
+    await env.DB
+      .prepare(`INSERT INTO tenant_discount_coupons
+                  (id, tenant_id, tour_id, code, label, discount_type, discount_value, currency,
+                   min_order_total, max_uses, uses_count, starts_at, expires_at, status, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`)
+      .bind(
+        id,
+        tenantId,
+        payload.tour_id,
+        code,
+        payload.label,
+        payload.discount_type,
+        payload.discount_value,
+        payload.currency,
+        payload.min_order_total ?? 0,
+        payload.max_uses,
+        payload.starts_at,
+        payload.expires_at,
+        payload.status,
+        payload.notes,
+        now,
+        now
+      )
+      .run();
+
+    return Response.json({
+      ok: true,
+      item: await mapDiscountCouponRow({
+        id,
+        tenant_id: tenantId,
+        tour_id: payload.tour_id,
+        tour_title: tour?.title ?? null,
+        code,
+        label: payload.label,
+        discount_type: payload.discount_type,
+        discount_value: payload.discount_value,
+        currency: payload.currency,
+        min_order_total: payload.min_order_total ?? 0,
+        max_uses: payload.max_uses,
+        uses_count: 0,
+        starts_at: payload.starts_at,
+        expires_at: payload.expires_at,
+        status: payload.status,
+        notes: payload.notes,
+        created_at: now,
+        updated_at: now,
+      }),
+    }, { status: 201 });
+  } catch (err) {
+    return dbError(err, 'handleCreateDiscountCoupon');
+  }
+}
+
+export async function handleListDiscountCoupons(req, env) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  const url = new URL(req.url);
+  const tourId = String(url.searchParams.get('tour_id') || '').trim();
+  const clauses = ['dc.tenant_id = ?'];
+  const binds = [tenantId];
+
+  if (tourId) {
+    clauses.push('(dc.tour_id IS NULL OR dc.tour_id = ?)');
+    binds.push(tourId);
+  }
+
+  try {
+    const { results } = await env.DB
+      .prepare(`SELECT dc.*, t.title AS tour_title
+                  FROM tenant_discount_coupons dc
+                  LEFT JOIN tours t ON t.id = dc.tour_id AND t.tenant_id = dc.tenant_id
+                 WHERE ${clauses.join(' AND ')}
+                 ORDER BY dc.created_at DESC`)
+      .bind(...binds)
+      .all();
+
+    const items = [];
+    for (const row of results || []) {
+      items.push(await mapDiscountCouponRow(row));
+    }
+
+    return Response.json({ ok: true, items });
+  } catch (err) {
+    return dbError(err, 'handleListDiscountCoupons');
+  }
+}
+
+export async function handleUpdateDiscountCoupon(req, env, { discountCouponId }) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Request body is not valid JSON.' }, { status: 400 });
+  }
+
+  const patch = parseDiscountCouponPatchBody(body);
+  if (!Object.keys(patch).length) {
+    return Response.json({ error: 'No valid discount coupon fields provided.' }, { status: 400 });
+  }
+  if (patch.status && !DISCOUNT_COUPON_STATUSES.has(patch.status)) {
+    return Response.json({ error: 'Invalid discount coupon status.' }, { status: 400 });
+  }
+  if (patch.max_uses !== undefined && patch.max_uses !== null && (!(patch.max_uses >= 1) || !Number.isInteger(patch.max_uses))) {
+    return Response.json({ error: 'max_uses must be an integer >= 1 or null.' }, { status: 400 });
+  }
+  if (patch.min_order_total !== undefined && !(patch.min_order_total >= 0)) {
+    return Response.json({ error: 'min_order_total must be >= 0.' }, { status: 400 });
+  }
+  if (patch.starts_at !== undefined && patch.starts_at !== null && !Number.isInteger(patch.starts_at)) {
+    return Response.json({ error: 'starts_at must be an integer unix timestamp or null.' }, { status: 400 });
+  }
+  if (patch.expires_at !== undefined && patch.expires_at !== null && !Number.isInteger(patch.expires_at)) {
+    return Response.json({ error: 'expires_at must be an integer unix timestamp or null.' }, { status: 400 });
+  }
+
+  const current = await env.DB
+    .prepare('SELECT * FROM tenant_discount_coupons WHERE id = ? AND tenant_id = ?')
+    .bind(discountCouponId, tenantId)
+    .first();
+  if (!current) {
+    return Response.json({ error: 'Discount coupon not found.' }, { status: 404 });
+  }
+
+  const nextStartsAt = patch.starts_at !== undefined ? patch.starts_at : current.starts_at;
+  const nextExpiresAt = patch.expires_at !== undefined ? patch.expires_at : current.expires_at;
+  if (nextStartsAt !== null && nextStartsAt !== undefined && nextExpiresAt !== null && nextExpiresAt !== undefined && Number(nextExpiresAt) < Number(nextStartsAt)) {
+    return Response.json({ error: 'expires_at must be after starts_at.' }, { status: 400 });
+  }
+
+  if (patch.max_uses !== undefined && patch.max_uses !== null && Number(patch.max_uses) < Number(current.uses_count ?? 0)) {
+    return Response.json({ error: 'max_uses cannot be lower than current uses_count.' }, { status: 422 });
+  }
+
+  const updates = [];
+  const values = [];
+  for (const [column, value] of Object.entries(patch)) {
+    updates.push(`${column} = ?`);
+    values.push(value);
+  }
+  updates.push('updated_at = ?');
+  values.push(Math.floor(Date.now() / 1000));
+  values.push(discountCouponId, tenantId);
+
+  try {
+    await env.DB
+      .prepare(`UPDATE tenant_discount_coupons SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`)
+      .bind(...values)
+      .run();
+
+    const updated = await env.DB
+      .prepare(`SELECT dc.*, t.title AS tour_title
+                  FROM tenant_discount_coupons dc
+                  LEFT JOIN tours t ON t.id = dc.tour_id AND t.tenant_id = dc.tenant_id
+                 WHERE dc.id = ? AND dc.tenant_id = ?`)
+      .bind(discountCouponId, tenantId)
+      .first();
+
+    return Response.json({ ok: true, item: await mapDiscountCouponRow(updated) });
+  } catch (err) {
+    return dbError(err, 'handleUpdateDiscountCoupon');
+  }
+}
+
+export async function handleUpdateGiftCard(req, env, { giftCardId }) {
+  const tenantId = req.headers.get('X-Tenant-ID')?.trim();
+  if (!tenantId) {
+    return Response.json({ error: 'X-Tenant-ID header is required' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Request body is not valid JSON.' }, { status: 400 });
+  }
+
+  const patch = parseGiftCardPatchBody(body);
+  if (!Object.keys(patch).length) {
+    return Response.json({ error: 'No valid gift card fields provided.' }, { status: 400 });
+  }
+  if (patch.status && !GIFT_CARD_STATUSES.has(patch.status)) {
+    return Response.json({ error: 'Invalid gift card status.' }, { status: 400 });
+  }
+
+  const current = await env.DB
+    .prepare('SELECT * FROM tour_gift_cards WHERE id = ? AND tenant_id = ?')
+    .bind(giftCardId, tenantId)
+    .first();
+  if (!current) {
+    return Response.json({ error: 'Gift card not found.' }, { status: 404 });
+  }
+
+  if (patch.status === 'active' && Number(current.remaining_value ?? 0) <= 0) {
+    return Response.json({ error: 'A fully redeemed gift card cannot be reactivated.' }, { status: 422 });
+  }
+
+  const updates = [];
+  const values = [];
+  for (const [column, value] of Object.entries(patch)) {
+    updates.push(`${column} = ?`);
+    values.push(value);
+  }
+  updates.push('updated_at = ?');
+  values.push(Math.floor(Date.now() / 1000));
+  values.push(giftCardId, tenantId);
+
+  try {
+    await env.DB
+      .prepare(`UPDATE tour_gift_cards SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`)
+      .bind(...values)
+      .run();
+
+    const updated = await env.DB
+      .prepare(`SELECT gc.*, t.title AS tour_title
+                  FROM tour_gift_cards gc
+                  LEFT JOIN tours t ON t.id = gc.tour_id AND t.tenant_id = gc.tenant_id
+                 WHERE gc.id = ? AND gc.tenant_id = ?`)
+      .bind(giftCardId, tenantId)
+      .first();
+
+    return Response.json({ ok: true, item: await mapGiftCardRow(updated, { includeQr: true }) });
+  } catch (err) {
+    return dbError(err, 'handleUpdateGiftCard');
+  }
+}
+
 // 3. Handlers cho Hono
 // QUAN TRỌNG: Route cụ thể /calculate phải đứng TRƯỚC route động /:group
 // để tránh bị Hono match nhầm 'calculate' vào group handler
@@ -521,22 +1426,40 @@ pricing.post('/calculate', async (c) => {
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
     pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
+  const discountCouponCode = sanitizeDiscountCouponCode(params.discount_coupon_code ?? params.coupon_code ?? params.discount_code);
+  const giftCardIdCode = sanitizeGiftCardCode(params.gift_card_id_code ?? params.gift_card_code);
   const tourType = params.tour_type ?? null;
 
   // Compare mode: no segment_id ? return all segments
   if (!params.segment_id) {
     const allResult = await calculateAllSegmentsPrice(c.env, commonParams);
     if (!allResult.ok) return c.json(allResult, 422);
+    const segments = [];
+    for (const segment of allResult.segments) {
+      let adjustedSegment = segment;
+      const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantFromHeader, params.tour_id, discountCouponCode, adjustedSegment);
+      if (!discountCouponApplied.ok) return c.json(discountCouponApplied, 422);
+      adjustedSegment = discountCouponApplied.priceResult;
+      const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantFromHeader, params.tour_id, giftCardIdCode, adjustedSegment);
+      if (!giftCardApplied.ok) return c.json(giftCardApplied, 422);
+      segments.push(buildPriceResponse(giftCardApplied.priceResult, tenantConfig, tourType));
+    }
     return c.json({
       ok:         true,
       mode:       'compare',
-      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig, tourType)),
+      segments,
       matched_on: allResult.matched_on,
     });
   }
 
-  const result = await calculateTourPrice(c.env, { ...commonParams, segment_id: params.segment_id });
+  let result = await calculateTourPrice(c.env, { ...commonParams, segment_id: params.segment_id });
   if (!result.ok) return c.json(result, 422);
+  const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantFromHeader, params.tour_id, discountCouponCode, result);
+  if (!discountCouponApplied.ok) return c.json(discountCouponApplied, 422);
+  result = discountCouponApplied.priceResult;
+  const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantFromHeader, params.tour_id, giftCardIdCode, result);
+  if (!giftCardApplied.ok) return c.json(giftCardApplied, 422);
+  result = giftCardApplied.priceResult;
   return c.json(buildPriceResponse(result, tenantConfig, tourType));
 });
 
@@ -585,23 +1508,65 @@ pricing.get('/calculate', async (c) => {
     infant_policy_text:      tenantConfig.infant_policy_text ?? null,
     pricing_notes_text:      tenantConfig.pricing_notes_text ?? null,
   };
+  const discountCouponCode = sanitizeDiscountCouponCode(c.req.query('discount_coupon_code') ?? c.req.query('coupon_code') ?? c.req.query('discount_code'));
+  const giftCardIdCode = sanitizeGiftCardCode(c.req.query('gift_card_id_code') ?? c.req.query('gift_card_code'));
   const tourType = c.req.query('tour_type') ?? null;
 
   // Compare mode: no segment_id ? return all segments sorted cheapest-first
   if (!segment_id) {
     const allResult = await calculateAllSegmentsPrice(c.env, commonParams);
     if (!allResult.ok) return c.json(allResult, 422);
+    const segments = [];
+    for (const segment of allResult.segments) {
+      let adjustedSegment = segment;
+      const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantFromHeader, tour_id, discountCouponCode, adjustedSegment);
+      if (!discountCouponApplied.ok) return c.json(discountCouponApplied, 422);
+      adjustedSegment = discountCouponApplied.priceResult;
+      const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantFromHeader, tour_id, giftCardIdCode, adjustedSegment);
+      if (!giftCardApplied.ok) return c.json(giftCardApplied, 422);
+      segments.push(buildPriceResponse(giftCardApplied.priceResult, tenantConfig, tourType));
+    }
     return c.json({
       ok:         true,
       mode:       'compare',
-      segments:   allResult.segments.map(s => buildPriceResponse(s, tenantConfig, tourType)),
+      segments,
       matched_on: allResult.matched_on,
     });
   }
 
-  const result = await calculateTourPrice(c.env, { ...commonParams, segment_id });
+  let result = await calculateTourPrice(c.env, { ...commonParams, segment_id });
   if (!result.ok) return c.json(result, 422);
+  const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantFromHeader, tour_id, discountCouponCode, result);
+  if (!discountCouponApplied.ok) return c.json(discountCouponApplied, 422);
+  result = discountCouponApplied.priceResult;
+  const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantFromHeader, tour_id, giftCardIdCode, result);
+  if (!giftCardApplied.ok) return c.json(giftCardApplied, 422);
+  result = giftCardApplied.priceResult;
   return c.json(buildPriceResponse(result, tenantConfig, tourType));
+});
+
+pricing.post('/discount-coupons', async (c) => {
+  return handleCreateDiscountCoupon(c.req.raw, c.env);
+});
+
+pricing.get('/discount-coupons', async (c) => {
+  return handleListDiscountCoupons(c.req.raw, c.env);
+});
+
+pricing.patch('/discount-coupons/:discountCouponId', async (c) => {
+  return handleUpdateDiscountCoupon(c.req.raw, c.env, { discountCouponId: c.req.param('discountCouponId') });
+});
+
+pricing.post('/gift-cards', async (c) => {
+  return handleCreateGiftCard(c.req.raw, c.env);
+});
+
+pricing.get('/gift-cards', async (c) => {
+  return handleListGiftCards(c.req.raw, c.env);
+});
+
+pricing.patch('/gift-cards/:giftCardId', async (c) => {
+  return handleUpdateGiftCard(c.req.raw, c.env, { giftCardId: c.req.param('giftCardId') });
 });
 
 // Phải đứng TRƯỚC /:group — tránh Hono match 'tenant-seasons' vào group handler

@@ -130,6 +130,12 @@ import registerPricingRoutes, {
   handleCreatePricing, 
   handleGetPricing,
   handleGetPricingMetadata,
+  handleCreateDiscountCoupon,
+  handleListDiscountCoupons,
+  handleUpdateDiscountCoupon,
+  handleCreateGiftCard,
+  handleListGiftCards,
+  handleUpdateGiftCard,
   handleUpdatePricing,
   handleDuplicateSeason,
   handleCopySeason,
@@ -389,9 +395,26 @@ const PROTECTED_API_PREFIXES = [
 
 app.use('/api/*', async (c, next) => {
   const pathname = new URL(c.req.url).pathname;
-  // Public endpoints nested under otherwise-protected prefixes
-  const PUBLIC_EXCEPTIONS = ['/api/universal/search', '/api/universal/public', '/api/pay', '/api/bookings/public'];
-  if (PUBLIC_EXCEPTIONS.some(p => pathname.startsWith(p))) { await next(); return; }
+  // Public endpoints nested under otherwise-protected prefixes.
+  // Keep these narrow so public booking/order routes stay reachable without
+  // accidentally exposing authenticated listing/admin endpoints.
+  const PUBLIC_EXACT_PATHS = new Set([
+    '/api/universal/search',
+    '/api/pricing/calculate',
+    '/api/bookings/draft',
+    '/api/bookings/order',
+  ]);
+  const PUBLIC_PREFIXES = [
+    '/api/universal/public',
+    '/api/bookings/public',
+    '/api/pay',
+  ];
+  const isPublicProofUpload = /^\/api\/bookings\/order\/[^/]+\/proof$/.test(pathname);
+  const isPublicException = PUBLIC_EXACT_PATHS.has(pathname)
+    || pathname.startsWith('/api/bookings/draft/')
+    || isPublicProofUpload
+    || PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (isPublicException) { await next(); return; }
   const needsAuth = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (!needsAuth) {
     await next();
@@ -717,6 +740,36 @@ const patterns = [
     method: 'GET',
     pattern: new URLPattern({ pathname: '/api/pricing/metadata' }),
     handler: (req, env) => handleGetPricingMetadata(req, env)
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/pricing/discount-coupons' }),
+    handler: (req, env) => handleCreateDiscountCoupon(req, env)
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/pricing/discount-coupons' }),
+    handler: (req, env) => handleListDiscountCoupons(req, env)
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/pricing/discount-coupons/:discountCouponId' }),
+    handler: (req, env, match) => handleUpdateDiscountCoupon(req, env, { discountCouponId: match.pathname.groups.discountCouponId })
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/api/pricing/gift-cards' }),
+    handler: (req, env) => handleCreateGiftCard(req, env)
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/api/pricing/gift-cards' }),
+    handler: (req, env) => handleListGiftCards(req, env)
+  },
+  {
+    method: 'PATCH',
+    pattern: new URLPattern({ pathname: '/api/pricing/gift-cards/:giftCardId' }),
+    handler: (req, env, match) => handleUpdateGiftCard(req, env, { giftCardId: match.pathname.groups.giftCardId })
   },
 
   // Các route cho Service Items

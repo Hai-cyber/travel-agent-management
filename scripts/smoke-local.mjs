@@ -187,6 +187,7 @@ function ensureTenantFixtures() {
   runD1Json(
     `UPDATE tenants
         SET subscription_status = 'ACTIVE',
+            promo_activated = 0,
             terms_accepted = 1,
             terms_accepted_at = ${Math.floor(Date.now() / 1000)},
             subdomain = NULL,
@@ -735,6 +736,30 @@ async function runBookingSmoke(baseUrl, token, adminSecret) {
   }
   pass('Confirmed electronic payment gateway (STRIPE) enabled through the live payment settings route');
 
+  const bookingGiftCard = await requestJson(`${baseUrl}/api/pricing/gift-cards`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+    },
+    body: JSON.stringify({
+      tour_id: 'tour-001',
+      recipient_email: 'booking-giftcard@example.com',
+      recipient_phone: '+84909988777',
+      face_value: 100,
+      currency: 'USD',
+      notes: 'Booking smoke gift card',
+    }),
+  });
+
+  const bookingGiftCardCode = bookingGiftCard.body?.item?.id_code;
+  if (bookingGiftCard.response.status !== 201 || !bookingGiftCardCode) {
+    fail(`Booking smoke gift card creation failed: ${bookingGiftCard.text}`);
+    return;
+  }
+  pass(`Created booking gift card ${bookingGiftCardCode}`);
+
   const order = await requestJson(`${baseUrl}/api/bookings/order?__local_host=${encodeURIComponent(customDomain)}`, {
     method: 'POST',
     headers: {
@@ -755,6 +780,7 @@ async function runBookingSmoke(baseUrl, token, adminSecret) {
         email: `smoke.booking.${Date.now()}@example.com`,
         phone: '0901234567',
       },
+      gift_card_id_code: bookingGiftCardCode,
     }),
   });
 
@@ -764,6 +790,32 @@ async function runBookingSmoke(baseUrl, token, adminSecret) {
     return;
   }
   pass(`Created booking order ${orderId}`);
+
+  const giftCardUsageRows = runD1Json(
+    `SELECT gift_card_id_code, gift_card_applied_amount
+       FROM booking_orders
+      WHERE tenant_id = '${TENANT_ID}'
+        AND id = '${orderId}';`
+  );
+  const giftCardUsage = giftCardUsageRows[0];
+  if (!giftCardUsage || giftCardUsage.gift_card_id_code !== bookingGiftCardCode || Number(giftCardUsage.gift_card_applied_amount) !== 100) {
+    fail(`Booking smoke expected order ${orderId} to store applied gift card metadata for ${bookingGiftCardCode}`);
+    return;
+  }
+  pass('Persisted applied gift card metadata on the booking order');
+
+  const giftCardBalanceRows = runD1Json(
+    `SELECT remaining_value, status
+       FROM tour_gift_cards
+      WHERE tenant_id = '${TENANT_ID}'
+        AND id_code = '${bookingGiftCardCode}';`
+  );
+  const giftCardBalance = giftCardBalanceRows[0];
+  if (!giftCardBalance || Number(giftCardBalance.remaining_value) !== 0 || giftCardBalance.status !== 'redeemed') {
+    fail(`Booking smoke expected gift card ${bookingGiftCardCode} to be fully consumed after order creation`);
+    return;
+  }
+  pass('Reduced the gift card remaining balance after booking creation');
 
   const proofForm = new FormData();
   proofForm.set('proof', new Blob(['SMOKE_PROOF'], { type: 'image/jpeg' }), 'proof.jpg');
@@ -786,6 +838,7 @@ async function runBookingSmoke(baseUrl, token, adminSecret) {
   const confirm = await requestJson(`${baseUrl}/api/bookings/order/${orderId}/confirm-receipt?__local_host=${encodeURIComponent(customDomain)}`, {
     method: 'POST',
     headers: {
+      Authorization: `Bearer ${token}`,
       'X-Tenant-ID': TENANT_ID,
       'X-Local-Smoke-Secret': adminSecret,
     },
@@ -824,7 +877,7 @@ async function runPublicHotelSmoke(baseUrl, token) {
     'X-Tenant-ID': TENANT_ID,
     'Content-Type': 'application/json',
   };
-  const hotelRow = runD1Json(
+  let hotelRow = runD1Json(
     `SELECT id, hotel_key
        FROM tenant_universal_hotels
       WHERE tenant_id = '${TENANT_ID}'
@@ -832,8 +885,24 @@ async function runPublicHotelSmoke(baseUrl, token) {
       LIMIT 1;`
   )[0];
   if (!hotelRow?.id || !hotelRow?.hotel_key) {
-    fail('Public hotel smoke could not find a tenant hotel row fixture');
-    return;
+    const hotelId = `hotel-public-smoke-${uniqueSuffix}`;
+    const hotelKey = `public-hotel-smoke-${uniqueSuffix}`.toLowerCase();
+    runD1Json(
+      `INSERT INTO tenant_universal_hotels
+          (id, tenant_id, hotel_key, tour_id, name, description, address, gallery_json, status, sort_order, created_at, updated_at)
+        VALUES (
+          '${hotelId}', '${TENANT_ID}', '${hotelKey}', NULL,
+          'Public Hotel Smoke ${uniqueSuffix}',
+          'Public hotel smoke fixture',
+          'Smoke Test Address',
+          '[]',
+          'active',
+          9999,
+          strftime('%s','now'),
+          strftime('%s','now')
+        );`
+    );
+    hotelRow = { id: hotelId, hotel_key: hotelKey };
   }
 
   const propertyId = `prop-public-hotel-smoke-${uniqueSuffix}`;
@@ -1103,6 +1172,141 @@ async function runPricingSmoke(baseUrl, token) {
   }
 
   pass('Verified mixed rooming allows 1 child per shared double room and 2 children per private room');
+
+  const giftCardCreate = await requestJson(`${baseUrl}/api/pricing/gift-cards`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+    },
+    body: JSON.stringify({
+      tour_id: 'tour-001',
+      recipient_email: 'giftcard@example.com',
+      recipient_phone: '+84901122334',
+      face_value: 200,
+      currency: 'USD',
+      notes: 'Pricing smoke gift card',
+    }),
+  });
+
+  if (giftCardCreate.response.status !== 201 || !giftCardCreate.body?.item?.id_code) {
+    fail(`Gift card create smoke failed: ${giftCardCreate.text}`);
+    return;
+  }
+
+  const giftCardCode = giftCardCreate.body.item.id_code;
+
+  const pricingWithGiftCard = await requestJson(
+    `${baseUrl}/api/pricing/calculate?tour_id=tour-001&date=${encodeURIComponent(pricingSmokeDate)}&segment_id=segment-standard&adult_shared_room_count=2&gift_card_id_code=${encodeURIComponent(giftCardCode)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': TENANT_ID,
+      },
+    }
+  );
+
+  if (!pricingWithGiftCard.response.ok || !pricingWithGiftCard.body?.gift_card) {
+    fail(`Gift card pricing smoke failed: ${pricingWithGiftCard.text}`);
+    return;
+  }
+
+  if (pricingWithGiftCard.body.invoice?.grand_total !== PRICING_SMOKE_EXPECTED_TOTAL - 200) {
+    fail(`Gift card pricing smoke total mismatch: expected ${PRICING_SMOKE_EXPECTED_TOTAL - 200}, received ${pricingWithGiftCard.body.invoice?.grand_total ?? 'missing'}`);
+    return;
+  }
+
+  if (pricingWithGiftCard.body.gift_card?.applied_amount !== 200) {
+    fail(`Gift card pricing smoke applied amount mismatch: expected 200, received ${pricingWithGiftCard.body.gift_card?.applied_amount ?? 'missing'}`);
+    return;
+  }
+
+  pass('Applied active gift card balance to pricing calculation');
+}
+
+async function runPromoUpgradeSmoke(baseUrl, token, adminSecret) {
+  info('Running promo upgrade smoke flow');
+
+  runD1Json(
+    `UPDATE tenants
+        SET subscription_status = 'TRIAL',
+            promo_activated = 0,
+            product_tier_key = 'starter_landing',
+            stripe_customer_id = NULL
+      WHERE id = '${TENANT_ID}';`
+  );
+  pass('Reset smoke tenant to starter-tier trial before promo redemption');
+
+  const promoCreate = await requestJson(`${baseUrl}/api/admin/promo-codes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Secret': adminSecret,
+    },
+    body: JSON.stringify({
+      note: 'Promo upgrade smoke',
+      max_uses: 1,
+    }),
+  });
+
+  const promoCode = promoCreate.body?.code;
+  if (!promoCreate.response.ok || !promoCode) {
+    fail(`Promo upgrade smoke could not create a promo code: ${promoCreate.response.status} ${promoCreate.text}`);
+    return;
+  }
+  pass(`Created promo code ${promoCode} for upgrade smoke`);
+
+  const redeem = await requestJson(`${baseUrl}/api/billing/redeem-promo`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': TENANT_ID,
+    },
+    body: JSON.stringify({ code: promoCode }),
+  });
+
+  if (!redeem.response.ok || redeem.body?.product_tier_key !== 'tour_operator_pro') {
+    fail(`Promo upgrade smoke redeem did not return Tour Pro tier: ${redeem.response.status} ${redeem.text}`);
+    return;
+  }
+  pass('Promo redemption returned the Tour Pro tier key');
+
+  const billingStatus = await requestJson(`${baseUrl}/api/billing/status`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+
+  if (
+    !billingStatus.response.ok
+    || billingStatus.body?.subscription_status !== 'ACTIVE'
+    || billingStatus.body?.product_tier_key !== 'tour_operator_pro'
+    || billingStatus.body?.promo_activated !== true
+  ) {
+    fail(`Promo upgrade smoke billing status mismatch: ${billingStatus.response.status} ${billingStatus.text}`);
+    return;
+  }
+  pass('Billing status reflects active Tour Pro promo activation');
+
+  const tenantRows = runD1Json(
+    `SELECT subscription_status, product_tier_key, promo_activated
+       FROM tenants
+      WHERE id = '${TENANT_ID}';`
+  );
+  const tenantRow = tenantRows[0];
+  if (
+    !tenantRow
+    || tenantRow.subscription_status !== 'ACTIVE'
+    || tenantRow.product_tier_key !== 'tour_operator_pro'
+    || Number(tenantRow.promo_activated) !== 1
+  ) {
+    fail(`Promo upgrade smoke tenant row mismatch: ${JSON.stringify(tenantRow)}`);
+    return;
+  }
+  pass('Promo redemption upgraded the tenant row to active Tour Pro');
 }
 
 async function runPasswordResetSmoke(baseUrl, token) {
@@ -2745,7 +2949,8 @@ async function main() {
     await runTaskSmoke(baseUrl, token);
     await runPricingSmoke(baseUrl, token);
     await runBookingSmoke(baseUrl, token, adminSecret);
-    await runPublicHotelSmoke(baseUrl, token);
+  await runPublicHotelSmoke(baseUrl, token);
+  await runPromoUpgradeSmoke(baseUrl, token, adminSecret);
     await runPasswordResetSmoke(baseUrl, token);
     // Password reset invalidates the previous session — mint a fresh token for
     // tests that run after the password-reset smoke.

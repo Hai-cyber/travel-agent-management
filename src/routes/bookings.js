@@ -2,7 +2,13 @@
 // Booking Draft API — Lưu lựa chọn khách hàng thành draft (giỏ hàng tạm thời)
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { calculateTourPrice } from './pricing.js';
+import {
+  calculateTourPrice,
+  applyDiscountCouponCodeToPriceResult,
+  applyGiftCardCodeToPriceResult,
+  buildDiscountCouponCompensationStatements,
+  buildGiftCardCompensationStatements,
+} from './pricing.js';
 import { resolveLocaleFromAcceptLanguage } from '../utils/formatter.js';
 import { notifyAgent } from '../lib/notifications.js';
 import { isInstantProvider, ALL_PROVIDERS, checkTenantCompliance } from './payments.js';
@@ -60,10 +66,12 @@ bookings.post('/draft', async (c) => {
   }
 
   const { tour_id, travel_date, segment_id, pax } = body;
+  const discountCouponCode = String(body?.discount_coupon_code ?? body?.coupon_code ?? body?.discount_code ?? '').trim().toUpperCase();
+  const giftCardIdCode = String(body?.gift_card_id_code ?? body?.gift_card_code ?? '').trim().toUpperCase();
   const tenantConfig = c.get('tenantConfig') ?? {};
 
   // Tính giá mới nhất từ server — không cho phép client truyền giá vào
-  const priceResult = await calculateTourPrice(c.env, {
+  let priceResult = await calculateTourPrice(c.env, {
     tenant_id:               tenantId,
     tour_id,
     date:                    travel_date,
@@ -82,6 +90,18 @@ bookings.post('/draft', async (c) => {
   if (!priceResult.ok) {
     return c.json({ error: priceResult.error, hint: priceResult.hint }, 422);
   }
+
+  const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantId, tour_id, discountCouponCode, priceResult);
+  if (!discountCouponApplied.ok) {
+    return c.json({ error: discountCouponApplied.error }, 422);
+  }
+  priceResult = discountCouponApplied.priceResult;
+
+  const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantId, tour_id, giftCardIdCode, priceResult);
+  if (!giftCardApplied.ok) {
+    return c.json({ error: giftCardApplied.error }, 422);
+  }
+  priceResult = giftCardApplied.priceResult;
 
   const draftId   = nanoid();
   const now       = Math.floor(Date.now() / 1000);
@@ -118,6 +138,9 @@ bookings.post('/draft', async (c) => {
       unit_prices:         priceResult.prices,
       invoice:             priceResult.totals ? {
         grand_total: priceResult.totals.grand_total,
+        original_grand_total: priceResult.totals.original_grand_total ?? priceResult.totals.grand_total,
+        discount_coupon_applied: priceResult.totals.discount_coupon_applied ?? 0,
+        gift_card_applied: priceResult.totals.gift_card_applied ?? 0,
         shared_room_subtotal: priceResult.totals.shared_room_subtotal ?? 0,
         single_room_subtotal: priceResult.totals.single_room_subtotal ?? 0,
         children_subtotal: priceResult.totals.children_subtotal ?? 0,
@@ -236,6 +259,16 @@ function maskOrder(row) {
     secure_token:      row.secure_token ?? null,
     // Snapshot for tour title display in admin table
     price_snapshot_json: row.price_snapshot_json ?? null,
+    discount_coupon: row.discount_coupon_code ? {
+      id: row.discount_coupon_id ?? null,
+      code: row.discount_coupon_code,
+      applied_amount: row.discount_coupon_applied_amount ?? 0,
+    } : null,
+    gift_card: row.gift_card_id_code ? {
+      id: row.gift_card_id ?? null,
+      id_code: row.gift_card_id_code,
+      applied_amount: row.gift_card_applied_amount ?? 0,
+    } : null,
   };
 
   // [SEC] Identity Shield: always include guest field but mask when locked.
@@ -356,10 +389,12 @@ bookings.post('/order', async (c) => {
   const instant = isInstantProvider(rawMethod);
 
   const { tour_id, travel_date, segment_id, pax = {}, guest, draft_id = null } = body;
+  const discountCouponCode = String(body?.discount_coupon_code ?? body?.coupon_code ?? body?.discount_code ?? '').trim().toUpperCase();
+  const giftCardIdCode = String(body?.gift_card_id_code ?? body?.gift_card_code ?? '').trim().toUpperCase();
   const tenantConfig = c.get('tenantConfig') ?? {};
 
   // Re-price server-side — client price is never trusted
-  const priceResult = await calculateTourPrice(c.env, {
+  let priceResult = await calculateTourPrice(c.env, {
     tenant_id:               tenantId,
     tour_id,
     date:                    travel_date,
@@ -378,9 +413,42 @@ bookings.post('/order', async (c) => {
   if (!priceResult.ok) {
     return c.json({ error: priceResult.error, hint: priceResult.hint }, 422);
   }
+  let discountCouponRow = null;
+  if (discountCouponCode) {
+    const discountCouponApplied = await applyDiscountCouponCodeToPriceResult(c.env, tenantId, tour_id, discountCouponCode, priceResult);
+    if (!discountCouponApplied.ok) {
+      return c.json({ error: discountCouponApplied.error }, 422);
+    }
+    priceResult = discountCouponApplied.priceResult;
+    discountCouponRow = discountCouponApplied.discountCoupon;
+  }
+  let giftCardRow = null;
+  if (giftCardIdCode) {
+    const giftCardApplied = await applyGiftCardCodeToPriceResult(c.env, tenantId, tour_id, giftCardIdCode, priceResult);
+    if (!giftCardApplied.ok) {
+      return c.json({ error: giftCardApplied.error }, 422);
+    }
+    priceResult = giftCardApplied.priceResult;
+    giftCardRow = giftCardApplied.giftCard;
+  }
   const orderId     = nanoid();
   const secureToken = nanoid(32);
   const now         = Math.floor(Date.now() / 1000);
+  const discountCouponCompensation = buildDiscountCouponCompensationStatements(
+    c.env,
+    tenantId,
+    discountCouponRow,
+    now
+  );
+  let discountCouponDebited = false;
+  const giftCardCompensation = buildGiftCardCompensationStatements(
+    c.env,
+    tenantId,
+    giftCardRow,
+    priceResult.gift_card?.applied_amount ?? 0,
+    now
+  );
+  let giftCardDebited = false;
 
   // Group A (Instant): status = AWAITING_PAYMENT, no real deadline
   // Group B (Manual):  status = AWAITING_PROOF,   deadline = 48/72h
@@ -399,9 +467,11 @@ bookings.post('/order', async (c) => {
                    pax_shared, pax_private, pax_children, pax_infants,
                    guest_name, guest_email, guest_phone,
                    grand_total_usd, price_snapshot_json,
+                   discount_coupon_id, discount_coupon_code, discount_coupon_applied_amount,
+                   gift_card_id, gift_card_id_code, gift_card_applied_amount,
                    payment_method, payment_deadline, status, identity_unlocked,
                    secure_token, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)`)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .bind(
         orderId, tenantId, draft_id, tour_id, travel_date, segment_id,
         pax.adult_shared_room_count ?? pax.shared      ?? 0,
@@ -413,13 +483,47 @@ bookings.post('/order', async (c) => {
         guest.phone?.toString().slice(0, 50)  ?? null,
         priceResult.totals.grand_total,
         JSON.stringify({ ...priceResult, saved_at: now }),
+        discountCouponCompensation?.couponId ?? null,
+        discountCouponCompensation?.code ?? null,
+        priceResult.discount_coupon?.applied_amount ?? 0,
+        giftCardCompensation?.giftCardId ?? null,
+        giftCardCompensation?.idCode ?? null,
+        giftCardCompensation?.appliedAmount ?? 0,
         rawMethod,
         deadline,
         initialStatus,
+        0,
         secureToken,
         now
       )
       .run();
+
+    if (discountCouponCompensation) {
+      const updateResult = await discountCouponCompensation.update.run();
+      if (!updateResult.meta?.changes) {
+        await c.env.DB
+          .prepare('DELETE FROM booking_orders WHERE id = ? AND tenant_id = ?')
+          .bind(orderId, tenantId)
+          .run();
+        return c.json({ error: 'Discount coupon availability changed before this booking could be saved. Please try again.' }, 409);
+      }
+      discountCouponDebited = true;
+    }
+
+    if (giftCardCompensation) {
+      const updateResult = await giftCardCompensation.update.run();
+      if (!updateResult.meta?.changes) {
+        if (discountCouponDebited) {
+          await discountCouponCompensation.restore.run().catch(() => null);
+        }
+        await c.env.DB
+          .prepare('DELETE FROM booking_orders WHERE id = ? AND tenant_id = ?')
+          .bind(orderId, tenantId)
+          .run();
+        return c.json({ error: 'Gift card balance changed before this booking could be saved. Please try again.' }, 409);
+      }
+      giftCardDebited = true;
+    }
 
     // Fire booking notification — non-blocking
     c.executionCtx.waitUntil(
@@ -555,6 +659,20 @@ bookings.post('/order', async (c) => {
     }, 201);
 
   } catch (err) {
+    if (giftCardCompensation && giftCardDebited) {
+      try {
+        await giftCardCompensation.restore.run();
+      } catch (restoreErr) {
+        console.warn('[BOOKING_ORDER_ERROR] gift card restore failed', restoreErr);
+      }
+    }
+    if (discountCouponCompensation && discountCouponDebited) {
+      try {
+        await discountCouponCompensation.restore.run();
+      } catch (restoreErr) {
+        console.warn('[BOOKING_ORDER_ERROR] discount coupon restore failed', restoreErr);
+      }
+    }
     console.error('[BOOKING_ORDER_ERROR] POST /order', err);
     return c.json({ error: 'Internal server error while creating order.' }, 500);
   }
@@ -977,6 +1095,18 @@ bookings.get('/public/:secure_token', async (c) => {
   const nowUnix     = Math.floor(Date.now() / 1000);
   const secondsLeft = order.payment_deadline - nowUnix;
   const hoursLeft   = Math.max(0, Math.ceil(secondsLeft / 3600));
+  let publicDiscountCoupon = null;
+  let publicGiftCard = null;
+  if (order.price_snapshot_json) {
+    try {
+      const snap = JSON.parse(order.price_snapshot_json);
+      publicDiscountCoupon = snap.discount_coupon ?? null;
+      publicGiftCard = snap.gift_card ?? null;
+    } catch {
+      publicDiscountCoupon = null;
+      publicGiftCard = null;
+    }
+  }
 
   return c.json({
     ok:     true,
@@ -1007,6 +1137,8 @@ bookings.get('/public/:secure_token', async (c) => {
         email: order.guest_email,
         phone: order.guest_phone,
       },
+      discount_coupon: publicDiscountCoupon,
+      gift_card: publicGiftCard,
       proof_uploaded_at: order.proof_uploaded_at ?? null,
       created_at:        order.created_at,
     },

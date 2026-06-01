@@ -27,6 +27,15 @@ import { dispatchBillingPaymentEmail, dispatchBillingActivationEmail, dispatchBi
 import { getAllowedMembershipUpgradeTargets } from '../lib/membershipBilling.js';
 
 const billing = new Hono();
+const ACTIVATED_TOUR_TIER_KEY = 'tour_operator_pro';
+
+function resolveActivatedTierKey(currentTierKey) {
+  const normalized = String(currentTierKey || '').trim();
+  if (!normalized || normalized === 'starter_landing') {
+    return ACTIVATED_TOUR_TIER_KEY;
+  }
+  return normalized;
+}
 
 // ── Stripe HMAC-SHA256 webhook signature verification ─────────────────────────
 // Implements the standard Stripe-Signature format:
@@ -428,14 +437,16 @@ billing.post('/webhook', async (c) => {
       }
 
       // Activate tenant
+      const nextTierKey = resolveActivatedTierKey(tenant.product_tier_key);
       await c.env.DB
         .prepare(
           `UPDATE tenants
              SET subscription_status = 'ACTIVE',
-                 stripe_customer_id  = COALESCE(stripe_customer_id, ?)
+                 stripe_customer_id  = COALESCE(stripe_customer_id, ?),
+                 product_tier_key    = ?
            WHERE id = ?`
         )
-        .bind(customerId, tenantId)
+        .bind(customerId, nextTierKey, tenantId)
         .run();
 
       // Audit log for idempotency + legal record
@@ -632,7 +643,7 @@ billing.get('/status', async (c) => {
   if (!tenantId) return c.json({ error: 'X-Tenant-ID header is required.' }, 400);
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, subscription_status, stripe_customer_id, created_at, extra_property_slots, extra_staff_slots, product_tier_key FROM tenants WHERE id = ?')
+  .prepare('SELECT id, subscription_status, stripe_customer_id, created_at, extra_property_slots, extra_staff_slots, product_tier_key, promo_activated FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
 
@@ -649,8 +660,9 @@ billing.get('/status', async (c) => {
     ok:                  true,
     subscription_status: tenant.subscription_status,
     stripe_customer_id:  tenant.stripe_customer_id ?? null,
-    product_tier_key:    productTierKey,
-    available_membership_targets: getAllowedMembershipUpgradeTargets(productTierKey, tenant.subscription_status),
+  product_tier_key:    productTierKey,
+  available_membership_targets: getAllowedMembershipUpgradeTargets(productTierKey, tenant.subscription_status),
+  promo_activated:     Boolean(tenant.promo_activated),
     trial_info: {
       trial_days_total: TRIAL_DAYS,
       trial_ends_at:    trialEndsAt,
@@ -774,17 +786,19 @@ billing.post('/redeem-promo', async (c) => {
   if (already) return c.json({ error: 'You have already redeemed this promo code.' }, 400);
 
   const tenant = await c.env.DB
-    .prepare('SELECT id, subscription_status FROM tenants WHERE id = ?')
+    .prepare('SELECT id, subscription_status, product_tier_key FROM tenants WHERE id = ?')
     .bind(tenantId)
     .first();
   if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
 
   const redemptionId = crypto.randomUUID().replace(/-/g, '').slice(0, 21);
   const oldStatus    = tenant.subscription_status;
+  const oldTierKey   = tenant.product_tier_key ?? null;
+  const nextTierKey  = resolveActivatedTierKey(oldTierKey);
 
-  await c.env.DB.batch([
-    c.env.DB.prepare('UPDATE tenants SET subscription_status = ?, promo_activated = 1 WHERE id = ?')
-      .bind('ACTIVE', tenantId),
+  const statements = [
+    c.env.DB.prepare('UPDATE tenants SET subscription_status = ?, promo_activated = 1, product_tier_key = ? WHERE id = ?')
+      .bind('ACTIVE', nextTierKey, tenantId),
     c.env.DB.prepare('INSERT INTO promo_code_redemptions (id, code_id, tenant_id, redeemed_at) VALUES (?, ?, ?, ?)')
       .bind(redemptionId, promo.id, tenantId, now),
     c.env.DB.prepare('UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?')
@@ -793,7 +807,18 @@ billing.post('/redeem-promo', async (c) => {
       `INSERT INTO tenant_audit_log (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by)
        VALUES (?, ?, 'subscription_status', ?, ?, ?, ?)`
     ).bind(crypto.randomUUID(), tenantId, oldStatus, 'ACTIVE', now, `promo:${code}`),
-  ]);
+  ];
+
+  if (String(oldTierKey || '') !== String(nextTierKey || '')) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO tenant_audit_log (id, tenant_id, field_name, old_value, new_value, changed_at, changed_by)
+         VALUES (?, ?, 'product_tier_key', ?, ?, ?, ?)`
+      ).bind(crypto.randomUUID(), tenantId, oldTierKey, nextTierKey, now, `promo:${code}`)
+    );
+  }
+
+  await c.env.DB.batch(statements);
 
   console.info(`[PROMO_REDEEMED] tenant=${tenantId} code=${code} duration_days=${promo.duration_days}`);
 
@@ -801,7 +826,7 @@ billing.post('/redeem-promo', async (c) => {
     ? `Promo code accepted! Your account is active for ${promo.duration_days} days.`
     : 'Promo code accepted! Your account is now active.';
 
-  return c.json({ ok: true, message, duration_days: promo.duration_days ?? null });
+  return c.json({ ok: true, message, duration_days: promo.duration_days ?? null, product_tier_key: nextTierKey });
 });
 
 export default function registerBillingRoutes(app) {

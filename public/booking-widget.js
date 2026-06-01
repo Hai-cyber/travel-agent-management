@@ -59,6 +59,8 @@
       infant_label:  'Infants (0–2)',
       segment_label: 'Travel Style',
       segment_all:   '— Compare all styles —',
+      coupon_label:  'Discount Code',
+      coupon_placeholder: 'Optional code e.g. FAMILY10',
       calculating:   'Calculating…',
       no_date:       'Please select a travel date.',
       no_pax:        'Please enter at least 1 adult.',
@@ -69,6 +71,8 @@
       season_label:  'Season applied:',
       style_label:   'Travel style:',
       band_label:    'Pax band:',
+      coupon_meta:   'Coupon:',
+      gift_card_meta:'Gift card:',
       disclaimer:    '⚠',
       preview_note:  'Estimated price — confirmed at booking.',
       save_btn:      'Save this Plan',
@@ -89,6 +93,8 @@
       infant_label:  'Em bé (0–2 tuổi)',
       segment_label: 'Loại hình tour',
       segment_all:   '— So sánh tất cả —',
+      coupon_label:  'Mã giảm giá',
+      coupon_placeholder: 'Tuỳ chọn, ví dụ FAMILY10',
       calculating:   'Đang tính giá…',
       no_date:       'Vui lòng chọn ngày khởi hành.',
       no_pax:        'Vui lòng nhập ít nhất 1 người lớn.',
@@ -99,6 +105,8 @@
       season_label:  'Mùa áp dụng:',
       style_label:   'Loại hình:',
       band_label:    'Nhóm hành khách:',
+      coupon_meta:   'Coupon:',
+      gift_card_meta:'Gift card:',
       disclaimer:    '⚠',
       preview_note:  'Giá tham khảo — xác nhận chính thức khi đặt tour.',
       save_btn:      'Lưu kế hoạch này',
@@ -380,6 +388,11 @@
           </select>
         </div>
 
+        <div class="bw-field">
+          <label for="bw-coupon">${esc(t('coupon_label'))}</label>
+          <input id="bw-coupon" type="text" maxlength="32" placeholder="${esc(t('coupon_placeholder'))}" autocomplete="off">
+        </div>
+
         <div id="bw-invoice">
           <div class="bw-status">&middot;&middot;&middot;</div>
         </div>
@@ -438,6 +451,7 @@
     children:     0,
     infants:      0,
     segment_id:   '',
+    coupon_code:  '',
     lastResult:   null,   // last successful API response
     _inflight:    false,
   };
@@ -449,6 +463,7 @@
     state.children      = clampInt(document.getElementById('bw-children')?.value  ?? 0);
     state.infants       = clampInt(document.getElementById('bw-infants')?.value   ?? 0);
     state.segment_id    = document.getElementById('bw-segment')?.value     ?? '';
+    state.coupon_code   = String(document.getElementById('bw-coupon')?.value ?? '').trim().toUpperCase();
   }
 
   function clampInt(v) {
@@ -500,6 +515,8 @@
       data.applied_season_name ? `<span>${esc(t('season_label'))} <strong>${esc(data.applied_season_name)}</strong></span>` : '',
       data.segment_name        ? `<span>${esc(t('style_label'))} <strong>${esc(data.segment_name)}</strong></span>`        : '',
       data.pax_band_name       ? `<span>${esc(t('band_label'))} <strong>${esc(data.pax_band_name)}</strong></span>`        : '',
+      data.discount_coupon?.applied_amount_display ? `<span>${esc(t('coupon_meta'))} <strong>${esc(data.discount_coupon.code || '')}</strong> -${esc(fmtDual(data.discount_coupon.applied_amount_display))}</span>` : '',
+      data.gift_card?.applied_amount_display ? `<span>${esc(t('gift_card_meta'))} <strong>${esc(data.gift_card.code || '')}</strong> -${esc(fmtDual(data.gift_card.applied_amount_display))}</span>` : '',
     ].filter(Boolean).join('');
 
     const disclaimerHtml = data.infant_disclaimer
@@ -582,6 +599,7 @@
       infant_count:            state.infants,
     };
     if (state.segment_id) body.segment_id = state.segment_id;
+    if (state.coupon_code) body.discount_coupon_code = state.coupon_code;
 
     const res = await fetch(`${API_BASE}/api/pricing/calculate`, {
       method:  'POST',
@@ -599,6 +617,7 @@
         tour_id:     TOUR_ID,
         travel_date: state.date,
         segment_id:  state.segment_id,
+        discount_coupon_code: state.coupon_code || undefined,
         pax: {
           adult_shared_room_count: state.adult_shared,
           adult_single_room_count: state.adult_private,
@@ -738,6 +757,7 @@
       set('bw-private',  pax.adult_single_room_count ?? 0);
       set('bw-children', pax.child_count             ?? 0);
       set('bw-infants',  pax.infant_count            ?? 0);
+      set('bw-coupon',   snap.discount_coupon?.code || '');
 
       if (snap.segment_id) {
         const segSel = document.getElementById('bw-segment');
@@ -815,7 +835,7 @@
     if (dateEl) dateEl.min = new Date().toISOString().slice(0, 10);
 
     // All form inputs → debounced recalc
-    ['bw-date', 'bw-shared', 'bw-private', 'bw-children', 'bw-infants', 'bw-segment']
+    ['bw-date', 'bw-shared', 'bw-private', 'bw-children', 'bw-infants', 'bw-segment', 'bw-coupon']
       .forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;

@@ -43,7 +43,7 @@
     .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
     .status { padding: 14px 18px; margin-bottom: 18px; font-weight: 700; }
     label { display: grid; gap: 7px; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       border: 1px solid rgba(16, 33, 45, 0.12);
       border-radius: 18px;
@@ -315,7 +315,7 @@
     <div class="tab-pane" id="tab-tenants">
       <div class="tenants-panel">
         <h2>Tenant Management</h2>
-        <p class="hint">View all tenants. Manually review and override subscription standing without depending on one billing provider.</p>
+  <p class="hint">View all tenants. Manually review and override subscription standing without depending on one billing provider, and send payment-link emails without touching the booking core.</p>
         <div class="tenant-filters">
           <input id="tenant-search" type="search" placeholder="Search name / email / subdomain / domain…" />
           <select id="tenant-filter-sub">
@@ -334,6 +334,38 @@
           </select>
           <button class="btn btn-secondary" id="btn-load-tenants" type="button">Load tenants</button>
         </div>
+        <section class="panel" style="margin-bottom:18px;padding:18px" id="manual-payment-panel" data-tenant-id="" data-tenant-email="" data-tenant-name="">
+          <h3 style="font-size:18px;margin-bottom:6px">Manual Payment Link Email</h3>
+          <p class="hint" style="margin-bottom:14px">Select a tenant from the table, paste your Wise or hosted invoice link, then send a drafted payment-request email manually.</p>
+          <div id="manual-payment-selected" style="padding:12px 14px;border-radius:14px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.12);font-size:13px;color:var(--muted);margin-bottom:14px">No tenant selected yet.</div>
+          <div class="row">
+            <label>Purpose
+              <select id="manual-payment-purpose">
+                <option value="domain_request">Domain request</option>
+                <option value="pro_features">Pro features</option>
+                <option value="custom">Custom request</option>
+              </select>
+            </label>
+            <label>Request label
+              <input id="manual-payment-request" type="text" placeholder="e.g. Domain: yourbrand.com" maxlength="200" />
+            </label>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <label>Amount label
+              <input id="manual-payment-amount" type="text" placeholder="e.g. EUR 9.98" maxlength="120" />
+            </label>
+            <label>Payment link
+              <input id="manual-payment-link" type="url" placeholder="https://pay.example.com/..." />
+            </label>
+          </div>
+          <label style="margin-top:10px">Extra note
+            <textarea id="manual-payment-note" placeholder="Optional note shown in the email. Keep it human and specific."></textarea>
+          </label>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn btn-primary" id="btn-send-manual-payment" type="button">Send payment email</button>
+            <button class="btn btn-secondary" id="btn-clear-manual-payment" type="button">Clear</button>
+          </div>
+        </section>
         <div id="tenant-table-wrap">
           <p style="color:var(--muted)">Click "Load tenants" to fetch the list.</p>
         </div>
@@ -568,13 +600,16 @@
                 <td>${t.trial_days_left !== null ? (t.trial_days_left > 0 ? `${t.trial_days_left}d` : '<span style="color:#991b1b">Expired</span>') : '—'}</td>
                 <td><small>${t.created_at ? new Date(t.created_at * 1000).toLocaleDateString() : '—'}</small></td>
                 <td>
-                  <select class="action-select" data-tenant-id="${escapeHtml(t.id)}" title="Set subscription status">
-                    <option value="">Set status…</option>
-                    <option value="TRIAL"${t.subscription_status==='TRIAL'?' selected':''}>TRIAL</option>
-                    <option value="ACTIVE"${t.subscription_status==='ACTIVE'?' selected':''}>ACTIVE</option>
-                    <option value="SUSPENDED"${t.subscription_status==='SUSPENDED'?' selected':''}>SUSPENDED</option>
-                    <option value="CANCELLED"${t.subscription_status==='CANCELLED'?' selected':''}>CANCELLED</option>
-                  </select>
+                  <div style="display:grid;gap:8px">
+                    <select class="action-select" data-tenant-id="${escapeHtml(t.id)}" title="Set subscription status">
+                      <option value="">Set status…</option>
+                      <option value="TRIAL"${t.subscription_status==='TRIAL'?' selected':''}>TRIAL</option>
+                      <option value="ACTIVE"${t.subscription_status==='ACTIVE'?' selected':''}>ACTIVE</option>
+                      <option value="SUSPENDED"${t.subscription_status==='SUSPENDED'?' selected':''}>SUSPENDED</option>
+                      <option value="CANCELLED"${t.subscription_status==='CANCELLED'?' selected':''}>CANCELLED</option>
+                    </select>
+                    <button class="btn btn-secondary payment-link-btn" type="button" data-tenant-id="${escapeHtml(t.id)}" data-tenant-name="${escapeHtml(t.name || '')}" data-tenant-email="${escapeHtml(t.email || '')}" style="padding:8px 12px;font-size:11px">Request payment</button>
+                  </div>
                 </td>
               </tr>
             `).join('')}
@@ -619,6 +654,104 @@
           }
         });
       });
+
+      wrap.querySelectorAll('.payment-link-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setManualPaymentTenant({
+            id: btn.dataset.tenantId,
+            name: btn.dataset.tenantName,
+            email: btn.dataset.tenantEmail,
+          });
+          document.getElementById('manual-payment-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+    }
+
+    const MANUAL_PAYMENT_PRESETS = {
+      domain_request: {
+        request: 'Domain request',
+        note: 'After payment is received and reviewed manually, we will confirm your request so you can continue with the domain flow. This message does not reserve a domain name.',
+      },
+      pro_features: {
+        request: 'Pro features activation',
+        note: 'After payment is received and reviewed manually, we will confirm the request and activate the requested Pro features.',
+      },
+      custom: {
+        request: '',
+        note: '',
+      },
+    };
+
+    document.getElementById('manual-payment-purpose').addEventListener('change', syncManualPaymentPreset);
+    document.getElementById('btn-clear-manual-payment').addEventListener('click', clearManualPaymentDraft);
+    document.getElementById('btn-send-manual-payment').addEventListener('click', sendManualPaymentLinkEmail);
+
+    function setManualPaymentTenant(tenant) {
+      const panel = document.getElementById('manual-payment-panel');
+      panel.dataset.tenantId = tenant.id || '';
+      panel.dataset.tenantName = tenant.name || '';
+      panel.dataset.tenantEmail = tenant.email || '';
+      document.getElementById('manual-payment-selected').innerHTML = tenant.id
+        ? `<strong>${escapeHtml(tenant.name || 'Unnamed tenant')}</strong> · ${escapeHtml(tenant.email || 'No email')}<br><small>Tenant ID: ${escapeHtml(tenant.id)}</small>`
+        : 'No tenant selected yet.';
+    }
+
+    function syncManualPaymentPreset() {
+      const preset = MANUAL_PAYMENT_PRESETS[document.getElementById('manual-payment-purpose').value] || MANUAL_PAYMENT_PRESETS.custom;
+      const requestInput = document.getElementById('manual-payment-request');
+      const noteInput = document.getElementById('manual-payment-note');
+      if (!requestInput.value.trim()) requestInput.value = preset.request;
+      if (!noteInput.value.trim()) noteInput.value = preset.note;
+    }
+
+    function clearManualPaymentDraft() {
+      setManualPaymentTenant({ id: '', name: '', email: '' });
+      document.getElementById('manual-payment-purpose').value = 'domain_request';
+      document.getElementById('manual-payment-request').value = '';
+      document.getElementById('manual-payment-amount').value = '';
+      document.getElementById('manual-payment-link').value = '';
+      document.getElementById('manual-payment-note').value = '';
+    }
+
+    async function sendManualPaymentLinkEmail() {
+      const secret = getSecret();
+      if (!secret) return setStatus('Admin secret is required.', true);
+
+      const panel = document.getElementById('manual-payment-panel');
+      const tenantId = panel.dataset.tenantId;
+      if (!tenantId) return setStatus('Select a tenant first from the tenant table.', true);
+
+      const purpose = document.getElementById('manual-payment-purpose').value;
+      const requestLabel = document.getElementById('manual-payment-request').value.trim();
+      const amountLabel = document.getElementById('manual-payment-amount').value.trim();
+      const paymentLink = document.getElementById('manual-payment-link').value.trim();
+      const note = document.getElementById('manual-payment-note').value.trim();
+      if (!paymentLink) return setStatus('Payment link is required.', true);
+
+      const btn = document.getElementById('btn-send-manual-payment');
+      btn.disabled = true;
+      setStatus('Sending manual payment link email...');
+
+      try {
+        const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/send-manual-payment-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+          body: JSON.stringify({
+            purpose,
+            request_label: requestLabel,
+            amount_label: amountLabel,
+            payment_link: paymentLink,
+            note,
+          }),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) throw new Error(payload?.error || payload?.detail || 'Failed to send payment email.');
+        setStatus(`Manual payment link email sent to ${payload.email}.`);
+      } catch (err) {
+        setStatus(err.message || 'Failed to send payment email.', true);
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     // ── Marketing editor ──────────────────────────────────────────────────────

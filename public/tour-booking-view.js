@@ -72,6 +72,13 @@
       payment_method_desc_demo: 'Demo payment experience only. No real gateway is active for this tenant yet.',
       payment_hook_cta: 'Continue to payment',
       payment_hook_note: 'You\'ll select your payment method in the next step.',
+      discount_code_label: 'Discount code',
+      discount_code_placeholder: 'Optional code e.g. FAMILY10',
+      discount_code_hint: 'Have a family or referral code? Enter it before payment.',
+      discount_code_checking: 'Checking discount code...',
+      discount_code_applied: 'Discount code {{code}} applied.',
+      discount_code_invalid: 'This discount code could not be applied.',
+      payment_discount_coupon: 'Discount coupon',
       method_bank_transfer: 'Bank transfer',
       method_cash_at_office: 'Pay at office',
       method_pay_on_arrival: 'Pay on arrival',
@@ -228,6 +235,11 @@
       .tbv-hook-note {
         margin-top: 8px; font-size: 11px; line-height: 1.5; color: #7a7067; text-align: center;
       }
+      .tbv-discount-box {
+        margin-bottom: 14px; padding: 14px; border-radius: 18px;
+        background: rgba(255,255,255,0.72); border: 1px solid rgba(212, 175, 115, 0.16);
+      }
+      .tbv-discount-row .tbv-input { width: 100%; min-width: 0; }
       .tbv-pay-overlay {
         position: fixed; inset: 0; z-index: 10020; background: rgba(15, 23, 42, 0.48); backdrop-filter: blur(4px);
         display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -421,6 +433,14 @@
         <div class="tbv-footer">
           <div data-tbv-phase2-footer="1" class="tbv-hidden">
             <div class="tbv-status tbv-good" data-tbv-room-status="1"></div>
+            <div class="tbv-discount-box">
+              <div class="tbv-tier-label">${esc(t('public_booking.discount_code_label', {}, 'Discount code'))}</div>
+              <div class="tbv-discount-row">
+                <input type="text" class="tbv-input" data-tbv-discount-code="1" maxlength="32" placeholder="${esc(t('public_booking.discount_code_placeholder', {}, 'Optional code e.g. FAMILY10'))}" autocomplete="off" />
+              </div>
+              <div class="tbv-hook-note">${esc(t('public_booking.discount_code_hint', {}, 'Have a family or referral code? Enter it before payment.'))}</div>
+              <div class="tbv-status tbv-info" data-tbv-discount-status="1"></div>
+            </div>
             <div class="tbv-total-box">
               <div class="tbv-total" data-tbv-total="1">—</div>
               <div class="tbv-meta"><span data-tbv-meta="1">${esc(t('tour_config.pricing.calculating'))}</span></div>
@@ -489,6 +509,8 @@
     const closeButton = root.querySelector('[data-tbv-close]');
     const editButton = root.querySelector('[data-tbv-edit]');
     const dateInput = root.querySelector('[data-tbv-date]');
+    const discountCodeInput = root.querySelector('[data-tbv-discount-code]');
+    const discountStatusEl = root.querySelector('[data-tbv-discount-status]');
     const adultsInput = root.querySelector('[data-tbv-adults]');
     const childrenInput = root.querySelector('[data-tbv-children]');
     const doublesInput = root.querySelector('[data-tbv-doubles]');
@@ -514,9 +536,23 @@
         segmentId: null,
         pax: { adult_shared_room_count: 2, adult_triple_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
         date: new Date().toISOString().slice(0, 10),
+        discountCouponCode: '',
       },
       lastQuote: null,
     };
+
+    function setDiscountStatus(message = '', tone = 'info') {
+      if (!discountStatusEl) return;
+      if (!message) {
+        discountStatusEl.style.display = 'none';
+        discountStatusEl.textContent = '';
+        discountStatusEl.className = 'tbv-status tbv-info';
+        return;
+      }
+      discountStatusEl.style.display = 'block';
+      discountStatusEl.className = `tbv-status ${tone === 'error' ? 'tbv-warn' : (tone === 'success' ? 'tbv-good' : 'tbv-info')}`;
+      discountStatusEl.textContent = message;
+    }
 
     function emitEvent(name, detail) {
       const payload = { ...detail, source: 'tour-booking-view' };
@@ -540,6 +576,8 @@
         paxBandName: '',
         seasonId: '',
         seasonName: '',
+        discountCouponCode: '',
+        discountCoupon: null,
         unitPrices: {
           adult_shared_room: 0,
           adult_triple_room: 0,
@@ -571,6 +609,8 @@
         paxBandName: quoteResult.pax_band_name || '',
         seasonId: quoteResult.season_id || '',
         seasonName: quoteResult.applied_season_name || '',
+        discountCouponCode: quoteResult.discount_coupon?.code || quoteResult.discount_coupon_code || '',
+        discountCoupon: quoteResult.discount_coupon || null,
         unitPrices,
         invoice: quoteResult.invoice || null,
         notes: quoteResult.notes || '',
@@ -698,6 +738,9 @@
       if (quote?.segmentName) lines.push(`<div><strong>${esc(t('tour_config.pricing.pricing_tier'))}</strong>: ${esc(quote.segmentName)}</div>`);
       if (quote?.seasonName) lines.push(`<div>${esc(t('tour_config.pricing.current_rate', { season: quote.seasonName }))}</div>`);
       if (quote?.paxBandName) lines.push(`<div>${esc(t('tour_config.pricing.band_current', { name: quote.paxBandName }))}</div>`);
+      if (quote?.discountCoupon?.code) {
+        lines.push(`<div><strong>${esc(t('public_booking.payment_discount_coupon', {}, 'Discount coupon'))}</strong>: ${esc(quote.discountCoupon.code)} (-${esc(fmtMoney(quote.discountCoupon.applied_amount || 0, quote?.currency || currency))})</div>`);
+      }
       lines.push(`<div><strong>${esc(t('public_booking.payment_guests'))}</strong>: ${esc(t('public_booking.payment_summary_adults_children', { adults: String((quote?.pax?.adult_shared_room_count || 0) + (quote?.pax?.adult_triple_room_count || 0) + (quote?.pax?.adult_single_room_count || 0)), children: String(quote?.pax?.child_count || 0) }))}</div>`);
       lines.push(`<div><strong>${esc(t('public_booking.payment_total'))}</strong>: ${esc(fmtMoney(quote?.total, quote?.currency || currency))}</div>`);
 
@@ -822,6 +865,7 @@
               tour_id: quote.tourId,
               travel_date: quote.travelDate,
               segment_id: quote.segmentId,
+              discount_coupon_code: quote.discountCouponCode || undefined,
               payment_method: selectedMethod.value,
               pax: quote.pax,
               guest,
@@ -1066,6 +1110,9 @@
       const segmentId = state.calcState.segmentId;
       const paxSnap = { ...state.calcState.pax };
       const travelDate = state.calcState.date;
+      const requestedCouponCode = String(discountCodeInput?.value || state.calcState.discountCouponCode || '').trim().toUpperCase();
+      state.calcState.discountCouponCode = requestedCouponCode;
+      if (discountCodeInput && discountCodeInput.value !== requestedCouponCode) discountCodeInput.value = requestedCouponCode;
       const totalPax = Object.values(paxSnap).reduce((sum, value) => sum + value, 0);
       const priceRow = segmentId ? findBasePrice(segmentId) : null;
       renderPaxRows(priceRow);
@@ -1073,6 +1120,7 @@
         totalEl.textContent = '—';
         metaEl.textContent = totalPax === 0 ? t('tour_config.pricing.add_travellers_above') : t('tour_config.pricing.select_pricing_tier_short');
         rateStatusEl.style.display = 'none';
+        setDiscountStatus('');
         return;
       }
       const localTotal = PAX_TYPES.reduce((sum, type) => sum + (paxSnap[type.key] || 0) * (priceRow ? (Number(priceRow[type.priceField]) || 0) : 0), 0);
@@ -1092,6 +1140,7 @@
         child_shared_with_parents_price: priceRow?.child_shared_with_parents_price,
         infant_price: priceRow?.infant_price,
       });
+      setDiscountStatus(requestedCouponCode ? t('public_booking.discount_code_checking', {}, 'Checking discount code...') : '');
       syncPaymentHook(state.lastQuote);
       emitEvent('travelagent:public-booking-quote-ready', state.lastQuote);
       if (localBand) {
@@ -1105,10 +1154,14 @@
         const response = await fetch('/api/pricing/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
-          body: JSON.stringify({ tour_id: tourId, tour_type: tourType, segment_id: segmentId, travel_date: travelDate, ...paxSnap }),
+          body: JSON.stringify({ tour_id: tourId, tour_type: tourType, segment_id: segmentId, travel_date: travelDate, discount_coupon_code: requestedCouponCode || undefined, ...paxSnap }),
         });
         const result = await response.json();
-        if (!response.ok || !result?.ok || segmentId !== state.calcState.segmentId) return;
+        if (segmentId !== state.calcState.segmentId) return;
+        if (!response.ok || !result?.ok) {
+          setDiscountStatus(requestedCouponCode ? (result?.error || t('public_booking.discount_code_invalid', {}, 'This discount code could not be applied.')) : '', requestedCouponCode ? 'error' : 'info');
+          return;
+        }
         const authoritativeTotal = result.invoice?.grand_total ?? localTotal;
         const authoritativeUnitPrices = result.unit_prices || {
           adult_shared_room: result.prices?.adult_shared_room?.price_usd,
@@ -1128,6 +1181,11 @@
         state.lastQuote = buildPaymentPayloadWithQuote(authoritativeTotal, result, authoritativeUnitPrices);
         syncPaymentHook(state.lastQuote);
         emitEvent('travelagent:public-booking-quote-ready', state.lastQuote);
+        if (requestedCouponCode && result.discount_coupon?.code) {
+          setDiscountStatus(t('public_booking.discount_code_applied', { code: result.discount_coupon.code }, 'Discount code {{code}} applied.'), 'success');
+        } else {
+          setDiscountStatus('');
+        }
         const labels = [];
         if (result.applied_season_name) labels.push(t('tour_config.pricing.current_rate', { season: result.applied_season_name }));
         if (result.pax_band_name) labels.push(t('tour_config.pricing.band_current', { name: result.pax_band_name }));
@@ -1144,6 +1202,9 @@
           }
         }
       } catch {
+        if (requestedCouponCode) {
+          setDiscountStatus(t('public_booking.discount_code_invalid', {}, 'This discount code could not be applied.'), 'error');
+        }
         // Keep local total as source of truth for the visible total.
       }
     }
@@ -1243,6 +1304,14 @@
     });
 
     if (dateInput && !dateInput.value) dateInput.value = state.calcState.date;
+    if (discountCodeInput) {
+      discountCodeInput.addEventListener('input', () => {
+        state.calcState.discountCouponCode = String(discountCodeInput.value || '').trim().toUpperCase();
+      });
+      discountCodeInput.addEventListener('change', () => {
+        state.calcState.discountCouponCode = String(discountCodeInput.value || '').trim().toUpperCase();
+      });
+    }
     if (isDayTour) {
       const roomRow = root.querySelector('[data-tbv-room-row]');
       if (roomRow) roomRow.style.display = 'none';

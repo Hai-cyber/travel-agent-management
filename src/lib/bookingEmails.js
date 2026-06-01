@@ -653,6 +653,107 @@ export async function dispatchBillingStatusEmail(env, { tenantId, tenantName, te
   });
 }
 
+export async function dispatchManualPaymentLinkEmail(env, {
+  tenantId,
+  tenantName,
+  tenantEmail,
+  purpose,
+  requestLabel,
+  amountLabel,
+  paymentLink,
+  note,
+}) {
+  const normalizedPurpose = String(purpose || '').trim().toLowerCase();
+  const purposeMeta = {
+    domain_request: {
+      title: 'Domain request payment',
+      subject: requestLabel
+        ? `Payment link — ${requestLabel}`
+        : 'Payment link — domain request',
+      nextStep: 'After payment is received and reviewed manually, we will confirm your request so you can continue the domain flow in Tours Market.',
+      caution: 'This email does not reserve a domain name. Domain availability can change until the actual registration step is completed.',
+    },
+    pro_features: {
+      title: 'Pro features activation payment',
+      subject: requestLabel
+        ? `Payment link — ${requestLabel}`
+        : 'Payment link — Pro features activation',
+      nextStep: 'After payment is received and reviewed manually, we will confirm the request and activate the requested Pro features.',
+      caution: '',
+    },
+    custom: {
+      title: 'Manual payment request',
+      subject: requestLabel
+        ? `Payment link — ${requestLabel}`
+        : 'Payment link — manual payment request',
+      nextStep: 'After payment is received and reviewed manually, we will continue processing your request and confirm the next step by email.',
+      caution: '',
+    },
+  }[normalizedPurpose] || {
+    title: 'Manual payment request',
+    subject: requestLabel
+      ? `Payment link — ${requestLabel}`
+      : 'Payment link — manual payment request',
+    nextStep: 'After payment is received and reviewed manually, we will continue processing your request and confirm the next step by email.',
+    caution: '',
+  };
+
+  const supportEmail = 'info@tours-market.com';
+  const labelLine = requestLabel ? `Request: ${requestLabel}` : null;
+  const amountLine = amountLabel ? `Amount: ${amountLabel}` : null;
+  const noteLine = note ? `Note: ${note}` : null;
+
+  const text = [
+    `Hi ${tenantName || 'there'},`,
+    '',
+    `Your ${purposeMeta.title.toLowerCase()} is ready for manual review.`,
+    labelLine,
+    amountLine,
+    `Payment link: ${paymentLink}`,
+    '',
+    purposeMeta.nextStep,
+    purposeMeta.caution || null,
+    noteLine,
+    '',
+    `Questions? Reply to ${supportEmail}`,
+    'Tours Market',
+  ].filter(Boolean).join('\n');
+
+  const html = `<div style="font-family:sans-serif;max-width:600px">
+<div style="background:#1d4ed8;padding:24px;border-radius:8px 8px 0 0">
+  <h1 style="color:#fff;margin:0;font-size:22px">${esc(purposeMeta.title)}</h1>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none">
+  <p>Hi <strong>${esc(tenantName || 'there')}</strong>,</p>
+  <p>Your ${esc(purposeMeta.title.toLowerCase())} is ready for manual review.</p>
+  <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#fff;border:1px solid #e2e8f0;border-radius:8px">
+    ${requestLabel ? `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:12px 16px;color:#64748b;width:38%">Request</td><td style="padding:12px 16px;color:#0f172a;font-weight:600">${esc(requestLabel)}</td></tr>` : ''}
+    ${amountLabel ? `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:12px 16px;color:#64748b">Amount</td><td style="padding:12px 16px;color:#0f172a;font-weight:600">${esc(amountLabel)}</td></tr>` : ''}
+    <tr><td style="padding:12px 16px;color:#64748b">Payment link</td><td style="padding:12px 16px"><a href="${esc(paymentLink)}" style="color:#1d4ed8;word-break:break-all">${esc(paymentLink)}</a></td></tr>
+  </table>
+  <p>${esc(purposeMeta.nextStep)}</p>
+  ${purposeMeta.caution ? `<p style="color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px 14px">${esc(purposeMeta.caution)}</p>` : ''}
+  ${note ? `<p style="color:#475569"><strong>Note:</strong> ${esc(note)}</p>` : ''}
+  <p style="margin:20px 0"><a href="${esc(paymentLink)}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px">Open payment link</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+  <p style="color:#64748b;font-size:13px">Questions? Reply to <a href="mailto:${esc(supportEmail)}">${esc(supportEmail)}</a></p>
+</div>
+</div>`.trim();
+
+  return dispatchWebhook(env, {
+    event: 'billing.manual_payment_link',
+    tenantId: tenantId || 'platform',
+    recipientEmail: tenantEmail,
+    emailContent: { subject: purposeMeta.subject, text, html },
+    bookingData: {
+      purpose: normalizedPurpose,
+      request_label: requestLabel || null,
+      amount_label: amountLabel || null,
+    },
+    platformBaseUrl: env.PLATFORM_BASE_URL || 'https://tours-market.com',
+  });
+}
+
 // ── Billing: trial expiry reminder ────────────────────────────────────────────
 export async function dispatchTrialReminderEmail(env, { tenantId, tenantName, tenantEmail, daysLeft, expired }) {
   const dashUrl = `${(env.PLATFORM_BASE_URL || 'https://tours-market.com').replace(/\/$/, '')}/dashboard.html`;

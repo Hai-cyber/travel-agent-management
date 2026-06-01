@@ -1485,6 +1485,107 @@
         </div>
       </div>
 
+      <!-- Gift Cards -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <h2 data-i18n="tour_config.pricing.gift_cards">Gift Cards</h2>
+          <button type="button" class="help-btn" data-help="gift_cards" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+          <span id="gift-card-tour-scope-note" style="font-size:11px;color:#94a3b8;margin-left:auto"></span>
+        </div>
+        <div class="help-popover" id="help-gift_cards">
+          <p data-i18n="tour_config.help.gift_cards">Issue a gift card for the selected tour with a generated ID code, QR code, recipient email, phone number, and stored balance. The same ID code can then be applied in the live pricing calculator and booking flow until the balance is exhausted.</p>
+        </div>
+        <div id="pricing-giftcards-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
+        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px" data-i18n="tour_config.pricing.gift_card_generate">Generate Gift Card</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.gift_card_email">Recipient email</label>
+              <input id="gc-email" type="email" placeholder="guest@example.com" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.gift_card_phone">Recipient phone</label>
+              <input id="gc-phone" type="tel" placeholder="+84 901 123 456" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:180px 1fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.gift_card_value">Gift card value</label>
+              <input id="gc-value" type="number" min="1" step="1" placeholder="100" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.gift_card_notes">Notes</label>
+              <input id="gc-notes" type="text" placeholder="Birthday, referral thank-you, partner comp..." style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-generate-gift-card" style="width:100%" data-i18n="tour_config.pricing.gift_card_generate">Generate Gift Card</button>
+        </div>
+      </div>
+
+      <!-- Discount Coupons -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <h2 data-i18n="tour_config.pricing.discount_coupons">Discount Coupons</h2>
+          <button type="button" class="help-btn" data-help="discount_coupons" aria-expanded="false" aria-label="Help" style="margin-left:6px">?</button>
+        </div>
+        <div class="help-popover" id="help-discount_coupons">
+          <p data-i18n="tour_config.help.discount_coupons">Create shareable marketing coupon codes for referral, family, and campaign offers. Coupons can be fixed-amount or percentage-based, and can apply to the selected tour or to all tours.</p>
+        </div>
+        <div id="pricing-discount-coupons-body" class="card-body"><div class="empty-state" data-i18n="tour_config.stops.select_tour_first">Select a tour first.</div></div>
+        <div class="card-body" style="border-top:1px solid #f1f5f9;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:8px" data-i18n="tour_config.pricing.discount_coupon_generate">Create Discount Coupon</div>
+          <div style="display:grid;grid-template-columns:180px 1fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_scope">Scope</label>
+              <select id="dc-scope" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px;background:#fff">
+                <option value="selected_tour" data-i18n="tour_config.pricing.discount_coupon_scope_selected_tour_option">Selected tour only</option>
+                <option value="all_tours" data-i18n="tour_config.pricing.discount_coupon_scope_all_tours">All tours</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_code">Code</label>
+              <input id="dc-code" type="text" maxlength="32" placeholder="FAMILY10" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px;text-transform:uppercase" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_label">Label</label>
+              <input id="dc-label" type="text" placeholder="Family referral, flash sale..." style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_type">Type</label>
+              <select id="dc-type" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px;background:#fff">
+                <option value="amount" data-i18n="tour_config.pricing.discount_coupon_type_amount">Fixed amount</option>
+                <option value="percent" data-i18n="tour_config.pricing.discount_coupon_type_percent">Percent</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_value">Value</label>
+              <input id="dc-value" type="number" min="1" step="1" placeholder="10" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_min_total">Minimum total</label>
+              <input id="dc-min-total" type="number" min="0" step="1" placeholder="0" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_max_uses">Max uses</label>
+              <input id="dc-max-uses" type="number" min="1" step="1" placeholder="50" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_expires_days">Expires in days</label>
+              <input id="dc-expires-days" type="number" min="1" step="1" placeholder="30" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+            </div>
+          </div>
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px" data-i18n="tour_config.pricing.discount_coupon_notes">Notes</label>
+            <input id="dc-notes" type="text" placeholder="Optional internal note" style="width:100%;border:1px solid #E5E7EB;border-radius:6px;padding:6px 8px;font-size:13px" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-create-discount-coupon" style="width:100%" data-i18n="tour_config.pricing.discount_coupon_create">Create Discount Coupon</button>
+        </div>
+      </div>
+
       <!-- Pricing Definitions -->
       <div class="card" style="margin-bottom:0">
         <div class="card-header">
@@ -1606,6 +1707,16 @@
           <div id="bv-phase2-footer" style="display:none">
             <!-- Room validation pill (above total) -->
             <div id="bv-room-status" style="display:none;font-size:11px;font-family:'Inter',sans-serif;padding:5px 10px;border-radius:6px;margin-bottom:10px;text-align:center"></div>
+
+            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9CA3AF;margin-bottom:6px;font-family:'Inter',sans-serif" data-i18n="tour_config.pricing.gift_card_apply_label">Gift card ID code</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input id="gift-card-code-input" type="text" placeholder="GC-ABCD-EFGH" style="flex:1;border:1px solid #E5E7EB;border-radius:6px;padding:7px 10px;font-size:12.5px;font-family:'Inter',sans-serif" />
+                <button id="btn-apply-gift-card" class="btn btn-ghost btn-sm" data-i18n="tour_config.pricing.gift_card_apply_button">Apply</button>
+                <button id="btn-clear-gift-card" class="btn btn-ghost btn-sm" data-i18n="tour_config.pricing.gift_card_clear_button">Clear</button>
+              </div>
+              <div id="gift-card-calc-status" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:11.5px;font-family:'Inter',sans-serif"></div>
+            </div>
 
             <!-- Grand total -->
             <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:13px 16px;text-align:center">
@@ -3942,10 +4053,13 @@ const PAX_TYPES = [
   { key: 'infant_count',            labelKey: 'tour_config.pricing.infant', priceField: 'infant_price' },
 ];
 let _pricingData = { seasons: [], segments: [], paxBands: [], prices: [] };
+let _giftCards = [];
+let _discountCoupons = [];
 let _calcState   = {
   segmentId: null,
   pax: { adult_shared_room_count: 2, adult_triple_room_count: 0, adult_single_room_count: 0, child_count: 0, infant_count: 0 },
   date: new Date().toISOString().slice(0, 10),
+  giftCardCode: '',
 };
 let _bvRevealed   = false;
 
@@ -3962,6 +4076,607 @@ try { _pricingDefs = JSON.parse(localStorage.getItem('bv_pricing_defs')) || _def
 if (_pricingDefs.length && !_pricingDefs.some(d => d.toLowerCase().includes('infant'))) {
   _pricingDefs = _defsDefault;
   try { localStorage.removeItem('bv_pricing_defs'); } catch(_e) {}
+}
+
+function setGiftCardCalcStatus(message = '', tone = 'info') {
+  const el = document.getElementById('gift-card-calc-status');
+  if (!el) return;
+  if (!message) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+
+  const palette = {
+    info:    { background: '#EFF6FF', border: '#BFDBFE', color: '#1D4ED8' },
+    success: { background: '#F0FDF4', border: '#BBF7D0', color: '#15803D' },
+    error:   { background: '#FEF2F2', border: '#FECACA', color: '#B91C1C' },
+  }[tone] || { background: '#F8FAFC', border: '#E2E8F0', color: '#475569' };
+
+  el.style.display = 'block';
+  el.style.background = palette.background;
+  el.style.border = `1px solid ${palette.border}`;
+  el.style.color = palette.color;
+  el.textContent = message;
+}
+
+function setGiftCardCode(code = '') {
+  const normalized = String(code || '').trim().toUpperCase();
+  _calcState.giftCardCode = normalized;
+  const input = document.getElementById('gift-card-code-input');
+  if (input) input.value = normalized;
+  if (!normalized) {
+    setGiftCardCalcStatus('');
+  }
+}
+
+function useGiftCardInCalculator(code) {
+  setGiftCardCode(code);
+  if (_bvRevealed) {
+    runCalc();
+  } else {
+    toast(ti('tour_config.pricing.gift_card_applied'));
+  }
+}
+
+function clearGiftCardCode() {
+  setGiftCardCode('');
+  if (_bvRevealed) runCalc();
+  toast(ti('tour_config.pricing.gift_card_cleared'));
+}
+
+async function updateGiftCardStatus(giftCardId, status) {
+  try {
+    await api(`/api/pricing/gift-cards/${giftCardId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    toast(ti('tour_config.message.saved'));
+    await loadGiftCards();
+    if (status !== 'active' && _calcState.giftCardCode && _giftCards.every((item) => item.id_code !== _calcState.giftCardCode || item.status !== 'active')) {
+      setGiftCardCode('');
+    }
+  } catch (error) {
+    toast(ti('tour_config.message.generic_failed', { error: error.message }), 'err');
+  }
+}
+
+function getGiftCardById(giftCardId) {
+  return _giftCards.find((item) => item.id === giftCardId) || null;
+}
+
+function formatGiftCardMoney(value, currencyCode) {
+  if (value == null || value === '') return '\u2014';
+  const cfg = getCurrencyFormatterConfig(currencyCode || S.calcCurrency);
+  return new Intl.NumberFormat(cfg.locale, cfg.opts).format(Number(value));
+}
+
+function buildGiftCardEmailSubject(item) {
+  const tourTitle = item.tour_title || S.tour?.title || 'Tour';
+  return ti('tour_config.pricing.gift_card_email_subject', { tour: tourTitle, code: item.id_code });
+}
+
+function buildGiftCardEmailMessage(item) {
+  const tourTitle = item.tour_title || S.tour?.title || 'Tour';
+  const lines = [
+    ti('tour_config.pricing.gift_card_email_intro', { tour: tourTitle }),
+    '',
+    `${ti('tour_config.pricing.gift_card_apply_label')}: ${item.id_code}`,
+    `${ti('tour_config.pricing.gift_card_value')}: ${formatGiftCardMoney(item.face_value, item.currency)}`,
+    `${ti('tour_config.pricing.gift_card_balance')}: ${formatGiftCardMoney(item.remaining_value, item.currency)}`,
+    `${ti('tour_config.pricing.gift_card_email')}: ${item.recipient_email}`,
+    `${ti('tour_config.pricing.gift_card_phone')}: ${item.recipient_phone}`,
+  ];
+
+  if (item.notes) {
+    lines.push(`${ti('tour_config.pricing.gift_card_notes')}: ${item.notes}`);
+  }
+
+  lines.push('', ti('tour_config.pricing.gift_card_redeem_note'));
+  return lines.join('\n');
+}
+
+function buildGiftCardDeliveryHtml(item) {
+  const message = buildGiftCardEmailMessage(item);
+  const subject = buildGiftCardEmailSubject(item);
+  const tourTitle = item.tour_title || S.tour?.title || 'Tour';
+  const mailto = `mailto:${encodeURIComponent(item.recipient_email || '')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+
+  return `<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${esc(subject)}</title>
+      <style>
+        :root {
+          color-scheme: light;
+          --ink: #0f172a;
+          --muted: #475569;
+          --line: #dbeafe;
+          --blue-900: #0f172a;
+          --blue-700: #1d4ed8;
+          --blue-500: #60a5fa;
+          --surface: rgba(255,255,255,0.97);
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 32px;
+          min-height: 100vh;
+          font-family: "Segoe UI", Inter, system-ui, sans-serif;
+          background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-700) 58%, var(--blue-500) 100%);
+          color: var(--ink);
+        }
+        .sheet {
+          max-width: 980px;
+          margin: 0 auto;
+        }
+        .toolbar {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+        }
+        .toolbar-btn {
+          appearance: none;
+          border: 1px solid rgba(255,255,255,0.32);
+          background: rgba(255,255,255,0.12);
+          color: #fff;
+          padding: 10px 14px;
+          border-radius: 999px;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          backdrop-filter: blur(10px);
+        }
+        .voucher {
+          background: var(--surface);
+          border-radius: 28px;
+          box-shadow: 0 24px 70px rgba(15,23,42,0.28);
+          overflow: hidden;
+        }
+        .hero {
+          padding: 34px 34px 22px;
+          background: linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(29,78,216,0.94) 100%);
+          color: #fff;
+        }
+        .eyebrow {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+          opacity: .78;
+          margin-bottom: 12px;
+        }
+        .hero h1 {
+          margin: 0;
+          font-size: clamp(28px, 4vw, 46px);
+          line-height: 1.02;
+        }
+        .hero p {
+          margin: 12px 0 0;
+          max-width: 760px;
+          color: rgba(255,255,255,0.82);
+          font-size: 15px;
+          line-height: 1.6;
+        }
+        .body {
+          display: grid;
+          grid-template-columns: minmax(0, 1.2fr) 280px;
+          gap: 28px;
+          padding: 28px 34px 34px;
+        }
+        .panel {
+          border: 1px solid var(--line);
+          border-radius: 22px;
+          padding: 22px;
+          background: #fff;
+        }
+        .recipient {
+          display: grid;
+          gap: 4px;
+          margin-bottom: 18px;
+        }
+        .recipient strong {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          color: #64748b;
+        }
+        .recipient span {
+          font-size: 14px;
+          color: #0f172a;
+        }
+        .metrics {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        .metric {
+          border: 1px solid #dbeafe;
+          border-radius: 18px;
+          padding: 14px 16px;
+          background: #f8fbff;
+        }
+        .metric-label {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          color: #64748b;
+          margin-bottom: 8px;
+        }
+        .metric-value {
+          font-size: 24px;
+          font-weight: 800;
+          color: #0f172a;
+        }
+        .detail-list {
+          display: grid;
+          gap: 12px;
+        }
+        .detail-row {
+          display: grid;
+          grid-template-columns: 148px 1fr;
+          gap: 12px;
+          align-items: start;
+          font-size: 14px;
+        }
+        .detail-row strong {
+          color: #64748b;
+        }
+        .note-block {
+          margin-top: 18px;
+          padding-top: 18px;
+          border-top: 1px solid #e2e8f0;
+          font-size: 14px;
+          color: var(--muted);
+          line-height: 1.7;
+        }
+        .redeem {
+          margin-top: 18px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #1e3a8a;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+        .qr-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          align-items: stretch;
+        }
+        .qr-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 280px;
+          padding: 18px;
+          background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+          border: 1px solid #dbeafe;
+          border-radius: 22px;
+        }
+        .code-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 14px 16px;
+          border-radius: 18px;
+          background: #0f172a;
+          color: #fff;
+          font-size: 24px;
+          letter-spacing: .12em;
+          font-weight: 800;
+        }
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          font-weight: 700;
+        }
+        @media (max-width: 860px) {
+          body { padding: 16px; }
+          .body { grid-template-columns: 1fr; }
+          .detail-row { grid-template-columns: 1fr; }
+        }
+        @media print {
+          @page { margin: 12mm; }
+          body {
+            padding: 0;
+            background: #fff;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .voucher {
+            box-shadow: none;
+            border-radius: 0;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="sheet">
+        <div class="toolbar no-print">
+          <button class="toolbar-btn" type="button" onclick="window.print()">${esc(ti('tour_config.pricing.gift_card_delivery_print'))}</button>
+          <button class="toolbar-btn" type="button" onclick='navigator.clipboard && navigator.clipboard.writeText(${JSON.stringify(item.id_code)})'>${esc(ti('tour_config.pricing.gift_card_delivery_copy_code'))}</button>
+          <button class="toolbar-btn" type="button" onclick='navigator.clipboard && navigator.clipboard.writeText(${JSON.stringify(message)})'>${esc(ti('tour_config.pricing.gift_card_delivery_copy_message'))}</button>
+          <a class="toolbar-btn" href="${esc(mailto)}">${esc(ti('tour_config.pricing.gift_card_email_draft'))}</a>
+        </div>
+        <div class="voucher">
+          <div class="hero">
+            <div class="eyebrow">${esc(ti('tour_config.pricing.gift_card_delivery_title'))}</div>
+            <h1>${esc(tourTitle)}</h1>
+            <p>${esc(ti('tour_config.pricing.gift_card_delivery_tagline'))}</p>
+          </div>
+          <div class="body">
+            <div class="panel">
+              <div class="recipient">
+                <strong>${esc(ti('tour_config.pricing.gift_card_delivery_recipient'))}</strong>
+                <span>${esc(item.recipient_email)}</span>
+                <span>${esc(item.recipient_phone)}</span>
+              </div>
+              <div class="metrics">
+                <div class="metric">
+                  <div class="metric-label">${esc(ti('tour_config.pricing.gift_card_value'))}</div>
+                  <div class="metric-value">${esc(formatGiftCardMoney(item.face_value, item.currency))}</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">${esc(ti('tour_config.pricing.gift_card_balance'))}</div>
+                  <div class="metric-value">${esc(formatGiftCardMoney(item.remaining_value, item.currency))}</div>
+                </div>
+              </div>
+              <div class="detail-list">
+                <div class="detail-row">
+                  <strong>${esc(ti('tour_config.pricing.gift_card_apply_label'))}</strong>
+                  <span>${esc(item.id_code)}</span>
+                </div>
+                <div class="detail-row">
+                  <strong>${esc(ti('tour_config.pricing.gift_card_delivery_title'))}</strong>
+                  <span class="status-pill">${esc(item.status || 'active')}</span>
+                </div>
+                ${item.notes ? `<div class="note-block"><strong>${esc(ti('tour_config.pricing.gift_card_notes'))}</strong><div>${esc(item.notes)}</div></div>` : ''}
+              </div>
+              <div class="redeem">${esc(ti('tour_config.pricing.gift_card_redeem_note'))}</div>
+            </div>
+            <div class="qr-panel">
+              <div class="qr-box">${item.qr_svg || ''}</div>
+              <div class="code-chip">${esc(item.id_code)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+  </html>`;
+}
+
+function openGiftCardDelivery(giftCardId) {
+  const item = getGiftCardById(giftCardId);
+  if (!item) return;
+
+  const previewWindow = window.open('', '_blank');
+  if (!previewWindow) {
+    toast(ti('tour_config.pricing.gift_card_delivery_blocked'), 'err');
+    return;
+  }
+
+  previewWindow.document.open();
+  previewWindow.document.write(buildGiftCardDeliveryHtml(item));
+  previewWindow.document.close();
+}
+
+function emailGiftCard(giftCardId) {
+  const item = getGiftCardById(giftCardId);
+  if (!item) return;
+
+  const subject = buildGiftCardEmailSubject(item);
+  const message = buildGiftCardEmailMessage(item);
+  const mailto = `mailto:${encodeURIComponent(item.recipient_email || '')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  window.location.href = mailto;
+}
+
+function renderGiftCards() {
+  const scopeNote = document.getElementById('gift-card-tour-scope-note');
+  if (scopeNote) {
+    scopeNote.textContent = S.tour
+      ? ti('tour_config.pricing.gift_cards_scope_note', { tour: S.tour.title })
+      : ti('tour_config.stops.select_tour_first');
+  }
+
+  const body = document.getElementById('pricing-giftcards-body');
+  if (!body) return;
+  if (!S.tour) {
+    body.innerHTML = `<div class="empty-state">${esc(ti('tour_config.stops.select_tour_first'))}</div>`;
+    return;
+  }
+  if (!_giftCards.length) {
+    body.innerHTML = `<div class="empty-state">${esc(ti('tour_config.pricing.gift_cards_empty'))}</div>`;
+    return;
+  }
+
+  body.innerHTML = `<div style="display:grid;gap:12px">${_giftCards.map((item) => {
+    const actionButton = item.status === 'active'
+      ? `<button class="btn btn-ghost btn-sm" onclick="updateGiftCardStatus('${esc(item.id)}','cancelled')">${esc(ti('tour_config.pricing.gift_card_cancel'))}</button>`
+      : (item.status === 'cancelled' && Number(item.remaining_value) > 0
+          ? `<button class="btn btn-ghost btn-sm" onclick="updateGiftCardStatus('${esc(item.id)}','active')">${esc(ti('tour_config.pricing.gift_card_reactivate'))}</button>`
+          : '');
+
+    return `<div style="display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:12px;border:1px solid #E5E7EB;border-radius:10px;padding:12px 14px;background:#fff">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <strong style="font-size:13px;color:#1e293b">${esc(item.id_code)}</strong>
+          <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:${item.status === 'active' ? '#F0FDF4' : item.status === 'cancelled' ? '#FEF2F2' : '#F8FAFC'};color:${item.status === 'active' ? '#15803D' : item.status === 'cancelled' ? '#B91C1C' : '#475569'};border:1px solid ${item.status === 'active' ? '#BBF7D0' : item.status === 'cancelled' ? '#FECACA' : '#E2E8F0'}">${esc(item.status)}</span>
+        </div>
+        <div style="font-size:12px;color:#475569;line-height:1.6">${esc(item.recipient_email)}<br>${esc(item.recipient_phone)}</div>
+        <div style="margin-top:8px;font-size:12px;color:#334155;display:flex;gap:14px;flex-wrap:wrap">
+          <span><strong>${esc(ti('tour_config.pricing.gift_card_value'))}:</strong> ${formatGiftCardMoney(item.face_value, item.currency)}</span>
+          <span><strong>${esc(ti('tour_config.pricing.gift_card_balance'))}:</strong> ${formatGiftCardMoney(item.remaining_value, item.currency)}</span>
+        </div>
+        ${item.notes ? `<div style="margin-top:6px;font-size:12px;color:#64748b">${esc(item.notes)}</div>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn btn-primary btn-sm" onclick="useGiftCardInCalculator('${esc(item.id_code)}')">${esc(ti('tour_config.pricing.gift_card_use'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="openGiftCardDelivery('${esc(item.id)}')">${esc(ti('tour_config.pricing.gift_card_delivery_button'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="emailGiftCard('${esc(item.id)}')">${esc(ti('tour_config.pricing.gift_card_email_draft'))}</button>
+          ${actionButton}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;min-height:128px;padding:8px">${item.qr_svg || ''}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function loadGiftCards() {
+  if (!S.tour) {
+    _giftCards = [];
+    renderGiftCards();
+    return;
+  }
+
+  try {
+    const result = await api(`/api/pricing/gift-cards?tour_id=${encodeURIComponent(S.tour.id)}&include_qr=1`);
+    _giftCards = Array.isArray(result?.items) ? result.items : [];
+  } catch (_error) {
+    _giftCards = [];
+  }
+
+  renderGiftCards();
+}
+
+function translateDiscountCouponStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  const key = `tour_config.pricing.discount_coupon_status_${normalized}`;
+  const translated = ti(key, {}, normalized);
+  return translated === key ? normalized : translated;
+}
+
+function getDiscountCouponBadgeStyle(status) {
+  switch (String(status || '').trim().toLowerCase()) {
+    case 'active':
+      return { background: '#F0FDF4', color: '#15803D', border: '#BBF7D0' };
+    case 'scheduled':
+      return { background: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    case 'exhausted':
+      return { background: '#FFFBEB', color: '#B45309', border: '#FDE68A' };
+    case 'expired':
+      return { background: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
+    case 'paused':
+    default:
+      return { background: '#F8FAFC', color: '#475569', border: '#E2E8F0' };
+  }
+}
+
+function formatDiscountCouponValue(item) {
+  if (String(item?.discount_type || '').toLowerCase() === 'percent') {
+    return `${Number(item?.discount_value || 0)}%`;
+  }
+  return formatGiftCardMoney(item?.discount_value, item?.currency || S.calcCurrency);
+}
+
+function copyDiscountCouponCode(code) {
+  const value = String(code || '').trim().toUpperCase();
+  if (!value) return;
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).catch(() => {});
+  } else {
+    const helper = document.createElement('input');
+    helper.value = value;
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand('copy');
+    helper.remove();
+  }
+
+  toast(ti('tour_config.pricing.discount_coupon_copied'));
+}
+
+async function updateDiscountCouponStatus(discountCouponId, status) {
+  try {
+    await api(`/api/pricing/discount-coupons/${discountCouponId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    toast(ti('tour_config.message.saved'));
+    await loadDiscountCoupons();
+  } catch (error) {
+    toast(ti('tour_config.message.generic_failed', { error: error.message }), 'err');
+  }
+}
+
+function renderDiscountCoupons() {
+  const body = document.getElementById('pricing-discount-coupons-body');
+  if (!body) return;
+  if (!S.tour) {
+    body.innerHTML = `<div class="empty-state">${esc(ti('tour_config.stops.select_tour_first'))}</div>`;
+    return;
+  }
+  if (!_discountCoupons.length) {
+    body.innerHTML = `<div class="empty-state">${esc(ti('tour_config.pricing.discount_coupons_empty'))}</div>`;
+    return;
+  }
+
+  body.innerHTML = `<div style="display:grid;gap:12px">${_discountCoupons.map((item) => {
+    const badge = getDiscountCouponBadgeStyle(item.availability_status || item.status);
+    const scopeText = item.tour_id
+      ? ti('tour_config.pricing.discount_coupon_scope_selected_tour', { tour: item.tour_title || S.tour?.title || '' })
+      : ti('tour_config.pricing.discount_coupon_scope_all_tours');
+    const usesText = item.max_uses != null && item.max_uses !== ''
+      ? `${Number(item.uses_count || 0)}/${Number(item.max_uses || 0)}`
+      : String(Number(item.uses_count || 0));
+    const actionButton = item.status === 'paused'
+      ? `<button class="btn btn-ghost btn-sm" onclick="updateDiscountCouponStatus('${esc(item.id)}','active')">${esc(ti('tour_config.pricing.discount_coupon_resume'))}</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="updateDiscountCouponStatus('${esc(item.id)}','paused')">${esc(ti('tour_config.pricing.discount_coupon_pause'))}</button>`;
+
+    return `<div style="border:1px solid #E5E7EB;border-radius:10px;padding:12px 14px;background:#fff">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <strong style="font-size:13px;color:#1e293b">${esc(item.code)}</strong>
+        <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:${badge.background};color:${badge.color};border:1px solid ${badge.border}">${esc(translateDiscountCouponStatus(item.availability_status || item.status))}</span>
+      </div>
+      <div style="font-size:12px;color:#475569;line-height:1.6">${esc(item.label || ti('tour_config.pricing.discount_coupon_default_label'))}</div>
+      <div style="margin-top:8px;font-size:12px;color:#334155;display:flex;gap:14px;flex-wrap:wrap">
+        <span><strong>${esc(ti('tour_config.pricing.discount_coupon_value'))}:</strong> ${esc(formatDiscountCouponValue(item))}</span>
+        <span><strong>${esc(ti('tour_config.pricing.discount_coupon_scope'))}:</strong> ${esc(scopeText)}</span>
+        <span><strong>${esc(ti('tour_config.pricing.discount_coupon_uses'))}:</strong> ${esc(usesText)}</span>
+      </div>
+      ${item.min_order_total != null && Number(item.min_order_total) > 0 ? `<div style="margin-top:6px;font-size:12px;color:#64748b"><strong>${esc(ti('tour_config.pricing.discount_coupon_min_total'))}:</strong> ${esc(formatGiftCardMoney(item.min_order_total, item.currency || S.calcCurrency))}</div>` : ''}
+      ${item.expires_at ? `<div style="margin-top:6px;font-size:12px;color:#64748b"><strong>${esc(ti('tour_config.pricing.discount_coupon_expires_on'))}:</strong> ${esc(new Date(Number(item.expires_at) * 1000).toLocaleDateString())}</div>` : ''}
+      ${item.notes ? `<div style="margin-top:6px;font-size:12px;color:#64748b">${esc(item.notes)}</div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-primary btn-sm" onclick="copyDiscountCouponCode('${esc(item.code)}')">${esc(ti('tour_config.pricing.discount_coupon_copy'))}</button>
+        ${actionButton}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function loadDiscountCoupons() {
+  if (!S.tour) {
+    _discountCoupons = [];
+    renderDiscountCoupons();
+    return;
+  }
+
+  try {
+    const result = await api(`/api/pricing/discount-coupons?tour_id=${encodeURIComponent(S.tour.id)}`);
+    _discountCoupons = Array.isArray(result?.items) ? result.items : [];
+  } catch (_error) {
+    _discountCoupons = [];
+  }
+
+  renderDiscountCoupons();
 }
 // Seed the editor textarea immediately (script runs after DOM)
 document.addEventListener('DOMContentLoaded', () => {
@@ -4267,6 +4982,7 @@ async function runCalc() {
   const paxSnap   = { ..._calcState.pax };
   const segId     = _calcState.segmentId;
   const travelDate = _calcState.date;
+  const giftCardCode = String(_calcState.giftCardCode || '').trim().toUpperCase();
 
   const priceRow  = segId ? findBasePrice(segId) : null;
   renderPaxRows(priceRow);       // table always uses this exact priceRow
@@ -4287,6 +5003,7 @@ async function runCalc() {
     totalEl.textContent = '\u2014';
     metaEl.textContent  = totalPax === 0 ? ti('tour_config.pricing.add_travellers_above') : ti('tour_config.pricing.select_pricing_tier_short');
     hideStatus();
+    setGiftCardCalcStatus('');
     return;
   }
 
@@ -4297,7 +5014,7 @@ async function runCalc() {
     0
   );
   totalEl.textContent = fmtMoney(localTotal);
-  metaEl.textContent  = ti('tour_config.pricing.total_for_group');
+  metaEl.textContent  = giftCardCode ? ti('tour_config.pricing.gift_card_checking') : ti('tour_config.pricing.total_for_group');
   updateSurplusHint();
 
   // Show local pax-band immediately, then try to upgrade with season name from API
@@ -4315,6 +5032,7 @@ async function runCalc() {
         tour_id:     S.tour.id,
         segment_id:  segId,
         travel_date: travelDate,
+        gift_card_id_code: giftCardCode || undefined,
         ...paxSnap,
       }),
     });
@@ -4324,8 +5042,28 @@ async function runCalc() {
     const bandLabel   = result.pax_band_name        ? ti('tour_config.pricing.band_current', { name: result.pax_band_name }) : '';
     const statusText  = [seasonLabel, bandLabel].filter(Boolean).join('  \u2502  ');
     statusText ? showStatus(statusText) : hideStatus();
+
+    if (giftCardCode && result.gift_card?.applied_amount > 0) {
+      totalEl.textContent = fmtMoney(result.invoice?.grand_total ?? localTotal);
+      metaEl.textContent  = ti('tour_config.pricing.gift_card_amount_due');
+      setGiftCardCalcStatus(
+        ti('tour_config.pricing.gift_card_applied_meta', {
+          code: result.gift_card.id_code,
+          applied: fmtMoney(result.gift_card.applied_amount),
+          total: fmtMoney(result.invoice?.original_grand_total ?? localTotal),
+          due: fmtMoney(result.invoice?.grand_total ?? localTotal),
+        }),
+        'success'
+      );
+    } else if (!giftCardCode) {
+      setGiftCardCalcStatus('');
+    }
   } catch (_e) {
     // API failure is non-fatal — total is already correct, status pill stays on local band
+    if (giftCardCode) {
+      metaEl.textContent = ti('tour_config.pricing.total_for_group');
+      setGiftCardCalcStatus(_e?.message || ti('tour_config.pricing.gift_card_invalid'), 'error');
+    }
   }
 }
 
@@ -4334,6 +5072,7 @@ async function loadPricing() {
   document.getElementById('pricing-notice').style.display   = '';
   document.getElementById('pricing-tour-label').textContent = S.tour.title;
   document.getElementById('calc-date').value = _calcState.date;
+  setGiftCardCode(_calcState.giftCardCode);
   const _pcs = document.getElementById('price-currency-sel');
   if (_pcs) _pcs.value = S.calcCurrency;
 
@@ -4466,6 +5205,8 @@ async function loadPricing() {
 
   // If already in Phase 2 (e.g. after currency change), refresh live totals
   if (_bvRevealed) runCalc();
+
+  await Promise.all([loadGiftCards(), loadDiscountCoupons()]);
 }
 
 document.getElementById('btn-refresh-pricing').addEventListener('click', loadPricing);
@@ -4643,6 +5384,105 @@ document.getElementById('btn-save-price').addEventListener('click', async () => 
     toast(ti('tour_config.message.price_row_saved'));
     loadPricing();
   } catch (e) { toast(ti('tour_config.message.generic_failed', { error: e.message }), 'err'); }
+});
+
+document.getElementById('btn-generate-gift-card').addEventListener('click', async () => {
+  if (!S.tour) { toast(ti('tour_config.stops.select_tour_first'), 'err'); return; }
+  const recipientEmail = document.getElementById('gc-email').value.trim();
+  const recipientPhone = document.getElementById('gc-phone').value.trim();
+  const faceValue = Number(document.getElementById('gc-value').value);
+  const notes = document.getElementById('gc-notes').value.trim();
+  if (!recipientEmail || !recipientPhone || !(faceValue > 0)) {
+    toast(ti('tour_config.pricing.gift_card_missing_fields'), 'err');
+    return;
+  }
+  try {
+    const result = await api('/api/pricing/gift-cards', {
+      method: 'POST',
+      body: JSON.stringify({
+        tour_id: S.tour.id,
+        recipient_email: recipientEmail,
+        recipient_phone: recipientPhone,
+        face_value: faceValue,
+        notes,
+      }),
+    });
+    ['gc-email', 'gc-phone', 'gc-value', 'gc-notes'].forEach((id) => { document.getElementById(id).value = ''; });
+    toast(ti('tour_config.message.saved'));
+    await loadGiftCards();
+    if (result?.item?.id_code) {
+      useGiftCardInCalculator(result.item.id_code);
+    }
+  } catch (error) {
+    toast(ti('tour_config.message.generic_failed', { error: error.message }), 'err');
+  }
+});
+
+document.getElementById('btn-create-discount-coupon').addEventListener('click', async () => {
+  if (!S.tour) { toast(ti('tour_config.stops.select_tour_first'), 'err'); return; }
+
+  const scope = document.getElementById('dc-scope').value || 'selected_tour';
+  const code = document.getElementById('dc-code').value.trim().toUpperCase();
+  const label = document.getElementById('dc-label').value.trim();
+  const discountType = document.getElementById('dc-type').value || 'amount';
+  const discountValue = Number(document.getElementById('dc-value').value);
+  const minOrderTotalRaw = document.getElementById('dc-min-total').value.trim();
+  const maxUsesRaw = document.getElementById('dc-max-uses').value.trim();
+  const expiresDaysRaw = document.getElementById('dc-expires-days').value.trim();
+  const notes = document.getElementById('dc-notes').value.trim();
+
+  if (!(discountValue > 0) || (discountType === 'percent' && discountValue > 100)) {
+    toast(ti('tour_config.pricing.discount_coupon_missing_fields'), 'err');
+    return;
+  }
+
+  const payload = {
+    tour_id: scope === 'selected_tour' ? S.tour.id : null,
+    code: code || undefined,
+    label: label || undefined,
+    discount_type: discountType,
+    discount_value: discountValue,
+    currency: discountType === 'amount' ? S.calcCurrency : undefined,
+    min_order_total: minOrderTotalRaw ? Number(minOrderTotalRaw) : undefined,
+    max_uses: maxUsesRaw ? Number(maxUsesRaw) : undefined,
+    expires_at: expiresDaysRaw ? Math.floor(Date.now() / 1000) + (Number(expiresDaysRaw) * 86400) : undefined,
+    notes: notes || undefined,
+  };
+
+  try {
+    const result = await api('/api/pricing/discount-coupons', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    ['dc-code', 'dc-label', 'dc-value', 'dc-min-total', 'dc-max-uses', 'dc-expires-days', 'dc-notes'].forEach((id) => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('dc-scope').value = 'selected_tour';
+    document.getElementById('dc-type').value = 'amount';
+    toast(ti('tour_config.message.saved'));
+    await loadDiscountCoupons();
+    if (result?.item?.code) copyDiscountCouponCode(result.item.code);
+  } catch (error) {
+    toast(ti('tour_config.message.generic_failed', { error: error.message }), 'err');
+  }
+});
+
+document.getElementById('btn-apply-gift-card').addEventListener('click', () => {
+  const value = document.getElementById('gift-card-code-input').value;
+  setGiftCardCode(value);
+  if (_bvRevealed) runCalc();
+  else toast(ti('tour_config.pricing.gift_card_applied'));
+});
+
+document.getElementById('btn-clear-gift-card').addEventListener('click', () => {
+  clearGiftCardCode();
+});
+
+document.getElementById('gift-card-code-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    document.getElementById('btn-apply-gift-card').click();
+  }
 });
 
 /* ----------------------------  TAB 5: PREVIEW  ----------------------------- */

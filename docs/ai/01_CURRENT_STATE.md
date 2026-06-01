@@ -3,7 +3,7 @@
 
 # Current State Snapshot
 
-Last updated: 2026-04-26 (synced after B2B allotment rework preview/apply/split and the planner-side block editor shipped)
+Last updated: 2026-06-01 (synced after CHK-R124 tenant discount coupons landed on top of the B2B allotment rework and membership-billing runtime; local `npm test` covers gift-card application, promo upgrade flow, and the deployed worker was live-verified for coupon create/list/calculate/draft/order after remote migration 0095)
 
 ## Purpose of this file
 This file describes the **actual current reality of the new rescue rebuild repo**.
@@ -45,6 +45,7 @@ If old documentation says a feature exists but the current rescue repo does not 
 `tenant_universal_hotels`, `users`, `memberships`, `auth_sessions`, `password_reset_tokens`, `app_settings`,
 `tenant_review_cases`, `tenant_risk_events`, `tenant_asset_inventory`, `tenant_asset_scan_results`,
 `tenant_domain_purchases`, `booking_todo_threads`, `promo_codes`, `tenant_settings`,
+`tour_gift_cards`, `tenant_discount_coupons`,
 `staff_assignments`, `inbound_records`, `draft_records`, `properties`, `room_types`,
 `room_units`, `property_reservations`, `inventory_holds`, `reservation_stay_plans`,
 `reservation_stay_plan_segments`, `reservation_allocations`, `room_state_events`,
@@ -86,12 +87,13 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `POST /api/billing/checkout` — creates a Stripe Checkout Session in subscription mode for the tenant
 - `POST /api/billing/portal` — creates a Stripe Customer Portal session for invoice/card/cancel management
 - `POST /api/billing/webhook` — Stripe webhook handler for subscription activation, suspension/cancellation, and payment-success email dispatch
-- `GET /api/billing/status` — returns current subscription + trial status for dashboard/billing UI, plus `product_tier_key` and self-serve membership target options
+- `GET /api/billing/status` — returns current subscription + trial status for dashboard/billing UI, including `product_tier_key`, `available_membership_targets`, and `promo_activated`
 - `POST /api/membership-billing/intents` — creates or reuses a manual membership settlement intent for allowed targets (`starter_landing -> tour/hotel/suite`, `tour_operator_pro -> suite`, `hotel_operator_pro -> suite`)
 - `GET /api/membership-billing/intents/current` — returns the current tenant membership settlement intent for the billing pane
 - `POST /api/membership-billing/intents/:intentId/mark-submitted` — tenant marks a manual settlement intent as sent and moves it into admin review
 - `GET /api/admin/membership-billing/intents` — admin review queue for membership settlement intents
 - `POST /api/admin/membership-billing/intents/:intentId/{approve|reject|void}` — admin review actions for membership settlement intents
+- `POST /api/billing/redeem-promo` — redeems a tenant promo code, activates access, and upgrades starter tenants to `tour_operator_pro`
 - Production D1 has now applied `0104_membership_billing_intents.sql`, so the live platform is no longer relying on the temporary missing-table rescue path for membership intents.
 - Subscription enforcement middleware in `src/index.js` now blocks mutating API calls for `SUSPENDED`, `CANCELLED`, and expired-trial tenants, while keeping `/api/billing/*` paths exempt for reactivation
 - Tenant-admin tier-access runtime is now also aligned to packaging: `starter_landing` can view the workspace shell and website editor but is softly redirected into the billing pane when touching operational features; `tour_operator_pro` is blocked from hotel/property surfaces unless upgraded to suite; `hotel_operator_pro` is blocked from tour-business surfaces unless upgraded to suite; `tour_hotel_suite` can use both sides.
@@ -106,8 +108,12 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `PATCH /api/tasks/:taskId` is working locally again after the route was remounted into the live Hono router; verified on 2026-04-02 with direct PowerShell API calls against `stop-001`
 
 **Pricing Engine (CHK-R12/foundation)**
-- `GET /api/pricing/calculate` — single segment or compare-all mode
+- `GET /api/pricing/calculate` and `POST /api/pricing/calculate` — single segment or compare-all mode; remains public so booking widgets can reprice without tenant auth
+- `GET /api/pricing/calculate` and `POST /api/pricing/calculate` now also accept optional `gift_card_id_code` / `gift_card_code`; when the tenant-scoped gift card is active, scoped to the selected tour, and in the same currency as the quote, the remaining stored balance is applied to the amount due and returned in `gift_card` + invoice adjustment fields
+- `GET /api/pricing/calculate` and `POST /api/pricing/calculate` now also accept optional `discount_coupon_code` / `coupon_code`; when the tenant-scoped coupon is active, in-range, and tour-compatible, the discount is applied to the quoted amount due and returned in `discount_coupon` + invoice adjustment fields
 - `POST/GET/PATCH/DELETE /api/pricing/{tenant-seasons|pricing-segments|pax-bands|tour-prices}`
+- `GET/POST/PATCH /api/pricing/gift-cards` — tenant-scoped gift-card management for one selected tour; create returns a generated `id_code`, recipient email/phone, remaining balance, and QR SVG payload for the card
+- `GET/POST/PATCH /api/pricing/discount-coupons` — tenant-scoped marketing/referral coupon management; create supports selected-tour or all-tour scope, fixed-amount or percentage discounts, min-total, max-uses, expiry, and pause/resume status
 - `POST /api/pricing/duplicate-season`
 - `POST /api/pricing/tenant-seasons/:id/copy`
 - `GET /api/pricing/metadata`
@@ -173,11 +179,11 @@ Tenant business endpoints are scoped via `X-Tenant-ID` unless otherwise noted.
 - `GET /api/tours/:id/preview` — live re-render in preview mode (no R2 cache)
 
 **Booking Drafts (quote cart)**
-- `POST /api/bookings/draft` — server-side reprice, 24h TTL, authoritative quote snapshot now includes quoted amount/currency/base-currency/rate fields
+- `POST /api/bookings/draft` — server-side reprice, 24h TTL, authoritative quote snapshot now includes quoted amount/currency/base-currency/rate fields plus optional gift-card and discount-coupon application metadata when `gift_card_id_code` and/or `discount_coupon_code` is supplied
 - `GET /api/bookings/draft/:draftId`
 
 **Booking Orders — Bank Transfer (CHK-R18 / CHK-R53)**
-- `POST /api/bookings/order` — legal + commercial firewall. Public booking is only allowed on a verified custom domain after commercial activation (`ACTIVE`, `TRUSTED`, terms accepted, custom domain verified, and at least one enabled payment method). Platform subdomains and `/p/:tenantId/:slug` public paths are showcase-only.
+- `POST /api/bookings/order` — legal + commercial firewall. Public booking is only allowed on a verified custom domain after commercial activation (`ACTIVE`, `TRUSTED`, terms accepted, custom domain verified, and at least one enabled payment method). Platform subdomains and `/p/:tenantId/:slug` public paths are showcase-only. Optional `discount_coupon_code` persists the applied coupon code/amount and increments coupon usage on success; optional `gift_card_id_code` reduces the payable total, persists the applied amount on the order row, and consumes the remaining gift-card balance when the order is created successfully.
 - `GET /api/bookings/orders` — agent order list; accepts `?status=` filter + `?limit=`; returns masked orders (tenant-scoped)
 - `GET /api/bookings/order/:id` — agent view; `maskOrder` now also exposes `secure_token` and `price_snapshot_json`; guest fields `name/email/phone` are masked until `identity_unlocked = 1`
 - `GET /api/bookings/order/:id/proof-url` — streams R2 proof image directly from `BOOKING_PROOFS` bucket with tenant-scope check; returns `Content-Type` from r2 `httpMetadata`; `Cache-Control: private, max-age=300`
@@ -495,6 +501,23 @@ Verified against `npx wrangler dev` on local Wrangler dev (`http://127.0.0.1:878
   - `https://tours-market.com/api/auth/product-tiers` → localized active/future tier catalog returned correctly
   - `https://tours-market.com/api/marketing-site` → public marketing payload returned correctly from runtime
 - Wrangler emitted one operational warning during deploy: because multiple environments exist in `wrangler.jsonc`, future production deploys should explicitly pass `--env=""` (or an explicit target env) to avoid ambiguity
+
+## Live verification on 2026-06-01
+
+- Remote D1 migration `0095_tenant_discount_coupons.sql` was applied successfully with `npx wrangler d1 migrations apply travel_agent_db --remote --config ./wrangler.jsonc`
+- Production deploy completed successfully via `npm run deploy`
+- Live Worker version after deploy: `0c44fbf7-51d5-418b-935c-008186996b21`
+- Verified production assets included the coupon-enabled booking surfaces:
+  - `/booking-widget.js`
+  - `/tour-booking-view.js`
+  - `/tour-config.html`
+- Verified live coupon flow on the deployed worker against the demo tenant `ten-0001-aaaa-bbbb-cccc-000000000001` using the intended `promo_activated` test bypass:
+  - created and listed coupon `LIVESMOKE714308`
+  - `POST /api/pricing/calculate` repriced `1960 -> 1910` with applied coupon amount `50`
+  - created and fetched draft `2-SAXgKNzrmtUun-Biz3T` with coupon metadata in the snapshot
+  - created booking order `i0iJNXsh2FdF4xsMOpjmf` with persisted `discount_coupon_code = LIVESMOKE714308` and `discount_coupon_applied_amount = 50`
+  - verified remote `tenant_discount_coupons.uses_count = 1` after live order creation
+- After verification, the temporary demo smoke coupon, draft, and order rows were deleted from remote D1 so the production demo tenant was left clean
 
 ## Planned / Target (not yet implemented)
 - Full removal of USD-centric compatibility fields: runtime still keeps older fields like `grand_total_usd` and older formatter/enrichment helpers while migration continues

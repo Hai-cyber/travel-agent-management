@@ -68,6 +68,7 @@ import {
   dispatchNewBookingAgentEmail,
   dispatchProofUploadedEmail,
   dispatchBookingConfirmedEmail,
+  dispatchManualPaymentLinkEmail,
 } from '../lib/bookingEmails.js';
 import {
   approveMembershipIntent,
@@ -82,6 +83,7 @@ const admin = new Hono();
 const MAX_ZIP_BYTES    = 20 * 1024 * 1024;   // 20 MB
 const MAX_FILE_BYTES   =  5 * 1024 * 1024;   //  5 MB per extracted file
 const MAX_FILES        = 500;
+const VALID_MANUAL_PAYMENT_PURPOSES = new Set(['domain_request', 'pro_features', 'custom']);
 
 // [SEC] Template IDs become R2 key path segments — only safe chars allowed.
 const SAFE_ID_RE       = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -1177,6 +1179,68 @@ admin.post('/membership-billing/intents/:intentId/void', async (c) => {
   } catch (err) {
     return c.json({ error: err.message || 'Failed to void membership billing intent.' }, 400);
   }
+});
+
+admin.post('/tenants/:id/send-manual-payment-link', async (c) => {
+  const tenantId = c.req.param('id')?.trim();
+  if (!tenantId) return c.json({ error: 'Tenant ID is required.' }, 400);
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'JSON body required.' }, 400); }
+
+  const purpose = String(body?.purpose || 'custom').trim().toLowerCase();
+  if (!VALID_MANUAL_PAYMENT_PURPOSES.has(purpose)) {
+    return c.json({ error: `purpose must be one of: ${[...VALID_MANUAL_PAYMENT_PURPOSES].join(', ')}` }, 400);
+  }
+
+  const paymentLinkRaw = String(body?.payment_link || '').trim();
+  let paymentLink;
+  try {
+    paymentLink = new URL(paymentLinkRaw);
+  } catch {
+    paymentLink = null;
+  }
+  if (!paymentLink || paymentLink.protocol !== 'https:') {
+    return c.json({ error: 'payment_link must be a valid https URL.' }, 400);
+  }
+
+  const requestLabel = String(body?.request_label || '').trim().slice(0, 200) || null;
+  const amountLabel  = String(body?.amount_label || '').trim().slice(0, 120) || null;
+  const note         = String(body?.note || '').trim().slice(0, 600) || null;
+
+  const tenant = await c.env.DB
+    .prepare('SELECT id, name, email FROM tenants WHERE id = ?')
+    .bind(tenantId)
+    .first();
+  if (!tenant) return c.json({ error: 'Tenant not found.' }, 404);
+  if (!tenant.email) return c.json({ error: 'Tenant does not have an email address.' }, 422);
+
+  const result = await dispatchManualPaymentLinkEmail(c.env, {
+    tenantId,
+    tenantName: tenant.name,
+    tenantEmail: tenant.email,
+    purpose,
+    requestLabel,
+    amountLabel,
+    paymentLink: paymentLink.toString(),
+    note,
+  });
+
+  if (!result?.ok) {
+    const status = result?.reason === 'webhook_not_configured' ? 503 : 502;
+    return c.json({ error: 'Manual payment link email could not be sent.', detail: result?.reason || result?.gas_body || 'unknown_error' }, status);
+  }
+
+  console.info(`[ADMIN_MANUAL_PAYMENT_LINK] tenant=${tenantId} email=${tenant.email} purpose=${purpose} request=${requestLabel || '—'}`);
+  return c.json({
+    ok: true,
+    tenant_id: tenantId,
+    email: tenant.email,
+    purpose,
+    request_label: requestLabel,
+    amount_label: amountLabel,
+    event_id: result.event_id || null,
+  });
 });
 
 // ── Promo code helpers ────────────────────────────────────────────────────────
